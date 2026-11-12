@@ -906,6 +906,8 @@ test("on hover a Service card turns brand green with white text, and its icon ti
 	const service = await createSyntheticService(admin, "hover", { data: { summary } });
 	await publish("services", service);
 	await withHomepageMenus(admin, { services: [pickedMenuItem("services", service)] }, async () => {
+		// The card rises only where motion is allowed.
+		await page.emulateMedia({ reducedMotion: "no-preference" });
 		await page.goto("/");
 		const card = homepageSection(page, HOMEPAGE_HEADINGS.services).getByRole("article");
 		// The card's white surface, a box with no role of its own.

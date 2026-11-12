@@ -286,9 +286,10 @@ async function clipsNothing(part: Locator, within: Locator): Promise<boolean> {
 
 /**
  * Move the pointer to just above the resting lower edge of `card`, whose `surface` then rises 6 px,
- * and press there.
+ * and press there. The card rises only where motion is allowed.
  */
 async function expectRisesUnderPointer(page: Page, card: Locator, surface: Locator): Promise<void> {
+	await page.emulateMedia({ reducedMotion: "no-preference" });
 	await card.scrollIntoViewIfNeeded();
 	const place = await boxOf(card, "the card's place");
 	expect((await boxOf(surface, "the card's surface")).y, "the card at rest").toBeCloseTo(
@@ -1130,6 +1131,8 @@ test("under the pointer an Announcement's row moves 10 px to the right, and a pr
 		data: { announcement_at: "2032-04-01T03:00:00.000Z" },
 	});
 	await publish("announcements", announcement);
+	// The row moves only where motion is allowed.
+	await page.emulateMedia({ reducedMotion: "no-preference" });
 	await page.goto("/");
 	const row = announcementRows(page).first();
 	await expect(row.getByRole("heading", { level: 3 })).toHaveText(announcement.title);
@@ -1526,12 +1529,12 @@ for (const form of SUBMIT_FORMS) {
 		// A second request would have reached the route by now.
 		await page.waitForTimeout(500);
 		expect(sent, "one request for the result").toHaveLength(1);
-		// The spinner turns, and stands still when reduced motion is preferred.
-		await expect(spinner).not.toHaveCSS("animation-name", "none");
-		await page.emulateMedia({ reducedMotion: "reduce" });
-		await expect(spinner).toBeVisible();
+		// The spinner stands still when reduced motion is preferred, and turns otherwise.
 		await expect(spinner).toHaveCSS("animation-name", "none");
 		await page.emulateMedia({ reducedMotion: "no-preference" });
+		await expect(spinner).toBeVisible();
+		await expect(spinner).not.toHaveCSS("animation-name", "none");
+		await page.emulateMedia({ reducedMotion: "reduce" });
 		// A page the browser kept and shows again from history gets `pageshow`. Playwright's Chromium
 		// keeps no page that way, so the event is sent here.
 		await page.evaluate(() =>
@@ -1911,14 +1914,19 @@ test("with one shortcut Quick Access shows it on the Homepage's card surface, af
 	});
 });
 
-test("with every section showing, the sections follow the Figma order on a desktop and a phone, the Contact Summary last, a phone shows Quick Access two to a row, and the page is accessible and reflows at 320 px", async ({
-	page,
-}) => {
-	// Published entries of each kind, so every section shows whichever tests ran before, and three of
-	// each card, so a row of two shows as two and not as more. The Featured News is published first,
-	// so Latest News leads with the other one.
+/**
+ * Run `body` on a runtime whose Homepage shows every section: published entries of each kind,
+ * labelled with `label`, so every section shows whichever tests ran before, and three of each
+ * card, so a row of two shows as two and not as more. The Featured News is published first, so
+ * Latest News leads with the other one. The Homepage menus and Office Contact are put back
+ * afterwards. `body` gets the Featured item and the headings of the page's sections in order.
+ */
+async function withEverySection(
+	label: string,
+	body: (shown: { featured: DraftFixture; order: string[] }) => Promise<void>,
+): Promise<void> {
 	const { featured, services } = await test.step("Prepare native fixtures", async () => {
-		const featured = await create("news", "every-section-featured", {
+		const featured = await create("news", `${label}-featured`, {
 			data: {
 				summary: `${SYNTHETIC_FIXTURE_MARK} สรุปเรื่องเด่น`,
 				featured_image: {
@@ -1926,18 +1934,18 @@ test("with every section showing, the sections follow the Figma order on a deskt
 				},
 			},
 		});
-		await publish("news", featured, await create("news", "every-section"));
-		await publish("announcements", await create("announcements", "every-section"));
-		await publish("health_services", await createSyntheticHealthService(admin, "every-section"));
+		await publish("news", featured, await create("news", label));
+		await publish("announcements", await create("announcements", label));
+		await publish("health_services", await createSyntheticHealthService(admin, label));
 		await publish(
 			"personnel",
 			await createSyntheticPerson(admin, "ทุกส่วน", { leadership_order: 1 }),
 		);
 		const services: DraftFixture[] = [];
-		for (const label of ["every-section", "every-section-second", "every-section-third"]) {
-			await publish("health_content", await create("health_content", label));
-			await publish("activities", await create("activities", label));
-			const service = await createSyntheticService(admin, label, {
+		for (const each of [label, `${label}-second`, `${label}-third`]) {
+			await publish("health_content", await create("health_content", each));
+			await publish("activities", await create("activities", each));
+			const service = await createSyntheticService(admin, each, {
 				data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปบริการ` },
 			});
 			await publishEntryAt(admin, "services", service.id);
@@ -1978,40 +1986,204 @@ test("with every section showing, the sections follow the Figma order on a deskt
 					longitude: 100.1834,
 				},
 				{},
-				async () => {
-					await test.step("Render Homepage", async () => {
-						await page.goto("/");
-						await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-						await expect(sectionHeadings(page)).toHaveText(order);
-					});
-					// Keep the shared viewport order while naming axe and focus time separately.
-					for (const [width, viewport] of Object.entries(VIEWPORTS)) {
-						await page.setViewportSize(viewport);
-						await test.step(`Axe at ${width}`, () =>
-							expectNoAxeViolations(page, `/ with every section at ${width}`));
-						await test.step(`Keyboard focus at ${width}`, () =>
-							expectVisibleFocusOnEveryStop(page, `/ with every section at ${width}`));
-					}
-					await page.setViewportSize(DESKTOP_VIEWPORT);
-
-					// A phone keeps every section in order, with Quick Access two to a row (spec #144
-					// "Homepage (`04`)").
-					await test.step("Phone layout at 375 px", async () => {
-						await page.setViewportSize(PHONE_VIEWPORT);
-						await expect(sectionHeadings(page)).toHaveText(order);
-						const [firstRow] = await itemsPerRow(
-							homepageSection(page, HOMEPAGE_HEADINGS.quickAccess).getByRole("listitem"),
-						);
-						expect(firstRow, "the Quick Access cards side by side at 375 px").toBe(2);
-					});
-					await test.step("Axe at 375 px", () =>
-						expectNoAxeViolations(page, "/ with every section at 375 px"));
-					await test.step("Reflow at 320 px", async () => {
-						await page.setViewportSize(MOBILE_VIEWPORT);
-						await expectNoHorizontalScroll(page, "/ with every section");
-					});
-				},
+				() => body({ featured, order }),
 			);
+		});
+	});
+}
+
+test("with every section showing, the sections follow the Figma order on a desktop and a phone, the Contact Summary last, a phone shows Quick Access two to a row, and the page is accessible and reflows at 320 px", async ({
+	page,
+}) => {
+	await withEverySection("every-section", async ({ order }) => {
+		await test.step("Render Homepage", async () => {
+			await page.goto("/");
+			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
+			await expect(sectionHeadings(page)).toHaveText(order);
+		});
+		// Keep the shared viewport order while naming axe and focus time separately.
+		for (const [width, viewport] of Object.entries(VIEWPORTS)) {
+			await page.setViewportSize(viewport);
+			await test.step(`Axe at ${width}`, () =>
+				expectNoAxeViolations(page, `/ with every section at ${width}`));
+			await test.step(`Keyboard focus at ${width}`, () =>
+				expectVisibleFocusOnEveryStop(page, `/ with every section at ${width}`));
+		}
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+
+		// A phone keeps every section in order, with Quick Access two to a row (spec #144
+		// "Homepage (`04`)").
+		await test.step("Phone layout at 375 px", async () => {
+			await page.setViewportSize(PHONE_VIEWPORT);
+			await expect(sectionHeadings(page)).toHaveText(order);
+			const [firstRow] = await itemsPerRow(
+				homepageSection(page, HOMEPAGE_HEADINGS.quickAccess).getByRole("listitem"),
+			);
+			expect(firstRow, "the Quick Access cards side by side at 375 px").toBe(2);
+		});
+		await test.step("Axe at 375 px", () =>
+			expectNoAxeViolations(page, "/ with every section at 375 px"));
+		await test.step("Reflow at 320 px", async () => {
+			await page.setViewportSize(MOBILE_VIEWPORT);
+			await expectNoHorizontalScroll(page, "/ with every section");
+		});
+	});
+});
+
+/**
+ * The parts of `scope` an effect holds back as the page is now: any that is not fully opaque or
+ * lies away from its place. Decorations, hidden from assistive technology, are left out.
+ */
+function heldBack(scope: Locator): Promise<string[]> {
+	return scope.evaluate((root) =>
+		[root, ...root.querySelectorAll("*")]
+			.filter((part) => part.closest('[aria-hidden="true"]') === null)
+			.filter((part) => {
+				const style = getComputedStyle(part);
+				return style.opacity !== "1" || style.translate !== "none";
+			})
+			.map((part) => `<${part.localName}> ${part.textContent?.trim().slice(0, 40)}`),
+	);
+}
+
+/** How opaque `part` shows as the page is now, through everything that holds it: 0 to 1. */
+function shownOpacity(part: Locator): Promise<number> {
+	return part.evaluate((element) => {
+		let opacity = 1;
+		for (let node: Element | null = element; node; node = node.parentElement) {
+			opacity *= Number(getComputedStyle(node).opacity);
+		}
+		return opacity;
+	});
+}
+
+/**
+ * After how many seconds `part` starts to enter when the page opens: the delay of the entrance
+ * that it, or what holds it, has. -1 with no entrance.
+ */
+function entersAfter(part: Locator): Promise<number> {
+	return part.evaluate((element) => {
+		for (let node: Element | null = element; node; node = node.parentElement) {
+			const style = getComputedStyle(node);
+			if (style.animationName !== "none") return parseFloat(style.animationDelay);
+		}
+		return -1;
+	});
+}
+
+/** The page's height and each section's place and size, as the page is laid out now. */
+function pageLayout(page: Page) {
+	return page.getByRole("main").evaluate((main) => ({
+		height: document.documentElement.scrollHeight,
+		sections: [...main.querySelectorAll("section")].map((section) => {
+			const { top, height } = section.getBoundingClientRect();
+			return { top: top + window.scrollY, height };
+		}),
+	}));
+}
+
+/** Scroll to each of the Homepage's sections in turn and fail on any part of it held back. */
+async function expectEverySectionWhole(page: Page, order: string[], label: string): Promise<void> {
+	// The first heading is the Featured card's, in the hero.
+	for (const heading of order.slice(1)) {
+		const section = homepageSection(page, heading);
+		await section.scrollIntoViewIfNeeded();
+		expect(await heldBack(section), `${label}: ${heading}, scrolled to, shows whole`).toEqual([]);
+	}
+}
+
+test("the page moves only when motion is allowed: the hero's parts enter one after another and each section shows as it comes into the window, while with reduced motion preferred, and where the browser has no scroll-driven animation, every section shows whole at once; the page's height and each section's place are the same either way", async ({
+	page,
+}) => {
+	test.setTimeout(90_000);
+	await withEverySection("motion", async ({ featured, order }) => {
+		const main = page.getByRole("main");
+		const hero = page.getByRole("region", { name: OFFICE_SUMMARY, exact: true });
+		const running = () => page.evaluate(() => document.getAnimations().length);
+
+		const still = await test.step("Reduced motion", async () => {
+			await page.emulateMedia({ reducedMotion: "reduce" });
+			await page.goto("/");
+			await expect(sectionHeadings(page)).toHaveText(order);
+			expect(await running(), "nothing is mid-animation").toBe(0);
+			expect(await heldBack(main), "nothing waits for an effect").toEqual([]);
+			await expectEverySectionWhole(page, order, "reduced motion");
+			expect(await running(), "nothing is mid-animation after scrolling").toBe(0);
+			await page.evaluate(() => window.scrollTo(0, 0));
+			return pageLayout(page);
+		});
+
+		await test.step("The same layout with motion", async () => {
+			await page.emulateMedia({ reducedMotion: "no-preference" });
+			await page.goto("/");
+			await expect(sectionHeadings(page)).toHaveText(order);
+			expect(await pageLayout(page), "the page with motion").toEqual(still);
+		});
+
+		await test.step("The hero's entrance", async () => {
+			const starts: number[] = [];
+			for (const part of [
+				hero.getByText("เว็บไซต์ทางการ · กระทรวงสาธารณสุข"),
+				hero.getByText("ด้านสุขภาพ", { exact: true }),
+				hero.getByRole("search"),
+				hero.getByRole("heading", { name: featured.title }),
+			]) {
+				starts.push(await entersAfter(part));
+			}
+			expect(starts[0], "the chip enters as the page opens").toBe(0);
+			expect(
+				starts.every((start, index) => index === 0 || start > starts[index - 1]!),
+				`the chip, the headline, the search and the Featured card enter in turn: ${starts}`,
+			).toBe(true);
+			await expect
+				.poll(() => heldBack(hero), { message: "the hero shows whole after its entrance" })
+				.toEqual([]);
+		});
+
+		await test.step("Each section's reveal", async () => {
+			let revealed = 0;
+			for (const heading of order.slice(1)) {
+				const title = page.getByRole("heading", { level: 2, name: heading, exact: true });
+				const below = (await boxOf(title, heading)).y > DESKTOP_VIEWPORT.height + 40;
+				if (below) {
+					expect(await shownOpacity(title), `${heading}, below the window, waits`).toBe(0);
+					revealed += 1;
+				}
+				await title.scrollIntoViewIfNeeded();
+				await expect
+					.poll(() => shownOpacity(title), { message: `${heading}, in the window, shows` })
+					.toBe(1);
+			}
+			expect(revealed, "sections that lay below the window").toBeGreaterThan(5);
+			expect(await running(), "the decorations move").toBeGreaterThan(0);
+		});
+
+		await test.step("Without scroll-driven animation", async () => {
+			// Chromium has scroll-driven animation and no switch for it, so the page is served with its
+			// support queries naming a timeline no browser has, which is what such a browser makes of
+			// them.
+			let queries = 0;
+			await page.route("/", async (route) => {
+				const response = await route.fetch();
+				const body = (await response.text()).replace(
+					/@supports\s*\(\s*animation-timeline\s*:\s*view\(\)\s*\)/g,
+					() => {
+						queries += 1;
+						return "@supports (animation-timeline: no-such-timeline())";
+					},
+				);
+				await route.fulfill({ response, body });
+			});
+			await page.goto("/");
+			await page.unroute("/");
+			await expect(sectionHeadings(page)).toHaveText(order);
+			expect(queries, "the page asks whether the browser has the timeline").toBeGreaterThan(0);
+			await expect
+				.poll(() => heldBack(main), {
+					message: "after the hero's entrance nothing waits, the sections below the window too",
+				})
+				.toEqual([]);
+			await expectEverySectionWhole(page, order, "without scroll-driven animation");
 		});
 	});
 });

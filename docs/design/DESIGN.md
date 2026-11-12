@@ -94,7 +94,9 @@ recognizably connected to the local health-service network.
    tokens, the base styles (the page gutter and the focus ring), the utilities (`page-container`;
    `focus-ring-on-dark` and `focus-ring-on-light`; the header's `header-title` and
    `header-nav-item`; the Homepage's `deep-field`, `deep-band`, `deep-visual`, `plain-visual`, `hero-headline`,
-   `hero-headline-alone` and `section-title`) and the `.rich-text` typography of Portable Text
+   `hero-headline-alone` and `section-title`; the Homepage's motion, with its keyframes: `hero-enter`,
+   `featured-card-enter`, `featured-sheet-enter`, `scroll-reveal`, `glow-drift`, `ring-turn` and
+   `picture-shimmer`, §8.12) and the `.rich-text` typography of Portable Text
    bodies, which EmDash renders as plain HTML that takes no utility classes.
 4. No other plain CSS selectors for component styling, no CSS Modules, Astro `<style>` blocks or
    CSS-in-JS, and no Tailwind v3 setup or `tailwind.config.js`. An inline `style` carries only a
@@ -941,6 +943,44 @@ page's container, always shown:
   widths: the label 6.60:1, the H2 9.32:1, the telephone 5.68:1, the address 8.12:1 and the
   hours 7.58:1.
 
+### 8.12 Motion and loading
+
+Source: spec #239 "Motion and loading"; the Product Owner took the prototype's motion as it was
+(#239 comment 6786631899). It is CSS alone, in `src/styles/global.css`: the page's one script
+stays the submit state (§8.9).
+
+- **The hero's entrance.** As the page opens, the chip, the headline and the search rise 28 px
+  into place while they fade in, over 0.8 s, starting at 0, 0.1 and 0.22 s. The Featured card
+  turns into its tilt from 0.25 s and the sheet behind it from 0.45 s, over 0.9 s each.
+- **A section's reveal.** A section's heading and each of its cards, rows or tiles rise 28 px and
+  fade in as they come into the window, over the first 60 % of their way in (90 % for a Service
+  card, which is partly in the window when the page opens). The Leadership strip, the Health Topic
+  chips, the Health Service Discovery band and the contact card each reveal as one piece, and the
+  Current Announcements' heading with its lead and link as one. The reveal runs only where the
+  browser has scroll-driven animation (`@supports (animation-timeline: view())`); elsewhere every
+  section shows whole from the start. The stylesheet writes the reveal as longhands: lightningcss
+  1.33.0, the build's minifier, folds `animation-timeline` into an `animation` shorthand, which
+  Chromium 153 drops whole (checked on the built stylesheet, 2026-11-12).
+- **The decorations.** The deep field's two glows drift 30 px to the right and 36 px up and back,
+  in 9 and 13 s. The hero's small ring, the discovery band's ring and the contact card's ring turn
+  once in 40 s, drawn dashed so the turn shows. A ring turns about its own middle and so stays
+  where §8.9 and §8.11 measured the text beside it.
+- **A loading picture.** The box of a News, Health Content or Activity picture is `surface-soft`
+  with a lighter band of `bg-page` that crosses it every 1.6 s. The loaded picture covers it. A
+  missing picture's visual has no shimmer.
+- **Hover** ships with each section (§8.1, §8.4, §8.6 to §8.10).
+- **Reduced motion.** All of it runs only under `prefers-reduced-motion: no-preference`. With
+  reduced motion preferred nothing moves: every part shows whole in its place, the rings are plain
+  lines and a loading picture's box is plain `surface-soft`.
+- **No effect moves layout.** An effect changes opacity, `translate`, `rotate` and `scale` alone,
+  and holds a part back only before it runs: once over, the part has its own styles again, so a
+  card's hover and the Announcements' heading that stays in view behave as without motion. The
+  page's height and each section's place are the same with and without motion
+  (`public-homepage.spec.ts` "the page moves only when motion is allowed: …").
+- **The suites and the screenshots** read the page with reduced motion preferred
+  (`playwright.config.ts`, `scripts/capture-screenshots.mjs`), since a reveal holds back what lies
+  below the window; a test of motion allows it for its page (CODING_STANDARDS "Tests").
+
 ## 9. Post pages: News, Activity and Health Content
 
 ### 9.1 The header and two columns
@@ -1216,6 +1256,12 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   "Activities", "Quick Access" and "Contact Summary", the notes on #247 and #247 comments
   6820010972, 6820125241 and 6820174924. Which Activities show, their order, Office Contact's
   source and each address remain.
+- **v1.2 Homepage motion (2026-11-12, Feature 008 #249):** the hero's parts enter one after
+  another as the page opens, each section's parts reveal as they come into the window where the
+  browser has scroll-driven animation, the deep field's glows drift, three rings turn, and a
+  loading picture's box shimmers; with reduced motion preferred the page stands still and whole
+  (§8.12). Authority: spec #239 "Motion and loading", #239 comment 6786631899 (the prototype's
+  motion as it was) and the notes on #249. The page's content, layout and heights remain.
 - **v1.2 Service icons (2026-11-12, Feature 008 #248):** a Service card shows the icon staff chose
   for the Service from a fixed set of 18, each offered by a Thai name for its picture, on the
   Homepage and in the Service catalog; without a choice it shows `hand-heart`, which until now

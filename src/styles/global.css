@@ -335,6 +335,133 @@
 }
 
 /*
+ * The Homepage's motion (Feature 008 #249; spec #239 "Motion and loading"), all of it only under
+ * `prefers-reduced-motion: no-preference`, so with reduced motion preferred the page stands still
+ * and whole. An entrance or a reveal only holds a part back before it runs (`backwards`): once
+ * over, it leaves the part to its own styles, such as a card's hover. The effects change opacity,
+ * `translate`, `rotate` and `scale` alone, which move no layout.
+ */
+@keyframes rise-in {
+	from {
+		opacity: 0;
+		translate: 0 1.75rem;
+	}
+}
+
+@keyframes featured-card-in {
+	from {
+		opacity: 0;
+		translate: 0 2.5rem;
+		rotate: -10deg;
+		scale: 0.92;
+	}
+}
+
+@keyframes featured-sheet-in {
+	from {
+		opacity: 0;
+		translate: 0 0;
+		rotate: 0deg;
+	}
+}
+
+@keyframes glow-drift {
+	to {
+		translate: 1.875rem -2.25rem;
+	}
+}
+
+@keyframes ring-turn {
+	to {
+		rotate: 360deg;
+	}
+}
+
+@keyframes picture-shimmer {
+	to {
+		background-position: -200% 0;
+	}
+}
+
+/*
+ * The entrance of a part of the hero as the page opens: it rises 28 px into its place while it
+ * fades in, after --hero-enter-delay. The Featured card and the sheet behind it turn into their
+ * tilt instead, the card after the hero's text and the sheet after the card.
+ */
+@utility hero-enter {
+	@media (prefers-reduced-motion: no-preference) {
+		animation: rise-in 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) var(--hero-enter-delay, 0s) backwards;
+	}
+}
+
+@utility featured-card-enter {
+	@media (prefers-reduced-motion: no-preference) {
+		animation: featured-card-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s backwards;
+	}
+}
+
+@utility featured-sheet-enter {
+	@media (prefers-reduced-motion: no-preference) {
+		animation: featured-sheet-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.45s backwards;
+	}
+}
+
+/*
+ * The reveal of a part of a section as it comes into the window: it rises and fades in over the
+ * first 60 % of its way in, or --reveal-end. Only where the browser has scroll-driven animation,
+ * so elsewhere nothing is ever hidden. Longhands, not the `animation` shorthand: the build's
+ * minifier folds `animation-timeline` into a shorthand, which browsers then drop whole (#249).
+ */
+@utility scroll-reveal {
+	@media (prefers-reduced-motion: no-preference) {
+		@supports (animation-timeline: view()) {
+			animation-name: rise-in;
+			animation-timing-function: linear;
+			animation-fill-mode: backwards;
+			animation-timeline: view();
+			animation-range: entry 0% entry var(--reveal-end, 60%);
+		}
+	}
+}
+
+/*
+ * A decoration's glow that drifts 30 px to the right and 36 px up and back, and a decoration's ring
+ * that turns once in 40 s, dashed so the turn shows; still, the ring is a plain line.
+ */
+@utility glow-drift {
+	@media (prefers-reduced-motion: no-preference) {
+		animation: glow-drift var(--glow-drift-time, 9s) ease-in-out infinite
+			var(--glow-drift-direction, alternate);
+	}
+}
+
+@utility ring-turn {
+	@media (prefers-reduced-motion: no-preference) {
+		border-style: dashed;
+		animation: ring-turn 40s linear infinite;
+	}
+}
+
+/*
+ * The box of a picture that is loading: surface-soft with a lighter band of bg-page that crosses
+ * it, which the loaded picture covers. Still, it is surface-soft.
+ */
+@utility picture-shimmer {
+	background-color: var(--color-surface-soft);
+
+	@media (prefers-reduced-motion: no-preference) {
+		background-image: linear-gradient(
+			100deg,
+			var(--color-surface-soft) 30%,
+			var(--color-bg-page) 50%,
+			var(--color-surface-soft) 70%
+		);
+		background-size: 200% 100%;
+		animation: picture-shimmer 1.6s linear infinite;
+	}
+}
+
+/*
  * Focus ring on dark surfaces: accent-warm, 7.75:1 against brand-dark and 4.10:1 against
  * brand-primary, above the 3:1 a focus indicator needs.
  */

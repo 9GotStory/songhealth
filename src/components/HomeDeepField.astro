@@ -11,6 +11,10 @@
 // Featured card's sheet on a phone, so nothing on it widens the page; it does not clip downwards,
 // because the Services extend below it.
 //
+// Where motion is allowed the two glows drift and the small ring turns (Feature 008 #249; spec
+// #239 "Motion and loading"; src/styles/global.css). The warm glow drifts up and to the right,
+// away from the hero's text, and the layer's clip keeps a moving decoration inside the field.
+//
 // `extended` leaves room under the field, from `sm`, for the part of its last section that extends
 // below it, --field-overhang (src/styles/global.css), so what follows the field is not covered.
 
@@ -33,10 +37,10 @@ const { extended = false } = Astro.props;
 		aria-hidden="true"
 		class="pointer-events-none absolute inset-0 overflow-clip rounded-b-[inherit]"
 	>
-		<span class="absolute -top-30 -right-20 size-105 rounded-pill bg-accent-warm/38 blur-3xl max-lg:hidden"></span>
-		<span class="absolute top-75 -left-35 size-90 rounded-pill bg-surface-soft/16 blur-3xl"></span>
+		<span class="absolute -top-30 -right-20 size-105 rounded-pill glow-drift bg-accent-warm/38 blur-3xl max-lg:hidden"></span>
+		<span class="absolute top-75 -left-35 size-90 glow-drift rounded-pill bg-surface-soft/16 blur-3xl [--glow-drift-direction:alternate-reverse] [--glow-drift-time:13s]"></span>
 		<span class="absolute top-15 -right-42.5 size-130 rounded-pill border-[1.5px] border-surface-base/18 max-sm:hidden"></span>
-		<span class="absolute top-13.5 left-[46%] size-40 rounded-pill border-[1.5px] border-accent-warm/50 max-lg:hidden"></span>
+		<span class="absolute top-13.5 left-[46%] ring-turn size-40 rounded-pill border-[1.5px] border-accent-warm/50 max-lg:hidden"></span>
 	</div>
 	<slot />
 </div>

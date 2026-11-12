@@ -38,7 +38,10 @@
 // instead, decoration too.
 //
 // The card's tilt and the submit button's growth on hover move only under
-// `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading").
+// `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading"). So does the entrance
+// as the page opens (Feature 008 #249; src/styles/global.css): the chip, the headline and the
+// search rise into place one after another, then the card turns into its tilt and the sheet
+// behind it into its own.
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import Search from "@lucide/astro/icons/search";
 import Star from "@lucide/astro/icons/star";
@@ -79,7 +82,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 		]}
 	>
 		<div class="min-w-0">
-			<p class="inline-flex items-center gap-2.5 rounded-pill border border-surface-base/22 bg-hero-chip px-4 py-1.5 text-label">
+			<p class="hero-enter inline-flex items-center gap-2.5 rounded-pill border border-surface-base/22 bg-hero-chip px-4 py-1.5 text-label">
 				<span
 					aria-hidden="true"
 					class="size-2 shrink-0 rounded-pill bg-accent-warm ring-4 ring-accent-warm/30"
@@ -91,7 +94,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 			</h1>
 			<p
 				class:list={[
-					"mt-4 mb-6 sm:mt-5.5 sm:mb-8.5",
+					"hero-enter mt-4 mb-6 [--hero-enter-delay:0.1s] sm:mt-5.5 sm:mb-8.5",
 					featured ? "hero-headline" : "hero-headline-alone",
 				]}
 			>
@@ -117,7 +120,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 				aria-label="ค้นหาในเว็บไซต์"
 				data-submit-state
 				class:list={[
-					"group/submit focus-ring-on-light flex h-15 max-w-135 items-center gap-3 rounded-pill bg-surface-base pr-2 pl-5 text-text-secondary shadow-deep sm:h-17 sm:pl-6",
+					"hero-enter group/submit focus-ring-on-light flex h-15 [--hero-enter-delay:0.22s] max-w-135 items-center gap-3 rounded-pill bg-surface-base pr-2 pl-5 text-text-secondary shadow-deep sm:h-17 sm:pl-6",
 					!featured && "lg:max-w-160",
 				]}
 			>
@@ -152,9 +155,9 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 				<a href={featured.href} class="group block rounded-24">
 					<div
 						aria-hidden="true"
-						class="absolute inset-0 translate-x-3.5 translate-y-1.5 rotate-6 rounded-24 bg-accent-warm motion-safe:transition-transform motion-safe:duration-400 ease-out group-hover:translate-x-5.5 group-hover:translate-y-2 group-hover:rotate-9"
+						class="featured-sheet-enter absolute inset-0 translate-x-3.5 translate-y-1.5 rotate-6 rounded-24 bg-accent-warm motion-safe:transition-transform motion-safe:duration-400 ease-out group-hover:translate-x-5.5 group-hover:translate-y-2 group-hover:rotate-9"
 					/>
-					<div class="relative -rotate-2 rounded-24 bg-surface-base p-2.5 text-text-primary shadow-deep motion-safe:transition-transform motion-safe:duration-400 ease-out group-hover:rotate-0 group-focus-visible:rotate-0">
+					<div class="featured-card-enter relative -rotate-2 rounded-24 bg-surface-base p-2.5 text-text-primary shadow-deep motion-safe:transition-transform motion-safe:duration-400 ease-out group-hover:rotate-0 group-focus-visible:rotate-0">
 						<div class="relative h-65 overflow-hidden rounded-18 bg-surface-soft sm:h-90">
 							{image ? (
 								<>

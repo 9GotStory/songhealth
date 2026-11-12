@@ -108,7 +108,9 @@ async function pngSize(file) {
  * whose whole text is `click`, when given.
  */
 async function openPage(path, viewport, click) {
-	const page = await browser.newPage({ viewport });
+	// With reduced motion preferred a page stands still and whole: the Homepage's reveal holds back
+	// what lies below the window, where a full-page screenshot never scrolls (#249).
+	const page = await browser.newPage({ viewport, reducedMotion: "reduce" });
 	await page.goto(new URL(path, origin).href);
 	// A full-page screenshot does not scroll, so lazy pictures below the fold would never load.
 	// Load and decode every picture first, as a reader scrolling down would see it, including those
