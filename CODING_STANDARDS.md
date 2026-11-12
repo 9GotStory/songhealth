@@ -58,8 +58,8 @@ and why, and `.jscpd-baseline.json` records them.
   (`docs/agents/lucide-astro-1.59.0.md`). Its size follows its role (Product Owner, 2026-10-31:
   #105 comment 6536890963): 16 px for a direction icon beside label or small text, 20 px for an
   icon that shows the action itself at the start of its button, such as the menu's or the
-  download's, and 24 px on a shared card's corner; a Homepage card's `arrow-right` is 20 px, and 16 px
-  beside a card's "อ่านต่อ", as `docs/design/DESIGN.md` §5 lists. Its colour is a token, through `currentColor`.
+  download's, and 24 px on a shared card's corner; a Homepage card's `arrow-right` is 20 px, 16 px
+  beside a card's "อ่านต่อ" and 24 px on a Quick Access card, as `docs/design/DESIGN.md` §5 lists. Its colour is a token, through `currentColor`.
   `tests/node/public-icons.test.ts` checks the mechanics: no typed mark or hand-drawn `<svg>`, and
   each icon from its own module, sized 16, 20 or 24 px, with `shrink-0`.
 - A title renders through `src/components/ThaiTitle.astro`, which keeps the Thai compound words of

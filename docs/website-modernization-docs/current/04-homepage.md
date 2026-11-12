@@ -1,9 +1,9 @@
 # Homepage — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 04-homepage
-> **Status:** CLEAN REBASELINE v2.7 — CURRENT
-> **Version:** 2.7
-> **Last Updated:** 11 พฤศจิกายน 2569 (2026-11-11): Feature 008, Leadership section
+> **Status:** CLEAN REBASELINE v2.8 — CURRENT
+> **Version:** 2.8
+> **Last Updated:** 12 พฤศจิกายน 2569 (2026-11-12): Feature 008, five Activities and the Contact Summary without a map stand-in
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`
 > **Purpose:** กำหนด homepage information priority, sections, curation, responsive/accessibility behavior โดยไม่กำหนด component implementation หรือสร้าง homepage CMS subsystem
 
@@ -26,6 +26,11 @@
 > gains a Leadership section between Frequently Used Services and Latest News (§3, §6.1, #243):
 > the first three Leadership by the Leadership order staff already keep, each by name and current
 > assignment, with one link to `/about/leadership`.
+
+> **Feature 008 decision (Product Owner, 2026-11-11; spec #239 "Activities", "Contact Summary",
+> #239 comment 6786631899):** the Homepage shows the latest five Activities at every width (§10,
+> §15), and the Contact Summary shows no stand-in for a map, only the link that opens one (§11,
+> #247). Quick Access (§10.1) is unchanged; the development runtime's menu holds no shortcut.
 
 ---
 
@@ -191,7 +196,7 @@ Query/filter stateที่เริ่มจาก homepageสามารถ�
 
 # 10. Activities
 
-แสดงกิจกรรมล่าสุดจำนวนเล็กน้อยโดย Activity Date เป็น primary ordering และ Published Date fallbackเมื่อไม่มี Activity Date.
+แสดงกิจกรรมล่าสุด 5 รายการที่ทุกความกว้าง (น้อยกว่านั้นเมื่อมีน้อยกว่า) โดย Activity Date เป็น primary ordering และ Published Date fallbackเมื่อไม่มี Activity Date.
 
 ใช้ Featured Image หรือ simple visual fallback; ไม่บังคับ staffสร้าง artworkเพื่อเติม layout.
 
@@ -214,15 +219,15 @@ Link ไป canonical Activity route.
 
 Homepage แสดงเฉพาะข้อมูลที่สร้าง confidenceและช่วยติดต่อเร็ว:
 
-- office name/address summary
+- office address summary
 - main phone/contact
 - office hoursเมื่อมี
-- simple map/location affordance
+- link ที่เปิดตำแหน่งสำนักงานใน map app เมื่อมีพิกัด; ไม่แสดง map หรือภาพแทน map บน homepage
 - link to `/contact`
 
 ใช้ sourceเดียวกับ Contact/office data; ห้าม duplicate fieldsเฉพาะ homepage.
 
-Map เป็น enhancement; essential address/contact textต้องอยู่ได้แม้ mapไม่โหลด.
+Map link เป็น enhancement; essential address/contact textต้องอยู่ได้โดยไม่มีมัน.
 
 ไม่แสดง personal contactของเจ้าหน้าที่โดย default.
 
@@ -286,7 +291,7 @@ Homepage edit/publish accessใช้ ordinary CMS roles/permissions; ไม่�
 
 # 15. Responsive Behavior
 
-- same sections, in the same order, from the same sources at every width; phones show them more compactly (spec #144): below 640 px the section leads (the Contact Summary's included), the map stand-in and the Service and Health Content cards' summaries are left out, and phones and tablets show the latest 4 Activities where a desktop row shows 3
+- same sections, in the same order, from the same sources at every width; phones show them more compactly (spec #144): below 640 px the section leads and the Service and Health Content cards' summaries are left out. The latest five Activities show at every width (§10)
 - ที่ความกว้างต่ำกว่า 640 px Quick Access คงการ์ดสองใบต่อแถว: label อยู่ด้านบนเต็มความกว้าง และลูกศรอยู่แถวของตัวเองที่มุมขวาล่าง การ์ดสูงขึ้นตาม label ได้โดยไม่กำหนดความสูงตายตัว; ตั้งแต่ 640 px คงรูปแบบเดิม (`docs/design/DESIGN.md` §7.3)
 - mobile order preserves information priority
 - no separate mobile CMS configuration
