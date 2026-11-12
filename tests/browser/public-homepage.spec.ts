@@ -1709,6 +1709,7 @@ test("with fewer than five Activities the tiles are equal and fill one row from 
 	const tiles = activityTiles(page);
 	const list = activitiesSection(page).getByRole("list");
 	const published: DraftFixture[] = [];
+	const datesBelow: Array<[number, boolean, boolean]> = [];
 	for (const [count, rowsBelow] of [
 		[1, [1]],
 		[2, [2]],
@@ -1741,18 +1742,19 @@ test("with fewer than five Activities the tiles are equal and fill one row from 
 			expect(await itemsPerRow(tiles), `${count} Activities at ${width} px`).toEqual(rowsBelow);
 			expect(await rowsFill(tiles, list), `${count} fill each row at ${width} px`).toBe(true);
 		}
-		// Below 640 px a tile across the row keeps its date, and one half the row wide shows none.
-		const firstSpansRow = rowsBelow[0] === 1;
-		if (firstSpansRow) {
-			await expect(tiles.first().locator("time"), `the first of ${count} at 375 px`).toBeVisible();
-		} else {
-			await expect(tiles.first().locator("time"), `the first of ${count} at 375 px`).toBeHidden();
-		}
-		if (count > 1) {
-			await expect(tiles.last().locator("time"), `the last of ${count} at 375 px`).toBeHidden();
-		}
+		// Still at 375 px: whether the first tile and the last one show their dates, read for every
+		// count before any is judged, so a red run shows each count.
+		const date = (tile: Locator) => tile.locator("time").isVisible();
+		datesBelow.push([count, await date(tiles.first()), count > 1 && (await date(tiles.last()))]);
 		await page.setViewportSize(DESKTOP_VIEWPORT);
 	}
+	// Below 640 px a tile across the row keeps its date, and one half the row wide shows none.
+	expect(datesBelow, "each count, its first tile's date and its last tile's, at 375 px").toEqual([
+		[1, true, false],
+		[2, false, false],
+		[3, true, false],
+		[4, false, false],
+	]);
 });
 
 test("the Contact Summary is one card under the heading ติดต่อสำนักงาน: Office Contact's telephone as a link, its address with the map link and its opening hours, each only when set, and a button to /contact; no map or stand-in shows, and below 1,024 px the card is one column", async ({

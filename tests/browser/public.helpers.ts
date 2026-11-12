@@ -415,11 +415,14 @@ export async function expectPictureFillsBox(
 }
 
 /**
- * Fail unless the focus ring of `target`, which has focus, is drawn whole: no ancestor that clips
- * its content cuts into the outline, the element's box widened by the outline's offset and width.
+ * Fail unless `target` shows a focus ring once it has focus and the ring is drawn whole: no
+ * ancestor that clips its content cuts into the outline, the element's box widened by the
+ * outline's offset and width.
  */
 export async function expectFocusRingWhole(target: Locator, label: string): Promise<void> {
 	await target.focus();
+	await expect(target, `${label}: a focus ring`).not.toHaveCSS("outline-style", "none");
+	await expect(target, `${label}: a focus ring`).toHaveCSS("outline-width", "3px");
 	const clippedBy = await target.evaluate((element) => {
 		const style = getComputedStyle(element);
 		const reach = Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth);

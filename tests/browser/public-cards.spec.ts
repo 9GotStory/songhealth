@@ -237,6 +237,9 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 	test(`Homepage cards open from their whole surface and keep compact content, with five Activities, at ${width}px`, async ({
 		page,
 	}, testInfo) => {
+		// Nine cards, each opened three ways: 15 to 24 seconds on a quiet host, and past the 30 of a
+		// test while the host is busy (#247: three widths failed that way in one run).
+		test.setTimeout(90_000);
 		await withHomepageMenus(
 			admin,
 			{ services: [pickedMenuItem("services", service)], featured: [] },
