@@ -1,5 +1,6 @@
 // Shared single-destination cards (#193; spec #190, PO comment 6707205912), and the Homepage's own
-// Service card, which opens from its whole surface as they do (Feature 008 #242).
+// Service card, News cards and Announcement rows, which open from their whole surface as they do
+// (Feature 008 #242, #244, #245).
 // The public HTTP/browser seam checks native activation across each card's surface, independent
 // of its markup/classes. Fixtures belong to this suite; Homepage menus restore in finally.
 import type { Locator, Page } from "@playwright/test";
@@ -36,6 +37,7 @@ let news: DraftFixture;
 let service: DraftFixture;
 let activity: DraftFixture;
 let health: DraftFixture;
+let announcement: DraftFixture;
 const SUMMARY = "สรุปสำหรับทดสอบพื้นที่ลิงก์ โดยไม่ใช้สรุปเป็นชื่อลิงก์";
 const ownedTerms: SyntheticTerm[] = [];
 const extraActivities: DraftFixture[] = [];
@@ -57,6 +59,10 @@ test.beforeAll(async () => {
 		data: { activity_at: "2035-01-04T03:00:00.000Z", summary: SUMMARY },
 	});
 	await publishEntryAt(admin, "activities", activity.id);
+	announcement = await createSyntheticDraft(admin, "announcements", "ประกาศ", "whole-card", {
+		data: { announcement_at: "2035-01-01T03:00:00.000Z" },
+	});
+	await publishEntryAt(admin, "announcements", announcement.id);
 	health = await createSyntheticDraft(admin, "health_content", "ความรู้สุขภาพ", "whole-card", {
 		data: { summary: SUMMARY },
 	});
@@ -252,6 +258,11 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 				await expect(latestNews.getByRole("heading", { level: 3 }).first()).toHaveText(news.title);
 				await expectWholeCardLink(page, largeNewsCard, news.title, 3);
 				await expectWholeCardLink(page, smallNewsCard, pictureEntries.news!.title, 3);
+				// The Current Announcements' own rows (Feature 008 #245).
+				const announcementRow = homepageSection(page, HOMEPAGE_HEADINGS.announcements)
+					.getByRole("article")
+					.filter({ hasText: announcement.title });
+				await expectWholeCardLink(page, announcementRow, announcement.title, 3);
 				await expectCardInteraction(page, activityCard, activity.title, 3);
 				const visible = width < 1024 ? 4 : 3;
 				await expect(activities.getByRole("article").getByRole("link")).toHaveCount(visible);
@@ -291,6 +302,7 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 					[activity, activityCard, activityCard.getByTestId("activity-visual"), "/activities/"],
 					[news, largeNewsCard, largeNewsCard.getByTestId("news-visual").locator("span"), "/news/"],
 					[pictureEntries.news!, smallNewsCard, smallNewsCard.locator("img"), "/news/"],
+					[announcement, announcementRow, announcementRow.locator("time"), "/announcements/"],
 				] as const) {
 					const destination = `${path}${fixture.slug}`;
 					await page.goto("/");

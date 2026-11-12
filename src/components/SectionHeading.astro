@@ -1,23 +1,18 @@
 ---
 // A Homepage section's heading (Feature 008 #241; spec #239 "Section headings"): an icon tile, a
 // small label between slashes, the section's H2, and, for a section with a list of its own, a
-// link to that list. The section takes its name from the H2 through `id`.
-//
-// The link reads "ทั้งหมด", and assistive technology reads it with the section's name, such as
-// "ดูข่าวประชาสัมพันธ์ทั้งหมด" (WCAG 2.2 SC 2.4.4, and SC 2.5.3: the name holds the text in
-// sight). Below `sm` it is a round 44 px arrow button with the same name. It ends in arrow-right,
-// the Homepage's arrow for round buttons, heading links and cards (Product Owner, 2026-11-11: #241
-// comment 6791096480, item 1); a text link keeps chevron-right (ArrowLink.astro).
+// link to that list (SectionListLink). The section takes its name from the H2 through `id`. A
+// section that shows a lead builds it, and its link, beside the heading, as the Current
+// Announcements do (src/pages/index.astro).
 //
 // The icon comes through the `icon` slot, a Lucide icon at 24 px, and is decorative: the tile is
 // hidden from assistive technology. On a dark surface the tile is accent-warm, the H2 is
-// surface-base, and the link takes the focus ring for dark surfaces (src/styles/global.css
-// focus-ring-on-dark). The label is accent-warm on brand-dark (7.75:1) and surface-base on the
+// surface-base. The label is accent-warm on brand-dark (7.75:1) and surface-base on the
 // deep field, where the field is as light as brand-primary under it and accent-warm, 4.10:1 there,
 // is below the 4.5:1 its small text needs (measured at 3.93:1 at 320 px with nothing Featured,
 // scripts/measure-text-contrast.ts), in place of the prototype's accent-warm (Product Owner,
 // 2026-11-11: #242 comment 6797113372, item 1).
-import ArrowRight from "@lucide/astro/icons/arrow-right";
+import SectionListLink from "./SectionListLink.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
@@ -76,21 +71,5 @@ const labelColor = {
 			</h2>
 		</div>
 	</div>
-	{href && (
-		<a
-			href={href}
-			class:list={[
-				"inline-flex size-11 shrink-0 items-center justify-center gap-2 rounded-pill border-[1.5px] text-body font-semibold motion-safe:transition-colors sm:h-13 sm:w-auto sm:px-7",
-				onDark
-					? "focus-ring-on-dark border-hero-secondary-border bg-hero-secondary-fill text-surface-base hover:border-accent-warm hover:bg-accent-warm hover:text-brand-dark"
-					: "border-border-default bg-surface-base text-brand-primary hover:border-brand-primary hover:bg-brand-primary hover:text-surface-base",
-			]}
-		>
-			<span class="sr-only">ดู{title}ทั้งหมด</span>
-			<span aria-hidden="true" class="max-sm:hidden">
-				ทั้งหมด
-			</span>
-			<ArrowRight class="shrink-0" size={16} />
-		</a>
-	)}
+	{href && <SectionListLink href={href} title={title} tone={onDark ? "dark" : "outline"} />}
 </div>

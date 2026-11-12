@@ -296,7 +296,9 @@ test("an Announcement without a picture is Featured with the plain visual and it
 			await expect(shown.getByTestId("featured-visual")).toHaveCount(1);
 			// The newest current Announcement, so the Announcements section would lead with it.
 			await expect(
-				page.getByRole("main").getByRole("link", { name: `ดูรายละเอียด ${announcement.title}` }),
+				homepageSection(page, HOMEPAGE_HEADINGS.announcements).getByRole("link", {
+					name: announcement.title,
+				}),
 			).toHaveCount(0);
 			await expect(
 				shown.getByText(`${FEATURED_LABEL} · ${thaiDate(announcedAt)}`, { exact: true }),

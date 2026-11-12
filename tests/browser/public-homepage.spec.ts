@@ -9,7 +9,9 @@
 // #239 "Hero and Featured"; its own tests are in public-homepage-curation.spec.ts); the Leadership
 // strip, the first three Leadership in Leadership order, after the Frequently Used Services
 // (Feature 008 #243; spec #239 "Leadership strip"); the five newest published News, the first as a
-// large card (Feature 008 #244; spec #239 "Latest News"); up to 3 current Announcements; the latest
+// large card (Feature 008 #244; spec #239 "Latest News"); four current Announcements as dated rows
+// in a band of their own, three below 640 px (Feature 008 #245; spec #239 "Current
+// Announcements"); the latest
 // 4 Health Content items, each labelled with its first Health Topic; a Health Service Discovery
 // form that submits an Area and a name to /health-services; the latest Activities by Activity date,
 // 3 on a desktop and 4 on a phone, each with its picture or a visual fallback and "กิจกรรม • date";
@@ -210,9 +212,38 @@ async function spaceBelowStrip(page: Page): Promise<number> {
 	return section.y + section.height - (surface.y + surface.height);
 }
 
+/** The current Announcements' section. */
+function announcementsSection(page: Page) {
+	return homepageSection(page, HOMEPAGE_HEADINGS.announcements);
+}
+
+/** The current Announcements' rows, in order. */
+function announcementRows(page: Page) {
+	return announcementsSection(page).getByRole("article");
+}
+
 /** The current Announcements' links, in order. */
 function announcementLinks(page: Page) {
-	return homepageSection(page, HOMEPAGE_HEADINGS.announcements).getByRole("list").getByRole("link");
+	return announcementRows(page).getByRole("link");
+}
+
+/** The Announcements section's lead, beside its heading. */
+const ANNOUNCEMENTS_LEAD = "ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ";
+
+/** The seed's Announcement categories with a colour of their own (seed/seed.json), by slug. */
+const ANNOUNCEMENT_CATEGORIES = {
+	procurement: "จัดซื้อจัดจ้าง",
+	recruitment: "รับสมัครงาน",
+} as const;
+
+/** How many lines a title shows, and whether more of it lies below them. */
+function shownLines(title: Locator): Promise<{ lines: number; clamped: boolean }> {
+	return title.evaluate((heading) => ({
+		lines: Math.round(
+			heading.getBoundingClientRect().height / parseFloat(getComputedStyle(heading).lineHeight),
+		),
+		clamped: heading.scrollHeight > heading.clientHeight,
+	}));
 }
 
 /** The Latest News' cards, in order: the large card, then the small ones. */
@@ -291,16 +322,17 @@ test("with no published content at all, the Homepage still answers with the hero
 	});
 });
 
-test("closed Announcements alone leave the Announcements section out, and a current one brings it back without Latest News, at the News section's distance from the strip", async ({
+test("closed Announcements alone leave the Announcements section out, and a current one brings it back without Latest News as a surface-soft band with its own space, below the Leadership strip's", async ({
 	page,
 }) => {
 	await borrowAllContent();
+	await publish("personnel", await createSyntheticPerson(admin, "วันดี", { leadership_order: 1 }));
 	const closed = await create("announcements", "closed-only", {
 		data: { closes_at: CLOSED_AT },
 	});
 	await publish("announcements", closed);
 	await page.goto("/");
-	await expect(homepageSection(page, HOMEPAGE_HEADINGS.announcements)).toHaveCount(0);
+	await expect(announcementsSection(page)).toHaveCount(0);
 	await expect(page.getByRole("main")).not.toContainText(closed.title);
 
 	const current = await create("announcements", "current-only", {
@@ -309,19 +341,29 @@ test("closed Announcements alone leave the Announcements section out, and a curr
 	await publish("announcements", current);
 	await page.goto("/");
 	await expect(homepageSection(page, HOMEPAGE_HEADINGS.news)).toHaveCount(0);
-	await expect(announcementLinks(page)).toHaveCount(1);
-	await expect(announcementLinks(page)).toHaveAccessibleName(`ดูรายละเอียด ${current.title}`);
 	await expect(page.getByRole("main")).not.toContainText(closed.title);
-	// Without Latest News above it, the section takes the space above that the News section has,
-	// which is the gap under the Leadership strip.
-	const announcements = homepageSection(page, HOMEPAGE_HEADINGS.announcements);
+	await expect(announcementLinks(page)).toHaveCount(1);
+	await expect(announcementLinks(page)).toHaveAttribute("href", `/announcements/${current.slug}`);
+	await expect(announcementLinks(page)).toHaveAccessibleName(current.title);
+	// The section is a band in its own colour, so it has its space above and below inside it, and
+	// the Leadership strip before it keeps its own space below.
+	const announcements = announcementsSection(page);
+	await expect(announcements).toHaveCSS("background-color", await tokenColor(page, "surface-soft"));
 	for (const [width, space] of [
-		[1440, "80px"],
-		[768, "64px"],
-		[375, "32px"],
+		[1440, 80],
+		[768, 64],
+		[375, 32],
 	] as const) {
 		await page.setViewportSize({ width, height: 900 });
-		await expect(announcements, `the space above at ${width} px`).toHaveCSS("padding-top", space);
+		await expect(announcements, `the space above at ${width} px`).toHaveCSS(
+			"padding-top",
+			`${space}px`,
+		);
+		await expect(announcements, `the space below at ${width} px`).toHaveCSS(
+			"padding-bottom",
+			`${space}px`,
+		);
+		expect(await spaceBelowStrip(page), `the strip's space below at ${width} px`).toBe(space);
 	}
 });
 
@@ -366,7 +408,9 @@ test("with fewer than five News the large card and the others fill every row: on
 	// The large card without a picture shows its visual, and the title stays in sight on it.
 	await expect(cards.first().getByTestId("news-visual")).toBeVisible();
 	await expect(cards.first().getByRole("heading", { level: 3 })).toBeVisible();
-	await expect(homepageSection(page, HOMEPAGE_HEADINGS.announcements)).toHaveCount(0);
+	await expect(announcementsSection(page)).toHaveCount(0);
+	// With no Announcements section, Latest News keeps its space before Health Information.
+	await expect(homepageSection(page, HOMEPAGE_HEADINGS.news)).toHaveCSS("padding-bottom", "80px");
 	// The visual's tile lies in front of the gradient and is decoration: a press on it opens the
 	// News.
 	await cards.first().scrollIntoViewIfNeeded();
@@ -660,15 +704,7 @@ test("from 1,024 px the large News card stands at the left beside the other four
 		);
 	/** How many lines a card's title shows, and whether more of it lies below them. */
 	const titleOf = (index: number) =>
-		cards
-			.nth(index)
-			.getByRole("heading", { level: 3 })
-			.evaluate((heading) => ({
-				lines: Math.round(
-					heading.getBoundingClientRect().height / parseFloat(getComputedStyle(heading).lineHeight),
-				),
-				clamped: heading.scrollHeight > heading.clientHeight,
-			}));
+		shownLines(cards.nth(index).getByRole("heading", { level: 3 }));
 
 	for (const width of [1440, 1024]) {
 		await page.setViewportSize({ width, height: 900 });
@@ -774,55 +810,194 @@ test("under the pointer a small News card rises 6 px, and a press just above its
 	await expect(page).toHaveURL(`/news/${small.slug}`);
 });
 
-test("up to 3 current Announcements show in their own section after Latest News, newest first by announcement date with the status the list states, and never a closed one or a draft", async ({
+test("four current Announcements show as rows from 640 px and three below, newest first by announcement date, each with its date, the day large, its title as the row's one link and the status the list states after a dot, and never a fifth, a closed one or a draft", async ({
 	page,
 }) => {
 	const at = (day: number) => `2032-01-${String(day).padStart(2, "0")}T03:00:00.000Z`;
-	const fourth = await create("announcements", "fourth", { data: { announcement_at: at(1) } });
+	const fifth = await create("announcements", "fifth", { data: { announcement_at: at(1) } });
+	const fourth = await create("announcements", "fourth", { data: { announcement_at: at(2) } });
 	const third = await create("announcements", "third", {
-		data: { announcement_at: at(2), closes_at: CLOSES_LATER },
+		data: { announcement_at: at(3), closes_at: CLOSES_LATER },
 	});
 	const second = await create("announcements", "second", {
-		data: { announcement_at: at(3), opens_at: OPENS_LATER, closes_at: CLOSES_LATER },
+		data: { announcement_at: at(4), opens_at: OPENS_LATER, closes_at: CLOSES_LATER },
 	});
-	const first = await create("announcements", "first", { data: { announcement_at: at(4) } });
+	const first = await create("announcements", "first", { data: { announcement_at: at(5) } });
 	// Announced last, but closed or a draft: neither shows.
 	const closed = await create("announcements", "closed", {
-		data: { announcement_at: at(5), closes_at: CLOSED_AT },
+		data: { announcement_at: at(6), closes_at: CLOSED_AT },
 	});
-	const draft = await create("announcements", "draft", { data: { announcement_at: at(6) } });
-	await publish("announcements", first, closed, second, fourth, third);
+	const draft = await create("announcements", "draft", { data: { announcement_at: at(7) } });
+	await publish("announcements", first, closed, fifth, second, fourth, third);
+	const shown = [first, second, third, fourth];
 
 	await page.goto("/");
-	const links = announcementLinks(page);
-	await expect(links).toHaveCount(3);
-	for (const [index, announcement] of [first, second, third].entries()) {
-		await expect(links.nth(index)).toHaveAccessibleName(`ดูรายละเอียด ${announcement.title}`);
-		await expect(links.nth(index)).toHaveAttribute("href", `/announcements/${announcement.slug}`);
-	}
-	// Each states its status and dates as the Announcements list does; one without dates, none.
-	const announcements = homepageSection(page, HOMEPAGE_HEADINGS.announcements);
-	await expect(announcements, "after Latest News the section adds no space above").toHaveCSS(
-		"padding-top",
-		"0px",
-	);
-	const items = announcements.getByRole("listitem");
-	await expect(items.nth(0)).not.toContainText(/ยังไม่เปิด|เปิดอยู่|วันที่/);
-	await expect(items.nth(1)).toContainText("ยังไม่เปิด");
-	await expect(items.nth(1)).toContainText(`วันที่เริ่มต้น ${thaiDate(OPENS_LATER)}`);
-	await expect(items.nth(1)).toContainText(`วันที่สิ้นสุด ${thaiDate(CLOSES_LATER)}`);
-	await expect(items.nth(2)).toContainText("เปิดอยู่");
-	await expect(items.nth(2)).toContainText(`วันที่สิ้นสุด ${thaiDate(CLOSES_LATER)}`);
+	const announcements = announcementsSection(page);
 	// The heading's link to the list comes first, then each Announcement's own.
-	const order = [/^ดูประกาศทั้งหมด$/, /^ดูรายละเอียด /, /^ดูรายละเอียด /, /^ดูรายละเอียด /];
 	const sectionLinks = announcements.getByRole("link");
-	await expect(sectionLinks).toHaveCount(order.length);
-	for (const [index, name] of order.entries()) {
-		await expect(sectionLinks.nth(index)).toHaveAccessibleName(name);
-	}
+	await expect(sectionLinks.first()).toHaveAccessibleName("ดูประกาศทั้งหมด");
 	await expect(sectionLinks.first()).toHaveAttribute("href", "/announcements");
-	for (const hidden of [fourth, closed, draft]) {
+	for (const hidden of [fifth, closed, draft]) {
 		await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
+	}
+	await expect(announcements.getByText(ANNOUNCEMENTS_LEAD, { exact: true })).toBeVisible();
+	const rows = announcementRows(page);
+	await expect(rows.getByRole("heading", { level: 3 })).toHaveText(shown.map(({ title }) => title));
+	await expect(sectionLinks).toHaveCount(1 + shown.length);
+	for (const [index, announcement] of shown.entries()) {
+		const row = rows.nth(index);
+		await expect(row.getByRole("link")).toHaveAccessibleName(announcement.title);
+		await expect(row.getByRole("link")).toHaveAttribute(
+			"href",
+			`/announcements/${announcement.slug}`,
+		);
+		// The date tile: the day large, the month and the year under it.
+		const date = row.locator("time").first();
+		await expect(date).toHaveText(thaiDate(at(5 - index)));
+		await expect(date).toHaveAttribute("datetime", at(5 - index));
+		const [day, monthAndYear] = await date.locator("span").evaluateAll((parts) =>
+			parts.map((part) => ({
+				text: part.textContent,
+				size: parseFloat(getComputedStyle(part).fontSize),
+				top: part.getBoundingClientRect().top,
+			})),
+		);
+		expect(day!.text, `row ${index}'s day`).toBe(String(5 - index));
+		expect(day!.size, `row ${index}'s day is the larger`).toBeGreaterThan(monthAndYear!.size);
+		expect(day!.top, `row ${index}'s day is above the month`).toBeLessThan(monthAndYear!.top);
+	}
+	// Each states its status and dates as the Announcements list does, after a dot, so the status
+	// is not told by colour alone; one without dates states none.
+	for (const index of [0, 3]) {
+		await expect(rows.nth(index)).not.toContainText(/ยังไม่เปิด|เปิดอยู่|วันที่/);
+		await expect(rows.nth(index).getByTestId("status-dot")).toHaveCount(0);
+	}
+	await expect(rows.nth(1)).toContainText("ยังไม่เปิด");
+	await expect(rows.nth(1)).toContainText(`วันที่เริ่มต้น ${thaiDate(OPENS_LATER)}`);
+	await expect(rows.nth(1)).toContainText(`วันที่สิ้นสุด ${thaiDate(CLOSES_LATER)}`);
+	await expect(rows.nth(2)).toContainText("เปิดอยู่");
+	await expect(rows.nth(2)).toContainText(`วันที่สิ้นสุด ${thaiDate(CLOSES_LATER)}`);
+	for (const [index, label, fill, text] of [
+		[1, "ยังไม่เปิด", "accent-warm", "brand-dark"],
+		[2, "เปิดอยู่", "brand-primary", "surface-base"],
+	] as const) {
+		const status = rows.nth(index).getByText(label, { exact: true });
+		await expect(status.getByTestId("status-dot")).toBeVisible();
+		await expect(status).toHaveCSS("background-color", await tokenColor(page, fill));
+		await expect(status).toHaveCSS("color", await tokenColor(page, text));
+	}
+
+	// Four rows from 640 px, three below.
+	for (const [width, count] of [
+		[1024, 4],
+		[640, 4],
+		[639, 3],
+		[375, 3],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		await expect(announcementLinks(page), `the rows at ${width} px`).toHaveCount(count);
+		expect(await itemsPerRow(rows.locator("visible=true")), `one to a row at ${width} px`).toEqual(
+			shown.slice(0, count).map(() => 1),
+		);
+	}
+	await expect(rows.nth(3), "the fourth Announcement below 640 px").toBeHidden();
+});
+
+test("an Announcement's row shows its category as a badge: procurement in blue on topic-blue, recruitment in brand-dark on accent-warm, any other in brand-primary on surface-soft, and none without a category; a long title keeps to two lines", async ({
+	page,
+}) => {
+	const long =
+		"ซึ่งมีชื่อเรื่องยาวเกินกว่าสองบรรทัดของแถวประกาศในทุกความกว้างของหน้าจอ เพื่อดูว่าชื่อเรื่องถูกตัดให้เหลือสองบรรทัดและยังอ่านได้ครบถ้วนในหน้าประกาศเอง";
+	const other = await createTerm("announcement_type", "รับฟังความคิดเห็น");
+	const at = (day: number) => `2032-02-${String(day).padStart(2, "0")}T03:00:00.000Z`;
+	const none = await create("announcements", "no-category", { data: { announcement_at: at(1) } });
+	const added = await create("announcements", "added-category", {
+		data: { announcement_at: at(2) },
+		taxonomies: { announcement_type: [other.slug] },
+	});
+	const recruitment = await createSyntheticDraft(admin, "announcements", `ประกาศ ${long}`, "long", {
+		data: { announcement_at: at(3) },
+		taxonomies: { announcement_type: ["recruitment"] },
+	});
+	const procurement = await create("announcements", "procurement", {
+		data: { announcement_at: at(4) },
+		taxonomies: { announcement_type: ["procurement"] },
+	});
+	await publish("announcements", none, added, recruitment, procurement);
+
+	await page.goto("/");
+	const rows = announcementRows(page);
+	await expect(rows.getByRole("heading", { level: 3 })).toHaveText(
+		[procurement, recruitment, added, none].map(({ title }) => title),
+	);
+	const labels = [ANNOUNCEMENT_CATEGORIES.procurement, ANNOUNCEMENT_CATEGORIES.recruitment];
+	for (const label of [...labels, other.label]) {
+		await expect(rows.nth(3), "a row without a category").not.toContainText(label);
+	}
+	for (const [index, label, text, fill] of [
+		[2, other.label, "brand-primary", "surface-soft"],
+		[1, ANNOUNCEMENT_CATEGORIES.recruitment, "brand-dark", "accent-warm"],
+		[0, ANNOUNCEMENT_CATEGORIES.procurement, "procurement-text", "topic-blue"],
+	] as const) {
+		const badge = rows.nth(index).getByText(label, { exact: true });
+		await expect(badge, label).toBeVisible();
+		await expect(badge, label).toHaveCSS("color", await tokenColor(page, text));
+		await expect(badge, label).toHaveCSS("background-color", await tokenColor(page, fill));
+		// The category stays outside the link's name.
+		await expect(rows.nth(index).getByRole("link")).toHaveAccessibleName(
+			[procurement, recruitment, added][index]!.title,
+		);
+	}
+	for (const width of [1440, 1024, 768, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		expect(
+			await shownLines(rows.nth(1).getByRole("heading", { level: 3 })),
+			`a long title at ${width} px`,
+		).toEqual({ lines: 2, clamped: true });
+		await expectNoHorizontalScroll(page, `/ with a long Announcement title at ${width} px`);
+	}
+});
+
+test("from 1,024 px the Announcements' heading, lead and link to the list stay in view below the header while the rows scroll, and below 1,024 px they scroll with the page", async ({
+	page,
+}) => {
+	for (const day of [1, 2, 3, 4]) {
+		await publish(
+			"announcements",
+			await create("announcements", `in-view-${day}`, {
+				data: {
+					announcement_at: `2032-03-0${day}T03:00:00.000Z`,
+					closes_at: CLOSES_LATER,
+				},
+			}),
+		);
+	}
+	const announcements = announcementsSection(page);
+	const parts = [
+		announcements.getByRole("heading", { level: 2 }),
+		announcements.getByText(ANNOUNCEMENTS_LEAD, { exact: true }),
+		announcements.getByRole("link", { name: "ดูประกาศทั้งหมด" }),
+	];
+	/** Scroll until the rows' list starts 100 px above the window, with rows still to come. */
+	const scrollIntoRows = async (width: number) => {
+		await page.setViewportSize({ width, height: 600 });
+		await page.goto("/");
+		await expect(announcementRows(page)).toHaveCount(4);
+		const list = await boxOf(announcements.getByRole("list"), "the rows' list");
+		await page.evaluate((top) => window.scrollBy({ top, behavior: "instant" }), list.y + 100);
+		const scrolled = await boxOf(announcements.getByRole("list"), "the rows' list");
+		expect(scrolled.y, `the list starts above the window at ${width} px`).toBeCloseTo(-100, 0);
+		return (await boxOf(page.getByRole("banner"), "the header")).height;
+	};
+	await scrollIntoRows(1023);
+	for (const part of parts) await expect(part, "at 1,023 px").not.toBeInViewport();
+	for (const width of [1024, 1440]) {
+		const headerHeight = await scrollIntoRows(width);
+		for (const part of parts) {
+			await expect(part, `in view at ${width} px`).toBeInViewport({ ratio: 1 });
+			const box = await boxOf(part, "a part of the heading");
+			expect(box.y, `below the header at ${width} px`).toBeGreaterThanOrEqual(headerHeight);
+		}
 	}
 });
 

@@ -1,14 +1,40 @@
 ---
 // An Announcement's status as a label (Feature 003 #56; spec #51 "Shared building blocks"): not
 // open yet, open or closed, stated in text; a closed one needs attention.
+//
+// The Homepage's rows show it after a dot, in the status's own fill (Feature 008 #245; spec #239
+// "Current Announcements"): open in surface-base on brand-primary (6.45:1), closed in text-primary
+// on status-closed, not open yet in brand-dark on accent-warm (7.75:1). The text and the dot state
+// the status, and the colour supports them. The Announcements list keeps the first label (spec #239
+// "Scope of the change").
 import { STATUS_LABELS, type AnnouncementStatus } from "../lib/announcements";
 import StatusLabel from "./StatusLabel.astro";
 
 interface Props {
 	status: AnnouncementStatus;
+	/** The Homepage's label: the status after a dot, in its own fill. */
+	dotted?: boolean;
 }
 
-const { status } = Astro.props;
+const { status, dotted = false } = Astro.props;
+const fill = {
+	upcoming: "bg-accent-warm text-brand-dark",
+	open: "bg-brand-primary text-surface-base",
+	closed: "bg-status-closed text-text-primary",
+}[status];
 ---
 
-<StatusLabel attention={status === "closed"}>{STATUS_LABELS[status]}</StatusLabel>
+{dotted ? (
+	<span
+		class:list={["inline-flex items-center gap-1.5 rounded-pill px-2.5 py-px font-semibold", fill]}
+	>
+		<span
+			data-testid="status-dot"
+			aria-hidden="true"
+			class="size-1.75 shrink-0 rounded-pill bg-current"
+		/>
+		{STATUS_LABELS[status]}
+	</span>
+) : (
+	<StatusLabel attention={status === "closed"}>{STATUS_LABELS[status]}</StatusLabel>
+)}

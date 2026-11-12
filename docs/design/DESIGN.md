@@ -4,7 +4,7 @@
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > ticket by ticket from #240, and awaits the Product Owner's acceptance on #239.
-> **Updated:** 2026-11-12 (Feature 008 #244); first drafted 2026-10-30
+> **Updated:** 2026-11-12 (Feature 008 #245); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -114,15 +114,15 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, and the large News card's date pill and the tile of its visual |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and in the Current Announcements the month and year on a date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
 | `surface-base` | `#ffffff` | cards, white bands |
-| `surface-soft` | `#eaf5f0` | soft bands, the Contact Summary |
+| `surface-soft` | `#eaf5f0` | soft bands, the Contact Summary, the Current Announcements' band and its general category badge |
 | `border-default` | `#dce7e2` | borders |
 | `topic-green`, `topic-blue` | `#ebf7f0`, `#f0f5fc` | Health Information cards |
-| `divider` | `#dbe8e3` | Announcement list separators |
+| `divider` | `#dbe8e3` | separators inside a white box: the ITA year's rows, the line above a post's topics |
 | `activity-visual-from`, `-to` | `#bfdcce`, `#e8f0d9` | an Activity card without a picture |
 | `contact-visual-from`, `-to` | `#d1ebde`, `#e8f0cc` | the Contact Summary's map stand-in |
 | `hero-chip`, `hero-secondary-fill`, `hero-secondary-border` | white at 12 %, 6 %, 28 % | the hero's chip; a secondary link on a dark surface |
@@ -137,8 +137,8 @@ The Homepage's hero uses `deep-highlight`, in the `deep-field` utility's gradien
 `plain-visual-to`, in the `plain-visual` utility that stands in for a missing picture (§8.1).
 Latest News uses both again (§8.6): `plain-visual` on a small card without a picture, and
 `deep-highlight` in the `deep-visual` utility on the large one. The
-other three Feature 008 colours are defined by name for the tickets that follow; no page uses them
-yet. Some fills are a token at an opacity, not a token of their own: the hero's decorations and
+Current Announcements use the other three (§8.7): `procurement-text` and `procurement-border` on
+the procurement badge, and `status-closed` under a closed status. Some fills are a token at an opacity, not a token of their own: the hero's decorations and
 chip (`accent-warm` at 28 %, 30 %, 38 % and 50 %, `surface-soft` at 16 %, `surface-base` at 18 %
 and 22 %), the header's
 surface, `surface-base` at 90 %, and the footer's quiet text, pills and rule, `surface-base` at
@@ -193,6 +193,10 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-secondary-on-soft` (the tagline) on the header's surface over `brand-dark`, the darkest fill a page scrolls under it (`text-secondary` there would be 4.15:1) | 4.73:1 |
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
+| `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
+| `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
+| `text-primary` on `status-closed` (a closed status) | 13.85:1 |
+| `text-secondary-on-soft` on `surface-base`, the lightest the Current Announcements' glow makes the band under its lead | 5.66:1 |
 | `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
 There is no alert colour: a status is stated in text, and colour supports it.
@@ -253,7 +257,7 @@ own module.
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
   2026-11-11: #241 comment 6791096480, item 1): 16 px in the heading's link, 20 px in the search's
-  submit button, on the Featured card and on a Homepage Service card. The hero's search field opens with a 20 px `search`
+  submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7). The hero's search field opens with a 20 px `search`
   icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News). Every Service card shows
   the one Service icon, `hand-heart`.
 - **Accessibility:** an icon is decorative. Lucide hides it from assistive technology, the text
@@ -469,7 +473,8 @@ order:
 2. Featured (optional; one item, not an autoplay carousel).
 3. Frequently Used Services (curated, up to 6).
 4. Leadership (the first three by Leadership order, in one strip; §8.5).
-5. Latest News (the five newest, the first as a large card; §8.6), then the Current Announcements.
+5. Latest News (the five newest, the first as a large card; §8.6), then the Current Announcements
+   (the four newest, as dated rows; §8.7).
 6. Health Information (the latest 4 Health Content items).
 7. Health Service Discovery (a form into `/health-services`, no directory on the Homepage).
 8. Activities (the latest, by when they were held).
@@ -487,11 +492,9 @@ Health Information and Activities are named as their lists are ("บริกา
 "ความรู้สุขภาพ", "กิจกรรม"), and Latest News is "ข่าวประชาสัมพันธ์" (spec #239 "Section headings").
 Each of these headings holds a pill link to the section's list that reads "ทั้งหมด", named
 "ดู…ทั้งหมด" with the section's name; below `sm` it is a round 44 px arrow button with the same
-name. A heading has no lead. The Health Service Discovery and Quick Access sections take the
-heading now and keep their titles until their own tickets (#241 comment 6791096480, item 4). The
-Current Announcements are a section of their own after Latest News, under their heading, and keep
-their rows in one bordered box, with the lead as its first line, until #245 (Product Owner,
-2026-11-12: #244 comment 6809892992, item 4).
+name (`SectionListLink`). A heading has no lead; the Current Announcements show their lead and
+their link beside it (§8.7). The Health Service Discovery and Quick Access sections take the
+heading now and keep their titles until their own tickets (#241 comment 6791096480, item 4).
 
 From `lg`, Health Information shows 4 to a row, Activities 3 and Quick Access 4. Below `lg` each
 shows 2 to a row, 12 px apart below `sm` and 24 px from `sm`. The Frequently Used Services have
@@ -541,6 +544,7 @@ Below 640 px the Homepage is shorter, with every section kept in its order (Prod
 - Health Information, Activities and Quick Access go two to a row, 12 px apart, in compact cards
   (§7.3). The Frequently Used Services go one to a row (§8.4).
 - Latest News shows the large card and three compact rows (§8.6).
+- The Current Announcements show three rows (§8.7).
 - Phones and tablets show the latest 4 Activities, two by two; a desktop row shows 3.
 
 The Homepage's height with the demo dataset, measured on 2026-11-12 at the application code of
@@ -652,9 +656,9 @@ in the page colour:
   heading lies above, with the link at its right over a `border-default` line. **From `sm`** the
   first person takes a row and the others share the next. **Below `sm`** everyone stacks.
 - **Space:** 32 px above the strip below `sm` and 40 px from `sm`, after the room the field leaves
-  under it (§8.4). The space above the section that follows it on the page colour comes next:
-  Latest News, or the Current Announcements when no News shows. While both are left out, the strip
-  takes the same space below itself (32, 64 and 80 px).
+  under it (§8.4). The space above Latest News, which follows it on the page colour, comes next.
+  While Latest News is left out, the strip takes the same space below itself (32, 64 and 80 px),
+  also before the Current Announcements' band (§8.7).
 
 ### 8.6 Latest News
 
@@ -696,6 +700,47 @@ section heading "ข่าวประชาสัมพันธ์" with its "
 - **Under the pointer** a picture grows by 6 % inside its box and a small card lifts 6 px with the
   `deep` shadow, only under `prefers-reduced-motion: no-preference`. Keyboard focus is the global
   3 px outline around the card. A News card shows no arrow.
+
+### 8.7 Current Announcements
+
+The Current Announcements (`HomeAnnouncementRow`; spec #239 "Current Announcements") follow Latest
+News as a section of their own:
+
+- **The Announcements** are the four newest current ones by announcement date, in the
+  Announcements list's order, after the Featured item is removed (`04` §7). Below `sm` the fourth
+  is not shown. With none the section is left out, and Latest News keeps its space before Health
+  Information.
+- **The band** is `surface-soft` with a `surface-base` glow fading from its upper left corner, a
+  decoration that takes no pointer events, and has the sections' space above and below inside it
+  (80, 64 and 32 px). The Leadership strip keeps its own space below when the band follows it
+  without Latest News (Product Owner, 2026-11-12: #245 comment 6812117246, item 1).
+- **The heading** is the section heading ("แจ้งให้ทราบ", "ประกาศ") with the lead
+  "ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ" in `text-secondary-on-soft` (18 / 30, 16 / 26 below
+  `sm`) and the link to `/announcements`, a solid `brand-primary` pill with `surface-base` text and
+  the `tile` shadow, `brand-dark` under the pointer (item 2). From `lg` they are the left column,
+  0.8 to the rows' 1.6 with 56 px between, the link under the lead, and stay in view while the rows
+  scroll, 24 px below the sticky header (`--header-offset`, §7.4). Below `lg` the link is at the
+  heading's right, a round 44 px arrow button below `sm`, and the lead is under both.
+- **A row** is white, radius 22, with the `card` shadow, 14 px from the next:
+  - the date tile, 92 px with radius 18 (68 px and 14 below `sm`), a `brand-primary` to
+    `brand-dark` gradient: the day in `surface-base` at 34 / 38 bold (24 / 28 below `sm`), the
+    month and year under it at 13 / 20 in `accent-warm`;
+  - the category, the first `announcement_type` term, as a pill badge at 13 / 20 semibold:
+    procurement in `procurement-text` on `topic-blue` with a 1 px `procurement-border` edge,
+    recruitment in `brand-dark` on `accent-warm`, any other, and one added later, in
+    `brand-primary` on `surface-soft` (`src/lib/announcement-category.ts`, by the seed's slugs
+    `procurement` and `recruitment`; §3.2). An Announcement without a category shows no badge;
+  - the title at 18 / 30 semibold (16 / 26 below `sm`) in two lines at most;
+  - the Announcements list's status line, for an Announcement with open or close dates: the label
+    after a 7 px dot at 13 / 20 semibold, open in `surface-base` on `brand-primary`, not open yet
+    in `brand-dark` on `accent-warm`, closed in `text-primary` on `status-closed`, then the dates.
+    The words and the dot state the status; the Announcements list keeps its own label;
+  - from `sm`, a 40 px `surface-soft` circle with a 20 px `arrow-right`.
+- **The link:** the title is an H3 that names one link over the whole row; the date, the category
+  and the status stay outside the link's name.
+- **Under the pointer** the circle turns `accent-warm` with a `brand-dark` arrow, and the row moves
+  10 px to the right with the `deep` shadow, only under `prefers-reduced-motion: no-preference`.
+  Keyboard focus is the global 3 px outline around the row.
 
 ## 9. Post pages: News, Activity and Health Content
 
@@ -944,3 +989,10 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   News", the notes on #244 (comments 6791841635 and 6809555807) and #244 comment 6809892992 (the
   date on the large card, the deep green visual, the 4:3 picture in a compact row, the
   Announcements' section) and comment 6810203896 (a tile with a 24 px icon on a visual). Which News show, their order and their addresses remain.
+- **v1.2 Homepage Current Announcements (2026-11-12, Feature 008 #245):** the Current Announcements
+  are four dated rows in a `surface-soft` band (§8, §8.7): a date tile, the category badge in its
+  own colour, the title, the status line after a dot and an arrow, beside a heading with its lead
+  and a solid link that stay in view from 1,024 px. `SectionListLink` holds a section's link to its
+  list. Authority: spec #239 "Current Announcements", the notes on #245 and #245 comment
+  6812117246 (the band and its glow, the solid link). Which Announcements show, their order and
+  their addresses remain; four show where three did.
