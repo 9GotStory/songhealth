@@ -730,17 +730,13 @@ export const HOMEPAGE_HEADINGS = {
 	quickAccess: "ข้อมูลและเอกสารสำคัญ",
 } as const;
 
-/** A Homepage section, the region its heading names. */
-export function homepageSection(page: Page, heading: string) {
-	return page.getByRole("region", { name: heading });
-}
-
 /**
- * The Homepage's Current Announcements, found by the section's whole name: a Featured
- * Announcement's card is a region whose name can hold "ประกาศ" too.
+ * A Homepage section, the region whose whole name is its heading: a Featured item's card is a
+ * region named by its title, which can hold a section's name, as an Announcement's holds "ประกาศ"
+ * (#245 retro).
  */
-export function homepageAnnouncements(page: Page) {
-	return page.getByRole("region", { name: HOMEPAGE_HEADINGS.announcements, exact: true });
+export function homepageSection(page: Page, heading: string) {
+	return page.getByRole("region", { name: heading, exact: true });
 }
 
 /** The header's identity, the logo and the site title: its first link to the Homepage. */

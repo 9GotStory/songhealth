@@ -18,7 +18,11 @@
 // A state the demo dataset does not hold takes --fixtures, a module of
 // scripts/screenshot-fixtures/, through scripts/dev-runtime-env.sh: its content is made first and
 // removed afterwards, as scripts/capture-with-fixtures.ts does, and the paths it returns are not
-// used. The measuring runs in this process without blocking it, so the fixture kit's restore
+// used. A prototype's page is measured the same way before its look is offered to the Product
+// Owner (#245 retro), with its folder as the origin and its file as the path:
+//   PLAYWRIGHT_BASE_URL=file:///…/home-redesign/ node scripts/measure-text-contrast.ts \
+//     home-bold.html <selector>
+// The measuring runs in this process without blocking it, so the fixture kit's restore
 // still reaches the runtime (a blocked event loop failed a menu restore in #241). Pages are read
 // anonymously; the origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324.
 

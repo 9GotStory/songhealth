@@ -2,7 +2,8 @@
 // (scripts/capture-with-fixtures.ts, scripts/measure-latency.ts): a FixtureKit that makes entries,
 // terms and pictures through the native API with the development PAT (SONGHEALTH_DEV_ACCESS), and
 // removes everything it made when the run ends, even when a step fails. Office Contact, the
-// `social` handles and the Homepage menus it sets are restored then too. Every slug carries the
+// `social` handles and the Homepage menus it sets are restored then too, and the entries it
+// borrowed are published again. Every slug carries the
 // synthetic mark, so scripts/dev-runtime-residue.sh finds anything a failed cleanup leaves. The
 // origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324.
 
@@ -35,6 +36,13 @@ export interface FixtureKit {
 	 * they held (cms.helpers.ts showHomepageMenus).
 	 */
 	homepageMenus(menus: helpers.HomepageMenuItems): Promise<void>;
+	/**
+	 * Return every published entry of `collection` to draft until the run ends, which publishes
+	 * each again at its own date: a page without that content, such as the Homepage with no current
+	 * Announcement (#245 retro). Call it before making entries of the collection. It throws at an
+	 * entry with unpublished changes, which publishing again would release.
+	 */
+	borrow(collection: string): Promise<void>;
 }
 
 /** The development runtime's origin. */
@@ -77,6 +85,27 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 		},
 		async homepageMenus(menus) {
 			restores.unshift(await helpers.showHomepageMenus(admin, menus));
+		},
+		async borrow(collection) {
+			for (const { id } of await helpers.listPublishedEntries(admin, collection)) {
+				const item = helpers.nativeItemOf(await helpers.readEntry(admin, collection, id));
+				if (item === undefined) throw new Error(`borrow: ${collection}/${id} cannot be read`);
+				if (typeof item.draftRevisionId === "string") {
+					throw new Error(`borrow: ${collection}/${id} has unpublished changes`);
+				}
+				const publishedAt = String(item.publishedAt);
+				// Registered before the entry leaves, so a failure midway still gives it back.
+				restores.unshift(async () => {
+					const again = await helpers.publishEntry(admin, collection, id, { publishedAt });
+					if (!again.ok) {
+						throw new Error(`${collection}/${id}: ${helpers.nativeRefusalOf(again)}`);
+					}
+				});
+				const unpublished = await helpers.unpublishEntry(admin, collection, id);
+				if (!unpublished.ok) {
+					throw new Error(`borrow: ${collection}/${id}: ${helpers.nativeRefusalOf(unpublished)}`);
+				}
+			}
 		},
 	};
 
