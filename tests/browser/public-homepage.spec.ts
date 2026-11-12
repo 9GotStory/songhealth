@@ -98,8 +98,11 @@ import {
 /** The Homepage menus with nothing in them, so no curated section shows. */
 const EMPTY_MENUS = { featured: [], services: [], quickAccess: [] };
 
-/** The Contact Summary's lead, which is also the Homepage's description and the hero's headline. */
-const CONTACT_LEAD = HOMEPAGE_HEADLINE;
+/** The office summary: the Homepage's description and the hero's headline. */
+const OFFICE_SUMMARY = HOMEPAGE_HEADLINE;
+
+/** The Contact Summary's button to /contact. */
+const CONTACT_PAGE_LINK = "ข้อมูลติดต่อทั้งหมด";
 
 /** The collections whose latest content the Homepage shows by itself. */
 const AUTOMATIC_COLLECTIONS = [
@@ -215,6 +218,21 @@ async function spaceBelowStrip(page: Page): Promise<number> {
 		"the strip's surface",
 	);
 	return section.y + section.height - (surface.y + surface.height);
+}
+
+/** The Contact Summary. */
+function contactSection(page: Page) {
+	return homepageSection(page, HOMEPAGE_HEADINGS.contact);
+}
+
+/** The Activities' section. */
+function activitiesSection(page: Page) {
+	return homepageSection(page, HOMEPAGE_HEADINGS.activities);
+}
+
+/** The Activities' tiles, in order: the newest first. */
+function activityTiles(page: Page) {
+	return activitiesSection(page).getByRole("article");
 }
 
 /** The current Announcements' section. */
@@ -361,18 +379,17 @@ test("with no published content at all, the Homepage still answers with the hero
 			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
 			await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
 			await expect(page.getByRole("main").getByRole("search")).toBeVisible();
-			await expect(sectionHeadings(page)).toHaveText([siteTitle]);
+			await expect(sectionHeadings(page)).toHaveText([HOMEPAGE_HEADINGS.contact]);
 			await expect(
 				homepageSection(page, HOMEPAGE_HEADLINE).getByText(HOMEPAGE_HEADLINE, { exact: true }),
 			).toBeVisible();
 
-			const contact = homepageSection(page, siteTitle);
-			await expect(contact.getByText(CONTACT_LEAD)).toBeVisible();
+			const contact = contactSection(page);
+			await expect(contact.getByText(OFFICE_SUMMARY)).toHaveCount(0);
 			await expect(contact.getByRole("term")).toHaveCount(0);
-			await expect(contact.getByRole("link", { name: "ดูข้อมูลติดต่อทั้งหมด" })).toHaveAttribute(
-				"href",
-				"/contact",
-			);
+			await expect(
+				contact.getByRole("link", { name: CONTACT_PAGE_LINK, exact: true }),
+			).toHaveAttribute("href", "/contact");
 
 			await expectAccessibleAtEachWidth(page, "/ with no content");
 			await page.setViewportSize(MOBILE_VIEWPORT);
@@ -505,7 +522,7 @@ test("the page's H1 is the site title from the site settings, and the hero shows
 			await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/`);
 			await expect(page.locator('meta[name="description"]')).toHaveAttribute(
 				"content",
-				CONTACT_LEAD,
+				OFFICE_SUMMARY,
 			);
 			await expectVisuallyHidden(page.getByRole("heading", { level: 1 }), "the site title");
 			await expect(homepageSection(page, HOMEPAGE_HEADLINE)).not.toContainText(tagline);
@@ -1384,7 +1401,7 @@ test("with one Health Service that has no Area the band counts it and shows no n
 			).toBeCloseTo(space, 0);
 			// With no Activities the Contact Summary follows the band.
 			expect(
-				await roomBetween(band, homepageSection(page, siteTitle)),
+				await roomBetween(band, contactSection(page)),
 				`from the band to the Contact Summary at ${width} px`,
 			).toBeCloseTo(space, 0);
 		}
@@ -1405,9 +1422,11 @@ test("with one Health Service that has no Area the band counts it and shows no n
 	});
 });
 
-test("directly below the deep field the Activities have the sections' space above them, and so has the band before them, where they keep theirs; Health Information before the band takes that space instead, and without the band the Activities follow Health Information's space below, or the News' own", async ({
+test("the page gives each section the space its place asks for: the Activities directly below the deep field have it above them, the band before them takes it and leaves its own below, and Health Information before the band takes it in turn", async ({
 	page,
 }) => {
+	// tests/node/public-homepage-spacing.test.ts holds the rule for every combination; this reads
+	// that the page applies it.
 	await borrowAllContent();
 	await publish("activities", await create("activities", "spacing-chain"));
 	const spaces = [
@@ -1417,67 +1436,42 @@ test("directly below the deep field the Activities have the sections' space abov
 	] as const;
 	const health = healthSection(page);
 	const discovery = discoverySection(page);
-	const activities = homepageSection(page, HOMEPAGE_HEADINGS.activities);
-	/** Read `section`'s own space above at each width. */
-	const expectSpaceAbove = async (section: Locator, name: string, own: boolean) => {
+	const activities = activitiesSection(page);
+	/** Read one side of `section`'s own space at each width. */
+	const expectSpace = async (
+		section: Locator,
+		name: string,
+		side: "top" | "bottom",
+		own: boolean,
+	) => {
 		for (const [width, space] of spaces) {
 			await page.setViewportSize({ width, height: 900 });
-			await expect(section, `${name}'s space above at ${width} px`).toHaveCSS(
-				"padding-top",
+			await expect(section, `${name}'s space at its ${side} at ${width} px`).toHaveCSS(
+				`padding-${side}`,
 				own ? `${space}px` : "0px",
 			);
 		}
 		await page.setViewportSize(DESKTOP_VIEWPORT);
 	};
-	/** Return a fixture to draft. */
-	const unpublish = async (collection: Collection, fixture: DraftFixture) => {
-		const unpublished = await unpublishEntry(admin, collection, fixture.id);
-		expect(unpublished.ok, `unpublishing: ${nativeRefusalOf(unpublished)}`).toBe(true);
-	};
 	await withHomepageMenus(admin, EMPTY_MENUS, async () => {
-		// The Activities alone, with no Leadership, News, Announcements or band above them.
 		await page.goto("/");
 		await expect(discovery).toHaveCount(0);
-		await expectSpaceAbove(activities, "the Activities", true);
+		await expectSpace(activities, "the Activities", "top", true);
+		await expectSpace(activities, "the Activities", "bottom", true);
+		await expectSpace(contactSection(page), "the Contact Summary", "top", false);
+		await expectSpace(contactSection(page), "the Contact Summary", "bottom", true);
 
-		// The band takes that place, and the Activities keep their space after it.
-		const facility = await createSyntheticHealthService(admin, "spacing-chain");
-		await publish("health_services", facility);
+		await publish("health_services", await createSyntheticHealthService(admin, "spacing-chain"));
 		await page.goto("/");
 		await expect(health).toHaveCount(0);
-		await expectSpaceAbove(discovery, "the band", true);
-		await expectSpaceAbove(activities, "the Activities", true);
-		await expect(discovery, "the band's space below before the Activities").toHaveCSS(
-			"padding-bottom",
-			"0px",
-		);
+		await expectSpace(discovery, "the band", "top", true);
+		await expectSpace(discovery, "the band", "bottom", true);
+		await expectSpace(activities, "the Activities", "top", false);
 
-		const item = await create("health_content", "spacing-chain");
-		await publish("health_content", item);
+		await publish("health_content", await create("health_content", "spacing-chain"));
 		await page.goto("/");
-		await expectSpaceAbove(health, "Health Information", true);
-		await expectSpaceAbove(discovery, "the band", false);
-
-		// Without the band, Health Information's space below is the only space before the Activities.
-		await unpublish("health_services", facility);
-		await page.goto("/");
-		await expect(discovery).toHaveCount(0);
-		await expectSpaceAbove(activities, "the Activities", false);
-		for (const [width, space] of spaces) {
-			await page.setViewportSize({ width, height: 900 });
-			await expect(health, `Health Information's space below at ${width} px`).toHaveCSS(
-				"padding-bottom",
-				`${space}px`,
-			);
-		}
-		await page.setViewportSize(DESKTOP_VIEWPORT);
-
-		// After Latest News alone, the Activities follow the News' own space below.
-		await unpublish("health_content", item);
-		await publish("news", await create("news", "spacing-chain"));
-		await page.goto("/");
-		await expect(health).toHaveCount(0);
-		await expectSpaceAbove(activities, "the Activities", false);
+		await expectSpace(health, "Health Information", "top", true);
+		await expectSpace(discovery, "the band", "top", false);
 	});
 });
 
@@ -1586,85 +1580,159 @@ test.describe("without JavaScript", () => {
 	}
 });
 
-test("Activities shows the latest 3 by Activity date on a desktop and the latest 4 on a phone, each with its picture or the visual fallback and กิจกรรม • date", async ({
+test("the Activities show the latest five by Activity date at every width, each as its picture or the visual with its date and its title over it, one link named by the title, the newest large at the right of the others two by two from 1,024 px and across the row above them below, where a small tile shows no date under 640 px", async ({
 	page,
 }) => {
 	const heldAt = (day: number) => `2032-03-${String(day).padStart(2, "0")}T03:00:00.000Z`;
 	const activitySummary = `${SYNTHETIC_FIXTURE_MARK} สรุปกิจกรรมที่หน้าแรกไม่แสดง`;
 	const latest = await create("activities", "latest", {
 		data: {
-			activity_at: heldAt(4),
+			activity_at: heldAt(6),
 			summary: activitySummary,
 			featured_image: {
 				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพกิจกรรม`),
 			},
 		},
 	});
-	const second = await create("activities", "second", { data: { activity_at: heldAt(3) } });
-	const third = await create("activities", "third", { data: { activity_at: heldAt(2) } });
-	const fourth = await create("activities", "fourth", { data: { activity_at: heldAt(1) } });
+	const others: DraftFixture[] = [];
+	for (const day of [5, 4, 3, 2, 1]) {
+		others.push(await create("activities", `day-${day}`, { data: { activity_at: heldAt(day) } }));
+	}
+	const sixth = others[4]!;
 	// Published last, without an Activity date: placed by its publication, today, behind 2032.
 	const undated = await create("activities", "undated");
-	const draft = await create("activities", "draft", { data: { activity_at: heldAt(5) } });
-	await publish("activities", second, latest, fourth, third, undated);
+	const draft = await create("activities", "draft", { data: { activity_at: heldAt(7) } });
+	await publish("activities", ...others, latest, undated);
 
 	await page.goto("/");
-	const activities = homepageSection(page, HOMEPAGE_HEADINGS.activities);
-	await expect(activities.getByRole("heading", { level: 3 })).toHaveText([
-		latest.title,
-		second.title,
-		third.title,
-	]);
-	for (const [activity, day] of [
-		[latest, 4],
-		[second, 3],
-		[third, 2],
-	] as const) {
-		const card = activities.getByRole("article").filter({ hasText: activity.title });
-		await expect(card.getByText("กิจกรรม", { exact: true })).toBeVisible();
-		await expect(card.locator("time")).toHaveText(thaiDate(heldAt(day)));
-		await expect(card.getByRole("link", { name: activity.title })).toHaveAttribute(
-			"href",
-			`/activities/${activity.slug}`,
+	const activities = activitiesSection(page);
+	const tiles = activityTiles(page);
+	const shown = [latest, ...others.slice(0, 4)];
+	await expect(tiles.getByRole("heading", { level: 3 })).toHaveText(
+		shown.map(({ title }) => title),
+	);
+	for (const [index, activity] of shown.entries()) {
+		const tile = tiles.nth(index);
+		await expect(tile.locator("time")).toHaveText(thaiDate(heldAt(6 - index)));
+		await expect(tile.getByRole("link")).toHaveAccessibleName(activity.title);
+		await expect(tile.getByRole("link")).toHaveAttribute("href", `/activities/${activity.slug}`);
+		expect((await shownLines(tile.getByRole("heading"))).lines, activity.title).toBeLessThanOrEqual(
+			2,
 		);
 	}
-	const picture = activities.getByRole("article").filter({ hasText: latest.title }).locator("img");
-	await picture.scrollIntoViewIfNeeded();
-	await expectImageLoaded(picture, "the latest Activity's picture");
-	for (const activity of [second, third]) {
-		const card = activities.getByRole("article").filter({ hasText: activity.title });
-		await expect(card.locator("img"), activity.title).toHaveCount(0);
-		await expect(card.getByTestId("activity-visual"), activity.title).toHaveCount(1);
+	const large = tiles.first();
+	await large.scrollIntoViewIfNeeded();
+	await expectImageLoaded(large.locator("img"), "the latest Activity's picture");
+	await expect(large.getByTestId("activity-visual")).toHaveCount(0);
+	for (const index of [1, 2, 3, 4]) {
+		await expect(tiles.nth(index).locator("img")).toHaveCount(0);
+		await expect(tiles.nth(index).getByTestId("activity-visual")).toBeVisible();
 	}
-	await expect(activities, "the Homepage's cards leave the summary out").not.toContainText(
+	await expect(activities, "the Homepage's tiles leave the summary out").not.toContainText(
 		activitySummary,
 	);
 	await expect(activities.getByRole("link", { name: "ดูกิจกรรมทั้งหมด" })).toHaveAttribute(
 		"href",
 		"/activities",
 	);
-	await expect(activities.getByRole("article").filter({ hasText: fourth.title })).toBeHidden();
-
-	// A phone shows the latest 4, two by two (spec #144 "Homepage (`04`)").
-	await page.setViewportSize(PHONE_VIEWPORT);
-	await expect(activities.getByRole("heading", { level: 3 })).toHaveText([
-		latest.title,
-		second.title,
-		third.title,
-		fourth.title,
-	]);
-	const card = activities.getByRole("article").filter({ hasText: fourth.title });
-	await expect(card.locator("time")).toHaveText(thaiDate(heldAt(1)));
-	await expect(card.getByRole("link", { name: fourth.title })).toHaveAttribute(
-		"href",
-		`/activities/${fourth.slug}`,
-	);
-	for (const hidden of [undated, draft]) {
+	for (const hidden of [sixth, undated, draft]) {
 		await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
+	}
+
+	const list = activities.getByRole("list");
+	for (const width of [1440, 1024]) {
+		await page.setViewportSize({ width, height: 900 });
+		const largeBox = await boxOf(large, "the large tile");
+		const smallBoxes = await Promise.all(
+			[1, 2, 3, 4].map((index) => boxOf(tiles.nth(index), "a small tile")),
+		);
+		// Two small tiles and the large one share the first row; two more lie under the first two.
+		expect(await itemsPerRow(tiles), `the tiles in rows at ${width} px`).toEqual([3, 2]);
+		for (const small of smallBoxes) {
+			expect(
+				small.x + small.width,
+				`a small tile left of the large one at ${width} px`,
+			).toBeLessThan(largeBox.x);
+		}
+		expect(largeBox.height, `the large tile is two rows high at ${width} px`).toBeGreaterThan(
+			2 * smallBoxes[0]!.height,
+		);
+		// The grid reaches both sides of the list, and the large tile is as high as it.
+		const listBox = await boxOf(list, "the list of tiles");
+		expect(smallBoxes[0]!.x, `the first small tile at the left at ${width} px`).toBeCloseTo(
+			listBox.x,
+			0,
+		);
+		expect(largeBox.x + largeBox.width, `the large tile at the right at ${width} px`).toBeCloseTo(
+			listBox.x + listBox.width,
+			0,
+		);
+		expect(largeBox.height, `the large tile as high as the list at ${width} px`).toBeCloseTo(
+			listBox.height,
+			0,
+		);
+		await expect(tiles.nth(1).locator("time"), `a small tile's date at ${width} px`).toBeVisible();
+	}
+	for (const width of [1023, 640, 639, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		expect(await itemsPerRow(tiles), `the tiles in rows at ${width} px`).toEqual([1, 2, 2]);
+		expect(await rowsFill(tiles, list), `the tiles fill each row at ${width} px`).toBe(true);
+		await expect(large.locator("time"), `the large tile's date at ${width} px`).toBeVisible();
+		const smallDate = tiles.nth(1).locator("time");
+		if (width >= 640) await expect(smallDate, `a small tile's date at ${width} px`).toBeVisible();
+		else await expect(smallDate, `a small tile's date at ${width} px`).toBeHidden();
+		await expect(tiles.nth(4).getByRole("heading"), `the fifth title at ${width} px`).toBeVisible();
+	}
+	await expectNoHorizontalScroll(page, "/ with five Activities at 320 px");
+});
+
+test("with fewer than five Activities the tiles are equal and fill one row from 1,024 px; below, they go two to a row with the first across the row when the others are an even number: one alone, two side by side, three with the first across, four two by two; and with none the section is left out", async ({
+	page,
+}) => {
+	await borrowAllContent();
+	await page.goto("/");
+	await expect(activitiesSection(page)).toHaveCount(0);
+
+	const tiles = activityTiles(page);
+	const list = activitiesSection(page).getByRole("list");
+	const published: DraftFixture[] = [];
+	for (const [count, rowsBelow] of [
+		[1, [1]],
+		[2, [2]],
+		[3, [1, 2]],
+		[4, [2, 2]],
+	] as const) {
+		const next = await create("activities", `fewer-than-five-${count}`, {
+			data: { activity_at: `2033-05-0${count}T03:00:00.000Z` },
+		});
+		await publish("activities", next);
+		published.unshift(next);
+		await page.goto("/");
+		await expect(tiles.getByRole("heading", { level: 3 }), `${count} Activities`).toHaveText(
+			published.map(({ title }) => title),
+		);
+		for (const width of [1440, 1024]) {
+			await page.setViewportSize({ width, height: 900 });
+			expect(await itemsPerRow(tiles), `${count} Activities in one row at ${width} px`).toEqual([
+				count,
+			]);
+			expect(await rowsFill(tiles, list), `${count} fill the row at ${width} px`).toBe(true);
+			const widths = await tiles.evaluateAll((elements) =>
+				elements.map((element) => Math.round(element.getBoundingClientRect().width)),
+			);
+			expect(new Set(widths).size, `${count} equal tiles at ${width} px`).toBe(1);
+			await expect(tiles.last().locator("time"), `a date at ${width} px`).toBeVisible();
+		}
+		for (const width of [1023, 375]) {
+			await page.setViewportSize({ width, height: 900 });
+			expect(await itemsPerRow(tiles), `${count} Activities at ${width} px`).toEqual(rowsBelow);
+			expect(await rowsFill(tiles, list), `${count} fill each row at ${width} px`).toBe(true);
+		}
+		await page.setViewportSize(DESKTOP_VIEWPORT);
 	}
 });
 
-test("the Contact Summary reads Office Contact: address with the map link, telephone and opening hours, and leaves out what is not set", async ({
+test("the Contact Summary is one card under the heading ติดต่อสำนักงาน: Office Contact's telephone as a link, its address with the map link and its opening hours, each only when set, and a button to /contact; no map or stand-in shows, and below 1,024 px the card is one column", async ({
 	page,
 }) => {
 	const marker = crypto.randomUUID().slice(0, 8);
@@ -1678,8 +1746,9 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 	};
 	await withOfficeContact(admin, values, {}, async () => {
 		await page.goto("/");
-		const contact = homepageSection(page, siteTitle);
-		await expect(contact.getByRole("heading", { level: 2 })).toHaveText(siteTitle);
+		const contact = contactSection(page);
+		await expect(contact.getByRole("heading", { level: 2 })).toHaveText(HOMEPAGE_HEADINGS.contact);
+		await expect(contact.getByText("ติดต่อ", { exact: true })).toBeVisible();
 		const location = detailOf(page, "ที่ตั้ง");
 		await expect(location).toContainText(values.address.split("\n")[0]!);
 		await expect(location).toContainText("อำเภอสอง จังหวัดแพร่ 54120");
@@ -1689,16 +1758,49 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 			"https://www.google.com/maps/search/?api=1&query=18.4686%2C100.1834",
 		);
 		await expect(map).toHaveAttribute("rel", "noopener");
-		await expect(
-			detailOf(page, "โทรศัพท์").getByRole("link", { name: "054 591 234" }),
-		).toHaveAttribute("href", "tel:054591234");
+		const telephone = detailOf(page, "โทรศัพท์").getByRole("link", { name: "054 591 234" });
+		await expect(telephone).toHaveAttribute("href", "tel:054591234");
 		await expect(detailOf(page, "เวลาทำการ")).toHaveText(values.opening_hours);
 		await expect(contact, "the email stays on /contact").not.toContainText(values.email);
-		await expect(contact.getByRole("link", { name: "ดูข้อมูลติดต่อทั้งหมด" })).toHaveAttribute(
-			"href",
-			"/contact",
-		);
+		const button = contact.getByRole("link", { name: CONTACT_PAGE_LINK, exact: true });
+		await expect(button).toHaveAttribute("href", "/contact");
 		await expect(page.locator("iframe, embed, object"), "no map is embedded").toHaveCount(0);
+		await expect(contact, "no stand-in for a map").not.toContainText("แผนที่สำนักงาน");
+		await expect(contact, "the office summary is not repeated").not.toContainText(OFFICE_SUMMARY);
+
+		// Two columns from 1,024 px: the telephone at the left of the address. One column below.
+		for (const [width, beside] of [
+			[1440, true],
+			[1024, true],
+			[1023, false],
+			[375, false],
+			[320, false],
+		] as const) {
+			await page.setViewportSize({ width, height: 900 });
+			const number = await boxOf(telephone, "the telephone number");
+			const place = await boxOf(location, "the address");
+			if (beside) {
+				expect(
+					number.x + number.width,
+					`the telephone left of the address at ${width} px`,
+				).toBeLessThan(place.x);
+			} else {
+				expect(
+					number.y + number.height,
+					`the telephone above the address at ${width} px`,
+				).toBeLessThanOrEqual(place.y);
+			}
+			for (const target of [telephone, map, button]) {
+				expect(
+					(await boxOf(target, "a link of the card")).height,
+					`a link's target at ${width} px`,
+				).toBeGreaterThanOrEqual(44);
+			}
+		}
+		await expectNoHorizontalScroll(page, "/ with the contact card at 320 px");
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+		await button.click();
+		await expect(page).toHaveURL("/contact");
 	});
 
 	await withOfficeContact(
@@ -1707,16 +1809,49 @@ test("the Contact Summary reads Office Contact: address with the map link, telep
 		{},
 		async () => {
 			await page.goto("/");
-			const contact = homepageSection(page, siteTitle);
+			const contact = contactSection(page);
 			await expect(contact.getByRole("term")).toHaveText(["โทรศัพท์"]);
 			await expect(detailOf(page, "โทรศัพท์")).toHaveText("054 591 234 ต่อ 12");
 			await expect(detailOf(page, "โทรศัพท์").getByRole("link")).toHaveCount(0);
 			await expect(contact.getByRole("link", { name: /เปิดแผนที่/ })).toHaveCount(0);
+			await page.setViewportSize(MOBILE_VIEWPORT);
+			await expectNoHorizontalScroll(page, "/ with a long telephone text at 320 px");
 		},
 	);
 });
 
-test("with every section showing, the sections follow the Figma order on a desktop and a phone, a phone shows the card sections two to a row without the Contact Summary's lead, and the page is accessible and reflows at 320 px", async ({
+test("with one shortcut Quick Access shows it on the Homepage's card surface, after the Activities and before the Contact Summary, and with an empty menu the section is left out", async ({
+	page,
+}) => {
+	await publish("activities", await create("activities", "before-quick-access"));
+	const shortcut = { label: "เอกสารเผยแพร่", url: "/documents" };
+	await withHomepageMenus(admin, { quickAccess: [shortcut] }, async () => {
+		await page.goto("/");
+		const quickAccess = homepageSection(page, HOMEPAGE_HEADINGS.quickAccess);
+		const link = quickAccess.getByRole("link");
+		await expect(link).toHaveCount(1);
+		await expect(link).toHaveAccessibleName(shortcut.label);
+		await expect(link).toHaveAttribute("href", shortcut.url);
+		await expect(link).toHaveCSS("background-color", await tokenColor(page, "surface-base"));
+		await expect(link).toHaveCSS("border-top-width", "0px");
+		await expect(link).not.toHaveCSS("box-shadow", "none");
+		expect(
+			(await sectionHeadings(page).allTextContents()).map((text) => text.trim()).slice(-3),
+			"the last three sections",
+		).toEqual([
+			HOMEPAGE_HEADINGS.activities,
+			HOMEPAGE_HEADINGS.quickAccess,
+			HOMEPAGE_HEADINGS.contact,
+		]);
+	});
+	await withHomepageMenus(admin, { quickAccess: [] }, async () => {
+		await page.goto("/");
+		await expect(homepageSection(page, HOMEPAGE_HEADINGS.quickAccess)).toHaveCount(0);
+		await expect(sectionHeadings(page).last()).toHaveText(HOMEPAGE_HEADINGS.contact);
+	});
+});
+
+test("with every section showing, the sections follow the Figma order on a desktop and a phone, the Contact Summary last, a phone shows Quick Access two to a row, and the page is accessible and reflows at 320 px", async ({
 	page,
 }) => {
 	// Published entries of each kind, so every section shows whichever tests ran before, and three of
@@ -1769,6 +1904,7 @@ test("with every section showing, the sections follow the Figma order on a deskt
 		HOMEPAGE_HEADINGS.discovery,
 		HOMEPAGE_HEADINGS.activities,
 		HOMEPAGE_HEADINGS.quickAccess,
+		HOMEPAGE_HEADINGS.contact,
 	];
 	await test.step("Apply and restore Homepage menus and Office Contact", async () => {
 		await withHomepageMenus(admin, menus, async () => {
@@ -1786,7 +1922,7 @@ test("with every section showing, the sections follow the Figma order on a deskt
 					await test.step("Render Homepage", async () => {
 						await page.goto("/");
 						await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-						await expect(sectionHeadings(page)).toHaveText([...order, siteTitle]);
+						await expect(sectionHeadings(page)).toHaveText(order);
 					});
 					// Keep the shared viewport order while naming axe and focus time separately.
 					for (const [width, viewport] of Object.entries(VIEWPORTS)) {
@@ -1798,21 +1934,15 @@ test("with every section showing, the sections follow the Figma order on a deskt
 					}
 					await page.setViewportSize(DESKTOP_VIEWPORT);
 
-					// A phone keeps every section in order, with the cards two to a row (spec #144
+					// A phone keeps every section in order, with Quick Access two to a row (spec #144
 					// "Homepage (`04`)").
 					await test.step("Phone layout at 375 px", async () => {
 						await page.setViewportSize(PHONE_VIEWPORT);
-						await expect(sectionHeadings(page)).toHaveText([...order, siteTitle]);
-						for (const heading of [HOMEPAGE_HEADINGS.activities, HOMEPAGE_HEADINGS.quickAccess]) {
-							const [firstRow] = await itemsPerRow(
-								homepageSection(page, heading).getByRole("listitem"),
-							);
-							expect(firstRow, `the cards of "${heading}" side by side at 375 px`).toBe(2);
-						}
-						await expect(
-							homepageSection(page, siteTitle).getByText(CONTACT_LEAD),
-							"a phone leaves out the Contact Summary's lead",
-						).toBeHidden();
+						await expect(sectionHeadings(page)).toHaveText(order);
+						const [firstRow] = await itemsPerRow(
+							homepageSection(page, HOMEPAGE_HEADINGS.quickAccess).getByRole("listitem"),
+						);
+						expect(firstRow, "the Quick Access cards side by side at 375 px").toBe(2);
 					});
 					await test.step("Axe at 375 px", () =>
 						expectNoAxeViolations(page, "/ with every section at 375 px"));

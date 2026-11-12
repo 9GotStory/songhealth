@@ -4,8 +4,7 @@
 // widths the feature's tickets name.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
-
-const WIDTHS = [1440, 1024, 768, 375, 320];
+import { HOMEPAGE_WIDTHS } from "./homepage-widths.ts";
 
 const fixtures: Fixtures = async ({ admin, helpers }) => {
 	const entry = await helpers.createSyntheticEntry(admin, "personnel", {
@@ -20,7 +19,10 @@ const fixtures: Fixtures = async ({ admin, helpers }) => {
 	if (!entry.result.ok) throw new Error(`personnel: ${helpers.nativeRefusalOf(entry.result)}`);
 	const published = await helpers.publishEntry(admin, "personnel", entry.entryId!);
 	if (!published.ok) throw new Error(`publish: ${helpers.nativeRefusalOf(published)}`);
-	return WIDTHS.map((width) => ({ name: `home-leadership-three-${width}`, path: `/@${width}` }));
+	return HOMEPAGE_WIDTHS.map((width) => ({
+		name: `home-leadership-three-${width}`,
+		path: `/@${width}`,
+	}));
 };
 
 export default fixtures;

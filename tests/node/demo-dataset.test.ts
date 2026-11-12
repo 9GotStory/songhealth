@@ -292,14 +292,32 @@ describe("demo dataset: add", () => {
 		assert.deepEqual(names(plan.publish).sort(), ["news/demo-news-flu-vaccine", "pages/about"]);
 	});
 
-	it("fills the Homepage menus, Office Contact and the handles on a runtime without them", () => {
+	it("fills the Homepage menus it has items for, Office Contact and the handles on a runtime without them", () => {
 		const plan = planAdd(dataset, emptyRuntime());
+		// Quick Access has no item in the dataset, and stays as empty as it is.
 		assert.deepEqual(
 			plan.menus,
-			Object.entries(dataset.menus).map(([name, items]) => ({ name, items })),
+			["homepage-featured", "homepage-services"].map((name) => ({
+				name,
+				items: dataset.menus[name],
+			})),
 		);
 		assert.deepEqual(plan.officeContact, dataset.officeContact);
 		assert.deepEqual(plan.social, dataset.social);
+	});
+
+	it("empties Quick Access of the two shortcuts an earlier dataset gave it (#247)", () => {
+		const live = installed(dataset);
+		const plan = planAdd(dataset, {
+			...live,
+			menus: {
+				...live.menus,
+				"homepage-quick-access": ["/documents", "/health"].map((customUrl) =>
+					liveItem(customUrl, { customUrl, cssClasses: "demo-dataset" }),
+				),
+			},
+		});
+		assert.deepEqual(plan.menus, [{ name: "homepage-quick-access", items: [] }]);
 	});
 
 	it("writes a menu again that holds only part of the dataset's items", () => {
@@ -326,7 +344,7 @@ describe("demo dataset: add", () => {
 		});
 		assert.deepEqual(
 			plan.menus.map(({ name }) => name),
-			["homepage-services", "homepage-quick-access"],
+			["homepage-services"],
 		);
 		const { telephone: _, ...contact } = dataset.officeContact;
 		assert.deepEqual(plan.officeContact, contact);
@@ -680,7 +698,7 @@ describe("demo dataset: content (#66)", () => {
 		assert.ok(personnel.every(({ data }) => data.public_visible === true));
 	});
 
-	it("fills the Homepage menus: a Featured News with a picture, six Services, two shortcuts", () => {
+	it("fills the Homepage menus: a Featured News with a picture, six Services, no shortcut", () => {
 		const entry = (slug: string) => dataset.entries.find((candidate) => candidate.slug === slug);
 		const [featured] = dataset.menus["homepage-featured"]!;
 		const news = featured && "entry" in featured ? entry(featured.entry) : undefined;
@@ -691,13 +709,8 @@ describe("demo dataset: content (#66)", () => {
 		assert.ok(
 			services.every((item) => "entry" in item && entry(item.entry)?.collection === "services"),
 		);
-		// The initial shortcuts (Product Owner, 2026-10-29; docs/design/homepage-concept-v1.md §10).
-		assert.deepEqual(
-			dataset.menus["homepage-quick-access"]!.map((item) =>
-				"url" in item ? item.url : item.entry,
-			),
-			["/documents", "/health"],
-		);
+		// Quick Access shows only once staff add a shortcut (spec #239 "Quick Access"; #247).
+		assert.deepEqual(dataset.menus["homepage-quick-access"], []);
 	});
 
 	it("has Office Contact values, the address marked as a demo", () => {

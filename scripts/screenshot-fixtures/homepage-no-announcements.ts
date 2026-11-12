@@ -4,12 +4,14 @@
 // publishes each again at its own date. Captures / at the five widths the feature's tickets name.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
-
-const WIDTHS = [1440, 1024, 768, 375, 320];
+import { HOMEPAGE_WIDTHS } from "./homepage-widths.ts";
 
 const fixtures: Fixtures = async ({ borrow }) => {
 	await borrow("announcements");
-	return WIDTHS.map((width) => ({ name: `home-no-announcements-${width}`, path: `/@${width}` }));
+	return HOMEPAGE_WIDTHS.map((width) => ({
+		name: `home-no-announcements-${width}`,
+		path: `/@${width}`,
+	}));
 };
 
 export default fixtures;

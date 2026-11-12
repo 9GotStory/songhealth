@@ -37,7 +37,8 @@ describe("headings on public pages", () => {
 		for (const file of [
 			"components/PageHeading.astro",
 			"components/ActivityCard.astro",
-			"pages/index.astro",
+			"components/SectionHeading.astro",
+			"components/HomeActivityTile.astro",
 			BODY_HEADING,
 		]) {
 			assert.ok(files.has(file), `a heading in ${file}`);

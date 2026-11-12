@@ -39,8 +39,6 @@
 	--color-divider: #dbe8e3; /* Separators inside a white box */
 	--color-activity-visual-from: #bfdcce; /* Activity card without an image */
 	--color-activity-visual-to: #e8f0d9;
-	--color-contact-visual-from: #d1ebde; /* Contact Summary map stand-in */
-	--color-contact-visual-to: #e8f0cc;
 	/*
 	 * The hero's chip (spec #239 "Hero and Featured"), and the fill and border of a secondary link
 	 * on a dark surface (Figma frame §3)
@@ -90,6 +88,10 @@
 	--text-label--font-weight: 500;
 	--text-small: 0.8125rem; /* 13 / 20 / 400 */
 	--text-small--line-height: 1.25rem;
+	/* The office's telephone number on the Homepage's contact card (spec #239 "Tokens") */
+	--text-telephone: 2.5rem; /* 40 / 52 / 700 */
+	--text-telephone--line-height: 3.25rem;
+	--text-telephone--font-weight: 700;
 
 	/* Figma corner radii, named by their size in px */
 	--radius-*: initial;

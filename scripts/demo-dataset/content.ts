@@ -1343,12 +1343,10 @@ export function demoDataset(now: Date): DemoDataset {
 				"vhv",
 				"general-inquiry",
 			].map((name) => picked(`demo-service-${name}`)),
-			// The shortcuts the Homepage starts with (Product Owner, 2026-10-29;
-			// docs/design/homepage-concept-v1.md §10).
-			"homepage-quick-access": [
-				{ label: "เอกสารเผยแพร่", url: "/documents" },
-				{ label: "ข้อมูลสุขภาพ", url: "/health" },
-			],
+			// No shortcut: Quick Access repeats the navigation, so the Homepage shows the section
+			// only once staff add one (Product Owner, 2026-11-11: spec #239 "Quick Access"; Feature
+			// 008 #247). `add` takes away the two shortcuts an earlier dataset gave the menu.
+			"homepage-quick-access": [],
 		},
 		officeContact: {
 			address: "[ตัวอย่าง] 99 หมู่ 1 ตำบลบ้านกลาง\nอำเภอสอง จังหวัดแพร่ 54120",

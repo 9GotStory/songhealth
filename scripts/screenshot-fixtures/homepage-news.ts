@@ -4,8 +4,7 @@
 // with their pictures. Captures / at the five widths the feature's tickets name.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
-
-const WIDTHS = [1440, 1024, 768, 375, 320];
+import { HOMEPAGE_WIDTHS } from "./homepage-widths.ts";
 
 const fixtures: Fixtures = async ({ admin, helpers }) => {
 	// The second is published last, so it is the newest and takes the large card.
@@ -21,7 +20,10 @@ const fixtures: Fixtures = async ({ admin, helpers }) => {
 		const published = await helpers.publishEntry(admin, "news", entry.entryId!);
 		if (!published.ok) throw new Error(`publish: ${helpers.nativeRefusalOf(published)}`);
 	}
-	return WIDTHS.map((width) => ({ name: `home-news-no-picture-${width}`, path: `/@${width}` }));
+	return HOMEPAGE_WIDTHS.map((width) => ({
+		name: `home-news-no-picture-${width}`,
+		path: `/@${width}`,
+	}));
 };
 
 export default fixtures;

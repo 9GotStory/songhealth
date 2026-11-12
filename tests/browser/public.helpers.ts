@@ -728,6 +728,7 @@ export const HOMEPAGE_HEADINGS = {
 	discovery: "หน่วยบริการสุขภาพในอำเภอสอง",
 	activities: "กิจกรรม",
 	quickAccess: "ข้อมูลและเอกสารสำคัญ",
+	contact: "ติดต่อสำนักงาน",
 } as const;
 
 /**

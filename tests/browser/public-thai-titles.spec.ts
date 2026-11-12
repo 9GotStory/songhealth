@@ -13,15 +13,16 @@
 // happen. A title still shows its characters as written.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
-// harness. Its fixtures are a synthetic Health Content item, Service and Activity made through the
-// native API and removed afterwards, and each leads its Homepage section: the Health Content item
-// is published last, the Activity is held in 2035, and the Service is the one item of the
-// Frequently Used Services menu while its test runs. Below 640 px the Health Content and Activity
-// cards go two to a row in their compact form, with 112 px or more for a title at 320 px, and on a
-// desktop Health Information's go four to a row: no card heading of theirs has less room (Feature
-// 006 #146; #146 comment 6625101174). A Service card holds its name beside its icon tile and its
-// arrow, with the least room where two go to a row, at 640 px (Feature 008 #242). A compact Quick
-// Link label has that room too, above its arrow (Feature 007 #194), and
+// harness. Its fixtures are a synthetic Health Content item and Service made through the native
+// API and removed afterwards, and each leads its Homepage section: the Health Content item is
+// published last, and the Service is the one item of the Frequently Used Services menu while its
+// test runs. Below 640 px a Health Content card is a compact row with 142 px for its title at
+// 320 px, and on a desktop Health Information's go four to a row: no card heading of theirs has
+// less room (Feature 008 #246). A Latest News card and an Activity tile show their titles in two
+// or three lines at most, so a long title's end is out of sight there by design, and they are
+// not among these cards (Feature 008 #244, #247). A Service card holds its name beside its icon
+// tile and its arrow, with the least room where two go to a row, at 640 px (Feature 008 #242). A
+// compact Quick Link label has that room too, above its arrow (Feature 007 #194), and
 // public-homepage-curation.spec.ts checks the widest listed words there. The card tests sweep the
 // viewport from 320 to 1440 px rather than trying one width, so they meet the widths at which a
 // line would end inside a word, whatever the card's padding and type size.
@@ -67,9 +68,7 @@ const CHECKED_WORDS = [
 ];
 
 /**
- * The Homepage cards the fixtures lead, by collection: what each is called, and its section. A
- * Service or Activity card is one link named by its title. The Homepage composes its Health
- * Content card itself, with no such link (docs/design/DESIGN.md §7.3).
+ * The Homepage cards the fixtures lead, by collection: what each is called, and its section.
  */
 const CARDS = {
 	health_content: {
@@ -78,7 +77,6 @@ const CARDS = {
 		section: HOMEPAGE_HEADINGS.health,
 	},
 	services: { name: "a Service card", kind: "บริการ", section: HOMEPAGE_HEADINGS.services },
-	activities: { name: "an Activity card", kind: "กิจกรรม", section: HOMEPAGE_HEADINGS.activities },
 } as const;
 
 type CardCollection = keyof typeof CARDS;
@@ -127,7 +125,6 @@ test.beforeAll(async () => {
 		fixtures[collection] = { id: created.entryId!, title };
 	};
 	await create("services");
-	await create("activities", { activity_at: "2035-01-01T03:00:00.000Z" });
 	await create("health_content", {}, ` "ตรวจฟรี" & <b>ทุกวันพุธ</b>`);
 });
 
@@ -166,26 +163,6 @@ for (const [collection, card] of Object.entries(CARDS) as [
 		});
 	});
 }
-
-test("at 320 px a compact card's title keeps every ร้องเรียน whole and inside it, and its link is named by the whole title", async ({
-	page,
-}) => {
-	await page.setViewportSize({ width: 320, height: 900 });
-	await page.goto("/");
-	const title = fixtureCardTitle(page, "activities");
-	await expect(title).toBeVisible();
-	await expect(
-		homepageSection(page, CARDS.activities.section).getByRole("link", {
-			name: fixtures.activities.title,
-			exact: true,
-		}),
-	).toBeVisible();
-	expect(await occurrencesOf(title, "ร้องเรียน")).toEqual({
-		found: RONGRIAN_TIMES,
-		split: 0,
-		outside: 0,
-	});
-});
 
 test("a card's title shows its characters as written", async ({ page }) => {
 	await page.goto("/");

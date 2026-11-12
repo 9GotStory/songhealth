@@ -1,0 +1,110 @@
+---
+// An Activity in the Homepage's Activities (Feature 008 #247; spec #239 "Activities"): its picture
+// with the date in an accent-warm pill and the title, in two lines at most, over a brand-dark
+// gradient. The Homepage has its own tile, and the Activities list keeps ActivityCard (spec #239
+// "Scope of the change").
+//
+// The date is when the Activity was held, else its publication (src/lib/activities.ts
+// activityDate). A small tile shows none below `sm`, where it is 170 px high and the date would
+// cover the picture's lower half with the title (Product Owner, 2026-11-12: #247 comment
+// 6820125241, item 2); the large tile shows it at every width. The title is surface-base on the
+// gradient, which is brand-dark at 70 % or more under it, so it reads over any picture
+// (measured, docs/design/DESIGN.md §8.10).
+//
+// Without a picture the tile shows the deep green visual with an accent-warm tile near its top,
+// in front of the gradient, which holds a 24 px icon, as the large Latest News card does (Product
+// Owner, 2026-11-12: #244 comment 6810203896). The visual takes no pointer events, so a press on
+// it reaches the tile's link.
+//
+// The title is an H3 under the section's H2, and a native link named by it covers the whole tile;
+// the date stays readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190 comment
+// 6707205912). The picture is decorative, because the title names the link, and covers its box
+// from its middle (docs/design/DESIGN.md §7.3). It goes through EmDash's Image with a `sizes` for
+// the tile's box (src/components/ContentCard.astro says why). A picture whose media item was
+// deleted in Admin is left out for the visual (src/lib/media.ts).
+//
+// The picture's zoom under the pointer moves only under `prefers-reduced-motion: no-preference`
+// (spec #239 "Motion and loading").
+import Heart from "@lucide/astro/icons/heart";
+import { Image } from "emdash/ui";
+import { activityDate, activityPath, type ActivityEntry } from "../lib/activities";
+import { availableMedia } from "../lib/media";
+import DateText from "./DateText.astro";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	activity: ActivityEntry;
+	/** The large tile, for the newest of five Activities. */
+	large?: boolean;
+}
+
+/** The large tile's width: half the row from `lg`, the row below. */
+const LARGE_PICTURE_SIZES = "(min-width: 64rem) 37rem, 100vw";
+/** Another tile's width: a column of the row from `lg`, half the row below, or the row. */
+const PICTURE_SIZES = "(min-width: 64rem) 25rem, (min-width: 40rem) 50vw, 100vw";
+
+const { activity, large = false } = Astro.props;
+const image = await availableMedia(activity.data.featured_image, Astro.locals.emdash);
+const date = activityDate(activity.data);
+const titleId = `home-activity-${crypto.randomUUID()}`;
+---
+
+<article class="group relative h-full overflow-hidden rounded-22 bg-surface-soft shadow-card">
+	{image ? (
+		<Image
+			image={image}
+			alt=""
+			sizes={large ? LARGE_PICTURE_SIZES : PICTURE_SIZES}
+			class="absolute inset-0 size-full object-cover motion-safe:transition-transform motion-safe:duration-600 motion-safe:group-hover:scale-106"
+		/>
+	) : (
+		<div
+			aria-hidden="true"
+			data-testid="activity-visual"
+			class:list={[
+				"deep-visual pointer-events-none absolute inset-0 flex justify-center",
+				large ? "pt-10" : "pt-5",
+			]}
+		>
+			<span
+				class:list={[
+					"relative z-10 flex items-center justify-center bg-accent-warm text-brand-dark",
+					large ? "size-18 rounded-22" : "size-12 rounded-14",
+				]}
+			>
+				<Heart class="shrink-0" size={24} />
+			</span>
+		</div>
+	)}
+	<div
+		class:list={[
+			"absolute inset-x-0 bottom-0 bg-linear-to-t from-brand-dark/96 via-brand-dark/85 via-65% to-transparent text-surface-base",
+			large ? "px-5 pt-20 pb-5 sm:px-6.5 sm:pb-6" : "px-3 pt-10 pb-2.5 sm:px-5 sm:pt-18 sm:pb-4.5",
+		]}
+	>
+		{date && (
+			<p
+				class:list={[
+					"mb-2 inline-block rounded-pill bg-accent-warm px-3 py-0.5 text-small font-semibold text-brand-dark",
+					!large && "max-sm:hidden",
+				]}
+			>
+				<DateText value={date} />
+			</p>
+		)}
+		<h3
+			id={titleId}
+			class:list={[
+				"line-clamp-2 font-semibold wrap-anywhere",
+				large ? "text-body-large lg:text-h3" : "text-label sm:text-body",
+			]}
+		>
+			<ThaiTitle text={activity.data.title} />
+		</h3>
+	</div>
+	<a
+		href={activityPath(activity.id)}
+		aria-labelledby={titleId}
+		class="absolute inset-0 rounded-22"
+	></a>
+</article>
