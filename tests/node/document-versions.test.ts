@@ -71,6 +71,31 @@ describe("DESIGN.md's own version", () => {
 	});
 });
 
+describe("a feature's decision banner", () => {
+	it("stands once in each current document and in DESIGN.md", async () => {
+		// A feature amends a document under one banner and one version bump; a later ticket of the
+		// feature adds to that banner (CODING_STANDARDS "Documents", Amendments; #247 retro: a second
+		// "Feature 008 decision" banner and a second bump reached review).
+		const documents = repositoryFiles().filter(
+			(file) =>
+				file === "docs/design/DESIGN.md" ||
+				(file.startsWith("docs/website-modernization-docs/current/") && file.endsWith(".md")),
+		);
+		assert.ok(documents.length > 1, "the current documents are found");
+		const repeated: string[] = [];
+		for (const file of documents) {
+			const text = await readFile(new URL(file, ROOT), "utf8");
+			const features = [...text.matchAll(/^> \*\*Feature (\d+) decision/gm)].map(([, n]) => n);
+			for (const feature of new Set(features)) {
+				if (features.filter((n) => n === feature).length > 1) {
+					repeated.push(`${file}: Feature ${feature}`);
+				}
+			}
+		}
+		assert.deepEqual(repeated, []);
+	});
+});
+
 describe("versions cited for the current documents", () => {
 	it("finds the versions DESIGN.md cites", async () => {
 		assert.ok((await citations()).some(({ at }) => at.startsWith("docs/design/DESIGN.md:")));

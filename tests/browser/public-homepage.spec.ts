@@ -1427,7 +1427,9 @@ test("the page gives each section the space its place asks for: the Activities d
 	page,
 }) => {
 	// tests/node/public-homepage-spacing.test.ts holds the rule for every combination; this reads
-	// that the page applies it.
+	// that the page applies it. Returning the runtime's content to draft and three page loads at
+	// three widths took 21 of a test's 30 seconds (near-timeout-reporter, #247 retro).
+	test.setTimeout(60_000);
 	await borrowAllContent();
 	await publish("activities", await create("activities", "spacing-chain"));
 	const spaces = [
@@ -1702,6 +1704,9 @@ test("the Activities show the latest five by Activity date at every width, each 
 test("with fewer than five Activities the tiles are equal and fill one row from 1,024 px; below, they go two to a row with the first across the row when the others are an even number: one alone, two side by side, three with the first across, four two by two; and with none the section is left out", async ({
 	page,
 }) => {
+	// Four counts, each at four widths, after returning the runtime's content to draft: 24 of a
+	// test's 30 seconds (near-timeout-reporter, #247 retro).
+	test.setTimeout(60_000);
 	await borrowAllContent();
 	await page.goto("/");
 	await expect(activitiesSection(page)).toHaveCount(0);

@@ -26,7 +26,8 @@ export const SYNTHETIC_REFERRER = "http://songhealth-unknown-referrer.invalid/";
 
 export default defineConfig({
   testDir: "./tests/browser",
-  reporter: [["list"]],
+  // The second reporter names the tests that passed close to their timeout (#247 retro).
+  reporter: [["list"], ["./tests/browser/near-timeout-reporter.ts"]],
   outputDir: "./.tmp/playwright-results",
   workers: 1,
   use: {

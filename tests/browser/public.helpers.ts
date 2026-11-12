@@ -147,6 +147,12 @@ export async function expectVisibleFocusOnEveryStop(page: Page, label: string): 
 		if (stop === null) break;
 		expect(stop.indicator, `${label}: ${stop.name} must show a focus indicator`).toBe(true);
 		expect(stop.unobscured, `${label}: ${stop.name} must not be covered while focused`).toBe(true);
+		// The ring is whole: an ancestor that clips its content must not cut into it (#247 retro: a
+		// tile that clipped itself cut the ring of the link inside it, and this walk passed).
+		expect(
+			await focusRingClippers(page.locator(":focus")),
+			`${label}: what cuts into the focus ring of ${stop.name}`,
+		).toEqual([]);
 		stops.push(stop.name);
 	}
 	expect(stops.length, `${label}: the page must have focusable elements`).toBeGreaterThan(0);
@@ -350,6 +356,39 @@ export async function expectImageLoaded(image: Locator, label: string): Promise<
 			{ message: `${label} loads` },
 		)
 		.toBe(true);
+	// The picture asks for about the width of its box (CODING_STANDARDS "Public pages": "a `sizes`
+	// that matches their box"; #247 retro: a tile asked for a third of its row's width).
+	const asked = await image.evaluate((element: HTMLImageElement) => {
+		const sizes = element.getAttribute("sizes");
+		if (!sizes) return undefined;
+		const px = (length: string) => {
+			const value = Number.parseFloat(length);
+			if (length.endsWith("vw")) return (value * window.innerWidth) / 100;
+			if (length.endsWith("rem")) {
+				return value * Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+			}
+			return value;
+		};
+		for (const entry of sizes.split(",").map((part) => part.trim())) {
+			const conditional = /^(\(.*\))\s+(\S+)$/.exec(entry);
+			if (!conditional) return { asked: px(entry), box: element.getBoundingClientRect().width };
+			if (window.matchMedia(conditional[1]!).matches) {
+				return { asked: px(conditional[2]!), box: element.getBoundingClientRect().width };
+			}
+		}
+		return undefined;
+	});
+	if (asked) {
+		const share = asked.asked / asked.box;
+		expect(
+			share,
+			`${label}: its sizes asks for ${Math.round(asked.asked)} px in a ${Math.round(asked.box)} px box`,
+		).toBeGreaterThanOrEqual(0.75);
+		expect(
+			share,
+			`${label}: its sizes asks for ${Math.round(asked.asked)} px in a ${Math.round(asked.box)} px box`,
+		).toBeLessThanOrEqual(1.5);
+	}
 }
 
 /**
@@ -415,15 +454,11 @@ export async function expectPictureFillsBox(
 }
 
 /**
- * Fail unless `target` shows a focus ring once it has focus and the ring is drawn whole: no
- * ancestor that clips its content cuts into the outline, the element's box widened by the
- * outline's offset and width.
+ * The ancestors of `target` that cut into its focus ring: each one that clips its content where
+ * the outline lies, the element's box widened by the outline's offset and width.
  */
-export async function expectFocusRingWhole(target: Locator, label: string): Promise<void> {
-	await target.focus();
-	await expect(target, `${label}: a focus ring`).not.toHaveCSS("outline-style", "none");
-	await expect(target, `${label}: a focus ring`).toHaveCSS("outline-width", "3px");
-	const clippedBy = await target.evaluate((element) => {
+function focusRingClippers(target: Locator): Promise<string[]> {
+	return target.evaluate((element) => {
 		const style = getComputedStyle(element);
 		const reach = Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth);
 		const ring = element.getBoundingClientRect();
@@ -441,7 +476,17 @@ export async function expectFocusRingWhole(target: Locator, label: string): Prom
 		}
 		return clippers;
 	});
-	expect(clippedBy, `${label}: what cuts into the focus ring`).toEqual([]);
+}
+
+/**
+ * Fail unless `target` shows a focus ring once it has focus and the ring is drawn whole: no
+ * ancestor that clips its content cuts into the outline.
+ */
+export async function expectFocusRingWhole(target: Locator, label: string): Promise<void> {
+	await target.focus();
+	await expect(target, `${label}: a focus ring`).not.toHaveCSS("outline-style", "none");
+	await expect(target, `${label}: a focus ring`).toHaveCSS("outline-width", "3px");
+	expect(await focusRingClippers(target), `${label}: what cuts into the focus ring`).toEqual([]);
 }
 
 /** `part`'s box in the window as the page is laid out and scrolled now, once it shows. */
