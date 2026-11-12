@@ -35,8 +35,7 @@
 	--color-border-default: #dce7e2;
 
 	/* Colours the Figma frame uses without a variable */
-	--color-topic-green: #ebf7f0; /* Health Information cards */
-	--color-topic-blue: #f0f5fc;
+	--color-topic-blue: #f0f5fc; /* The procurement Announcement badge's fill */
 	--color-divider: #dbe8e3; /* Separators inside a white box */
 	--color-activity-visual-from: #bfdcce; /* Activity card without an image */
 	--color-activity-visual-to: #e8f0d9;
@@ -257,6 +256,19 @@
 	background-image:
 		radial-gradient(26.25rem 18.75rem at 85% 0%, var(--color-deep-highlight), transparent 65%),
 		linear-gradient(140deg, var(--color-brand-primary), var(--color-brand-dark));
+}
+
+/*
+ * The Homepage's Health Service Discovery band (spec #239 "Health Service Discovery"):
+ * brand-primary to brand-dark, with the deep-highlight glow from its lower left corner, away from
+ * the heading's small label. brand-dark lies under the gradients, so the band's white text stays
+ * readable where a browser draws neither.
+ */
+@utility deep-band {
+	background-color: var(--color-brand-dark);
+	background-image:
+		radial-gradient(37.5rem 25rem at 0% 100%, var(--color-deep-highlight), transparent 65%),
+		linear-gradient(120deg, var(--color-brand-primary), var(--color-brand-dark));
 }
 
 /*

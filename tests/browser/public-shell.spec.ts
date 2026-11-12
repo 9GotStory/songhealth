@@ -586,21 +586,29 @@ test("Noto Sans Thai comes from the site's own origin, in four weights, with fon
  */
 const DEV_SERVER_SCRIPT_SRC = /^\/@vite\/client$|\.css(\?url)?$/;
 
-test("the shell adds no client JavaScript", async ({ page }) => {
-	for (const path of ["/", unknownPath()]) {
-		const response = await page.goto(path);
-		const html = (await response?.text()) ?? "";
-		const pageScripts = [...html.matchAll(/<script\b[^>]*>/gi)]
-			.map((match) => match[0])
-			.filter((tag) => {
-				const type = /\btype="([^"]*)"/i.exec(tag)?.[1] ?? "";
-				// Scripts of a non-JavaScript type, such as JSON-LD, are data.
-				if (type !== "" && type !== "module" && !/javascript/i.test(type)) return false;
-				const src = /\bsrc="([^"]*)"/i.exec(tag)?.[1];
-				return src === undefined || !DEV_SERVER_SCRIPT_SRC.test(src);
-			});
-		expect(pageScripts, `${path} must not run page JavaScript`).toEqual([]);
+/** The script tags of the page at `path` that run JavaScript, the development server's aside. */
+async function pageScripts(page: Page, path: string): Promise<string[]> {
+	const response = await page.goto(path);
+	const html = (await response?.text()) ?? "";
+	return [...html.matchAll(/<script\b[^>]*>/gi)]
+		.map((match) => match[0])
+		.filter((tag) => {
+			const type = /\btype="([^"]*)"/i.exec(tag)?.[1] ?? "";
+			// Scripts of a non-JavaScript type, such as JSON-LD, are data.
+			if (type !== "" && type !== "module" && !/javascript/i.test(type)) return false;
+			const src = /\bsrc="([^"]*)"/i.exec(tag)?.[1];
+			return src === undefined || !DEV_SERVER_SCRIPT_SRC.test(src);
+		});
+}
+
+test("the shell adds no client JavaScript, and the Homepage carries its one inline script, the submit state", async ({
+	page,
+}) => {
+	for (const path of ["/contact", unknownPath()]) {
+		expect(await pageScripts(page, path), `${path} must not run page JavaScript`).toEqual([]);
 	}
+	// The Homepage's own script (Feature 008 #246; spec #239 "Motion and loading").
+	expect(await pageScripts(page, "/"), "/ runs one inline script").toEqual(["<script>"]);
 });
 
 test.describe("site identity from the native site settings", () => {

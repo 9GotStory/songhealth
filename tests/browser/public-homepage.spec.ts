@@ -11,12 +11,15 @@
 // (Feature 008 #243; spec #239 "Leadership strip"); the five newest published News, the first as a
 // large card (Feature 008 #244; spec #239 "Latest News"); four current Announcements as dated rows
 // in a band of their own, three below 640 px (Feature 008 #245; spec #239 "Current
-// Announcements"); the latest
-// 4 Health Content items, each labelled with its first Health Topic; a Health Service Discovery
-// form that submits an Area and a name to /health-services; the latest Activities by Activity date,
+// Announcements"); a chip for each Health Topic the Health Content list's filter offers and the
+// latest 4 Health Content items as cards with their first Health Topic as a badge, and the Health
+// Service Discovery band with the directory's counts and a form that submits an Area and a name to
+// /health-services (Feature 008 #246; spec #239 "Health Information", "Health Service Discovery");
+// the hero's search and that form showing a spinner after submit (spec #239 "Motion and
+// loading"); the latest Activities by Activity date,
 // 3 on a desktop and 4 on a phone, each with its picture or a visual fallback and "กิจกรรม • date";
-// and the Contact Summary from Office Contact. On a phone the sections keep that order, and Health
-// Information, Activities and Quick Access show their cards two to a row (Feature 006 #146; spec
+// and the Contact Summary from Office Contact. On a phone the sections keep that order, and
+// Activities and Quick Access show their cards two to a row (Feature 006 #146; spec
 // #144 "Homepage (`04`)"); the Frequently Used Services go one to a row there (Feature 008 #242;
 // public-homepage-curation). An optional section with nothing to show disappears. The hero and the
 // Contact Summary always render, and the page answers with no content at all. Closed Announcements,
@@ -84,6 +87,8 @@ import {
 	homepageSection,
 	itemsPerRow,
 	listedItem,
+	listedTitles,
+	ownTitles,
 	siteTitleParts,
 	test,
 	thaiDate,
@@ -225,6 +230,60 @@ function announcementRows(page: Page) {
 /** The current Announcements' links, in order. */
 function announcementLinks(page: Page) {
 	return announcementRows(page).getByRole("link");
+}
+
+/** Health Information. */
+function healthSection(page: Page) {
+	return homepageSection(page, HOMEPAGE_HEADINGS.health);
+}
+
+/** The Health Service Discovery band's section. */
+function discoverySection(page: Page) {
+	return homepageSection(page, HOMEPAGE_HEADINGS.discovery);
+}
+
+/** The Health Service Discovery band's lead, under its heading. */
+const DISCOVERY_LEAD = "เลือกตำบลหรือพิมพ์ชื่อ เพื่อดูข้อมูลติดต่อ เวลาเปิดบริการ และแผนที่";
+
+/**
+ * Whether `part` shows all of its text inside `within`: nothing of it is cut off, and its box lies
+ * within the other's.
+ */
+async function clipsNothing(part: Locator, within: Locator): Promise<boolean> {
+	const whole = await part.evaluate(
+		(element) =>
+			element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight,
+	);
+	const inner = await boxOf(part, "the part");
+	const outer = await boxOf(within, "what holds it");
+	return (
+		whole &&
+		inner.x >= outer.x &&
+		inner.x + inner.width <= outer.x + outer.width &&
+		inner.y >= outer.y &&
+		inner.y + inner.height <= outer.y + outer.height
+	);
+}
+
+/**
+ * Move the pointer to just above the resting lower edge of `card`, whose `surface` then rises 6 px,
+ * and press there.
+ */
+async function expectRisesUnderPointer(page: Page, card: Locator, surface: Locator): Promise<void> {
+	await card.scrollIntoViewIfNeeded();
+	const place = await boxOf(card, "the card's place");
+	expect((await boxOf(surface, "the card's surface")).y, "the card at rest").toBeCloseTo(
+		place.y,
+		0,
+	);
+	const edge = { x: place.x + place.width / 2, y: place.y + place.height - 3 };
+	await page.mouse.move(edge.x, edge.y);
+	await expect
+		.poll(async () => (await boxOf(surface, "the card's surface")).y, {
+			message: "the card under the pointer has risen 6 px",
+		})
+		.toBeCloseTo(place.y - 6, 0);
+	await page.mouse.click(edge.x, edge.y);
 }
 
 /** The Announcements section's lead, beside its heading. */
@@ -803,21 +862,7 @@ test("under the pointer a small News card rises 6 px, and a press just above its
 	const card = newsCards(page).nth(1);
 	await expect(card.getByRole("heading", { level: 3 })).toHaveText(small.title);
 	// The card's white surface, a box with no role of its own.
-	const surface = card.getByTestId("news-surface");
-	await card.scrollIntoViewIfNeeded();
-	const place = await boxOf(card, "the card's place");
-	expect((await boxOf(surface, "the card's surface")).y, "the card at rest").toBeCloseTo(
-		place.y,
-		0,
-	);
-	const edge = { x: place.x + place.width / 2, y: place.y + place.height - 3 };
-	await page.mouse.move(edge.x, edge.y);
-	await expect
-		.poll(async () => (await boxOf(surface, "the card's surface")).y, {
-			message: "the card under the pointer has risen 6 px",
-		})
-		.toBeCloseTo(place.y - 6, 0);
-	await page.mouse.click(edge.x, edge.y);
+	await expectRisesUnderPointer(page, card, card.getByTestId("news-surface"));
 	await expect(page).toHaveURL(`/news/${small.slug}`);
 });
 
@@ -1086,10 +1131,10 @@ test("under the pointer an Announcement's row moves 10 px to the right, and a pr
 	await expect(page).toHaveURL(`/announcements/${announcement.slug}`);
 });
 
-test("Health Information shows the latest 4 published Health Content items, each labelled with its first Health Topic", async ({
+test("Health Information shows the latest 4 published Health Content, each with its picture or the visual in its place, its first Health Topic as a badge, its title, its summary and อ่านต่อ, four to a row from 1,024 px and two from 640 px, and below 640 px as compact rows without the summary, the badge whole", async ({
 	page,
 }) => {
-	const firstTopic = await createTerm("topic", "ก ไข้เลือดออก");
+	const firstTopic = await createTerm("topic", "ก วัคซีนและการสร้างเสริมภูมิคุ้มกันโรค");
 	const secondTopic = await createTerm("topic", "ข เบาหวาน");
 	const oldest = await create("health_content", "oldest", {
 		taxonomies: { topic: [secondTopic.slug] },
@@ -1103,7 +1148,12 @@ test("Health Information shows the latest 4 published Health Content items, each
 	const untopical = await create("health_content", "no-topic");
 	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปความรู้ ${crypto.randomUUID().slice(0, 6)}`;
 	const newest = await create("health_content", "newest", {
-		data: { summary },
+		data: {
+			summary,
+			featured_image: {
+				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพความรู้สุขภาพ`),
+			},
+		},
 		taxonomies: { topic: [secondTopic.slug, firstTopic.slug] },
 	});
 	const draft = await create("health_content", "draft", {
@@ -1112,16 +1162,17 @@ test("Health Information shows the latest 4 published Health Content items, each
 	await publish("health_content", oldest, fourth, third, untopical, newest);
 
 	await page.goto("/");
-	const health = homepageSection(page, HOMEPAGE_HEADINGS.health);
-	await expect(health.getByRole("heading", { level: 3 })).toHaveText([
+	const health = healthSection(page);
+	const cards = health.getByRole("article");
+	await expect(cards.getByRole("heading", { level: 3 })).toHaveText([
 		newest.title,
 		untopical.title,
 		third.title,
 		fourth.title,
 	]);
-	const card = (fixture: DraftFixture) =>
-		health.getByRole("article").filter({ hasText: fixture.title });
-	await expect(card(newest).getByText(firstTopic.label, { exact: true })).toBeVisible();
+	const card = (fixture: DraftFixture) => cards.filter({ hasText: fixture.title });
+	const badge = card(newest).getByText(firstTopic.label, { exact: true });
+	await expect(badge).toBeVisible();
 	await expect(card(newest)).not.toContainText(secondTopic.label);
 	await expect(card(newest).getByText(summary, { exact: true })).toBeVisible();
 	for (const topic of [firstTopic, secondTopic]) {
@@ -1129,10 +1180,18 @@ test("Health Information shows the latest 4 published Health Content items, each
 	}
 	await expect(card(third).getByText(firstTopic.label, { exact: true })).toBeVisible();
 	for (const fixture of [newest, untopical, third, fourth]) {
-		await expect(
-			card(fixture).getByRole("link", { name: `อ่านเพิ่มเติม ${fixture.title}` }),
-		).toHaveAttribute("href", `/health/content/${fixture.slug}`);
+		await expect(card(fixture).getByRole("link")).toHaveAccessibleName(fixture.title);
+		await expect(card(fixture).getByRole("link")).toHaveAttribute(
+			"href",
+			`/health/content/${fixture.slug}`,
+		);
+		await expect(card(fixture).getByText("อ่านต่อ", { exact: true })).toBeVisible();
 	}
+	await card(newest).scrollIntoViewIfNeeded();
+	await expectImageLoaded(card(newest).locator("img"), "the newest Health Content's picture");
+	await expect(card(newest).getByTestId("health-visual")).toHaveCount(0);
+	await expect(card(untopical).locator("img")).toHaveCount(0);
+	await expect(card(untopical).getByTestId("health-visual")).toBeVisible();
 	await expect(health.getByRole("link", { name: "ดูความรู้สุขภาพทั้งหมด" })).toHaveAttribute(
 		"href",
 		"/health/content",
@@ -1140,9 +1199,109 @@ test("Health Information shows the latest 4 published Health Content items, each
 	for (const hidden of [oldest, draft]) {
 		await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
 	}
+
+	for (const [width, rows] of [
+		[1440, [4]],
+		[1024, [4]],
+		[1023, [2, 2]],
+		[640, [2, 2]],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		expect(await itemsPerRow(cards), `the cards in rows at ${width} px`).toEqual(rows);
+		await expect(badge, `the badge at ${width} px`).toBeVisible();
+		expect(await clipsNothing(badge, card(newest)), `the badge is whole at ${width} px`).toBe(true);
+	}
+	for (const width of [639, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		expect(await itemsPerRow(cards), `the rows at ${width} px`).toEqual([1, 1, 1, 1]);
+		await expect(card(newest).getByText(summary), `the summary at ${width} px`).toBeHidden();
+		await expect(
+			card(newest).getByText("อ่านต่อ", { exact: true }),
+			`อ่านต่อ at ${width} px`,
+		).toBeHidden();
+		await expect(badge, `the badge at ${width} px`).toBeVisible();
+		expect(await clipsNothing(badge, card(newest)), `the badge is whole at ${width} px`).toBe(true);
+		// The picture stands at the left of the title.
+		const picture = await boxOf(card(newest).locator("img"), "the row's picture");
+		const title = await boxOf(card(newest).getByRole("heading"), "the row's title");
+		expect(picture.x + picture.width, `the picture left of the title at ${width} px`).toBeLessThan(
+			title.x,
+		);
+	}
+	await expectNoHorizontalScroll(page, "/ with a long Health Topic at 320 px");
 });
 
-test("Health Service Discovery submits the chosen Area and the name to the Health Service Directory", async ({
+test("a chip shows for each Health Topic the Health Content list's filter offers, in the filter's order, and each opens the list narrowed to its topic, which shows only that topic's items", async ({
+	page,
+}) => {
+	const dengue = await createTerm("topic", "ก ไข้เลือดออก");
+	const diabetes = await createTerm("topic", "ข เบาหวาน");
+	const newsOnly = await createTerm("topic", "ค ฝุ่นควัน");
+	const aboutDengue = await create("health_content", "chip-dengue", {
+		taxonomies: { topic: [dengue.slug] },
+	});
+	const aboutDiabetes = await create("health_content", "chip-diabetes", {
+		taxonomies: { topic: [diabetes.slug] },
+	});
+	await publish("health_content", aboutDengue, aboutDiabetes);
+	// A Health Topic that only a News carries is not in the Health Content list's filter.
+	await publish(
+		"news",
+		await create("news", "chip-news-only", { taxonomies: { topic: [newsOnly.slug] } }),
+	);
+
+	await page.goto("/health/content");
+	const offered = (
+		await page.getByLabel("ประเด็นสุขภาพ").locator("option:not([value=''])").allTextContents()
+	).map((label) => label.trim());
+	expect(offered, "the list's filter offers both topics").toEqual(
+		expect.arrayContaining([dengue.label, diabetes.label]),
+	);
+	expect(offered, "and not the News' topic").not.toContain(newsOnly.label);
+
+	await page.goto("/");
+	const chips = healthSection(page).getByRole("list", { name: "ประเด็นสุขภาพ" }).getByRole("link");
+	await expect(chips).toHaveText(offered);
+	for (const [topic, shown, other] of [
+		[dengue, aboutDengue, aboutDiabetes],
+		[diabetes, aboutDiabetes, aboutDengue],
+	] as const) {
+		await page.goto("/");
+		const chip = chips.filter({ hasText: topic.label });
+		await expect(chip).toHaveAttribute("href", `/health/content?topic=${topic.slug}`);
+		await chip.click();
+		await expect(page).toHaveURL(`/health/content?topic=${topic.slug}`);
+		expect(
+			ownTitles(await listedTitles(page), [shown, other]),
+			`the list narrowed to ${topic.label}`,
+		).toEqual([shown.title]);
+		await expect(page.getByLabel("ประเด็นสุขภาพ")).toHaveValue(topic.slug);
+	}
+	// A chip is 24 px high or more at every width, and the row wraps inside the page.
+	await page.goto("/");
+	for (const width of [1440, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		const heights = await chips.evaluateAll((links) =>
+			links.map((link) => link.getBoundingClientRect().height),
+		);
+		expect(Math.min(...heights), `the lowest chip at ${width} px`).toBeGreaterThanOrEqual(24);
+	}
+	await expectNoHorizontalScroll(page, "/ with the Health Topic chips at 320 px");
+});
+
+test("under the pointer a Health Content card rises 6 px, and a press just above its resting lower edge still opens the Health Content", async ({
+	page,
+}) => {
+	const item = await create("health_content", "hover");
+	await publish("health_content", item);
+	await page.goto("/");
+	const card = healthSection(page).getByRole("article").first();
+	await expect(card.getByRole("heading", { level: 3 })).toHaveText(item.title);
+	await expectRisesUnderPointer(page, card, card.getByTestId("health-surface"));
+	await expect(page).toHaveURL(`/health/content/${item.slug}`);
+});
+
+test("the Health Service Discovery band shows its heading and lead, the number of published Health Services and of the Areas the directory's filter offers, and its form opens the directory with the chosen Area and the typed name", async ({
 	page,
 }) => {
 	const area = await createTerm("area", "ตำบลบ้านกลาง");
@@ -1151,20 +1310,280 @@ test("Health Service Discovery submits the chosen Area and the name to the Healt
 	});
 	await publish("health_services", facility);
 	const name = facility.slug.slice(-6);
+	const published = (await listPublishedEntries(admin, "health_services")).length;
+	await page.goto("/health-services");
+	const offeredAreas = await page
+		.getByRole("form", { name: "ค้นหาหน่วยบริการ" })
+		.getByLabel("พื้นที่รับผิดชอบ")
+		.locator("option:not([value=''])")
+		.count();
 
 	await page.goto("/");
-	const discovery = homepageSection(page, HOMEPAGE_HEADINGS.discovery);
-	await expect(
-		discovery.getByText("หน่วยบริการสุขภาพที่เกี่ยวข้อง", { exact: true }),
-	).toBeVisible();
+	const discovery = discoverySection(page);
+	// The heading's small label, before the count that ends in the same word.
+	await expect(discovery.getByText("หน่วยบริการ", { exact: true }).first()).toBeVisible();
+	await expect(discovery.getByText(DISCOVERY_LEAD, { exact: true })).toBeVisible();
+	await expect(discovery.getByRole("listitem")).toHaveText([
+		`${published} หน่วยบริการ`,
+		`${offeredAreas} พื้นที่`,
+	]);
 	const areaField = discovery.getByLabel("พื้นที่รับผิดชอบ");
 	await expect(areaField.getByRole("option", { name: area.label })).toHaveCount(1);
+	await expect(areaField.locator("option")).toHaveCount(offeredAreas + 1);
+	// Each control of the form is 44 px high or more (spec #239 "Accessibility").
+	for (const control of [
+		areaField,
+		discovery.getByLabel("ชื่อหน่วยบริการ"),
+		discovery.getByRole("button", { name: "ค้นหา", exact: true }),
+	]) {
+		expect((await boxOf(control, "a control of the form")).height).toBeGreaterThanOrEqual(44);
+	}
 	await areaField.selectOption({ label: area.label });
 	await discovery.getByLabel("ชื่อหน่วยบริการ").fill(name);
-	await discovery.getByRole("button", { name: "ค้นหาหน่วยบริการ" }).click();
+	await discovery.getByRole("button", { name: "ค้นหา", exact: true }).click();
 
 	await expect(page).toHaveURL(`/health-services?area=${area.slug}&name=${name}`);
 	await expect(listedItem(page, facility.title)).toBeVisible();
+});
+
+test("with one Health Service that has no Area the band counts it and shows no number of Areas; Health Information follows Latest News without space of its own and the Announcements band with it, and the band keeps Health Information's space above it and the same below", async ({
+	page,
+}) => {
+	await borrowAllContent();
+	await publish("health_services", await createSyntheticHealthService(admin, "no-area"));
+	await publish("news", await create("news", "before-health"));
+	await publish("health_content", await create("health_content", "spacing"));
+	const spaces = [
+		[1440, 80],
+		[768, 64],
+		[375, 32],
+	] as const;
+	/** The room between the lower edge of `above`'s box and the upper edge of `below`'s. */
+	const roomBetween = async (above: Locator, below: Locator) => {
+		const upper = await boxOf(above, "the part above");
+		return (await boxOf(below, "the part below")).y - (upper.y + upper.height);
+	};
+	const health = healthSection(page);
+	const discovery = discoverySection(page);
+	const band = discovery.getByTestId("discovery-band");
+	await withHomepageMenus(admin, EMPTY_MENUS, async () => {
+		await page.goto("/");
+		await expect(discovery.getByRole("listitem")).toHaveText(["1 หน่วยบริการ"]);
+		await expect(discovery.getByLabel("พื้นที่รับผิดชอบ").locator("option")).toHaveText([
+			"ทุกพื้นที่",
+		]);
+		for (const [width, space] of spaces) {
+			await page.setViewportSize({ width, height: 900 });
+			await expect(health, `Health Information's space above at ${width} px`).toHaveCSS(
+				"padding-top",
+				"0px",
+			);
+			expect(
+				await roomBetween(health.getByRole("list").last(), band),
+				`from the Health Content cards to the band at ${width} px`,
+			).toBeCloseTo(space, 0);
+			// With no Activities the Contact Summary follows the band.
+			expect(
+				await roomBetween(band, homepageSection(page, siteTitle)),
+				`from the band to the Contact Summary at ${width} px`,
+			).toBeCloseTo(space, 0);
+		}
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+
+		await publish(
+			"announcements",
+			await create("announcements", "before-health", { data: { closes_at: CLOSES_LATER } }),
+		);
+		await page.goto("/");
+		for (const [width, space] of spaces) {
+			await page.setViewportSize({ width, height: 900 });
+			await expect(health, `Health Information's space above at ${width} px`).toHaveCSS(
+				"padding-top",
+				`${space}px`,
+			);
+		}
+	});
+});
+
+test("directly below the deep field the Activities have the sections' space above them, and so has the band before them, where they keep theirs; Health Information before the band takes that space instead, and without the band the Activities follow Health Information's space below, or the News' own", async ({
+	page,
+}) => {
+	await borrowAllContent();
+	await publish("activities", await create("activities", "spacing-chain"));
+	const spaces = [
+		[1440, 80],
+		[768, 64],
+		[375, 32],
+	] as const;
+	const health = healthSection(page);
+	const discovery = discoverySection(page);
+	const activities = homepageSection(page, HOMEPAGE_HEADINGS.activities);
+	/** Read `section`'s own space above at each width. */
+	const expectSpaceAbove = async (section: Locator, name: string, own: boolean) => {
+		for (const [width, space] of spaces) {
+			await page.setViewportSize({ width, height: 900 });
+			await expect(section, `${name}'s space above at ${width} px`).toHaveCSS(
+				"padding-top",
+				own ? `${space}px` : "0px",
+			);
+		}
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+	};
+	/** Return a fixture to draft. */
+	const unpublish = async (collection: Collection, fixture: DraftFixture) => {
+		const unpublished = await unpublishEntry(admin, collection, fixture.id);
+		expect(unpublished.ok, `unpublishing: ${nativeRefusalOf(unpublished)}`).toBe(true);
+	};
+	await withHomepageMenus(admin, EMPTY_MENUS, async () => {
+		// The Activities alone, with no Leadership, News, Announcements or band above them.
+		await page.goto("/");
+		await expect(discovery).toHaveCount(0);
+		await expectSpaceAbove(activities, "the Activities", true);
+
+		// The band takes that place, and the Activities keep their space after it.
+		const facility = await createSyntheticHealthService(admin, "spacing-chain");
+		await publish("health_services", facility);
+		await page.goto("/");
+		await expect(health).toHaveCount(0);
+		await expectSpaceAbove(discovery, "the band", true);
+		await expectSpaceAbove(activities, "the Activities", true);
+		await expect(discovery, "the band's space below before the Activities").toHaveCSS(
+			"padding-bottom",
+			"0px",
+		);
+
+		const item = await create("health_content", "spacing-chain");
+		await publish("health_content", item);
+		await page.goto("/");
+		await expectSpaceAbove(health, "Health Information", true);
+		await expectSpaceAbove(discovery, "the band", false);
+
+		// Without the band, Health Information's space below is the only space before the Activities.
+		await unpublish("health_services", facility);
+		await page.goto("/");
+		await expect(discovery).toHaveCount(0);
+		await expectSpaceAbove(activities, "the Activities", false);
+		for (const [width, space] of spaces) {
+			await page.setViewportSize({ width, height: 900 });
+			await expect(health, `Health Information's space below at ${width} px`).toHaveCSS(
+				"padding-bottom",
+				`${space}px`,
+			);
+		}
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+
+		// After Latest News alone, the Activities follow the News' own space below.
+		await unpublish("health_content", item);
+		await publish("news", await create("news", "spacing-chain"));
+		await page.goto("/");
+		await expect(health).toHaveCount(0);
+		await expectSpaceAbove(activities, "the Activities", false);
+	});
+});
+
+/** The Homepage's forms, which show their submit state (spec #239 "Motion and loading"). */
+const SUBMIT_FORMS = [
+	{
+		name: "the hero's site search",
+		find: (page: Page) => page.getByRole("main").getByRole("search"),
+		fill: (found: Locator) => found.getByRole("searchbox").fill("วัคซีน"),
+		destination: "/search",
+	},
+	{
+		name: "the Health Service Discovery form",
+		find: (page: Page) => discoverySection(page).getByRole("form"),
+		fill: (found: Locator) => found.getByLabel("ชื่อหน่วยบริการ").fill("อนามัย"),
+		destination: "/health-services",
+	},
+];
+
+for (const form of SUBMIT_FORMS) {
+	test(`after submit, the button of ${form.name} shows a spinner in place of its icon and a second press sends nothing more, and it shows its icon again when the page is shown from history, after ten seconds, and back from the result`, async ({
+		page,
+	}) => {
+		await publish("health_services", await createSyntheticHealthService(admin, "submit-state"));
+		// The page's timers run on a clock the test can move.
+		await page.clock.install();
+		await page.goto("/");
+		const found = form.find(page);
+		const button = found.getByRole("button", { name: "ค้นหา", exact: true });
+		const spinner = button.getByTestId("submit-spinner");
+		const icon = button.getByTestId("submit-icon");
+		await expect(spinner).toBeHidden();
+		await expect(icon).toBeVisible();
+
+		// The result answers 204 No Content, so the browser keeps the page in sight after submit.
+		const result = (url: URL) => url.pathname === form.destination;
+		const sent: string[] = [];
+		await page.route(result, async (route) => {
+			sent.push(route.request().url());
+			await route.fulfill({ status: 204 });
+		});
+		await form.fill(found);
+		await button.click();
+		await expect(spinner).toBeVisible();
+		await expect(icon).toBeHidden();
+		await button.click({ force: true });
+		await found.locator("input").first().press("Enter");
+		await expect(spinner).toBeVisible();
+		// A second request would have reached the route by now.
+		await page.waitForTimeout(500);
+		expect(sent, "one request for the result").toHaveLength(1);
+		// The spinner turns, and stands still when reduced motion is preferred.
+		await expect(spinner).not.toHaveCSS("animation-name", "none");
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await expect(spinner).toBeVisible();
+		await expect(spinner).toHaveCSS("animation-name", "none");
+		await page.emulateMedia({ reducedMotion: "no-preference" });
+		// A page the browser kept and shows again from history gets `pageshow`. Playwright's Chromium
+		// keeps no page that way, so the event is sent here.
+		await page.evaluate(() =>
+			window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })),
+		);
+		await expect(spinner).toBeHidden();
+		await expect(icon).toBeVisible();
+
+		// A result that never opens here leaves the form shut for ten seconds, no longer: counted
+		// from this submit, six seconds after the first one, whose own ten seconds no longer count.
+		await page.clock.fastForward(6_000);
+		await button.click();
+		await expect(spinner).toBeVisible();
+		expect(sent, "a second request once the state has cleared").toHaveLength(2);
+		await page.clock.fastForward(5_000);
+		await expect(spinner, "five seconds after the second submit").toBeVisible();
+		await page.clock.fastForward(6_000);
+		await expect(spinner).toBeHidden();
+		await expect(icon).toBeVisible();
+
+		// The real way there and back: the result opens, and the browser's back button returns.
+		await page.unroute(result);
+		await button.click();
+		await expect(page).toHaveURL(result);
+		await page.goBack();
+		await expect(page).toHaveURL("/");
+		await expect(form.find(page).getByTestId("submit-spinner")).toBeHidden();
+		await expect(form.find(page).getByTestId("submit-icon")).toBeVisible();
+	});
+}
+
+test.describe("without JavaScript", () => {
+	test.use({ javaScriptEnabled: false });
+
+	for (const form of SUBMIT_FORMS) {
+		test(`${form.name} opens its result as a plain form, its button showing its icon`, async ({
+			page,
+		}) => {
+			await publish("health_services", await createSyntheticHealthService(admin, "plain-form"));
+			await page.goto("/");
+			const found = form.find(page);
+			const button = found.getByRole("button", { name: "ค้นหา", exact: true });
+			await expect(button.getByTestId("submit-icon")).toBeVisible();
+			await expect(button.getByTestId("submit-spinner")).toBeHidden();
+			await form.fill(found);
+			await button.click();
+			await expect(page).toHaveURL((url) => url.pathname === form.destination);
+		});
+	}
 });
 
 test("Activities shows the latest 3 by Activity date on a desktop and the latest 4 on a phone, each with its picture or the visual fallback and กิจกรรม • date", async ({
@@ -1384,11 +1803,7 @@ test("with every section showing, the sections follow the Figma order on a deskt
 					await test.step("Phone layout at 375 px", async () => {
 						await page.setViewportSize(PHONE_VIEWPORT);
 						await expect(sectionHeadings(page)).toHaveText([...order, siteTitle]);
-						for (const heading of [
-							HOMEPAGE_HEADINGS.health,
-							HOMEPAGE_HEADINGS.activities,
-							HOMEPAGE_HEADINGS.quickAccess,
-						]) {
+						for (const heading of [HOMEPAGE_HEADINGS.activities, HOMEPAGE_HEADINGS.quickAccess]) {
 							const [firstRow] = await itemsPerRow(
 								homepageSection(page, heading).getByRole("listitem"),
 							);

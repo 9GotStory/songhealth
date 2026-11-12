@@ -263,6 +263,15 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 					.getByRole("article")
 					.filter({ hasText: announcement.title });
 				await expectWholeCardLink(page, announcementRow, announcement.title, 3);
+				// Health Information's own cards (Feature 008 #246): the newest Health Content,
+				// without a picture, and the pictured one after it.
+				const healthCards = homepageSection(page, HOMEPAGE_HEADINGS.health).getByRole("article");
+				const healthCard = healthCards.filter({ hasText: health.title });
+				const pictureHealthCard = healthCards.filter({
+					hasText: pictureEntries.health_content!.title,
+				});
+				await expectWholeCardLink(page, healthCard, health.title, 3);
+				await expectWholeCardLink(page, pictureHealthCard, pictureEntries.health_content!.title, 3);
 				await expectCardInteraction(page, activityCard, activity.title, 3);
 				const visible = width < 1024 ? 4 : 3;
 				await expect(activities.getByRole("article").getByRole("link")).toHaveCount(visible);
@@ -303,6 +312,18 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 					[news, largeNewsCard, largeNewsCard.getByTestId("news-visual").locator("span"), "/news/"],
 					[pictureEntries.news!, smallNewsCard, smallNewsCard.locator("img"), "/news/"],
 					[announcement, announcementRow, announcementRow.locator("time"), "/announcements/"],
+					[
+						health,
+						healthCard,
+						healthCard.getByTestId("health-visual").locator("span"),
+						"/health/content/",
+					],
+					[
+						pictureEntries.health_content!,
+						pictureHealthCard,
+						pictureHealthCard.locator("img"),
+						"/health/content/",
+					],
 				] as const) {
 					const destination = `${path}${fixture.slug}`;
 					await page.goto("/");

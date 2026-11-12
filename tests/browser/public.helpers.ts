@@ -725,7 +725,7 @@ export const HOMEPAGE_HEADINGS = {
 	news: "ข่าวประชาสัมพันธ์",
 	announcements: "ประกาศ",
 	health: "ความรู้สุขภาพ",
-	discovery: "ค้นหาหน่วยบริการสุขภาพในอำเภอสอง",
+	discovery: "หน่วยบริการสุขภาพในอำเภอสอง",
 	activities: "กิจกรรม",
 	quickAccess: "ข้อมูลและเอกสารสำคัญ",
 } as const;
