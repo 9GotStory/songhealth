@@ -1,9 +1,9 @@
 # Content Model — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 02-content-model
-> **Status:** CLEAN REBASELINE v2.5 — CURRENT native-only publication
-> **Version:** 2.5
-> **Last Updated:** 3 พฤศจิกายน 2569 (2026-11-03): Feature 004, ITA in V1
+> **Status:** CLEAN REBASELINE v2.6 — CURRENT native-only publication
+> **Version:** 2.6
+> **Last Updated:** 12 พฤศจิกายน 2569 (2026-11-12): Feature 008, the Service's icon
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`
 > **Purpose:** กำหนด semantic resources, fields และ relationships ที่ Songhealth ต้องการ โดยไม่สร้าง model ซ้ำกับ native CMS resources
 
@@ -33,6 +33,11 @@
 > content model gains MOIT (§18): one entry per MOIT per fiscal year, with its Requirements and
 > Evidence in a blocks field. No historical-evidence guard is built. Spec #121 supersedes Feature
 > 002's FR-014 to FR-017 and D-ITA; `specs/002-cms-content-model/` stays a record.
+
+> **Feature 008 decision (Product Owner, 2026-11-11 and 2026-11-12; spec #239, #239 comment
+> 6786631899, #248 comment 6826430670):** Service gains an optional Icon (§12), chosen from a
+> fixed set of 18 by a Thai name for its picture. A Service without one shows the standard icon.
+> It is Feature 008's only model change.
 
 ---
 
@@ -247,6 +252,7 @@ Fields:
 
 - Name
 - Summary
+- Icon (optional): หนึ่งในชุดไอคอนที่กำหนดไว้ สำหรับการ์ดของบริการ; ไม่เลือก = ไอคอนมาตรฐาน (`docs/design/DESIGN.md` §5)
 - Category/Topic/Audience
 - Ownership Type
 - Provider/Owner

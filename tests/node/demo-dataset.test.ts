@@ -683,7 +683,15 @@ describe("demo dataset: content (#66)", () => {
 		const onHomepage = dataset.menus["homepage-services"]!.map((item) =>
 			"entry" in item ? icons[item.entry as keyof typeof icons] : undefined,
 		);
-		assert.equal(new Set(onHomepage).size, 6, `six different icons among ${onHomepage.join(", ")}`);
+		// The six of the prototype the Product Owner chose, in the menu's order.
+		assert.deepEqual(onHomepage, [
+			"ข้อความแจ้งเตือน",
+			"หลอดไฟ",
+			"หัวใจและชีพจร",
+			"เอกสาร",
+			"กลุ่มคน",
+			"เครื่องหมายคำถาม",
+		]);
 	});
 
 	it("has Health Services across two or three demo Areas", () => {

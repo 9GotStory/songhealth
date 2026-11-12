@@ -841,13 +841,13 @@ export function listedItem(page: Page, title: string) {
  * thing on the page that tells two icons apart.
  */
 export async function expectServiceIcon(card: Locator, icon: string, title: string): Promise<void> {
+	await expect(card.getByRole("link"), "the Service's name names the card").toHaveAccessibleName(
+		title,
+	);
 	const tile = card.getByTestId("service-icon");
 	await expect(tile, "the icon tile is decorative").toHaveAttribute("aria-hidden", "true");
 	await expect(tile.locator("svg"), `the ${icon} icon`).toHaveClass(
 		new RegExp(`(?:^| )lucide-${icon}(?: |$)`),
-	);
-	await expect(card.getByRole("link"), "the Service's name names the card").toHaveAccessibleName(
-		title,
 	);
 }
 

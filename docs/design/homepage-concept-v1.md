@@ -57,8 +57,7 @@ These were decided in #51 and the current docs.
 - **Icons** (Product Owner, 2026-10-31: #51 comments 6536026977, 6536052180; built in #105):
   Lucide icons replace the frame's text marks. A link on this site ends in chevron-right where the
   frame has "→", and so does the Service card's corner, where it has "↗". A link that leaves the
-  site ends in arrow-up-right, and the Service tile shows hand-heart instead of "+" (since Feature
-  008 #248, the icon staff chose for the Service, hand-heart without a choice). The header
+  site ends in arrow-up-right, and the Service tile shows hand-heart instead of "+". The header
   mark keeps its "+" until the office's logo arrives.
 
 ## Shared patterns

@@ -154,14 +154,14 @@ test("a Service's card shows the icon staff chose, or the standard icon without 
 	page,
 }) => {
 	// Staff choose an icon by the Thai name of its picture (#248 comment 6826430670).
-	const chosen = await createService("icon-chosen", { name: "กา", data: { icon: "เข็มฉีดยา" } });
 	const unchosen = await createService("icon-unchosen", { name: "กา" });
-	for (const fixture of [chosen, unchosen]) await publish("services", fixture);
+	const chosen = await createService("icon-chosen", { name: "กา", data: { icon: "เข็มฉีดยา" } });
+	for (const fixture of [unchosen, chosen]) await publish("services", fixture);
 
 	await page.goto("/services");
 	for (const [service, icon] of [
-		[chosen, "syringe"],
 		[unchosen, "hand-heart"],
+		[chosen, "syringe"],
 	] as const) {
 		await expectServiceIcon(listedItem(page, service.title), icon, service.title);
 	}

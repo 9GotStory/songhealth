@@ -53,6 +53,22 @@ describe("a Service's icon", () => {
 		}
 	});
 
+	it("is drawn by its own Lucide module, for each of the 18", () => {
+		// ServiceIcon pairs each Lucide name with a component; a pair that crossed two icons would
+		// still render one, so the component's source is read for each pair.
+		const source = readFileSync(
+			new URL("../../src/components/ServiceIcon.astro", import.meta.url),
+			"utf8",
+		);
+		for (const [, icon] of CHOICES) {
+			const component = new RegExp(`import (\\w+) from "@lucide/astro/icons/${icon}";`).exec(
+				source,
+			)?.[1];
+			assert.ok(component, `${icon} is imported from its own module`);
+			assert.match(source, new RegExp(`^\\t"?${icon}"?: ${component},$`, "m"), icon);
+		}
+	});
+
 	it("is the standard icon, hand-heart, without a choice", () => {
 		assert.equal(serviceIcon(null), "hand-heart");
 		assert.equal(serviceIcon(undefined), "hand-heart");

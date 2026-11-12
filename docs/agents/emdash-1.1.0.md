@@ -333,7 +333,8 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
     Thai value shows as written.
   - The editor's list has no empty choice, so staff cannot clear a chosen value there (same
     `case "select"`). A field that needs a way back therefore has it as one of its options, as
-    the Service `icon` field's standard icon is (#248) and the ITA Round's "ไม่ระบุรอบ" (spec #121).
+    the Service `icon` field's standard icon is (#248). A block's `select` field has none either
+    (below, the blocks field in the Admin).
   - A content save refuses a value outside the options, and takes `null` or no value for a field
     that is not required (`src/schema/zod-generator.ts`, `case "select"` and the `.nullish()` of a
     non-required field). `PUT …/collections/{slug}/fields/{field}` with a `validation` stores it

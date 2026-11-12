@@ -883,19 +883,19 @@ test("a Frequently Used Service shows the icon staff chose, or the standard icon
 	page,
 }) => {
 	// Staff choose an icon by the Thai name of its picture (#248 comment 6826430670).
-	const chosen = await createSyntheticService(admin, "icon-chosen", { data: { icon: "หลอดไฟ" } });
 	const unchosen = await createSyntheticService(admin, "icon-unchosen");
-	await publish("services", chosen, unchosen);
-	const menu = [chosen, unchosen].map((service) => pickedMenuItem("services", service));
+	const chosen = await createSyntheticService(admin, "icon-chosen", { data: { icon: "หลอดไฟ" } });
+	await publish("services", unchosen, chosen);
+	const menu = [unchosen, chosen].map((service) => pickedMenuItem("services", service));
 	await withHomepageMenus(admin, { services: menu }, async () => {
 		await page.goto("/");
 		const cards = homepageSection(page, HOMEPAGE_HEADINGS.services).getByRole("article");
-		await expectServiceIcon(cards.filter({ hasText: chosen.title }), "lightbulb", chosen.title);
 		await expectServiceIcon(
 			cards.filter({ hasText: unchosen.title }),
 			"hand-heart",
 			unchosen.title,
 		);
+		await expectServiceIcon(cards.filter({ hasText: chosen.title }), "lightbulb", chosen.title);
 	});
 });
 
