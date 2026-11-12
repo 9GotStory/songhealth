@@ -1939,7 +1939,15 @@ async function withEverySection(
 				},
 			},
 		});
-		await publish("news", featured, await create("news", label));
+		// The other News has a picture too, whose box shimmers as the page opens.
+		const pictured = await create("news", label, {
+			data: {
+				featured_image: {
+					id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพข่าว`),
+				},
+			},
+		});
+		await publish("news", featured, pictured);
 		await publish("announcements", await create("announcements", label));
 		await publish("health_services", await createSyntheticHealthService(admin, label));
 		await publish(
@@ -2102,12 +2110,12 @@ async function pageLayouts(page: Page) {
 /**
  * When each effect that runs by itself, on the page's clock, is over, in milliseconds after it
  * began; Infinity for one that never ends. A reveal runs on the visitor's scrolling and is left
- * out.
+ * out. `scope` is the part of the page to read.
  */
-function selfRunningEnds(page: Page): Promise<number[]> {
-	return page.evaluate(() =>
-		document
-			.getAnimations()
+function selfRunningEnds(scope: Locator): Promise<number[]> {
+	return scope.evaluate((root) =>
+		root
+			.getAnimations({ subtree: true })
 			.filter((animation) => animation.timeline instanceof DocumentTimeline)
 			.map((animation) => Number(animation.effect?.getComputedTiming().endTime)),
 	);
@@ -2210,11 +2218,14 @@ test("the page moves only when motion is allowed: the hero's parts enter one aft
 			// Read as the page opens, while the hero's entrance and a loading picture's shimmer run:
 			// each is over within five seconds (WCAG 2.2 SC 2.2.2), and the decorations stand still.
 			await page.goto("/", { waitUntil: "commit" });
-			await expect(hero.getByRole("search")).toBeVisible();
-			const ends = await selfRunningEnds(page);
-			expect(ends.length, "the hero's entrance is running").toBeGreaterThan(0);
-			expect(Math.max(...ends), "the last effect to end, in ms").toBeLessThanOrEqual(5_000);
 			await expect(sectionHeadings(page)).toHaveText(order);
+			const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
+			expect(
+				(await selfRunningEnds(news)).length,
+				"the box of a News picture shimmers as the page opens",
+			).toBeGreaterThan(0);
+			const ends = await selfRunningEnds(page.locator("html"));
+			expect(Math.max(...ends), "the last effect to end, in ms").toBeLessThanOrEqual(5_000);
 		});
 
 		await test.step("Focus on every stop with motion", async () => {

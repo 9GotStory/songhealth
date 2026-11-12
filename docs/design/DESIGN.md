@@ -971,8 +971,8 @@ stays the submit state (§8.9).
   for longer than five seconds, so the page needs no control that stops it (WCAG 2.2 SC 2.2.2;
   Product Owner, 2026-11-13: #249 comment 6838503280, item 1).
 - **A loading picture.** The box of a News, Health Content or Activity picture is `surface-soft`
-  with a lighter band of `bg-page` that crosses it three times, every 1.6 s, as the page opens,
-  and then rests. The loaded picture covers it. CSS cannot tell that a picture has loaded, so the
+  with a lighter band of `bg-page` that crosses it three times, every 1.6 s, as the page opens;
+  before and after, the box is plain `surface-soft`. The loaded picture covers it. CSS cannot tell that a picture has loaded, so the
   shimmer runs on the page's clock: a picture that loads later, below the window, has the resting
   box behind it. A missing picture's visual has no shimmer, nor has the Featured picture, which
   has its blurred copy behind it (§8.1), or a Leadership portrait in its ring (§8.5) (Product
