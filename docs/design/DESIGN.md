@@ -95,8 +95,7 @@ recognizably connected to the local health-service network.
    `focus-ring-on-dark` and `focus-ring-on-light`; the header's `header-title` and
    `header-nav-item`; the Homepage's `deep-field`, `deep-band`, `deep-visual`, `plain-visual`, `hero-headline`,
    `hero-headline-alone` and `section-title`; the Homepage's motion, §8.12: `hero-enter`,
-   `featured-card-enter`, `featured-sheet-enter`, `scroll-reveal`, `glow-drift`, `ring-turn` and
-   `picture-shimmer`, with the keyframes they run) and the `.rich-text` typography of Portable Text
+   `featured-card-enter`, `featured-sheet-enter`, `scroll-reveal` and `picture-shimmer`, with the keyframes they run) and the `.rich-text` typography of Portable Text
    bodies, which EmDash renders as plain HTML that takes no utility classes.
 4. No other plain CSS selectors for component styling, no CSS Modules, Astro `<style>` blocks or
    CSS-in-JS, and no Tailwind v3 setup or `tailwind.config.js`. An inline `style` carries only a
@@ -967,36 +966,32 @@ stays the submit state (§8.9).
   backwards rise-in view()")` is false, and with the longhands the computed `animation-timeline`
   is `view()`). The browser suites cannot see this: the development runtime serves the stylesheet
   unminified.
-- **The decorations.** The deep field's two glows drift 30 px to the right and 36 px up and back,
-  in 9 and 13 s. The hero's small ring, the discovery band's ring and the contact card's ring turn
-  once in 40 s, drawn dashed so the turn shows. A ring turns about its own middle and so stays
-  where §8.9 and §8.11 measured the text beside it. With the glows at the far end of their drift
-  the deep field's white text keeps its contrast: measured on the demo dataset at the application
-  code of `c69b9e8`, lowest of the five widths, the chip 6.06:1 (5.98:1 at rest), the headline
-  4.51:1 at 768 px (4.84:1 at rest; large text), the Services' label 7.72:1, their H2 7.19:1 and
-  their link 5.80:1 (`CONTRAST_STYLE` of `scripts/measure-text-contrast.ts`).
+- **The decorations stand still.** The deep field's glows and the three rings do not move, in
+  place of the prototype's drifting glows and turning rings: nothing on the page moves by itself
+  for longer than five seconds, so the page needs no control that stops it (WCAG 2.2 SC 2.2.2;
+  Product Owner, 2026-11-13: #249 comment 6838503280, item 1).
 - **A loading picture.** The box of a News, Health Content or Activity picture is `surface-soft`
-  with a lighter band of `bg-page` that crosses it every 1.6 s. The loaded picture covers it, and
-  the band goes on behind it: CSS cannot tell that a picture has loaded, so a picture with
-  transparent parts would show it there. A missing picture's visual has no shimmer, nor has the
-  Featured picture, which has its blurred copy behind it (§8.1), or a Leadership portrait in its
-  ring (§8.5).
+  with a lighter band of `bg-page` that crosses it three times, every 1.6 s, as the page opens,
+  and then rests. The loaded picture covers it. CSS cannot tell that a picture has loaded, so the
+  shimmer runs on the page's clock: a picture that loads later, below the window, has the resting
+  box behind it. A missing picture's visual has no shimmer, nor has the Featured picture, which
+  has its blurred copy behind it (§8.1), or a Leadership portrait in its ring (§8.5) (Product
+  Owner: the same comment, item 2).
 - **Hover** ships with each section (§8.1, §8.4, §8.6 to §8.10).
 - **Reduced motion and paper.** All of it runs only on a screen under
   `prefers-reduced-motion: no-preference`. With reduced motion preferred, and in print, nothing
-  moves: every part shows whole in its place, the rings are plain lines and a loading picture's
-  box is plain `surface-soft`. The glows, the rings and the shimmer start by themselves and do
-  not end, and the page has no control that stops them: the visitor's reduced-motion setting is
-  the one way to a still page (WCAG 2.2 SC 2.2.2; a pending confirmation on #249).
-- **No effect moves layout.** A part changes its opacity, `translate`, `rotate` and `scale`, a
-  ring its line and a loading picture's box its background; none of these moves layout. An effect
+  moves: every part shows whole in its place and a loading picture's box is plain
+  `surface-soft`.
+- **No effect moves layout.** A part changes its opacity, `translate`, `rotate` and `scale`, and a
+  loading picture's box its background; none of these moves layout. An effect
   holds a part back only before it runs: once over, the part has its own styles again, so a
   card's hover and the Announcements' heading that stays in view behave as without motion. The
   page's height and each section's place are the same with and without motion
   (`public-homepage.spec.ts` "the page moves only when motion is allowed: …").
 - **The suites and the screenshots** read the page with reduced motion preferred
   (`playwright.config.ts`, `scripts/capture-screenshots.mjs`), since a reveal holds back what lies
-  below the window; a test of motion allows it for its page (CODING_STANDARDS "Tests").
+  below the window; a test of motion allows it for its page (CODING_STANDARDS "Tests"; Product
+  Owner: the same comment, item 3).
 
 ## 9. Post pages: News, Activity and Health Content
 
@@ -1104,8 +1099,9 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - An informative image has alt text, a decorative one empty alt. A card's or the Featured picture
   is decorative, as its title names the link. An icon-only button has a name, and the search input
   a label.
-- No autoplay of media or of a carousel, and no motion that carries meaning: the Homepage's
-  motion is decoration, and stops with the visitor's reduced-motion setting (§8.12).
+- No autoplay of media or of a carousel, and no motion that carries meaning. Nothing moves by
+  itself for longer than five seconds, and the Homepage's motion stops with the visitor's
+  reduced-motion setting (§8.12).
 - The public suites check each template at 1,440 and 320 px with axe (WCAG 2.2 AA tags), focus on
   every stop and no sideways scrolling at 320 px, and at 375 px where a spec names it
   (CODING_STANDARDS "Tests"). There are no pixel tests: the look is the Product Owner's review of
@@ -1282,7 +1278,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   and its names). The cards' layout, colours and link remain.
 - **v1.2 Homepage motion (2026-11-12, Feature 008 #249):** the hero's parts enter one after
   another as the page opens, each section's parts reveal as they come into the window where the
-  browser has scroll-driven animation, the deep field's glows drift, three rings turn, and a
-  loading picture's box shimmers; with reduced motion preferred, and on paper, the page stands
-  still and whole (§8.12). Authority: spec #239 "Motion and loading", #239 comment 6786631899 (the prototype's
-  motion as it was) and the notes on #249. The page's content, layout and heights remain.
+  browser has scroll-driven animation, and a loading picture's box shimmers for under five
+  seconds; the decorations stand still, and with reduced motion preferred, and on paper, the
+  page stands still and whole (§8.12). Authority: spec #239 "Motion and loading", #239 comment
+  6786631899 (the prototype's motion), the notes on #249 and #249 comment 6838503280 (no
+  decoration that moves without end, which pictures shimmer, the suites' reduced motion). The page's content, layout and heights remain.
