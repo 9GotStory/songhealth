@@ -27,6 +27,7 @@ import {
 	HOMEPAGE_HEADINGS,
 	HOMEPAGE_HEADLINE,
 	expect,
+	homepageAnnouncements,
 	homepageSection,
 	listedItem,
 	listedTitles,
@@ -167,7 +168,7 @@ test("the Homepage shows a Featured item and every section", async ({ page }) =>
 	const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
 	await expect(news.getByRole("article").first(), "the newest News").toContainText(MARK);
 	await expect(
-		homepageSection(page, HOMEPAGE_HEADINGS.announcements).getByRole("listitem").first(),
+		homepageAnnouncements(page).getByRole("listitem").first(),
 		"the current Announcements",
 	).toContainText(MARK);
 	await expect(

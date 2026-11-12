@@ -25,6 +25,7 @@ import {
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectVisibleFocusOnEveryStop,
+	homepageAnnouncements,
 	homepageSection,
 	HOMEPAGE_HEADINGS,
 	listedItem,
@@ -259,7 +260,7 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 				await expectWholeCardLink(page, largeNewsCard, news.title, 3);
 				await expectWholeCardLink(page, smallNewsCard, pictureEntries.news!.title, 3);
 				// The Current Announcements' own rows (Feature 008 #245).
-				const announcementRow = homepageSection(page, HOMEPAGE_HEADINGS.announcements)
+				const announcementRow = homepageAnnouncements(page)
 					.getByRole("article")
 					.filter({ hasText: announcement.title });
 				await expectWholeCardLink(page, announcementRow, announcement.title, 3);

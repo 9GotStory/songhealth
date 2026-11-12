@@ -137,8 +137,9 @@ The Homepage's hero uses `deep-highlight`, in the `deep-field` utility's gradien
 `plain-visual-to`, in the `plain-visual` utility that stands in for a missing picture (§8.1).
 Latest News uses both again (§8.6): `plain-visual` on a small card without a picture, and
 `deep-highlight` in the `deep-visual` utility on the large one. The
-Current Announcements use the other three (§8.7): `procurement-text` and `procurement-border` on
-the procurement badge, and `status-closed` under a closed status. Some fills are a token at an opacity, not a token of their own: the hero's decorations and
+Current Announcements use `procurement-text` and `procurement-border` on the procurement badge
+(§8.7). `status-closed` is the fill of the dotted status label's closed state, which no page shows
+yet: the Homepage lists current Announcements only. Some fills are a token at an opacity, not a token of their own: the hero's decorations and
 chip (`accent-warm` at 28 %, 30 %, 38 % and 50 %, `surface-soft` at 16 %, `surface-base` at 18 %
 and 22 %), the header's
 surface, `surface-base` at 90 %, and the footer's quiet text, pills and rule, `surface-base` at
@@ -195,7 +196,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
-| `text-primary` on `status-closed` (a closed status) | 13.85:1 |
+| `text-primary` on `status-closed` (the dotted label's closed state, which no page shows yet) | 13.85:1 |
 | `text-secondary-on-soft` on `surface-base`, the lightest the Current Announcements' glow makes the band under its lead | 5.66:1 |
 | `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
@@ -548,9 +549,10 @@ Below 640 px the Homepage is shorter, with every section kept in its order (Prod
 - Phones and tablets show the latest 4 Activities, two by two; a desktop row shows 3.
 
 The Homepage's height with the demo dataset, measured on 2026-11-12 at the application code of
-`feat/008-244-latest-news` `59039a9` with `scripts/capture-screenshots.mjs`: 5,682 px at
-1,440 px, 5,788 px at 1,024 px, 7,138 px at 768 px, 6,175 px at 375 px and 6,752 px at 320 px, with
-the dataset's two Leadership in the strip (§8.5) and five News (§8.6).
+`feat/008-245-announcement-rows` `1f8ec78` with `scripts/capture-screenshots.mjs`: 5,749 px at
+1,440 px, 5,933 px at 1,024 px, 7,367 px at 768 px, 6,108 px at 375 px and 6,681 px at 320 px, with
+the dataset's two Leadership in the strip (§8.5), five News (§8.6) and four Current Announcements
+(§8.7).
 
 The Product Owner accepted the phone Homepage at 5,771 px at 375 px with the prototype's data, in
 place of the grill's target of about 5,000 px (spec #144). The height moves with the titles and the
@@ -738,8 +740,9 @@ News as a section of their own:
   - the title at 18 / 30 semibold (16 / 26 below `sm`) in two lines at most;
   - the Announcements list's status line, for an Announcement with open or close dates: the label
     after a 7 px dot at 13 / 20 semibold, open in `surface-base` on `brand-primary`, not open yet
-    in `brand-dark` on `accent-warm`, closed in `text-primary` on `status-closed`, then the dates.
-    The words and the dot state the status; the Announcements list keeps its own label;
+    in `brand-dark` on `accent-warm`, then the dates. The words and the dot state the status; the
+    Announcements list keeps its own label. The label's closed state, `text-primary` on
+    `status-closed` (spec #239), does not show here: a closed Announcement is not current;
   - from `sm`, a 40 px `surface-soft` circle with a 20 px `arrow-right`.
 - **The link:** the title is an H3 that names one link over the whole row; the date, the category
   and the status stay outside the link's name.

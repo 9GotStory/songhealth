@@ -80,6 +80,7 @@ import {
 	expectStacked,
 	expectVisibleFocusOnEveryStop,
 	expectVisuallyHidden,
+	homepageAnnouncements,
 	homepageSection,
 	itemsPerRow,
 	occurrencesOf,
@@ -294,12 +295,9 @@ test("an Announcement without a picture is Featured with the plain visual and it
 			await expect(shown.getByRole("heading", { level: 2 })).toHaveText(announcement.title);
 			await expect(shown.locator("img")).toHaveCount(0);
 			await expect(shown.getByTestId("featured-visual")).toHaveCount(1);
-			// The newest current Announcement, so the Announcements section would lead with it. The
-			// section is found by its whole name: the Featured card's own name holds "ประกาศ" too.
+			// The newest current Announcement, so the Announcements section would lead with it.
 			await expect(
-				page
-					.getByRole("region", { name: HOMEPAGE_HEADINGS.announcements, exact: true })
-					.getByRole("link", { name: announcement.title }),
+				homepageAnnouncements(page).getByRole("link", { name: announcement.title }),
 			).toHaveCount(0);
 			await expect(
 				shown.getByText(`${FEATURED_LABEL} · ${thaiDate(announcedAt)}`, { exact: true }),
