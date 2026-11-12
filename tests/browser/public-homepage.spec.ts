@@ -2141,29 +2141,37 @@ test("the page moves only when motion is allowed: the hero's parts enter one aft
 		});
 
 		await test.step("Each section's reveal", async () => {
-			let revealed = 0;
-			for (const heading of order.slice(1)) {
-				const title = page.getByRole("heading", { level: 2, name: heading, exact: true });
-				const below = (await boxOf(title, heading)).y > DESKTOP_VIEWPORT.height + 40;
-				if (below) {
-					expect(await shownOpacity(title), `${heading}, below the window, waits`).toBe(0);
-					revealed += 1;
-				}
+			const titles = order
+				.slice(1)
+				.map((heading) => page.getByRole("heading", { level: 2, name: heading, exact: true }));
+			// The page is at its top: every section below the window waits there, the last one too.
+			const waiting: string[] = [];
+			for (const [index, title] of titles.entries()) {
+				const heading = order[index + 1]!;
+				if ((await boxOf(title, heading)).y <= DESKTOP_VIEWPORT.height + 40) continue;
+				expect(await shownOpacity(title), `${heading}, below the window, waits`).toBe(0);
+				waiting.push(heading);
+			}
+			expect(waiting, "the Contact Summary lies below the window").toContain(order.at(-1));
+			for (const [index, title] of titles.entries()) {
 				await title.scrollIntoViewIfNeeded();
 				await expect
-					.poll(() => shownOpacity(title), { message: `${heading}, in the window, shows` })
+					.poll(() => shownOpacity(title), {
+						message: `${order[index + 1]}, in the window, shows`,
+					})
 					.toBe(1);
 			}
-			expect(revealed, "sections that lay below the window").toBeGreaterThan(5);
 			expect(await running(), "the decorations move").toBeGreaterThan(0);
 		});
 
 		await test.step("Without scroll-driven animation", async () => {
-			// Chromium has scroll-driven animation and no switch for it, so the page is served with its
-			// support queries naming a timeline no browser has, which is what such a browser makes of
-			// them.
+			// Chromium has scroll-driven animation and no switch for it, so the page's stylesheets are
+			// served with their support queries naming a timeline no browser has: what such a browser
+			// makes of them. The development runtime's page loads each stylesheet as a module that
+			// replaces the copy in the page. The page itself is served as it is: Chromium keeps a page
+			// the test fulfilled from opening the runtime's socket, which then tries another host.
 			let queries = 0;
-			await page.route("/", async (route) => {
+			await page.route("**/*.css", async (route) => {
 				const response = await route.fetch();
 				const body = (await response.text()).replace(
 					/@supports\s*\(\s*animation-timeline\s*:\s*view\(\)\s*\)/g,
@@ -2175,7 +2183,6 @@ test("the page moves only when motion is allowed: the hero's parts enter one aft
 				await route.fulfill({ response, body });
 			});
 			await page.goto("/");
-			await page.unroute("/");
 			await expect(sectionHeadings(page)).toHaveText(order);
 			expect(queries, "the page asks whether the browser has the timeline").toBeGreaterThan(0);
 			await expect
@@ -2184,6 +2191,7 @@ test("the page moves only when motion is allowed: the hero's parts enter one aft
 				})
 				.toEqual([]);
 			await expectEverySectionWhole(page, order, "without scroll-driven animation");
+			await page.unrouteAll({ behavior: "ignoreErrors" });
 		});
 	});
 });

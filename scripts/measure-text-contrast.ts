@@ -15,6 +15,12 @@
 // first. Small text needs 4.5:1 and large text 3:1 (SC 1.4.3); the script prints and judges
 // nothing.
 //
+// A decoration that moves is measured at each end of its way: CONTRAST_STYLE holds CSS the page
+// gets after its animations are stopped, such as the far end of the deep field's drifting glows
+// (#249):
+//   CONTRAST_STYLE='.glow-drift{translate:1.875rem -2.25rem}' \\
+//     node scripts/measure-text-contrast.ts / <selector>
+//
 // A state the demo dataset does not hold takes --fixtures, a module of
 // scripts/screenshot-fixtures/, through scripts/dev-runtime-env.sh: its content is made first and
 // removed afterwards, as scripts/capture-with-fixtures.ts does, and the paths it returns are not
@@ -35,6 +41,8 @@ import type { Fixtures } from "./capture-with-fixtures.ts";
 
 const WIDTHS = [1440, 1024, 768, 375, 320];
 const ORIGIN = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4324";
+/** CSS the page gets once its animations are stopped, such as a moving decoration's far end. */
+const STYLE = process.env.CONTRAST_STYLE;
 
 const args = process.argv.slice(2);
 const fixturesPath = args[0] === "--fixtures" ? args[1] : undefined;
@@ -120,6 +128,7 @@ async function measure(): Promise<void> {
 					node.style.setProperty("transition", "none", "important");
 				}
 			});
+			if (STYLE) await page.addStyleTag({ content: STYLE });
 			for (const selector of selectors) {
 				console.log(`${width} px  ${selector}  ${await lowestContrast(page, selector)}`);
 			}
