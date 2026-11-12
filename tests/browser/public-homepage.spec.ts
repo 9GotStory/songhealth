@@ -291,6 +291,8 @@ async function clipsNothing(part: Locator, within: Locator): Promise<boolean> {
 async function expectRisesUnderPointer(page: Page, card: Locator, surface: Locator): Promise<void> {
 	await page.emulateMedia({ reducedMotion: "no-preference" });
 	await card.scrollIntoViewIfNeeded();
+	// With motion the card's reveal is over a frame after the scroll.
+	await expect.poll(() => shownOpacity(card), { message: "the card has come in" }).toBe(1);
 	const place = await boxOf(card, "the card's place");
 	expect((await boxOf(surface, "the card's surface")).y, "the card at rest").toBeCloseTo(
 		place.y,
@@ -1144,6 +1146,8 @@ test("under the pointer an Announcement's row moves 10 px to the right, and a pr
 	// The row's white surface, a box with no role of its own.
 	const surface = row.getByTestId("announcement-surface");
 	await row.scrollIntoViewIfNeeded();
+	// With motion the row's reveal is over a frame after the scroll.
+	await expect.poll(() => shownOpacity(row), { message: "the row has come in" }).toBe(1);
 	const place = await boxOf(row, "the row's place");
 	expect((await boxOf(surface, "the row's surface")).x, "the row at rest").toBeCloseTo(place.x, 0);
 	const edge = { x: place.x + 3, y: place.y + place.height / 2 };
