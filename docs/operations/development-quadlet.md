@@ -345,7 +345,9 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
     Contact value and handle that is unset.
 
   An entry it finds keeps its fields: to bring back the dataset as defined, or to move its dates
-  to today, run `remove` and then `add`. What holds content the dataset did not make stays as it
+  to today, run `remove` and then `add`. When the dataset only gains a field's value, such as a
+  Service's icon (#248), save that value on each of its entries through the native API and publish
+  the entry again: the dataset stays installed and its dates stay. What holds content the dataset did not make stays as it
   is, and `add` names it on a `left … as it is` line: a Basic Page at a reserved slug whose title
   lacks the mark, a menu with an item the dataset did not add, an Office Contact value or a handle
   with another value.

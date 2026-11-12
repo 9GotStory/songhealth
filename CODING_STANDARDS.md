@@ -198,7 +198,14 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   after the earlier ones: "Feature N decision (Product Owner, date)", as Feature 003 (`c2ac189`)
   and Feature 004 (#127) did, or "<subject> decision (Product Owner, date; #<ticket> comment
   <id>)", as #169 did. It bumps the version once: a later change in the same feature, before the
-  feature reaches `main`, keeps that version and adds its decision to the feature's banner (#128).
+  feature reaches `main`, keeps that version and that one banner (#128). The banner states the
+  feature's direction and the decisions that amend the document's rules, such as a model change in
+  `02`. In `docs/design/DESIGN.md` a ticket's own decisions go into §13's change history, one
+  entry per ticket with its authority, and the banner stays as it is (#248 retro: #242 to #248
+  each added an entry and none touched the banner).
+- **Model changes.** A field or collection added to `seed/seed.json` is listed in its resource's
+  section of `02-content-model.md`, under the feature's banner (#248 retro: `02` §12 lacked the
+  Service's icon until review).
 
 A record in `docs/evidence/` says what its evidence log shows, and no more. Each claim traces to a
 line of the log or a run's output. Each cell of a coverage table names the check it rests on and
