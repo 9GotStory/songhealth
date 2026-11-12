@@ -75,7 +75,10 @@ and why, and `.jscpd-baseline.json` records them.
   `src/components/HomeServiceCard.astro` does (#242 retro).
 - `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the Homepage's deep
   field it is 4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2;
-  Product Owner, 2026-11-11: #242 comment 6797113372, item 1).
+  Product Owner, 2026-11-11: #242 comment 6797113372, item 1). One measured exception: the month
+  and year on a Current Announcement's date tile, 5.45:1 or more where they sit on its gradient
+  (`docs/design/DESIGN.md` §8.7; Product Owner, 2026-11-12: #245 comment 6812837231). A change
+  to the tile's size or gradient needs a new measure.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page.
 - A list or detail page reuses the shared pieces in `src/components/` and follows the shape of

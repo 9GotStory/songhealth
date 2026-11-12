@@ -37,7 +37,7 @@
 	/* Colours the Figma frame uses without a variable */
 	--color-topic-green: #ebf7f0; /* Health Information cards */
 	--color-topic-blue: #f0f5fc;
-	--color-divider: #dbe8e3; /* Announcement list separators */
+	--color-divider: #dbe8e3; /* Separators inside a white box */
 	--color-activity-visual-from: #bfdcce; /* Activity card without an image */
 	--color-activity-visual-to: #e8f0d9;
 	--color-contact-visual-from: #d1ebde; /* Contact Summary map stand-in */

@@ -735,6 +735,14 @@ export function homepageSection(page: Page, heading: string) {
 	return page.getByRole("region", { name: heading });
 }
 
+/**
+ * The Homepage's Current Announcements, found by the section's whole name: a Featured
+ * Announcement's card is a region whose name can hold "ประกาศ" too.
+ */
+export function homepageAnnouncements(page: Page) {
+	return page.getByRole("region", { name: HOMEPAGE_HEADINGS.announcements, exact: true });
+}
+
 /** The header's identity, the logo and the site title: its first link to the Homepage. */
 export function siteIdentityLink(page: Page) {
 	return page.getByRole("banner").locator('a[href="/"]').first();

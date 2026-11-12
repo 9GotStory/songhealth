@@ -1,0 +1,101 @@
+---
+// A current Announcement on the Homepage (Feature 008 #245; spec #239 "Current Announcements"): a
+// white row with a date tile, the category as a badge, the title in two lines at most, the status
+// line when the Announcement has open or close dates, and from `sm` an arrow. The Homepage has
+// its own row, and the Announcements list keeps AnnouncementRow (spec #239 "Scope of the
+// change").
+//
+// The date is the one the list orders by (src/lib/announcements.ts announcementDate): the day
+// large, the month and the year under it in accent-warm, which reads 5.45:1 or more where it sits
+// on the tile's gradient (measured, docs/design/DESIGN.md §8.7; Product Owner, 2026-11-12: #245
+// comment 6812837231). The category is the first `announcement_type` term, in
+// the colour src/lib/announcement-category.ts gives it: procurement in procurement-text on
+// topic-blue with a procurement-border edge, recruitment in brand-dark on accent-warm, any other
+// in brand-primary on surface-soft (docs/design/DESIGN.md §3.2 has each ratio). The status line is
+// the list's (AnnouncementStatusLine), its label after a dot.
+//
+// The title is an H3 under the section's H2, and a native link named by it covers the whole row;
+// the date, the category and the status stay readable outside the link's name (WCAG 2.2 SC 2.5.3;
+// #193; #190 comment 6707205912). The arrow is arrow-right, the Homepage's arrow for a card
+// (Product Owner, 2026-11-11: #241 comment 6791096480, item 1), and decorative.
+//
+// Under the pointer the arrow's circle turns accent-warm, and the row moves 10 px to the right
+// with the `deep` shadow, only under `prefers-reduced-motion: no-preference` (spec #239 "Motion
+// and loading"). The article keeps its place and its surface moves inside it; while it has moved,
+// the link reaches back over the 10 px the surface left, so a press there still opens the
+// Announcement (HomeServiceCard does the same below a card that rises).
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+import { categoryTone } from "../lib/announcement-category";
+import { announcementDate, announcementPath, type AnnouncementEntry } from "../lib/announcements";
+import { termsOf } from "../lib/terms";
+import { thaiDateParts } from "../lib/thai-date";
+import AnnouncementStatusLine from "./AnnouncementStatusLine.astro";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	announcement: AnnouncementEntry;
+	/** The instant the Homepage decides every Announcement's status at. */
+	now: Date;
+}
+
+const { announcement, now } = Astro.props;
+const data = announcement.data;
+const category = termsOf(data, "announcement_type")[0];
+const listedAt = announcementDate(data);
+const date = listedAt ? new Date(listedAt) : undefined;
+const dateParts = date && thaiDateParts(date);
+const titleId = `home-announcement-${crypto.randomUUID()}`;
+const badge = {
+	procurement: "bg-topic-blue text-procurement-text ring-1 ring-procurement-border ring-inset",
+	recruitment: "bg-accent-warm text-brand-dark",
+	general: "bg-surface-soft text-brand-primary",
+};
+---
+
+<article class="group">
+	<div
+		data-testid="announcement-surface"
+		class="relative flex items-center gap-3.5 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:translate-x-2.5 motion-safe:group-hover:shadow-deep sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5"
+	>
+		{dateParts && (
+			<p class="flex size-17 shrink-0 flex-col items-center justify-center rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-surface-base sm:size-23 sm:rounded-18">
+				<time datetime={date?.toISOString()} class="flex flex-col items-center">
+					<span class="text-h3/7 font-bold sm:text-h2/9.5">{dateParts.day}</span>{" "}
+					<span class="text-small text-accent-warm">{dateParts.monthAndYear}</span>
+				</time>
+			</p>
+		)}
+		<div class="min-w-0 flex-1">
+			{category && (
+				<p class="mb-1.5 flex">
+					<span
+						class:list={[
+							"rounded-pill px-3 py-0.5 text-small font-semibold wrap-anywhere",
+							badge[categoryTone(category.slug)],
+						]}
+					>
+						{category.label}
+					</span>
+				</p>
+			)}
+			<h3
+				id={titleId}
+				class="line-clamp-2 text-body font-semibold wrap-anywhere sm:text-body-large"
+			>
+				<ThaiTitle text={data.title} />
+			</h3>
+			<AnnouncementStatusLine data={data} now={now} dotted class="mt-1.5" />
+		</div>
+		<span
+			aria-hidden="true"
+			class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-soft text-brand-primary group-hover:bg-accent-warm group-hover:text-brand-dark motion-safe:transition-colors max-sm:hidden"
+		>
+			<ArrowRight class="shrink-0" size={20} />
+		</span>
+		<a
+			href={announcementPath(announcement.id)}
+			aria-labelledby={titleId}
+			class="absolute inset-0 rounded-22 after:absolute after:inset-y-0 after:right-full after:hidden after:w-2.5 motion-safe:group-hover:after:block"
+		></a>
+	</div>
+</article>

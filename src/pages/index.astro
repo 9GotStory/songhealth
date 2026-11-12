@@ -15,17 +15,20 @@
 // - the Leadership strip (Feature 008 #243; spec #239 "Leadership strip"; HomeLeadershipStrip): the
 //   first three Leadership by Leadership order (src/lib/personnel-directory.ts), fewer when fewer
 //   exist, in one white strip in the page colour, with a link to /about/leadership. It starts
-//   below the Services' cards, after the room the field leaves, and takes its space below from the
-//   section that follows it, or its own when Latest News and the Announcements are both left out;
+//   below the Services' cards, after the room the field leaves, and takes its space below from
+//   Latest News, or its own when Latest News is left out;
 // - Latest News (Feature 008 #244; spec #239 "Latest News"; HomeNewsCard): the five newest
 //   published News, the Featured one left out (`04` §7), the newest as a large card. With five,
 //   the large card stands beside the other four two by two from `lg` and spans the row above them
 //   from `sm`; below `sm` three compact rows follow it. With fewer, the grid has two columns from
 //   `sm` and the large card spans the row when the others are an even number, so no cell is empty;
-// - up to 3 current Announcements, newest first by announcement date, the Featured one left out
-//   (`04` §7), each with its status and dates as the Announcements list shows them
-//   (src/lib/announcements.ts), in a section of their own, their rows in one bordered box (Product
-//   Owner, 2026-11-12: #244 comment 6809892992, item 4);
+// - the Current Announcements (Feature 008 #245; spec #239 "Current Announcements";
+//   HomeAnnouncementRow): the four newest current Announcements by announcement date, the Featured
+//   one left out (`04` §7), three below `sm`, as rows with a date tile, the category, the title and
+//   the status and dates the Announcements list shows (src/lib/announcements.ts). The section is a
+//   surface-soft band with a white glow at its upper left corner, and from `lg` its heading, lead
+//   and solid link to the list stay in view at the left, below the sticky header, while the rows
+//   scroll (Product Owner, 2026-11-12: #245 comment 6812117246);
 // - Health Information: the latest 4 Health Content items, each labelled with its first Health
 //   Topic, the `topic` term EmDash hydrates first (src/lib/terms.ts);
 // - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
@@ -42,14 +45,15 @@
 // Used Services, the Announcements, Health Information and Activities are named as their lists
 // are, Latest News is "ข่าวประชาสัมพันธ์", and each of these headings links to the section's list.
 // The sections of later tickets take the heading now, without a lead, so the page has one heading
-// style (Product Owner, 2026-11-11: #241 comment 6791096480, item 4).
+// style (Product Owner, 2026-11-11: #241 comment 6791096480, item 4). The Current Announcements
+// show their lead and their link beside the heading.
 //
 // Below 640 px the page is shorter, with every section kept in its order (Feature 006 #146; spec
 // #144 "Homepage (`04`)"; the Product Owner's "โอเค เฉพาะหน้าแรก" on the prototype): the
 // Health Information, Activities and Quick Access go two to a row in their compact cards, the
 // Health Content cards without their summary; the Contact
 // Summary's lead and the map's stand-in are left out; each section after the deep field has 32 px
-// of space above and below it, the Announcements after Latest News below only. The 4th
+// of space above and below it. The 4th
 // Activity fills the second row of two; a desktop row holds three.
 //
 // A section with nothing to show is left out (`04` §17): the Frequently Used Services, Latest News,
@@ -75,8 +79,8 @@ import Hospital from "@lucide/astro/icons/hospital";
 import MessageSquare from "@lucide/astro/icons/message-square";
 import Users from "@lucide/astro/icons/users";
 import ActivityCard from "../components/ActivityCard.astro";
-import AnnouncementStatusLine from "../components/AnnouncementStatusLine.astro";
 import ArrowLink from "../components/ArrowLink.astro";
+import HomeAnnouncementRow from "../components/HomeAnnouncementRow.astro";
 import HomeDeepField from "../components/HomeDeepField.astro";
 import HomeHero from "../components/HomeHero.astro";
 import HomeLeadershipStrip from "../components/HomeLeadershipStrip.astro";
@@ -85,13 +89,13 @@ import HomeServiceCard from "../components/HomeServiceCard.astro";
 import OfficeContactDetails from "../components/OfficeContactDetails.astro";
 import QuickLinkCard from "../components/QuickLinkCard.astro";
 import SectionHeading from "../components/SectionHeading.astro";
+import SectionListLink from "../components/SectionListLink.astro";
 import ThaiTitle from "../components/ThaiTitle.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { ACTIVITIES_PATH, ACTIVITIES_TITLE, latestActivities } from "../lib/activities";
 import {
 	ANNOUNCEMENTS_PATH,
 	ANNOUNCEMENTS_TITLE,
-	announcementPath,
 	currentAnnouncements,
 } from "../lib/announcements";
 import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE } from "../lib/health";
@@ -129,7 +133,7 @@ const [
 	readHomepageCuration(Astro.url.origin, now),
 	listHomepageLeadership(),
 	latestNews(6),
-	currentAnnouncements(4, now),
+	currentAnnouncements(5, now),
 	latestHealthContent(4),
 	directoryOverview(),
 	latestActivities(4),
@@ -144,15 +148,13 @@ const notFeatured =
 		!(featured?.collection === collection && featured.id === data.id);
 /** The Latest News: the five newest News that are not Featured. */
 const news = newestNews.filter(notFeatured("news")).slice(0, 5);
-/** Up to 3 current Announcements that are not Featured. */
-const announcements = newestAnnouncements.filter(notFeatured("announcements")).slice(0, 3);
-const showsNews = news.length > 0;
-const showsAnnouncements = announcements.length > 0;
+/** The Current Announcements: the four newest current ones that are not Featured. */
+const announcements = newestAnnouncements.filter(notFeatured("announcements")).slice(0, 4);
 /**
- * Whether a section follows the Leadership strip on the page's own colour and gives the strip its
- * space below: Latest News, or the current Announcements when there is no News.
+ * Whether Latest News follows the Leadership strip on the page's own colour and gives the strip
+ * its space below.
  */
-const followsStrip = showsNews || showsAnnouncements;
+const showsNews = news.length > 0;
 /**
  * Whether the large News card spans the row from `sm`: when the small cards are an even number, so
  * the two columns leave no empty cell.
@@ -217,7 +219,7 @@ const control =
 	{leaders.length > 0 && (
 		<section
 			aria-labelledby="home-leadership"
-			class:list={["pt-8 sm:pt-10", !followsStrip && spaceBelow]}
+			class:list={["pt-8 sm:pt-10", !showsNews && spaceBelow]}
 		>
 			<div class="page-container">
 				<HomeLeadershipStrip id="home-leadership" people={leaders} />
@@ -258,41 +260,37 @@ const control =
 		</section>
 	)}
 
-	{showsAnnouncements && (
+	{announcements.length > 0 && (
 		<section
 			aria-labelledby="home-announcements"
-			class:list={[!showsNews && spaceAbove, spaceBelow]}
+			class:list={["relative overflow-clip bg-surface-soft", spaceAbove, spaceBelow]}
 		>
-			<div class="page-container flex flex-col gap-7">
-				<SectionHeading
-					id="home-announcements"
-					label="แจ้งให้ทราบ"
-					title={ANNOUNCEMENTS_TITLE}
-					href={ANNOUNCEMENTS_PATH}
-				>
-					<FileText slot="icon" class="shrink-0" size={24} />
-				</SectionHeading>
-				<div class="rounded-24 border border-border-default bg-surface-base">
-					<p class="px-6 py-5 text-small text-text-secondary">
+			<span
+				aria-hidden="true"
+				class="pointer-events-none absolute -top-15 -left-40 h-120 w-130 rounded-pill bg-linear-140 from-surface-base to-transparent to-70%"
+			/>
+			<div class="page-container relative grid gap-6 sm:gap-7 lg:grid-cols-[0.8fr_1.6fr] lg:items-start lg:gap-14">
+				<div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 lg:sticky lg:top-[calc(var(--header-offset)+1.5rem)] lg:block">
+					<SectionHeading id="home-announcements" label="แจ้งให้ทราบ" title={ANNOUNCEMENTS_TITLE}>
+						<FileText slot="icon" class="shrink-0" size={24} />
+					</SectionHeading>
+					<p class="col-span-2 row-start-2 mt-3 text-body text-text-secondary-on-soft sm:text-body-large lg:mt-5">
 						ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ
 					</p>
-					<ul>
-						{announcements.map((announcement) => (
-							<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
-								<p class="wrap-anywhere">
-									<ThaiTitle text={announcement.data.title} />
-								</p>
-								<AnnouncementStatusLine data={announcement.data} now={now} />
-								<ArrowLink
-									href={announcementPath(announcement.id)}
-									context={announcement.data.title}
-								>
-									ดูรายละเอียด
-								</ArrowLink>
-							</li>
-						))}
-					</ul>
+					<SectionListLink
+						href={ANNOUNCEMENTS_PATH}
+						title={ANNOUNCEMENTS_TITLE}
+						tone="solid"
+						class="col-start-2 row-start-1 lg:mt-7"
+					/>
 				</div>
+				<ul class="flex flex-col gap-3.5">
+					{announcements.map((announcement, index) => (
+						<li class:list={[index === 3 && "max-sm:hidden"]}>
+							<HomeAnnouncementRow announcement={announcement} now={now} />
+						</li>
+					))}
+				</ul>
 			</div>
 		</section>
 	)}
