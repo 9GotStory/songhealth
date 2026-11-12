@@ -348,9 +348,10 @@ const CORE_TAXONOMIES = ["category", "tag"];
  * that validation when it stores it (normalizeBlocksFieldValidation), and the Admin's block picker
  * offers the types in their order (@emdash-cms/admin 1.1.0 dist/index.js BlocksField). A choice
  * field (`select`), such as a Service's icon, whose values or their order differ from the seed's
- * gets the seed's too (#248): the Admin's editor offers them in that order, and EmDash stores the
- * validation as given and changes no stored value (src/schema/registry.ts updateField), so an entry
- * keeps a value the seed no longer has until staff choose again.
+ * gets the seed's too (Product Owner, 2026-11-12: #248 comment 6827280781, item 2): the Admin's
+ * editor offers them in that order, and EmDash stores the validation as given and changes no stored
+ * value (src/schema/registry.ts updateField), so an entry keeps a value the seed no longer has
+ * until staff choose again.
  *
  * For each taxonomy the seed gives reference terms, such as the Document Types the About pages
  * list by, the step adds the terms whose slug the taxonomy lacks. A term staff relabelled keeps

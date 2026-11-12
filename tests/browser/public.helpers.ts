@@ -838,7 +838,8 @@ export function listedItem(page: Page, title: string) {
  * Fail unless the card of the Service titled `title` shows the Lucide icon `icon` in its icon tile,
  * out of assistive technology's reach, with the card's link named by the title alone. Lucide marks
  * each icon's `<svg>` with the class `lucide-<name>` (docs/agents/lucide-astro-1.59.0.md), the one
- * thing on the page that tells two icons apart.
+ * thing on the page that tells two icons apart, so the suites read it here, where they otherwise
+ * leave a decoration's classes alone (Product Owner, 2026-11-12: #248 comment 6827280781, item 1).
  */
 export async function expectServiceIcon(card: Locator, icon: string, title: string): Promise<void> {
 	await expect(card.getByRole("link"), "the Service's name names the card").toHaveAccessibleName(
