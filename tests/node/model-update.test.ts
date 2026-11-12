@@ -1,5 +1,5 @@
-// The model-update step's planner (#53, #122, #175; spec #51, "Changes to the Feature 002 model";
-// spec #121, "Content model"; spec #174, "Model changes").
+// The model-update step's planner (#53, #122, #175, #248; spec #51, "Changes to the Feature 002
+// model"; spec #121, "Content model"; spec #174, "Model changes").
 //
 // `planModelUpdate` compares the content model of seed/seed.json with the live model that
 // EmDash's schema API reports, and plans the native updates that bring the database to the
@@ -11,7 +11,8 @@
 // Feature 002 model" (the Document Type reference terms, Personnel's `leadership_order` and the
 // Homepage menus), spec #121 "Content model" (the MOIT collection and the three ITA block types),
 // #169 (the Admin sidebar's folders, positions and icons) and spec #174 "Model changes" (the
-// migrated content's terms, and no Categories or Tags), never from the seed. The live models start
+// migrated content's terms, and no Categories or Tags) and #248 comment 6826430670 (the Service
+// icon's 18 names), never from the seed. The live models start
 // from the seed's own fields, title and date fields, block types and taxonomies, beside EmDash's
 // core Categories and Tags, as setup or the step leaves them.
 
@@ -65,6 +66,39 @@ const CORE_TAXONOMIES = ["category", "tag"];
 
 /** The Leadership order Feature 003 adds to Personnel (spec #51; empty means not Leadership). */
 const LEADERSHIP_ORDER = { slug: "leadership_order", label: "ลำดับผู้บริหาร", type: "integer" };
+
+/**
+ * The icon Feature 008 adds to Service (#248; spec #239 "Frequently Used Services"): an optional
+ * choice among 18 icons, each offered by a Thai name for its picture, the standard icon first
+ * (Product Owner, 2026-11-12: #248 comment 6826430670).
+ */
+const SERVICE_ICON = {
+	slug: "icon",
+	label: "ไอคอน",
+	type: "select",
+	validation: {
+		options: [
+			"มือประคองหัวใจ",
+			"ข้อความแจ้งเตือน",
+			"ตาชั่ง",
+			"หลอดไฟ",
+			"เครื่องหมายคำถาม",
+			"หัวใจและชีพจร",
+			"ใบไม้",
+			"เม็ดยา",
+			"เอกสาร",
+			"กลุ่มคน",
+			"ลูกโลก",
+			"เข็มฉีดยา",
+			"โล่",
+			"หูฟังแพทย์",
+			"เด็กเล็ก",
+			"โทรศัพท์",
+			"แผ่นรายการ",
+			"โทรโข่ง",
+		],
+	},
+};
 
 /**
  * The menus staff curate the Homepage with (#65; spec #51). EmDash 1.1.0 gives a menu a name and a
@@ -220,14 +254,15 @@ function seedTitles(slug: string): Pick<LiveCollection, "titleField" | "dateFiel
 /**
  * The fields of a seed collection as the schema API lists them, by slug and type, a blocks field
  * with its validation as EmDash completes it (emdash 1.1.0 src/schema/registry.ts
- * normalizeBlocksFieldValidation).
+ * normalizeBlocksFieldValidation) and a choice field with its values.
  */
 function seedFields(slug: string): LiveField[] {
-	return seedCollectionOf(slug).fields.map(({ slug, type, validation }: LiveField) =>
-		type === "blocks"
-			? { slug, type, validation: { retiredTypes: [], minItems: 0, ...validation } }
-			: { slug, type },
-	);
+	return seedCollectionOf(slug).fields.map(({ slug, type, validation }: LiveField) => {
+		if (type === "blocks") {
+			return { slug, type, validation: { retiredTypes: [], minItems: 0, ...validation } };
+		}
+		return type === "select" ? { slug, type, validation } : { slug, type };
+	});
 }
 
 /** The seed's block types as the schema API lists them once created, each version fingerprinted. */
@@ -242,9 +277,16 @@ function seedBlockTypes(): LiveBlockType[] {
 	}));
 }
 
-/** The fields Feature 002 gave a collection: Personnel had no Leadership order yet. */
+/**
+ * The fields Feature 002 gave a collection: Personnel had no Leadership order yet, and Service no
+ * icon.
+ */
 function feature002Fields(slug: string): LiveField[] {
-	return seedFields(slug).filter((field) => field.slug !== LEADERSHIP_ORDER.slug);
+	return seedFields(slug).filter(
+		(field) =>
+			field.slug !== LEADERSHIP_ORDER.slug &&
+			!(slug === "services" && field.slug === SERVICE_ICON.slug),
+	);
 }
 
 /**
@@ -343,6 +385,22 @@ function feature005Model(): LiveModel {
 	return withMigrationModel(sidebarModel());
 }
 
+/** The same database once Feature 008's model is applied (#248). */
+function feature008Model(): LiveModel {
+	return withServiceIcon(feature005Model());
+}
+
+/** `model` with the icon Feature 008 gives Service, as the step creates it. */
+function withServiceIcon(model: LiveModel): LiveModel {
+	const { slug, type, validation } = SERVICE_ICON;
+	collectionOf(model, "services").fields.push({
+		slug,
+		type,
+		validation: { options: [...validation.options] },
+	});
+	return model;
+}
+
 /** `model` with the migrated content's terms, and without EmDash's Categories and Tags. */
 function withMigrationModel(model: LiveModel): LiveModel {
 	withTerms(model, MIGRATION_TERMS);
@@ -426,14 +484,14 @@ describe("planModelUpdate", () => {
 	});
 
 	it("plans nothing for a database already on the model, so a second run changes nothing", () => {
-		const plan = planModelUpdate(seed, feature005Model());
+		const plan = planModelUpdate(seed, feature008Model());
 
 		assert.deepEqual(plan, NOTHING);
 		assert.deepEqual(planRequests(plan), []);
 	});
 
 	it("leaves a Homepage menu staff relabelled, and creates only the menus the database lacks", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		live.menus = [
 			{ name: "homepage-featured", label: "เรื่องเด่นหน้าแรก" },
 			{ name: "primary", label: "เมนูหลัก" },
@@ -449,14 +507,14 @@ describe("planModelUpdate", () => {
 	});
 
 	it("leaves a field the database has beyond the seed", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		collectionOf(live, "personnel").fields.push({ slug: "organization", type: "reference" });
 
 		assert.deepEqual(planModelUpdate(seed, live).fields, []);
 	});
 
 	it("reports a seed field the database has with another type instead of changing its column", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		const personnel = collectionOf(live, "personnel");
 		personnel.fields = [
 			...feature002Fields("personnel"),
@@ -471,7 +529,7 @@ describe("planModelUpdate", () => {
 	});
 
 	it("adds only the reference terms a taxonomy lacks, and leaves the terms staff relabelled or added", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		taxonomyOf(live, "document_type").terms = [
 			{ slug: "policy", label: "นโยบายและยุทธศาสตร์" },
 			{ slug: "form", label: "แบบฟอร์ม" },
@@ -491,7 +549,7 @@ describe("planModelUpdate", () => {
 	});
 
 	it("reports a taxonomy with reference terms that the database lacks", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		live.taxonomies = live.taxonomies.filter(({ name }) => name !== "document_type");
 
 		const plan = planModelUpdate(seed, live);
@@ -512,7 +570,7 @@ describe("planModelUpdate", () => {
 	});
 
 	it("adds the support values the database lacks and keeps those it has beyond the seed", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		Object.assign(collectionOf(live, "news"), {
 			supports: [...FEATURE_002_SUPPORTS, "search"],
 			hasSeo: false,
@@ -622,7 +680,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("finishes a collection that a run cut short left without fields or title, the title after the fields", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		const moit = collectionOf(live, MOIT.slug);
 		delete moit.titleField;
 		moit.fields = [];
@@ -639,7 +697,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("keeps the title field the database has", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		collectionOf(live, MOIT.slug).titleField = "summary";
 
 		assert.deepEqual(planModelUpdate(seed, live), NOTHING);
@@ -666,7 +724,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("updates a changed block type in place, by the fingerprint of its active version", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		const { blockType, version } = blockTypeOf(live, "ita_file");
 		// A relabelled type whose Round lacks "ไม่ระบุรอบ": adding an option is a compatible change.
 		blockType.label = "ไฟล์";
@@ -691,7 +749,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("keeps a block type the database has beyond the seed: EmDash 1.1.0 has no route that deletes one", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		const { blockType } = blockTypeOf(live, "ita_link");
 		live.blockTypes.push({ ...blockType, slug: "proto_ita_link", category: "ITA (ต้นแบบ)" });
 
@@ -699,7 +757,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("reports a block-type field the database has with another type instead of changing it", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		const { version } = blockTypeOf(live, "ita_link");
 		version.fields = version.fields.map((field) =>
 			field.slug === "url" ? { ...field, type: "string" } : field,
@@ -713,7 +771,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("reports a block type whose active version is not the seed's instead of making a version", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		const { blockType, version } = blockTypeOf(live, "ita_requirement");
 		blockType.currentVersion = 2;
 		blockType.versions.push({ ...version, version: 2, fingerprint: "block-type:v1:sha256:v2" });
@@ -726,7 +784,7 @@ describe("planModelUpdate: the ITA model (spec #121)", () => {
 	});
 
 	it("gives MOIT's Evidence field the seed's allowed types, in the picker's order, and its limit", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		const evidence = collectionOf(live, MOIT.slug).fields.find(({ slug }) => slug === "evidence");
 		assert.ok(evidence);
 		evidence.validation = {
@@ -760,7 +818,7 @@ describe("planModelUpdate: the Admin sidebar (#169)", () => {
 	}
 
 	it("gives a database without them each collection's folder, position and icon, and Documents no folder", () => {
-		const plan = planModelUpdate(seed, withMigrationModel(feature004Model()));
+		const plan = planModelUpdate(seed, withServiceIcon(withMigrationModel(feature004Model())));
 
 		assert.deepEqual({ ...plan, collections: [] }, NOTHING);
 		assert.deepEqual(
@@ -776,7 +834,7 @@ describe("planModelUpdate: the Admin sidebar (#169)", () => {
 	});
 
 	it("sets back a folder, a position or an icon that differs from the seed's", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		collectionOf(live, "news").group = "ข่าว";
 		collectionOf(live, "activities").sortOrder = 5;
 		collectionOf(live, "announcements").icon = "bell";
@@ -795,7 +853,7 @@ describe("planModelUpdate: the Admin sidebar (#169)", () => {
 	});
 
 	it("takes Documents out of a folder the database gives it, since the seed gives it none", () => {
-		const live = feature005Model();
+		const live = feature008Model();
 		collectionOf(live, "documents").group = "เอกสารเผยแพร่";
 
 		const plan = planModelUpdate(seed, live);
@@ -842,10 +900,80 @@ describe("planModelUpdate: the Admin sidebar (#169)", () => {
 	});
 });
 
+describe('planModelUpdate: the Service icon (#248; spec #239 "Frequently Used Services")', () => {
+	const fieldPath = "/_emdash/api/schema/collections/services/fields";
+
+	it("adds Service's optional choice field icon (ไอคอน), with its 18 names in order, to a database without it", () => {
+		const plan = planModelUpdate(seed, feature005Model());
+
+		assert.equal(SERVICE_ICON.validation.options.length, 18);
+		assert.deepEqual(plan, {
+			...NOTHING,
+			fields: [{ collection: "services", field: SERVICE_ICON }],
+		});
+		assert.deepEqual(planRequests(plan), [
+			{
+				change: "services: field icon (select, ไอคอน)",
+				method: "POST",
+				path: fieldPath,
+				body: SERVICE_ICON,
+			},
+		]);
+	});
+
+	for (const [difference, options] of [
+		["lacks a name", SERVICE_ICON.validation.options.slice(0, -1)],
+		["has a name beyond them", [...SERVICE_ICON.validation.options, "ดาว"]],
+		["lists them in another order", SERVICE_ICON.validation.options.toReversed()],
+		["has none", undefined],
+	] as const) {
+		it(`gives the icon field the seed's names when the database ${difference}`, () => {
+			const live = feature008Model();
+			const icon = collectionOf(live, "services").fields.find(({ slug }) => slug === "icon");
+			assert.ok(icon);
+			icon.validation = options === undefined ? null : { options: [...options] };
+
+			const plan = planModelUpdate(seed, live);
+
+			assert.deepEqual(plan, {
+				...NOTHING,
+				fieldUpdates: [
+					{ collection: "services", slug: "icon", validation: SERVICE_ICON.validation },
+				],
+			});
+			assert.deepEqual(planRequests(plan), [
+				{
+					change: `services: field icon: options ${SERVICE_ICON.validation.options.join(",")}`,
+					method: "PUT",
+					path: `${fieldPath}/icon`,
+					body: { validation: SERVICE_ICON.validation },
+				},
+			]);
+		});
+	}
+
+	it("reports an icon field the database has with another type instead of changing it", () => {
+		const live = feature008Model();
+		const services = collectionOf(live, "services");
+		services.fields = services.fields.map((field) =>
+			field.slug === "icon" ? { slug: "icon", type: "string" } : field,
+		);
+
+		const plan = planModelUpdate(seed, live);
+
+		assert.deepEqual(plan.fieldUpdates, []);
+		assert.equal(plan.problems.length, 1);
+		assert.match(plan.problems[0], /^services: .*icon.*string.*select/);
+	});
+});
+
 describe('planModelUpdate: the migrated content\'s model (#175; spec #174 "Model changes")', () => {
-	/** A database with the migrated content's terms that still has EmDash's Categories and Tags. */
+	/**
+	 * A database on today's model, with the migrated content's terms, that still has EmDash's
+	 * Categories and Tags.
+	 */
 	function beforeDeletions(): LiveModel {
-		return withTerms(sidebarModel(), MIGRATION_TERMS);
+		return withServiceIcon(withTerms(sidebarModel(), MIGRATION_TERMS));
 	}
 
 	it("adds the terms the migrated content uses, and no other, to a database on the #169 model", () => {

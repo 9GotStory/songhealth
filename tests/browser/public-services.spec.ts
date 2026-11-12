@@ -54,6 +54,7 @@ import {
 	expectBreadcrumb,
 	expectFilteredEmpty,
 	expectPreviewRenders,
+	expectServiceIcon,
 	expectSiteNotFound,
 	listedItem,
 	listedTitles,
@@ -137,10 +138,6 @@ test("/services lists only published Services by name, each with its summary and
 		`/services/${first.slug}`,
 	);
 	await expect(card).toContainText(summary);
-	await expect(card.getByTestId("service-icon"), "one uniform decorative icon").toHaveAttribute(
-		"aria-hidden",
-		"true",
-	);
 
 	const main = page.getByRole("main");
 	await expect(
@@ -151,6 +148,23 @@ test("/services lists only published Services by name, each with its summary and
 		main.getByRole("link", { name: "คู่มือและแบบฟอร์ม" }),
 		"guides and forms are Documents, not Services",
 	).toHaveAttribute("href", "/documents");
+});
+
+test("a Service's card shows the icon staff chose, or the standard icon without a choice, and the Service's name still names the card", async ({
+	page,
+}) => {
+	// Staff choose an icon by the Thai name of its picture (#248 comment 6826430670).
+	const unchosen = await createService("icon-unchosen", { name: "กา" });
+	const chosen = await createService("icon-chosen", { name: "กา", data: { icon: "เข็มฉีดยา" } });
+	for (const fixture of [unchosen, chosen]) await publish("services", fixture);
+
+	await page.goto("/services");
+	for (const [service, icon] of [
+		[unchosen, "hand-heart"],
+		[chosen, "syringe"],
+	] as const) {
+		await expectServiceIcon(listedItem(page, service.title), icon, service.title);
+	}
 });
 
 test("the Service Category filter offers only the categories of published Services in label order, narrows /services, stays in the address and reproduces from a shared address", async ({

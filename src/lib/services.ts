@@ -35,6 +35,8 @@ export interface ServiceData {
 	id: string;
 	title: string;
 	summary?: string | null;
+	/** The name of the icon staff chose for the Service's cards (src/lib/service-icon.ts). */
+	icon?: string | null;
 	ownership_type?: OwnershipType | null;
 	provider_text?: string | null;
 	channels?: ServiceChannel[] | null;

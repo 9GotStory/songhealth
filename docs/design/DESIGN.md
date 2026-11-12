@@ -4,7 +4,7 @@
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > ticket by ticket from #240, and awaits the Product Owner's acceptance on #239.
-> **Updated:** 2026-11-12 (Feature 008 #247); first drafted 2026-10-30
+> **Updated:** 2026-11-12 (Feature 008 #248); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -263,8 +263,35 @@ own module.
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
   2026-11-11: #241 comment 6791096480, item 1): 16 px in the heading's link, 20 px in the search's
   submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The hero's search field opens with a 20 px `search`
-  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's). Every Service card shows
-  the one Service icon, `hand-heart`.
+  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's). A Service card shows
+  the Service's icon (below).
+- **Service icons** (Product Owner, 2026-11-12: #248 comment 6826430670): a Service card's tile
+  shows the icon staff chose for the Service in the Service editor, on the Homepage (§8.4) and in
+  the Service catalog (`ServiceIcon`). Without a choice it shows the standard icon, `hand-heart`,
+  and so does a Service whose stored name the set no longer has. The set is fixed at 18, and the
+  editor offers each by a Thai name for its picture, which is the stored value
+  (`src/lib/service-icon.ts`, the Service `icon` field in `seed/seed.json`):
+
+  | Name in the editor | Lucide icon |
+  | --- | --- |
+  | มือประคองหัวใจ (the standard icon) | `hand-heart` |
+  | ข้อความแจ้งเตือน | `message-square-warning` |
+  | ตาชั่ง | `scale` |
+  | หลอดไฟ | `lightbulb` |
+  | เครื่องหมายคำถาม | `circle-question-mark` |
+  | หัวใจและชีพจร | `heart-pulse` |
+  | ใบไม้ | `leaf` |
+  | เม็ดยา | `pill` |
+  | เอกสาร | `file-text` |
+  | กลุ่มคน | `users` |
+  | ลูกโลก | `globe` |
+  | เข็มฉีดยา | `syringe` |
+  | โล่ | `shield-check` |
+  | หูฟังแพทย์ | `stethoscope` |
+  | เด็กเล็ก | `baby` |
+  | โทรศัพท์ | `phone` |
+  | แผ่นรายการ | `clipboard-list` |
+  | โทรโข่ง | `megaphone` |
 - **Accessibility:** an icon is decorative. Lucide hides it from assistive technology, the text
   names the link or button, and an icon-only action has an accessible name. Every icon takes
   `shrink-0`, and its colour is a token through `currentColor`.
@@ -627,7 +654,7 @@ hero on the same deep field, under the section heading with its "ทั้งห
   `sm` the cards end inside the field, 40 px above its edge. With no Service the section is left
   out and the field ends under the hero, with no room left under it.
 - **A card** is white, radius 22, with the `deep` shadow and 24 px of padding (16 px below `sm`).
-  It holds the Service icon, `hand-heart`, in a `surface-soft` tile of 56 px (48 px below `sm`),
+  It holds the Service's icon (§5), 24 px, in a `surface-soft` tile of 56 px (48 px below `sm`),
   the name as an H3 at 18 / 30 semibold, the summary at 14 / 22 in `text-secondary`, clamped to
   three lines and hidden below `sm`, and a 20 px `arrow-right`. A `surface-soft` circle shows in
   its lower right corner. The Service catalog keeps `ServiceCard` (§7.3).
@@ -1189,3 +1216,9 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   "Activities", "Quick Access" and "Contact Summary", the notes on #247 and #247 comments
   6820010972, 6820125241 and 6820174924. Which Activities show, their order, Office Contact's
   source and each address remain.
+- **v1.2 Service icons (2026-11-12, Feature 008 #248):** a Service card shows the icon staff chose
+  for the Service from a fixed set of 18, each offered by a Thai name for its picture, on the
+  Homepage and in the Service catalog; without a choice it shows `hand-heart`, which until now
+  every Service card showed (§5, §8.4). Authority: spec #239 "Frequently Used Services", #239
+  comment 6786631899 (the field goes ahead), the note on #248 and #248 comment 6826430670 (the set
+  and its names). The cards' layout, colours and link remain.

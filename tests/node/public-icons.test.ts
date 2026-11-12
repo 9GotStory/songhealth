@@ -7,7 +7,9 @@
 // The placeholder logo mark keeps its own <svg> in SiteLogo until the office's logo arrives
 // (DESIGN.md §5: a logo is not an icon). Comments may name a mark, so they are left out. Each icon
 // comes from its own module and has a size of 16, 20 or 24 px and shrink-0 (CODING_STANDARDS
-// "Public pages"; #105 retro: four components missed shrink-0 until review).
+// "Public pages"; #105 retro: four components missed shrink-0 until review). A component that
+// picks one of its icons when it renders, as ServiceIcon does (#248), names the pick `Icon`, and
+// that element is held to the same size and shrink-0.
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -63,11 +65,15 @@ async function matchesInSources(
 	return matches.sort();
 }
 
-/** Each Lucide icon element in the public pages' source, as `file:line` and its start tag. */
+/**
+ * Each Lucide icon element in the public pages' source, as `file:line` and its start tag: an
+ * element of an imported icon, or `Icon`, the icon a file that imports icons picks at render.
+ */
 async function iconTags(): Promise<Array<{ at: string; tag: string }>> {
 	const tags: Array<{ at: string; tag: string }> = [];
 	for (const { file, source } of await publicSources()) {
-		for (const [, name] of source.matchAll(ICON_IMPORT)) {
+		const imported = [...source.matchAll(ICON_IMPORT)].map(([, name]) => name);
+		for (const name of imported.length > 0 ? [...imported, "Icon"] : []) {
 			for (const match of source.matchAll(new RegExp(`<${name}\\b[^>]*>`, "g"))) {
 				tags.push({ at: `${file}:${lineAt(source, match.index)}`, tag: match[0] });
 			}
