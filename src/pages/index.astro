@@ -79,7 +79,7 @@
 // they come into the window (`scroll-reveal`, src/styles/global.css), where the browser has
 // scroll-driven animation: on the `li`, never on the article that takes a card's hover. The
 // Leadership strip, the Health Topic chips, the discovery band and the contact card reveal as one
-// piece each. The rings of the band and the contact card turn. Motion adds no script.
+// piece each. The decorations stand still. Motion adds no script.
 //
 // Below 640 px every section keeps its order (Feature 006 #146; spec #144 "Homepage (`04`)"):
 // Quick Access goes two to a row in its compact cards, and the space between two sections is
@@ -411,7 +411,7 @@ const discoveryField =
 				>
 					<span
 						aria-hidden="true"
-						class="ring-turn pointer-events-none absolute -top-37.5 -right-22.5 size-85 rounded-pill border-[1.5px] border-accent-warm/45 max-lg:hidden"
+						class="pointer-events-none absolute -top-37.5 -right-22.5 size-85 rounded-pill border-[1.5px] border-accent-warm/45 max-lg:hidden"
 					/>
 					<div class="relative">
 						<SectionHeading

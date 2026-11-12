@@ -2099,18 +2099,17 @@ async function pageLayouts(page: Page) {
 	return layouts;
 }
 
-/** How many of `scope`'s decorations move without end as the page is now. */
-function movingDecorations(scope: Locator): Promise<number> {
-	return scope.evaluate(
-		(root) =>
-			root
-				.getAnimations({ subtree: true })
-				.filter(
-					(animation) =>
-						animation.playState === "running" &&
-						animation.effect?.getTiming().iterations === Infinity &&
-						(animation.effect as KeyframeEffect).target?.closest('[aria-hidden="true"]') != null,
-				).length,
+/**
+ * When each effect that runs by itself, on the page's clock, is over, in milliseconds after it
+ * began; Infinity for one that never ends. A reveal runs on the visitor's scrolling and is left
+ * out.
+ */
+function selfRunningEnds(page: Page): Promise<number[]> {
+	return page.evaluate(() =>
+		document
+			.getAnimations()
+			.filter((animation) => animation.timeline instanceof DocumentTimeline)
+			.map((animation) => Number(animation.effect?.getComputedTiming().endTime)),
 	);
 }
 
@@ -2124,7 +2123,7 @@ async function expectEverySectionWhole(page: Page, order: string[], label: strin
 	}
 }
 
-test("the page moves only when motion is allowed: the hero's parts enter one after another, each section shows as it comes into the window and the decorations move, while with reduced motion preferred, on paper, and where the browser has no scroll-driven animation, every section shows whole at once; the page's height and each section's place are the same either way", async ({
+test("the page moves only when motion is allowed: the hero's parts enter one after another, each section shows as it comes into the window and nothing moves by itself for more than five seconds, while with reduced motion preferred, on paper, and where the browser has no scroll-driven animation, every section shows whole at once; the page's height and each section's place are the same either way", async ({
 	page,
 }) => {
 	test.setTimeout(120_000);
@@ -2207,14 +2206,15 @@ test("the page moves only when motion is allowed: the hero's parts enter one aft
 			}
 		});
 
-		await test.step("The decorations", async () => {
-			expect(
-				await movingDecorations(page.getByTestId("deep-field")),
-				"the deep field's two glows and its small ring",
-			).toBe(3);
-			for (const card of ["discovery-band", "contact-card"]) {
-				expect(await movingDecorations(page.getByTestId(card)), `the ring of ${card}`).toBe(1);
-			}
+		await test.step("Nothing moves by itself for long", async () => {
+			// Read as the page opens, while the hero's entrance and a loading picture's shimmer run:
+			// each is over within five seconds (WCAG 2.2 SC 2.2.2), and the decorations stand still.
+			await page.goto("/", { waitUntil: "commit" });
+			await expect(hero.getByRole("search")).toBeVisible();
+			const ends = await selfRunningEnds(page);
+			expect(ends.length, "the hero's entrance is running").toBeGreaterThan(0);
+			expect(Math.max(...ends), "the last effect to end, in ms").toBeLessThanOrEqual(5_000);
+			await expect(sectionHeadings(page)).toHaveText(order);
 		});
 
 		await test.step("Focus on every stop with motion", async () => {
