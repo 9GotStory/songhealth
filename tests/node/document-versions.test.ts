@@ -74,7 +74,7 @@ describe("DESIGN.md's own version", () => {
 describe("a feature's decision banner", () => {
 	it("stands once in each current document and in DESIGN.md", async () => {
 		// A feature amends a document under one banner and one version bump; a later ticket of the
-		// feature adds to that banner (CODING_STANDARDS "Documents", Amendments; #247 retro: a second
+		// feature keeps that banner (CODING_STANDARDS "Documents", Amendments; #247 retro: a second
 		// "Feature 008 decision" banner and a second bump reached review).
 		const documents = repositoryFiles().filter(
 			(file) =>
