@@ -104,6 +104,11 @@ the real state first and only adds what is missing:
     `PLAYWRIGHT_BASE_URL`, the credential file paths (`SONGHEALTH_DEV_ACCESS`,
     `SONGHEALTH_ROLE_FIXTURE_ACCESS`, `SONGHEALTH_T021_ROUTE_ACCESS`) and
     `SONGHEALTH_ADMIN_SESSION=dev-bypass`. A variable set beforehand, even to empty, wins.
+  - **One run at a time, and a quiet host.** The runtime is one application and one database, and
+    a suite's cases have 30 seconds each: start no second suite, and run no build, typecheck or
+    formatter on the host while one runs (#247 retro: four cases timed out beside
+    `npm run format` and `npm run typecheck`). After a run, the list ends with the tests that
+    passed close to their timeout (`tests/browser/near-timeout-reporter.ts`).
   - **Ordinary suites:**
 
     ```bash
