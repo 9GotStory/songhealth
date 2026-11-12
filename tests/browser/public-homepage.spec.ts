@@ -212,9 +212,12 @@ async function spaceBelowStrip(page: Page): Promise<number> {
 	return section.y + section.height - (surface.y + surface.height);
 }
 
-/** The current Announcements' section. */
+/**
+ * The current Announcements' section, by its whole name: a Featured Announcement's card is a
+ * region whose name can hold "ประกาศ" too.
+ */
 function announcementsSection(page: Page) {
-	return homepageSection(page, HOMEPAGE_HEADINGS.announcements);
+	return page.getByRole("region", { name: HOMEPAGE_HEADINGS.announcements, exact: true });
 }
 
 /** The current Announcements' rows, in order. */

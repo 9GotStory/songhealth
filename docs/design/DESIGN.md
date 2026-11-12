@@ -724,7 +724,12 @@ News as a section of their own:
 - **A row** is white, radius 22, with the `card` shadow, 14 px from the next:
   - the date tile, 92 px with radius 18 (68 px and 14 below `sm`), a `brand-primary` to
     `brand-dark` gradient: the day in `surface-base` at 34 / 38 bold (24 / 28 below `sm`), the
-    month and year under it at 13 / 20 in `accent-warm`;
+    month and year under it at 13 / 20 in `accent-warm`. The widest month and year, "เม.ย." with
+    a year, is 57 px in the 68 px tile. On the gradient under the month and year,
+    `scripts/measure-text-contrast.ts` with
+    `scripts/screenshot-fixtures/homepage-announcements.ts` read `accent-warm` at 5.60:1 at 1,440,
+    1,024 and 768 px and 5.45:1 at 375 and 320 px, the day at 7.58:1 or more, and the lead over
+    the glow at 4.74:1 or more, at the application code of `e298e78`;
   - the category, the first `announcement_type` term, as a pill badge at 13 / 20 semibold:
     procurement in `procurement-text` on `topic-blue` with a 1 px `procurement-border` edge,
     recruitment in `brand-dark` on `accent-warm`, any other, and one added later, in
