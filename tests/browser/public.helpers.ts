@@ -356,6 +356,39 @@ export async function expectImageLoaded(image: Locator, label: string): Promise<
 			{ message: `${label} loads` },
 		)
 		.toBe(true);
+	// The picture asks for about the width of its box (CODING_STANDARDS "Public pages": "a `sizes`
+	// that matches their box"; #247 retro: a tile asked for a third of its row's width).
+	const asked = await image.evaluate((element: HTMLImageElement) => {
+		const sizes = element.getAttribute("sizes");
+		if (!sizes) return undefined;
+		const px = (length: string) => {
+			const value = Number.parseFloat(length);
+			if (length.endsWith("vw")) return (value * window.innerWidth) / 100;
+			if (length.endsWith("rem")) {
+				return value * Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+			}
+			return value;
+		};
+		for (const entry of sizes.split(",").map((part) => part.trim())) {
+			const conditional = /^(\(.*\))\s+(\S+)$/.exec(entry);
+			if (!conditional) return { asked: px(entry), box: element.getBoundingClientRect().width };
+			if (window.matchMedia(conditional[1]!).matches) {
+				return { asked: px(conditional[2]!), box: element.getBoundingClientRect().width };
+			}
+		}
+		return undefined;
+	});
+	if (asked) {
+		const share = asked.asked / asked.box;
+		expect(
+			share,
+			`${label}: its sizes asks for ${Math.round(asked.asked)} px in a ${Math.round(asked.box)} px box`,
+		).toBeGreaterThanOrEqual(0.75);
+		expect(
+			share,
+			`${label}: its sizes asks for ${Math.round(asked.asked)} px in a ${Math.round(asked.box)} px box`,
+		).toBeLessThanOrEqual(1.5);
+	}
 }
 
 /**
