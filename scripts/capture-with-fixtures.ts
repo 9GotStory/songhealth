@@ -12,13 +12,20 @@
 //
 // scripts/evidence-branch.sh then puts the screenshots on an image-only branch for the PR.
 //
+// The screenshots go to a public branch, so before anything is made the fixtures module is read
+// for Legacy site content, as a commit is (.githooks/pre-commit): while the newest export is on
+// this machine, `scripts/migration.ts leak-check` must pass it (#245 retro: a title taken from the
+// prototype's real content was caught at the commit, after the before screenshots).
+//
 // A fixtures module's default export receives a FixtureKit and returns the paths to capture. A
 // path with a synthetic slug comes with a name, which names its screenshot files.
 // Titles start with "[ตัวอย่าง]", like the demo dataset.
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
-import { resolve } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { withFixtureKit, type FixtureKit } from "./fixture-kit.ts";
@@ -40,6 +47,27 @@ if (fixturesPath === undefined || outDir === undefined) {
 		"usage: node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir> [<selector>]",
 	);
 	process.exit(2);
+}
+
+/** The folder the Legacy site's exports stay in, outside the repository (ADR 0008). */
+const EXPORTS = join(homedir(), ".local/state/songhealth-migration");
+/** The newest export, whose dated name sorts last, when this machine has one. */
+const newestExport = existsSync(EXPORTS)
+	? readdirSync(EXPORTS)
+			.filter((name) => /^WordPress\..*\.xml$/.test(name))
+			.sort()
+			.at(-1)
+	: undefined;
+if (newestExport !== undefined && existsSync("scripts/migration.ts")) {
+	const check = spawnSync(
+		"node",
+		["scripts/migration.ts", "leak-check", join(EXPORTS, newestExport), fixturesPath],
+		{ stdio: "inherit" },
+	);
+	if (check.status !== 0) {
+		console.error("capture-with-fixtures: the fixtures module holds Legacy site content");
+		process.exit(1);
+	}
 }
 
 /** `path` as a close-up of the selector's element, which a path at one width alone can be. */

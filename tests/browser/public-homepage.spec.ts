@@ -81,7 +81,6 @@ import {
 	expectNoHorizontalScroll,
 	expectVisibleFocusOnEveryStop,
 	expectVisuallyHidden,
-	homepageAnnouncements,
 	homepageSection,
 	itemsPerRow,
 	listedItem,
@@ -214,7 +213,9 @@ async function spaceBelowStrip(page: Page): Promise<number> {
 }
 
 /** The current Announcements' section. */
-const announcementsSection = homepageAnnouncements;
+function announcementsSection(page: Page) {
+	return homepageSection(page, HOMEPAGE_HEADINGS.announcements);
+}
 
 /** The current Announcements' rows, in order. */
 function announcementRows(page: Page) {
