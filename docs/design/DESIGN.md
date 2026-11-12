@@ -122,7 +122,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | `surface-base` | `#ffffff` | cards, white bands |
 | `surface-soft` | `#eaf5f0` | soft bands, the Contact Summary, the Current Announcements' band and its general category badge |
 | `border-default` | `#dce7e2` | borders |
-| `topic-green`, `topic-blue` | `#ebf7f0`, `#f0f5fc` | Health Information cards |
+| `topic-blue` | `#f0f5fc` | the procurement Announcement badge's fill (§8.7); `topic-green`, the old Health Information cards' other fill, left the tokens with them (#246) |
 | `divider` | `#dbe8e3` | separators inside a white box: the ITA year's rows, the line above a post's topics |
 | `activity-visual-from`, `-to` | `#bfdcce`, `#e8f0d9` | an Activity card without a picture |
 | `contact-visual-from`, `-to` | `#d1ebde`, `#e8f0cc` | the Contact Summary's map stand-in |
@@ -771,7 +771,8 @@ Announcements on the page's colour:
   (`src/lib/terms.ts` `offeredTerms`), in the filter's order, as a list named "ประเด็นสุขภาพ".
   Each is a pill link to `/health/content?topic=<slug>`, the list narrowed to that topic:
   `brand-primary` on `surface-base` with a 1.5 px `border-default` edge at 14 / 22 medium (13 / 20
-  below `sm`), `surface-base` on `brand-primary` under the pointer; 34 px high, 28 px below `sm`.
+  below `sm`), `surface-base` on `brand-primary` under the pointer; 36 px high, 30 px below `sm` (measured),
+  above the 24 px a link's target needs (spec #239 "Accessibility").
   The row wraps, 10 px apart (8 px below `sm`). With no topic offered the row is left out.
 - **The cards** are the latest 4 Health Content items, four to a row from `lg` and two from `sm`,
   24 px apart. A card is white, radius 22, with the `card` shadow and 10 px of padding:
@@ -787,8 +788,9 @@ Announcements on the page's colour:
 - **Below `sm`** a card is a compact row, 12 px from the next: a 112 px picture at 4:3 at the
   left, then the badge and the title at 16 / 26 semibold, without the summary and "อ่านต่อ". At
   320 px that leaves 142 px for the title, above the 107 px of "ความดันโลหิตสูง" (§7.3).
-- **The link:** the title is an H3, and one link over the whole card is named "อ่านต่อ" and the
-  title; the topic and the summary stay outside the link's name.
+- **The link:** the title is an H3 that names one link over the whole card; the topic and the
+  summary stay outside the link's name, and "อ่านต่อ" with its arrow is decoration, hidden from
+  assistive technology.
 - **Under the pointer** the card rises 6 px with the `deep` shadow and the arrow moves 4 px to the
   right, only under `prefers-reduced-motion: no-preference`. Keyboard focus is the global 3 px
   outline around the card.
@@ -800,7 +802,8 @@ container, on the page's colour. With no published Health Service it is left out
 
 - **The space:** it follows Health Information's space below. It takes that space above itself
   when Health Information is left out and a band precedes it, and its own space below when no
-  Activities follow.
+  Activities follow. The Activities take their space above after the band, or where the band
+  would have taken it; without the band they follow Health Information's space below.
 - **The band** is the `deep-band` utility: `brand-primary` to `brand-dark` at 120°, with the
   `deep-highlight` glow from its lower left corner, radius 32 (24 below `sm`) and the `deep`
   shadow; 56 px of padding from `lg`, 40 px from `sm`, 28 px above and below and 20 px at the
@@ -833,7 +836,8 @@ container, on the page's colour. With no published Health Service it is left out
 button of the hero's site search and of this form shows a spinner in place of its icon, a 20 px
 ring in the button's text colour with one quarter open, and a further submit is ignored until the
 page changes (item 3). The mark is taken off when the page is shown again from history, as after
-the browser's back button. The spinner turns only under `prefers-reduced-motion: no-preference`.
+the browser's back button, and after ten seconds, so a result that never opens in the window (a
+stopped load, one opened in another tab) does not leave the form shut. The spinner turns only under `prefers-reduced-motion: no-preference`.
 This is the site's one script, inline at the end of the Homepage; without JavaScript both forms
 submit as plain forms. Forms on other pages are unchanged.
 
