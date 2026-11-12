@@ -51,7 +51,10 @@ const badge = {
 ---
 
 <article class="group">
-	<div class="relative flex items-center gap-3.5 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:translate-x-2.5 motion-safe:group-hover:shadow-deep sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5">
+	<div
+		data-testid="announcement-surface"
+		class="relative flex items-center gap-3.5 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:translate-x-2.5 motion-safe:group-hover:shadow-deep sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5"
+	>
 		{dateParts && (
 			<p class="flex size-17 shrink-0 flex-col items-center justify-center rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-surface-base sm:size-23 sm:rounded-18">
 				<time datetime={date?.toISOString()} class="flex flex-col items-center">

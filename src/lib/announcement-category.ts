@@ -6,16 +6,13 @@
 // other category takes the general colour, so one staff add later shows before a colour is
 // assigned here.
 
-/** The colour a category badge takes. */
-export type CategoryTone = "procurement" | "recruitment" | "general";
-
 /** The categories with a colour of their own, by the term's slug. */
-const TONES = new Map<string, CategoryTone>([
-	["procurement", "procurement"],
-	["recruitment", "recruitment"],
-]);
+const OWN_TONES = ["procurement", "recruitment"] as const;
+
+/** The colour a category badge takes. */
+export type CategoryTone = (typeof OWN_TONES)[number] | "general";
 
 /** The colour of the badge of the category whose term has `slug`. */
 export function categoryTone(slug: string): CategoryTone {
-	return TONES.get(slug) ?? "general";
+	return OWN_TONES.find((tone) => tone === slug) ?? "general";
 }
