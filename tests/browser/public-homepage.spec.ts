@@ -2223,6 +2223,26 @@ test("the page moves only when motion is allowed: the hero's parts enter one aft
 				await page.goto("/");
 				await expectVisibleFocusOnEveryStop(page, `/ with motion at ${width}`);
 			}
+			// What takes focus shows whole, also where it is the first of a tall piece to come into the
+			// window: on a phone the Leadership strip's link was focused at half its strength.
+			for (const viewport of [DESKTOP_VIEWPORT, PHONE_VIEWPORT, MOBILE_VIEWPORT]) {
+				await page.setViewportSize(viewport);
+				await page.goto("/");
+				for (let step = 0; step < 100; step += 1) {
+					await page.keyboard.press("Tab");
+					const focused = page.locator(":focus");
+					if ((await focused.count()) === 0) break;
+					const name = await focused.evaluate(
+						(element) => element.textContent?.trim() || element.getAttribute("aria-labelledby"),
+					);
+					await expect
+						.poll(() => shownOpacity(focused), {
+							message: `${name}, focused at ${viewport.width} px, shows whole`,
+							timeout: 3_000,
+						})
+						.toBe(1);
+				}
+			}
 			await page.setViewportSize(DESKTOP_VIEWPORT);
 		});
 

@@ -410,9 +410,11 @@
 /*
  * The reveal of a part of a section as it comes into the window: it rises and fades in over the
  * first 60 % of its way in, or --reveal-end. Only where the browser has scroll-driven animation,
- * so elsewhere nothing is ever hidden. Longhands, not the `animation` shorthand: the build's
- * minifier, lightningcss 1.33.0, folds `animation-timeline` into a shorthand, which Chromium 153
- * then drops whole (#249; docs/design/DESIGN.md §8.12).
+ * so elsewhere nothing is ever hidden. A part that holds the keyboard's focus shows whole at once:
+ * focus scrolls a link only just into the window, where a tall part has barely begun. Longhands,
+ * not the `animation` shorthand: the build's minifier, lightningcss 1.33.0, folds
+ * `animation-timeline` into a shorthand, which Chromium 153 then drops whole (#249;
+ * docs/design/DESIGN.md §8.12).
  */
 @utility scroll-reveal {
 	@media screen and (prefers-reduced-motion: no-preference) {
@@ -422,6 +424,10 @@
 			animation-fill-mode: backwards;
 			animation-timeline: view();
 			animation-range: entry 0% entry var(--reveal-end, 60%);
+
+			&:focus-within {
+				animation-name: none;
+			}
 		}
 	}
 }

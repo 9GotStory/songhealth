@@ -958,7 +958,9 @@ stays the submit state (§8.9).
   chips, the Health Service Discovery band and the contact card each reveal as one piece, and the
   Current Announcements' heading with its lead and link as one. The reveal runs only where the
   browser has scroll-driven animation (`@supports (animation-timeline: view())`); elsewhere every
-  section shows whole from the start. The stylesheet writes the reveal as longhands: lightningcss
+  section shows whole from the start. A part that holds the keyboard's focus shows whole at once:
+  focus scrolls a link only just into the window, where a tall piece such as the Leadership strip
+  on a phone has barely begun its reveal. The stylesheet writes the reveal as longhands: lightningcss
   1.33.0, the build's minifier, folds `animation-timeline` into an `animation` shorthand, which
   Chromium 153 drops whole (`npm run build:check` with the reveal written as a shorthand, then the built
   stylesheet loaded in Playwright's Chromium, 2026-11-12: `CSS.supports("animation", "linear
