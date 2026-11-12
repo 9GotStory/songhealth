@@ -12,14 +12,14 @@
 // visual in the picture's place, with a green tile and its 24 px icon, as a small Latest News
 // card does (HomeNewsCard).
 //
-// The title is an H3 under the section's H2. A native link covers the whole card, named "อ่านต่อ"
-// and the title, so its name holds each text in sight on it that a visitor could say (WCAG 2.2
-// SC 2.5.3); the topic and the summary stay readable outside the link's name (#193; #190 comment
-// 6707205912). The picture is decorative, because the title names the link, and covers its box
-// from its middle, as cards show pictures (docs/design/DESIGN.md §7.3). It goes through EmDash's
-// Image with a `sizes` for the card's box in the row of four (src/components/ContentCard.astro
-// says why). A picture whose media item was deleted in Admin is left out for the visual
-// (src/lib/media.ts).
+// The title is an H3 under the section's H2, and a native link named by it covers the whole card;
+// the topic and the summary stay readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190
+// comment 6707205912). "อ่านต่อ" and its arrow are decoration, hidden from assistive technology:
+// the title already names the link. The picture is decorative, because the title names the link,
+// and covers its box from its middle, as cards show pictures (docs/design/DESIGN.md §7.3). It goes
+// through EmDash's Image with a `sizes` for the card's box in the row of four
+// (src/components/ContentCard.astro says why). A picture whose media item was deleted in Admin is
+// left out for the visual (src/lib/media.ts).
 //
 // The card's lift and the arrow's shift under the pointer move only under
 // `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading"). The article keeps its
@@ -44,9 +44,7 @@ const { item } = Astro.props;
 const data = item.data;
 const image = await availableMedia(data.featured_image, Astro.locals.emdash);
 const topic = termsOf(data, "topic")[0];
-const id = crypto.randomUUID();
-const titleId = `home-health-${id}`;
-const readId = `home-health-read-${id}`;
+const titleId = `home-health-${crypto.randomUUID()}`;
 ---
 
 <article class="group relative h-full">
@@ -94,7 +92,7 @@ const readId = `home-health-read-${id}`;
 				</p>
 			)}
 			<p
-				id={readId}
+				aria-hidden="true"
 				class="mt-auto flex items-center gap-1.5 pt-3.5 text-label font-semibold text-brand-primary max-sm:hidden"
 			>
 				อ่านต่อ
@@ -107,7 +105,7 @@ const readId = `home-health-read-${id}`;
 	</div>
 	<a
 		href={healthContentPath(item.id)}
-		aria-labelledby={`${readId} ${titleId}`}
+		aria-labelledby={titleId}
 		class="absolute inset-0 rounded-22"
 	></a>
 </article>

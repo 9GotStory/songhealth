@@ -1180,7 +1180,7 @@ test("Health Information shows the latest 4 published Health Content, each with 
 	}
 	await expect(card(third).getByText(firstTopic.label, { exact: true })).toBeVisible();
 	for (const fixture of [newest, untopical, third, fourth]) {
-		await expect(card(fixture).getByRole("link")).toHaveAccessibleName(`อ่านต่อ ${fixture.title}`);
+		await expect(card(fixture).getByRole("link")).toHaveAccessibleName(fixture.title);
 		await expect(card(fixture).getByRole("link")).toHaveAttribute(
 			"href",
 			`/health/content/${fixture.slug}`,
@@ -1330,6 +1330,14 @@ test("the Health Service Discovery band shows its heading and lead, the number o
 	const areaField = discovery.getByLabel("พื้นที่รับผิดชอบ");
 	await expect(areaField.getByRole("option", { name: area.label })).toHaveCount(1);
 	await expect(areaField.locator("option")).toHaveCount(offeredAreas + 1);
+	// Each control of the form is 44 px high or more (spec #239 "Accessibility").
+	for (const control of [
+		areaField,
+		discovery.getByLabel("ชื่อหน่วยบริการ"),
+		discovery.getByRole("button", { name: "ค้นหา", exact: true }),
+	]) {
+		expect((await boxOf(control, "a control of the form")).height).toBeGreaterThanOrEqual(44);
+	}
 	await areaField.selectOption({ label: area.label });
 	await discovery.getByLabel("ชื่อหน่วยบริการ").fill(name);
 	await discovery.getByRole("button", { name: "ค้นหา", exact: true }).click();
@@ -1397,6 +1405,66 @@ test("with one Health Service that has no Area the band counts it and shows no n
 	});
 });
 
+test("the band directly below the deep field has the sections' space above it, the Activities after it have theirs, Health Information before it takes that space instead, and without the band the Activities follow Health Information's space", async ({
+	page,
+}) => {
+	await borrowAllContent();
+	const facility = await createSyntheticHealthService(admin, "spacing-chain");
+	await publish("health_services", facility);
+	const spaces = [
+		[1440, 80],
+		[768, 64],
+		[375, 32],
+	] as const;
+	const health = healthSection(page);
+	const discovery = discoverySection(page);
+	const activities = homepageSection(page, HOMEPAGE_HEADINGS.activities);
+	/** Read `section`'s own space above at each width. */
+	const expectSpaceAbove = async (section: Locator, name: string, own: boolean) => {
+		for (const [width, space] of spaces) {
+			await page.setViewportSize({ width, height: 900 });
+			await expect(section, `${name}'s space above at ${width} px`).toHaveCSS(
+				"padding-top",
+				own ? `${space}px` : "0px",
+			);
+		}
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+	};
+	await withHomepageMenus(admin, EMPTY_MENUS, async () => {
+		// The band alone, with no Leadership, News or Announcements above it.
+		await page.goto("/");
+		await expect(health).toHaveCount(0);
+		await expectSpaceAbove(discovery, "the band", true);
+
+		await publish("activities", await create("activities", "spacing-chain"));
+		await page.goto("/");
+		await expectSpaceAbove(activities, "the Activities", true);
+		await expect(discovery, "the band's space below before the Activities").toHaveCSS(
+			"padding-bottom",
+			"0px",
+		);
+
+		await publish("health_content", await create("health_content", "spacing-chain"));
+		await page.goto("/");
+		await expectSpaceAbove(health, "Health Information", true);
+		await expectSpaceAbove(discovery, "the band", false);
+
+		// Without the band, Health Information's space below is the only space before the Activities.
+		const unpublished = await unpublishEntry(admin, "health_services", facility.id);
+		expect(unpublished.ok, `unpublishing: ${nativeRefusalOf(unpublished)}`).toBe(true);
+		await page.goto("/");
+		await expect(discovery).toHaveCount(0);
+		await expectSpaceAbove(activities, "the Activities", false);
+		for (const [width, space] of spaces) {
+			await page.setViewportSize({ width, height: 900 });
+			await expect(health, `Health Information's space below at ${width} px`).toHaveCSS(
+				"padding-bottom",
+				`${space}px`,
+			);
+		}
+	});
+});
+
 /** The Homepage's forms, which show their submit state (spec #239 "Motion and loading"). */
 const SUBMIT_FORMS = [
 	{
@@ -1414,10 +1482,12 @@ const SUBMIT_FORMS = [
 ];
 
 for (const form of SUBMIT_FORMS) {
-	test(`after submit, the button of ${form.name} shows a spinner in place of its icon and a second press sends nothing more, and back from the result it shows its icon again`, async ({
+	test(`after submit, the button of ${form.name} shows a spinner in place of its icon and a second press sends nothing more, and it shows its icon again when the page is shown from history, after ten seconds, and back from the result`, async ({
 		page,
 	}) => {
 		await publish("health_services", await createSyntheticHealthService(admin, "submit-state"));
+		// The page's timers run on a clock the test can move.
+		await page.clock.install();
 		await page.goto("/");
 		const found = form.find(page);
 		const button = found.getByRole("button", { name: "ค้นหา", exact: true });
@@ -1440,12 +1510,30 @@ for (const form of SUBMIT_FORMS) {
 		await button.click({ force: true });
 		await found.locator("input").first().press("Enter");
 		await expect(spinner).toBeVisible();
+		// A second request would have reached the route by now.
+		await page.waitForTimeout(500);
 		expect(sent, "one request for the result").toHaveLength(1);
+		// The spinner turns, and stands still when reduced motion is preferred.
+		await expect(spinner).not.toHaveCSS("animation-name", "none");
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await expect(spinner).toBeVisible();
+		await expect(spinner).toHaveCSS("animation-name", "none");
+		await page.emulateMedia({ reducedMotion: "no-preference" });
 		// A page the browser kept and shows again from history gets `pageshow`. Playwright's Chromium
 		// keeps no page that way, so the event is sent here.
 		await page.evaluate(() =>
 			window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })),
 		);
+		await expect(spinner).toBeHidden();
+		await expect(icon).toBeVisible();
+
+		// A result that never opens here leaves the form shut for ten seconds, no longer.
+		await button.click();
+		await expect(spinner).toBeVisible();
+		expect(sent, "a second request once the state has cleared").toHaveLength(2);
+		await page.clock.fastForward(5_000);
+		await expect(spinner).toBeVisible();
+		await page.clock.fastForward(6_000);
 		await expect(spinner).toBeHidden();
 		await expect(icon).toBeVisible();
 

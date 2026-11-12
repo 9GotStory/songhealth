@@ -60,11 +60,15 @@
 // Current Announcements, or the deep field when nothing else precedes it. Latest News and the
 // Leadership strip leave their own space below otherwise. The discovery band takes that space
 // above when Health Information is left out, and its own space below when no Activities follow.
+// The Activities take their space above after the discovery band, or where the band would have
+// taken it, and Health Information's space below otherwise.
 //
 // The hero's site search and the discovery form show their submit state (spec #239 "Motion and
 // loading"; SubmitStateIcon): the page's one inline script, at its end, marks a submitted form,
 // which then shows a spinner on its button and ignores a further submit, and takes the mark off
-// when the page is shown again from history, as after the browser's back button.
+// when the page is shown again from history, as after the browser's back button, or after ten
+// seconds, so a result that never opens here (a stopped load, one opened in another tab) does
+// not leave the form shut.
 //
 // Below 640 px the page is shorter, with every section kept in its order (Feature 006 #146; spec
 // #144 "Homepage (`04`)"; the Product Owner's "โอเค เฉพาะหน้าแรก" on the prototype): the
@@ -200,9 +204,19 @@ const spaceAbove = "pt-8 sm:pt-16 lg:pt-20";
  * Latest News between them.
  */
 const followsBand = announcements.length > 0 || (!showsNews && leaders.length === 0);
+/** Whether the discovery band takes that space above, with no Health Information before it. */
+const discoveryFollowsBand = healthContent.length === 0 && followsBand;
+/**
+ * Whether the Activities take their own space above: after the discovery band, or where the band
+ * would have taken it.
+ */
+const activitiesFollowBand = directory.count > 0 || discoveryFollowsBand;
 
-/** The Health Service Discovery fields' box: 52 px high, with a 3:1 boundary, as FilterForm's. */
-const control =
+/**
+ * A Health Service Discovery field's box: 52 px high, with the 3:1 boundary colour FilterForm's
+ * fields have.
+ */
+const discoveryField =
 	"mb-2 h-13 w-full min-w-0 rounded-14 border-[1.5px] border-border-input bg-surface-base px-4 text-body";
 ---
 
@@ -358,10 +372,7 @@ const control =
 	{directory.count > 0 && (
 		<section
 			aria-labelledby="home-discovery"
-			class:list={[
-				healthContent.length === 0 && followsBand && spaceAbove,
-				activities.length === 0 && spaceBelow,
-			]}
+			class:list={[discoveryFollowsBand && spaceAbove, activities.length === 0 && spaceBelow]}
 		>
 			<div class="page-container">
 				<div
@@ -409,7 +420,7 @@ const control =
 						<label class="text-label font-semibold" for="discovery-area">
 							{FILTER_LABELS.area}
 						</label>
-						<select id="discovery-area" name={FILTER_PARAMS.area} class={control}>
+						<select id="discovery-area" name={FILTER_PARAMS.area} class={discoveryField}>
 							<option value="">{FILTER_LABELS.anyArea}</option>
 							{directory.areas.map((area) => (
 								<option value={area.slug}>{area.label}</option>
@@ -418,7 +429,12 @@ const control =
 						<label class="text-label font-semibold" for="discovery-name">
 							{FILTER_LABELS.name}
 						</label>
-						<input id="discovery-name" name={FILTER_PARAMS.name} type="search" class={control} />
+						<input
+							id="discovery-name"
+							name={FILTER_PARAMS.name}
+							type="search"
+							class={discoveryField}
+						/>
 						<button
 							type="submit"
 							class="mt-1.5 inline-flex h-13 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-pill bg-accent-warm px-7 text-body font-semibold text-brand-dark hover:shadow-card motion-safe:transition-shadow"
@@ -435,7 +451,10 @@ const control =
 	)}
 
 	{activities.length > 0 && (
-		<section aria-labelledby="home-activities" class="py-8 sm:py-16 lg:py-20">
+		<section
+			aria-labelledby="home-activities"
+			class:list={[activitiesFollowBand && spaceAbove, spaceBelow]}
+		>
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-activities"
@@ -496,8 +515,9 @@ const control =
 	<script is:inline>
 		for (const form of document.querySelectorAll("form[data-submit-state]")) {
 			form.addEventListener("submit", (event) => {
-				if ("submitting" in form.dataset) event.preventDefault();
-				else form.dataset.submitting = "";
+				if ("submitting" in form.dataset) return event.preventDefault();
+				form.dataset.submitting = "";
+				setTimeout(() => delete form.dataset.submitting, 10000);
 			});
 		}
 		addEventListener("pageshow", () => {

@@ -6,7 +6,8 @@
 // The form carries `data-submit-state` and the class `group/submit`. The Homepage's one inline
 // script (src/pages/index.astro) marks a submitted form with `data-submitting`, ignores a further
 // submit while the mark is there, and takes the mark off when the page is shown again from
-// history. Without JavaScript the form submits as any other and the icon stays.
+// history, or after ten seconds. Without JavaScript the form submits as any other and the icon
+// stays.
 //
 // The spinner is a ring in the button's text colour with one quarter open, 20 px as the icons
 // beside it (docs/design/DESIGN.md §5). It turns only under
