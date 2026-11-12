@@ -834,6 +834,23 @@ export function listedItem(page: Page, title: string) {
 	return page.getByRole("main").getByRole("article").filter({ hasText: title });
 }
 
+/**
+ * Fail unless the card of the Service titled `title` shows the Lucide icon `icon` in its icon tile,
+ * out of assistive technology's reach, with the card's link named by the title alone. Lucide marks
+ * each icon's `<svg>` with the class `lucide-<name>` (docs/agents/lucide-astro-1.59.0.md), the one
+ * thing on the page that tells two icons apart.
+ */
+export async function expectServiceIcon(card: Locator, icon: string, title: string): Promise<void> {
+	const tile = card.getByTestId("service-icon");
+	await expect(tile, "the icon tile is decorative").toHaveAttribute("aria-hidden", "true");
+	await expect(tile.locator("svg"), `the ${icon} icon`).toHaveClass(
+		new RegExp(`(?:^| )lucide-${icon}(?: |$)`),
+	);
+	await expect(card.getByRole("link"), "the Service's name names the card").toHaveAccessibleName(
+		title,
+	);
+}
+
 /** The value a record page states for one of its details, by the detail's Thai name. */
 export function detailOf(page: Page, name: string) {
 	return page

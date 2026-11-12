@@ -15,7 +15,8 @@
 //   Owner, 2026-11-11: #241 comment 6791096480, item 2);
 // - the Frequently Used Services (Feature 008 #242; spec #239 "Frequently Used Services"): the
 //   published Services of their menu, in menu order, at most 6, each a white card on the hero's
-//   deep field with its name, summary and the uniform icon, and ทั้งหมด to /services. They go
+//   deep field with its name, summary and its icon, the one staff chose or the standard one
+//   (Feature 008 #248), and ทั้งหมด to /services. They go
 //   three to a row from 1,024 px, two from 640 px and one below, where the summary is hidden; four
 //   go two to a row. From 640 px their lower part lies below the field, clear of the next
 //   section's content. A card under the pointer turns brand green. With no Service the field ends
@@ -77,6 +78,7 @@ import {
 	expectNoHorizontalScroll,
 	boxOf,
 	expectPictureWhole,
+	expectServiceIcon,
 	expectStacked,
 	expectVisibleFocusOnEveryStop,
 	expectVisuallyHidden,
@@ -874,6 +876,26 @@ test("from 640 px the Services' lower part lies below the deep field and clear o
 				`the next section starts where the field ends at ${width} px`,
 			).toBeCloseTo(fieldEnd, 0);
 		}
+	});
+});
+
+test("a Frequently Used Service shows the icon staff chose, or the standard icon without a choice, and its name still names the card", async ({
+	page,
+}) => {
+	// Staff choose an icon by the Thai name of its picture (#248 comment 6826430670).
+	const chosen = await createSyntheticService(admin, "icon-chosen", { data: { icon: "หลอดไฟ" } });
+	const unchosen = await createSyntheticService(admin, "icon-unchosen");
+	await publish("services", chosen, unchosen);
+	const menu = [chosen, unchosen].map((service) => pickedMenuItem("services", service));
+	await withHomepageMenus(admin, { services: menu }, async () => {
+		await page.goto("/");
+		const cards = homepageSection(page, HOMEPAGE_HEADINGS.services).getByRole("article");
+		await expectServiceIcon(cards.filter({ hasText: chosen.title }), "lightbulb", chosen.title);
+		await expectServiceIcon(
+			cards.filter({ hasText: unchosen.title }),
+			"hand-heart",
+			unchosen.title,
+		);
 	});
 });
 

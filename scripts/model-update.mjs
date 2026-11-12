@@ -1,6 +1,6 @@
-// The model-update step (#53, #60, #61, #65, #122, #169, #175): brings an existing database to the
-// content model of seed/seed.json through EmDash's native schema, taxonomy and menu APIs, and tells
-// whether it is there.
+// The model-update step (#53, #60, #61, #65, #122, #169, #175, #248): brings an existing database
+// to the content model of seed/seed.json through EmDash's native schema, taxonomy and menu APIs,
+// and tells whether it is there.
 //
 //   node scripts/model-update.mjs --origin <origin> [--check] < <Administrator PAT file>
 //
@@ -170,8 +170,9 @@ import { parseArgs } from "node:util";
  *   collection.
  *
  * @typedef {{ collection: string, slug: string, validation: Record<string, unknown> }} FieldUpdate
- *   A blocks field's validation for PUT /_emdash/api/schema/collections/{slug}/fields/{field}
- *   (src/api/schemas/schema.ts updateFieldBody).
+ *   A blocks or choice field's validation for
+ *   PUT /_emdash/api/schema/collections/{slug}/fields/{field} (src/api/schemas/schema.ts
+ *   updateFieldBody).
  *
  * @typedef {{ taxonomy: string, slug: string, label: string }} TermCreate A term to create with
  *   POST /_emdash/api/taxonomies/{taxonomy}/terms (src/api/schemas/taxonomies.ts createTermBody).
@@ -345,7 +346,11 @@ const CORE_TAXONOMIES = ["category", "tag"];
  * the seed declares them. A field the database has beyond the seed is kept. A blocks field whose
  * allowed types or item limits differ from what the seed states gets the seed's: EmDash completes
  * that validation when it stores it (normalizeBlocksFieldValidation), and the Admin's block picker
- * offers the types in their order (@emdash-cms/admin 1.1.0 dist/index.js BlocksField).
+ * offers the types in their order (@emdash-cms/admin 1.1.0 dist/index.js BlocksField). A choice
+ * field (`select`), such as a Service's icon, whose values or their order differ from the seed's
+ * gets the seed's too (#248): the Admin's editor offers them in that order, and EmDash stores the
+ * validation as given and changes no stored value (src/schema/registry.ts updateField), so an entry
+ * keeps a value the seed no longer has until staff choose again.
  *
  * For each taxonomy the seed gives reference terms, such as the Document Types the About pages
  * list by, the step adds the terms whose slug the taxonomy lacks. A term staff relabelled keeps
@@ -456,7 +461,7 @@ export function planModelUpdate(seed, live) {
 			} else if (stored.type !== field.type) {
 				problems.push(retypedFieldProblem(wanted.slug, field.slug, stored.type, field.type));
 			} else if (
-				field.type === "blocks" &&
+				(field.type === "blocks" || field.type === "select") &&
 				Object.entries(field.validation ?? {}).some(
 					([key, value]) => canonical(value) !== canonical(stored.validation?.[key]),
 				)

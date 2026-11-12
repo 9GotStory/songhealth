@@ -1,8 +1,8 @@
 ---
 // The Service card (Feature 003 #58, #105; spec #51 "Shared building blocks"; Figma Card/Service
-// 4:36, docs/design/homepage-concept-v1.md): the one uniform Service icon (approved Q12; Lucide's
-// hand-heart, Product Owner, 2026-10-31: #51 comment 6536052180), the Service's name linking to its
-// page and its summary. The Service catalog shows it; the Homepage's Frequently Used Services have
+// 4:36, docs/design/homepage-concept-v1.md): the icon staff chose for the Service, or the standard
+// icon (ServiceIcon; Feature 008 #248), the Service's name linking to its page and its summary. The
+// Service catalog shows it; the Homepage's Frequently Used Services have
 // their own card (HomeServiceCard). The icons are decorative (docs/agents/lucide-astro-1.59.0.md),
 // because the title names the whole-card link (#193; #190 comment 6707205912).
 // The corner icon is chevron-right, the site's icon for a link on this
@@ -11,9 +11,9 @@
 // A title-named native link covers the whole surface. Metadata and summaries remain readable
 // outside its label (WCAG 2.5.3; #193; #190 comment 6707205912).
 import ChevronRight from "@lucide/astro/icons/chevron-right";
-import HandHeart from "@lucide/astro/icons/hand-heart";
 import { servicePath } from "../lib/service-catalog";
 import type { ServiceEntry } from "../lib/services";
+import ServiceIcon from "./ServiceIcon.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
@@ -32,7 +32,7 @@ const titleId = `servicecard-${crypto.randomUUID()}`;
 				aria-hidden="true"
 				class="flex size-11 items-center justify-center rounded-14 bg-surface-soft"
 			>
-				<HandHeart class="shrink-0" size={24} />
+				<ServiceIcon choice={service.data.icon} />
 			</span>
 			<ChevronRight class="shrink-0" size={24} />
 		</div>

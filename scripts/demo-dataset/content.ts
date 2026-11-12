@@ -517,7 +517,11 @@ export function demoDataset(now: Date): DemoDataset {
 		},
 	];
 
-	/** A Service of the `00` §8.2 catalog, under `demo-service-{name}`. */
+	/**
+	 * A Service of the `00` §8.2 catalog, under `demo-service-{name}`. Each has an icon of its own,
+	 * by the name staff choose it by (src/lib/service-icon.ts); the six on the Homepage have the
+	 * icons of the prototype the Product Owner chose (Feature 008 #248 comment 6826430670).
+	 */
 	const service = (
 		name: string,
 		category: DemoTerm,
@@ -537,6 +541,7 @@ export function demoDataset(now: Date): DemoDataset {
 			SERVICE_CATEGORIES.complaints,
 			{
 				title: "[ตัวอย่าง] ร้องเรียนการปฏิบัติงานหรือการให้บริการ",
+				icon: "ข้อความแจ้งเตือน",
 				summary: "แจ้งเรื่องที่ไม่ได้รับความสะดวกหรือไม่เป็นธรรมจากการปฏิบัติงานของเจ้าหน้าที่",
 				ownership_type: "direct",
 				channels: [
@@ -561,44 +566,52 @@ export function demoDataset(now: Date): DemoDataset {
 		),
 		service("feedback", SERVICE_CATEGORIES.complaints, {
 			title: "[ตัวอย่าง] เสนอแนะ / แสดงความคิดเห็น",
+			icon: "หลอดไฟ",
 			summary: "เสนอแนะเพื่อพัฒนาการให้บริการของสำนักงาน",
 			ownership_type: "direct",
 		}),
 		service("health-problem", SERVICE_CATEGORIES.reports, {
 			title: "[ตัวอย่าง] แจ้งปัญหาด้านสุขภาพ",
+			icon: "หัวใจและชีพจร",
 			summary: "แจ้งปัญหาสุขภาพในชุมชน เพื่อให้เจ้าหน้าที่ติดตามและประสานการดูแล",
 			ownership_type: "coordinated",
 			provider_text: "โรงพยาบาลส่งเสริมสุขภาพตำบลในพื้นที่",
 		}),
 		service("environment", SERVICE_CATEGORIES.reports, {
 			title: "[ตัวอย่าง] แจ้งปัญหาสิ่งแวดล้อมที่กระทบสุขภาพ",
+			icon: "ใบไม้",
 			summary: "แจ้งเหตุรำคาญ กลิ่น ควัน น้ำเสีย หรือขยะที่กระทบสุขภาพของชุมชน",
 			ownership_type: "coordinated",
 			provider_text: "องค์กรปกครองส่วนท้องถิ่นในพื้นที่",
 		}),
 		service("flu-vaccine", SERVICE_CATEGORIES.reports, {
 			title: "[ตัวอย่าง] ฉีดวัคซีนไข้หวัดใหญ่ประจำปี",
+			icon: "เข็มฉีดยา",
 			summary: "รับวัคซีนไข้หวัดใหญ่ตามสิทธิที่หน่วยบริการสุขภาพที่เกี่ยวข้อง",
 			ownership_type: "related_health_service",
 			channels: [{ label: "ติดต่อหน่วยบริการสุขภาพที่ให้บริการด้วยตนเอง" }],
 		}),
 		service("information-request", SERVICE_CATEGORIES.requests, {
 			title: "[ตัวอย่าง] ขอข้อมูลหรือเอกสารจากสำนักงาน",
+			icon: "เอกสาร",
 			summary: "ขั้นตอนและช่องทางการขอข้อมูลข่าวสารของราชการ โดยติดต่อสำนักงานด้วยตนเอง",
 			ownership_type: "direct",
 		}),
 		service("vhv", SERVICE_CATEGORIES.requests, {
 			title: "[ตัวอย่าง] บริการสำหรับ อสม.",
+			icon: "กลุ่มคน",
 			summary: "ข้อมูล แบบฟอร์ม และช่องทางติดต่อสำหรับอาสาสมัครสาธารณสุขประจำหมู่บ้าน",
 			ownership_type: "direct",
 		}),
 		service("general-inquiry", SERVICE_CATEGORIES.requests, {
 			title: "[ตัวอย่าง] สอบถามข้อมูลทั่วไป",
+			icon: "เครื่องหมายคำถาม",
 			summary: "ช่องทางสอบถามข้อมูลบริการและการติดต่อสำนักงาน",
 			ownership_type: "direct",
 		}),
 		service("health-rights", SERVICE_CATEGORIES.requests, {
 			title: "[ตัวอย่าง] ตรวจสอบสิทธิหลักประกันสุขภาพ",
+			icon: "โล่",
 			summary: "ตรวจสอบสิทธิการรักษาพยาบาลของตนเองทางออนไลน์",
 			ownership_type: "external_digital",
 			provider_text: "สำนักงานหลักประกันสุขภาพแห่งชาติ",

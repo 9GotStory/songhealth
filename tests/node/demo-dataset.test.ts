@@ -663,6 +663,29 @@ describe("demo dataset: content (#66)", () => {
 		assert.ok(services.some(({ slug }) => offered.includes(slug)));
 	});
 
+	it("gives each Service an icon of its own, so the Homepage's six differ (#248)", () => {
+		// Each demo Service's icon, by the Thai name staff choose it by (#248 comment 6826430670).
+		const icons = {
+			"demo-service-complaint": "ข้อความแจ้งเตือน",
+			"demo-service-feedback": "หลอดไฟ",
+			"demo-service-health-problem": "หัวใจและชีพจร",
+			"demo-service-environment": "ใบไม้",
+			"demo-service-flu-vaccine": "เข็มฉีดยา",
+			"demo-service-information-request": "เอกสาร",
+			"demo-service-vhv": "กลุ่มคน",
+			"demo-service-general-inquiry": "เครื่องหมายคำถาม",
+			"demo-service-health-rights": "โล่",
+		};
+		assert.deepEqual(
+			Object.fromEntries(entriesOf("services").map(({ slug, data }) => [slug, data.icon])),
+			icons,
+		);
+		const onHomepage = dataset.menus["homepage-services"]!.map((item) =>
+			"entry" in item ? icons[item.entry as keyof typeof icons] : undefined,
+		);
+		assert.equal(new Set(onHomepage).size, 6, `six different icons among ${onHomepage.join(", ")}`);
+	});
+
 	it("has Health Services across two or three demo Areas", () => {
 		const areas = new Set(
 			entriesOf("health_services").flatMap(({ taxonomies }) => taxonomies?.area ?? []),

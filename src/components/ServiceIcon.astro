@@ -1,0 +1,60 @@
+---
+// The icon in a Service card's icon tile (Feature 008 #248; spec #239 "Frequently Used Services"):
+// the icon staff chose for the Service in the Service editor, or the standard icon without a
+// choice (src/lib/service-icon.ts), at 24 px in the tile's colour. Both Service cards show it: the
+// Homepage's (HomeServiceCard) and the Service catalog's (ServiceCard).
+//
+// The set is the 18 icons the Product Owner chose (2026-11-12: #248 comment 6826430670), each from
+// its own Lucide module. The icon is decorative: the Service's name names the card's link, and
+// Lucide hides an icon that is given no accessibility prop (docs/agents/lucide-astro-1.59.0.md).
+import Baby from "@lucide/astro/icons/baby";
+import CircleQuestionMark from "@lucide/astro/icons/circle-question-mark";
+import ClipboardList from "@lucide/astro/icons/clipboard-list";
+import FileText from "@lucide/astro/icons/file-text";
+import Globe from "@lucide/astro/icons/globe";
+import HandHeart from "@lucide/astro/icons/hand-heart";
+import HeartPulse from "@lucide/astro/icons/heart-pulse";
+import Leaf from "@lucide/astro/icons/leaf";
+import Lightbulb from "@lucide/astro/icons/lightbulb";
+import Megaphone from "@lucide/astro/icons/megaphone";
+import MessageSquareWarning from "@lucide/astro/icons/message-square-warning";
+import Phone from "@lucide/astro/icons/phone";
+import Pill from "@lucide/astro/icons/pill";
+import Scale from "@lucide/astro/icons/scale";
+import ShieldCheck from "@lucide/astro/icons/shield-check";
+import Stethoscope from "@lucide/astro/icons/stethoscope";
+import Syringe from "@lucide/astro/icons/syringe";
+import Users from "@lucide/astro/icons/users";
+import { serviceIcon, type ServiceIconName } from "../lib/service-icon";
+
+interface Props {
+	/** The Service's stored icon choice, the name staff chose. */
+	choice?: string | null | undefined;
+}
+
+/** Each icon of the set, by its Lucide name. */
+const ICONS: Record<ServiceIconName, typeof HandHeart> = {
+	baby: Baby,
+	"circle-question-mark": CircleQuestionMark,
+	"clipboard-list": ClipboardList,
+	"file-text": FileText,
+	globe: Globe,
+	"hand-heart": HandHeart,
+	"heart-pulse": HeartPulse,
+	leaf: Leaf,
+	lightbulb: Lightbulb,
+	megaphone: Megaphone,
+	"message-square-warning": MessageSquareWarning,
+	phone: Phone,
+	pill: Pill,
+	scale: Scale,
+	"shield-check": ShieldCheck,
+	stethoscope: Stethoscope,
+	syringe: Syringe,
+	users: Users,
+};
+
+const Icon = ICONS[serviceIcon(Astro.props.choice)];
+---
+
+<Icon class="shrink-0" size={24} />

@@ -5,7 +5,8 @@
 // opens on its own page under that title; the Personnel lists and the Contact page show theirs;
 // each reserved Basic Page's address shows the page published there, the dataset's or the
 // office's own; the Homepage shows a Featured item, Latest News and the current Announcements,
-// and every other section that hides while it has nothing to show; and the ITA landing leads to the
+// and every other section that hides while it has nothing to show, its six Frequently Used
+// Services each under an icon of its own (#248); and the ITA landing leads to the
 // dataset's fiscal year, whose page lists its MOITs, one of them with a file removed from the
 // library (#126). Every public template but the 404 page, as the dataset fills it, passes the axe
 // and focus checks at both widths and does not scroll sideways at 320 px (#67). The suite only
@@ -177,6 +178,21 @@ test("the Homepage shows a Featured item and every section", async ({ page }) =>
 	for (const name of ["นโยบายความเป็นส่วนตัว", "การเข้าถึงเว็บไซต์"]) {
 		await expect(page.getByRole("contentinfo").getByRole("link", { name })).toBeVisible();
 	}
+});
+
+test("the Homepage's six Frequently Used Services each show an icon of their own", async ({
+	page,
+}) => {
+	await page.goto("/");
+	const icons = homepageSection(page, HOMEPAGE_HEADINGS.services)
+		.getByTestId("service-icon")
+		.locator("svg");
+	await expect(icons).toHaveCount(6);
+	// Lucide names each icon in its class, `lucide-<name>` (docs/agents/lucide-astro-1.59.0.md).
+	const names = await icons.evaluateAll((svgs) =>
+		svgs.map((svg) => [...svg.classList].find((name) => name.startsWith("lucide-"))),
+	);
+	expect(new Set(names).size, `six different icons among ${names.join(", ")}`).toBe(6);
 });
 
 test("/ita leads to the dataset's fiscal year, whose page lists its MOITs, each opening on its own page", async ({
