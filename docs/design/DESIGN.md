@@ -93,7 +93,7 @@ recognizably connected to the local health-service network.
 3. Templates style with utility classes in Astro components. The global stylesheet holds only the
    tokens, the base styles (the page gutter and the focus ring), the utilities (`page-container`;
    `focus-ring-on-dark` and `focus-ring-on-light`; the header's `header-title` and
-   `header-nav-item`; the Homepage's `deep-field`, `deep-visual`, `plain-visual`, `hero-headline`,
+   `header-nav-item`; the Homepage's `deep-field`, `deep-band`, `deep-visual`, `plain-visual`, `hero-headline`,
    `hero-headline-alone` and `section-title`) and the `.rich-text` typography of Portable Text
    bodies, which EmDash renders as plain HTML that takes no utility classes.
 4. No other plain CSS selectors for component styling, no CSS Modules, Astro `<style>` blocks or

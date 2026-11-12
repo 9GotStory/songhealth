@@ -1,0 +1,113 @@
+---
+// A Health Content item in the Homepage's Health Information (Feature 008 #246; spec #239 "Health
+// Information"): a white card with its picture, its first Health Topic as an accent-warm badge
+// over the picture's lower edge, the title, the summary in three lines at most, and "อ่านต่อ". The
+// Homepage has its own card, and the Health Content list keeps ContentCard (spec #239 "Scope of
+// the change").
+//
+// Below `sm` it is a compact row: a 112 px picture at 4:3 with the badge and the title beside it,
+// and neither the summary nor "อ่านต่อ". That leaves 142 px for the title at 320 px, enough for
+// "ความดันโลหิตสูง" (107 px). The badge wraps at every width, so a long Health Topic is fully
+// readable; the prototype cut it with an ellipsis. Without a picture the card shows the plain
+// visual in the picture's place, with a green tile and its 24 px icon, as a small Latest News
+// card does (HomeNewsCard).
+//
+// The title is an H3 under the section's H2. A native link covers the whole card, named "อ่านต่อ"
+// and the title, so its name holds each text in sight on it that a visitor could say (WCAG 2.2
+// SC 2.5.3); the topic and the summary stay readable outside the link's name (#193; #190 comment
+// 6707205912). The picture is decorative, because the title names the link, and covers its box
+// from its middle, as cards show pictures (docs/design/DESIGN.md §7.3). It goes through EmDash's
+// Image with a `sizes` for the card's box in the row of four (src/components/ContentCard.astro
+// says why). A picture whose media item was deleted in Admin is left out for the visual
+// (src/lib/media.ts).
+//
+// The card's lift and the arrow's shift under the pointer move only under
+// `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading"). The article keeps its
+// place and its surface lifts inside it, as HomeNewsCard's does; the link covers the article, so
+// a press on the strip the surface left still opens the Health Content.
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+import HeartPulse from "@lucide/astro/icons/heart-pulse";
+import { Image } from "emdash/ui";
+import { healthContentPath, type HealthContentEntry } from "../lib/health-content";
+import { availableMedia } from "../lib/media";
+import { termsOf } from "../lib/terms";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	item: HealthContentEntry;
+}
+
+/** The picture's width: a column of the row of four from `lg`, half the row from `sm`. */
+const PICTURE_SIZES = "(min-width: 64rem) 17rem, (min-width: 40rem) 50vw, 7rem";
+
+const { item } = Astro.props;
+const data = item.data;
+const image = await availableMedia(data.featured_image, Astro.locals.emdash);
+const topic = termsOf(data, "topic")[0];
+const id = crypto.randomUUID();
+const titleId = `home-health-${id}`;
+const readId = `home-health-read-${id}`;
+---
+
+<article class="group relative h-full">
+	<div
+		data-testid="health-surface"
+		class="flex h-full items-center gap-3.5 rounded-22 bg-surface-base p-2.5 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:-translate-y-1.5 motion-safe:group-hover:shadow-deep sm:flex-col sm:items-stretch sm:gap-0 sm:pb-5.5"
+	>
+		<div class="relative aspect-4/3 w-28 shrink-0 overflow-hidden rounded-14 bg-surface-soft sm:aspect-video sm:w-auto lg:aspect-4/3">
+			{image ? (
+				<Image
+					image={image}
+					alt=""
+					sizes={PICTURE_SIZES}
+					class="absolute inset-0 size-full object-cover"
+				/>
+			) : (
+				<div
+					aria-hidden="true"
+					data-testid="health-visual"
+					class="plain-visual absolute inset-0 flex items-center justify-center"
+				>
+					<span class="flex size-12 items-center justify-center rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-accent-warm shadow-tile">
+						<HeartPulse class="shrink-0" size={24} />
+					</span>
+				</div>
+			)}
+		</div>
+		<div class="flex min-w-0 flex-1 flex-col sm:px-2.5">
+			{topic && (
+				<p class="relative flex sm:-mt-3.25">
+					<span class="rounded-pill bg-accent-warm px-3 py-0.5 text-small font-semibold wrap-anywhere text-brand-dark">
+						{topic.label}
+					</span>
+				</p>
+			)}
+			<h3
+				id={titleId}
+				class="mt-1 text-body font-semibold wrap-anywhere sm:mt-3 sm:text-body-large"
+			>
+				<ThaiTitle text={data.title} />
+			</h3>
+			{data.summary && (
+				<p class="mt-1.5 line-clamp-3 text-label font-normal text-text-secondary max-sm:hidden">
+					{data.summary}
+				</p>
+			)}
+			<p
+				id={readId}
+				class="mt-auto flex items-center gap-1.5 pt-3.5 text-label font-semibold text-brand-primary max-sm:hidden"
+			>
+				อ่านต่อ
+				<ArrowRight
+					class="shrink-0 motion-safe:transition-transform motion-safe:group-hover:translate-x-1"
+					size={16}
+				/>
+			</p>
+		</div>
+	</div>
+	<a
+		href={healthContentPath(item.id)}
+		aria-labelledby={`${readId} ${titleId}`}
+		class="absolute inset-0 rounded-22"
+	></a>
+</article>

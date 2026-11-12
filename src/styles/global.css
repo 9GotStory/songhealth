@@ -260,6 +260,19 @@
 }
 
 /*
+ * The Homepage's Health Service Discovery band (spec #239 "Health Service Discovery"):
+ * brand-primary to brand-dark, with the deep-highlight glow from its lower left corner, away from
+ * the heading's small label. brand-dark lies under the gradients, so the band's white text stays
+ * readable where a browser draws neither.
+ */
+@utility deep-band {
+	background-color: var(--color-brand-dark);
+	background-image:
+		radial-gradient(37.5rem 25rem at 0% 100%, var(--color-deep-highlight), transparent 65%),
+		linear-gradient(120deg, var(--color-brand-primary), var(--color-brand-dark));
+}
+
+/*
  * The hero's headline (spec #239 "Hero and Featured", "Tokens"), sizes beyond the type scale: 29 /
  * 42 below `sm`, 34 / 48 from `sm`, and from `lg` 34 to 44 px with the window, so its three lines
  * fit beside the Featured card at 1,024 px without a third breakpoint. With nothing Featured it is

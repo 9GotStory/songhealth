@@ -15,7 +15,9 @@
 // below `lg`").
 //
 // The search is a plain GET form to /search, as src/components/SearchForm.astro is, so it works
-// without JavaScript. Its field and round submit button are 44 px or more.
+// without JavaScript. Its field and round submit button are 44 px or more. After submit the
+// button shows a spinner in its arrow's place and a further submit is ignored (SubmitStateIcon;
+// Product Owner, 2026-11-12: #246 comment 6816725778, item 3).
 //
 // The Featured card is one link to the item's canonical address. Its name is all it shows, so it
 // holds the text in sight (WCAG 2.2 SC 2.5.3), and the card's region is named by the item's title,
@@ -46,6 +48,7 @@ import { availableMedia } from "../lib/media";
 import { OFFICE_SUMMARY, OFFICE_SUMMARY_LINES } from "../lib/office-summary";
 import { MAX_QUERY_LENGTH, QUERY_PARAM } from "../lib/search-matcher";
 import DateText from "./DateText.astro";
+import SubmitStateIcon from "./SubmitStateIcon.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
@@ -112,8 +115,9 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 				method="get"
 				action="/search"
 				aria-label="ค้นหาในเว็บไซต์"
+				data-submit-state
 				class:list={[
-					"focus-ring-on-light flex h-15 max-w-135 items-center gap-3 rounded-pill bg-surface-base pr-2 pl-5 text-text-secondary shadow-deep sm:h-17 sm:pl-6",
+					"group/submit focus-ring-on-light flex h-15 max-w-135 items-center gap-3 rounded-pill bg-surface-base pr-2 pl-5 text-text-secondary shadow-deep sm:h-17 sm:pl-6",
 					!featured && "lg:max-w-160",
 				]}
 			>
@@ -134,7 +138,9 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 					class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-pill bg-accent-warm text-brand-dark motion-safe:transition-transform motion-safe:hover:scale-108 sm:size-13"
 				>
 					<span class="sr-only">ค้นหา</span>
-					<ArrowRight class="shrink-0" size={20} />
+					<SubmitStateIcon>
+						<ArrowRight class="shrink-0" size={20} />
+					</SubmitStateIcon>
 				</button>
 			</form>
 		</div>

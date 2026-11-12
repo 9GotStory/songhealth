@@ -73,18 +73,18 @@ export async function listHealthServices(
 	};
 }
 
-/** What the Homepage's Health Service Discovery form needs from the directory (#64). */
+/** What the Homepage's Health Service Discovery band needs from the directory (#64, #246). */
 export interface DirectoryOverview {
-	/** Whether any Health Service is published; the Homepage leaves the form out until one is. */
-	hasHealthServices: boolean;
+	/** How many Health Services are published; the Homepage leaves the band out until one is. */
+	count: number;
 	/** The Area terms the published Health Services use, which the directory's filter offers. */
 	areas: DirectoryTerm[];
 }
 
-/** Whether the directory lists anything, and the Areas its filter offers. */
+/** How many Health Services the directory lists, and the Areas its filter offers. */
 export async function directoryOverview(): Promise<DirectoryOverview> {
 	const entries = await publishedHealthServices();
-	return { hasHealthServices: entries.length > 0, areas: areasInUse(entries) };
+	return { count: entries.length, areas: areasInUse(entries) };
 }
 
 /**

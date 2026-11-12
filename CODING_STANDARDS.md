@@ -80,7 +80,9 @@ and why, and `.jscpd-baseline.json` records them.
   (`docs/design/DESIGN.md` §8.7; Product Owner, 2026-11-12: #245 comment 6812837231). A change
   to the tile's size or gradient needs a new measure.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
-  mobile menu, opens in the flow of the page.
+  mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
+  state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`
+  §8.9): another script needs the Product Owner's word.
 - A list or detail page reuses the shared pieces in `src/components/` and follows the shape of
   `src/pages/news/`. That shape covers reads through EmDash's query functions, `?page=` and GET
   filters, `Astro.rewrite("/404")` for anything not visible, and the SiteLayout head props. A

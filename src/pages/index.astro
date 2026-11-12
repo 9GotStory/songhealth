@@ -29,10 +29,17 @@
 //   surface-soft band with a white glow at its upper left corner, and from `lg` its heading, lead
 //   and solid link to the list stay in view at the left, below the sticky header, while the rows
 //   scroll (Product Owner, 2026-11-12: #245 comment 6812117246);
-// - Health Information: the latest 4 Health Content items, each labelled with its first Health
-//   Topic, the `topic` term EmDash hydrates first (src/lib/terms.ts);
-// - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
-//   Directory with the directory's own parameters (src/lib/health-service-directory.ts);
+// - Health Information (Feature 008 #246; spec #239 "Health Information"; HomeHealthCard): a row
+//   of chips, one for each Health Topic the Health Content list's filter offers
+//   (src/lib/terms.ts offeredTerms), each a link to that list narrowed to the topic; then the
+//   latest 4 Health Content items, each with its first Health Topic, the `topic` term EmDash
+//   hydrates first, as a badge, four to a row from `lg`, two from `sm` and compact rows below;
+// - Health Service Discovery (Feature 008 #246; spec #239 "Health Service Discovery"): a rounded
+//   green band on the page's colour with the section heading, a lead, the number of published
+//   Health Services and of the Areas the directory's filter offers, the second only when there is
+//   one, and in a white card an Area select and a name field, a GET form to the Health Service
+//   Directory with the directory's own parameters and labels
+//   (src/lib/health-service-directory.ts; Product Owner, 2026-11-12: #246 comment 6816725778);
 // - the latest Activities by when they were held (ADR 0004), 3 on a desktop and 4 on phones and
 //   tablets;
 // - Quick Access: up to 4 shortcuts from their menu, in menu order, each a label and an arrow;
@@ -46,12 +53,22 @@
 // are, Latest News is "ข่าวประชาสัมพันธ์", and each of these headings links to the section's list.
 // The sections of later tickets take the heading now, without a lead, so the page has one heading
 // style (Product Owner, 2026-11-11: #241 comment 6791096480, item 4). The Current Announcements
-// show their lead and their link beside the heading.
+// show their lead and their link beside the heading, and the Health Service Discovery band its
+// lead under it.
+//
+// Health Information lies on the page's colour. It has its own space above only after a band: the
+// Current Announcements, or the deep field when nothing else precedes it. Latest News and the
+// Leadership strip leave their own space below otherwise. The discovery band takes that space
+// above when Health Information is left out, and its own space below when no Activities follow.
+//
+// The hero's site search and the discovery form show their submit state (spec #239 "Motion and
+// loading"; SubmitStateIcon): the page's one inline script, at its end, marks a submitted form,
+// which then shows a spinner on its button and ignores a further submit, and takes the mark off
+// when the page is shown again from history, as after the browser's back button.
 //
 // Below 640 px the page is shorter, with every section kept in its order (Feature 006 #146; spec
 // #144 "Homepage (`04`)"; the Product Owner's "โอเค เฉพาะหน้าแรก" on the prototype): the
-// Health Information, Activities and Quick Access go two to a row in their compact cards, the
-// Health Content cards without their summary; the Contact
+// Activities and Quick Access go two to a row in their compact cards; the Contact
 // Summary's lead and the map's stand-in are left out; each section after the deep field has 32 px
 // of space above and below it. The 4th
 // Activity fills the second row of two; a desktop row holds three.
@@ -77,11 +94,13 @@ import Heart from "@lucide/astro/icons/heart";
 import HeartPulse from "@lucide/astro/icons/heart-pulse";
 import Hospital from "@lucide/astro/icons/hospital";
 import MessageSquare from "@lucide/astro/icons/message-square";
+import Search from "@lucide/astro/icons/search";
 import Users from "@lucide/astro/icons/users";
 import ActivityCard from "../components/ActivityCard.astro";
 import ArrowLink from "../components/ArrowLink.astro";
 import HomeAnnouncementRow from "../components/HomeAnnouncementRow.astro";
 import HomeDeepField from "../components/HomeDeepField.astro";
+import HomeHealthCard from "../components/HomeHealthCard.astro";
 import HomeHero from "../components/HomeHero.astro";
 import HomeLeadershipStrip from "../components/HomeLeadershipStrip.astro";
 import HomeNewsCard from "../components/HomeNewsCard.astro";
@@ -90,6 +109,7 @@ import OfficeContactDetails from "../components/OfficeContactDetails.astro";
 import QuickLinkCard from "../components/QuickLinkCard.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import SectionListLink from "../components/SectionListLink.astro";
+import SubmitStateIcon from "../components/SubmitStateIcon.astro";
 import ThaiTitle from "../components/ThaiTitle.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { ACTIVITIES_PATH, ACTIVITIES_TITLE, latestActivities } from "../lib/activities";
@@ -99,13 +119,8 @@ import {
 	currentAnnouncements,
 } from "../lib/announcements";
 import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE } from "../lib/health";
-import { healthContentPath, latestHealthContent } from "../lib/health-content";
-import {
-	DIRECTORY_TITLE,
-	FILTER_LABELS,
-	FILTER_PARAMS,
-	directoryPath,
-} from "../lib/health-service-directory";
+import { healthContentListPath, latestHealthContent } from "../lib/health-content";
+import { FILTER_LABELS, FILTER_PARAMS, directoryPath } from "../lib/health-service-directory";
 import { directoryOverview } from "../lib/health-services";
 import { readHomepageCuration } from "../lib/homepage-curation";
 import { latestNews } from "../lib/news";
@@ -114,7 +129,7 @@ import { OFFICE_SUMMARY } from "../lib/office-summary";
 import { listHomepageLeadership } from "../lib/personnel";
 import { SERVICES_PATH, SERVICES_TITLE } from "../lib/service-catalog";
 import { getSiteIdentity } from "../lib/site-identity";
-import { termsOf } from "../lib/terms";
+import { offeredTerms } from "../lib/terms";
 
 /** One instant for the current Announcements, the status each states and the Featured item's. */
 const now = new Date();
@@ -125,6 +140,7 @@ const [
 	newestNews,
 	newestAnnouncements,
 	healthContent,
+	healthTopics,
 	directory,
 	activities,
 	{ contact },
@@ -135,6 +151,7 @@ const [
 	latestNews(6),
 	currentAnnouncements(5, now),
 	latestHealthContent(4),
+	offeredTerms("health_content", "topic"),
 	directoryOverview(),
 	latestActivities(4),
 	readOfficeContact(),
@@ -177,9 +194,16 @@ const largeCardHeight = [
 const spaceBelow = "pb-8 sm:pb-16 lg:pb-20";
 const spaceAbove = "pt-8 sm:pt-16 lg:pt-20";
 
-/** The Health Service Discovery fields' box: 44 px high, with a 3:1 boundary, as FilterForm's. */
+/**
+ * Whether what follows on the page's colour comes after a band, and so takes its own space above:
+ * after the Current Announcements, or after the deep field with neither the Leadership strip nor
+ * Latest News between them.
+ */
+const followsBand = announcements.length > 0 || (!showsNews && leaders.length === 0);
+
+/** The Health Service Discovery fields' box: 52 px high, with a 3:1 boundary, as FilterForm's. */
 const control =
-	"min-h-11 w-full min-w-0 rounded-14 border border-border-input bg-surface-base px-3 text-body";
+	"mb-2 h-13 w-full min-w-0 rounded-14 border-[1.5px] border-border-input bg-surface-base px-4 text-body";
 ---
 
 <SiteLayout section="home" description={OFFICE_SUMMARY} canonical="/">
@@ -296,8 +320,8 @@ const control =
 	)}
 
 	{healthContent.length > 0 && (
-		<section aria-labelledby="home-health" class="bg-surface-base py-8 sm:py-16 lg:py-20">
-			<div class="page-container flex flex-col gap-7">
+		<section aria-labelledby="home-health" class:list={[followsBand && spaceAbove, spaceBelow]}>
+			<div class="page-container flex flex-col gap-4.5 sm:gap-7">
 				<SectionHeading
 					id="home-health"
 					label="สุขภาพ"
@@ -306,64 +330,83 @@ const control =
 				>
 					<HeartPulse slot="icon" class="shrink-0" size={24} />
 				</SectionHeading>
-				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
-					{healthContent.map((item, index) => {
-						const topic = termsOf(item.data, "topic")[0];
-						return (
-							<li>
-								<article
-									class:list={[
-										"flex h-full flex-col gap-3 rounded-22 px-6 pt-6.5 pb-6",
-										"max-sm:gap-1.5 max-sm:rounded-18 max-sm:px-3 max-sm:pt-3.5 max-sm:pb-2",
-										index % 2 === 0 ? "bg-topic-green" : "bg-topic-blue",
-									]}
+				{healthTopics.length > 0 && (
+					<ul aria-label="ประเด็นสุขภาพ" class="flex flex-wrap gap-2 sm:-mt-3 sm:gap-2.5">
+						{healthTopics.map((topic) => (
+							<li class="flex min-w-0">
+								<a
+									href={healthContentListPath(topic.slug)}
+									class="rounded-pill border-[1.5px] border-border-default bg-surface-base px-3 py-1 text-small font-medium wrap-anywhere text-brand-primary hover:border-brand-primary hover:bg-brand-primary hover:text-surface-base motion-safe:transition-colors sm:px-4 sm:py-1.5 sm:text-label"
 								>
-									{topic && (
-										<p class="text-label wrap-anywhere text-brand-primary">{topic.label}</p>
-									)}
-									<h3 class="text-h3 wrap-anywhere text-text-primary max-sm:text-body max-sm:font-semibold">
-										<ThaiTitle text={item.data.title} />
-									</h3>
-									{item.data.summary && (
-										<p class="line-clamp-3 text-text-secondary-on-soft max-sm:hidden">
-											{item.data.summary}
-										</p>
-									)}
-									<ArrowLink
-										href={healthContentPath(item.id)}
-										context={item.data.title}
-										class="mt-auto"
-									>
-										อ่านเพิ่มเติม
-									</ArrowLink>
-								</article>
+									{topic.label}
+								</a>
 							</li>
-						);
-					})}
+						))}
+					</ul>
+				)}
+				<ul class="grid gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+					{healthContent.map((item) => (
+						<li class="min-w-0">
+							<HomeHealthCard item={item} />
+						</li>
+					))}
 				</ul>
 			</div>
 		</section>
 	)}
 
-	{directory.hasHealthServices && (
-		<section aria-labelledby="home-discovery" class="bg-brand-dark py-8 sm:py-16 lg:py-20">
-			<div class="page-container flex flex-col gap-7">
-				<SectionHeading
-					surface="dark"
-					id="home-discovery"
-					label={DIRECTORY_TITLE}
-					title="ค้นหาหน่วยบริการสุขภาพในอำเภอสอง"
+	{directory.count > 0 && (
+		<section
+			aria-labelledby="home-discovery"
+			class:list={[
+				healthContent.length === 0 && followsBand && spaceAbove,
+				activities.length === 0 && spaceBelow,
+			]}
+		>
+			<div class="page-container">
+				<div
+					data-testid="discovery-band"
+					class="deep-band focus-ring-on-dark relative grid items-center gap-6 overflow-clip rounded-24 px-5 py-7 text-surface-base shadow-deep sm:gap-8 sm:rounded-32 sm:p-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12 lg:p-14"
 				>
-					<Hospital slot="icon" class="shrink-0" size={24} />
-				</SectionHeading>
-				<form
-					method="get"
-					action={directoryPath()}
-					aria-label="ค้นหาหน่วยบริการ"
-					class="flex max-w-225 flex-col gap-4 rounded-18 bg-surface-base p-4 sm:flex-row sm:items-end sm:p-2.5 sm:pl-5.5"
-				>
-					<div class="flex min-w-0 flex-1 flex-col gap-1.5">
-						<label class="text-label" for="discovery-area">
+					<span
+						aria-hidden="true"
+						class="pointer-events-none absolute -top-37.5 -right-22.5 size-85 rounded-pill border-[1.5px] border-accent-warm/45 max-lg:hidden"
+					/>
+					<div class="relative">
+						<SectionHeading
+							surface="field"
+							id="home-discovery"
+							label="หน่วยบริการ"
+							title="หน่วยบริการสุขภาพในอำเภอสอง"
+						>
+							<Hospital slot="icon" class="shrink-0" size={24} />
+						</SectionHeading>
+						<p class="mt-3 text-body sm:text-body-large lg:mt-5">
+							เลือกตำบลหรือพิมพ์ชื่อ เพื่อดูข้อมูลติดต่อ เวลาเปิดบริการ และแผนที่
+						</p>
+						<ul class="mt-4 flex flex-wrap gap-x-9 gap-y-2 sm:mt-6">
+							<li class="flex items-baseline gap-2.5">
+								<span class="text-h2 font-bold text-accent-warm sm:text-h1">{directory.count}</span>{" "}
+								<span>หน่วยบริการ</span>
+							</li>
+							{directory.areas.length > 0 && (
+								<li class="flex items-baseline gap-2.5">
+									<span class="text-h2 font-bold text-accent-warm sm:text-h1">
+										{directory.areas.length}
+									</span>{" "}
+									<span>พื้นที่</span>
+								</li>
+							)}
+						</ul>
+					</div>
+					<form
+						method="get"
+						action={directoryPath()}
+						aria-label="ค้นหาหน่วยบริการ"
+						data-submit-state
+						class="group/submit focus-ring-on-light relative flex flex-col gap-2 rounded-24 bg-surface-base p-5 text-text-primary shadow-deep sm:p-7"
+					>
+						<label class="text-label font-semibold" for="discovery-area">
 							{FILTER_LABELS.area}
 						</label>
 						<select id="discovery-area" name={FILTER_PARAMS.area} class={control}>
@@ -372,20 +415,21 @@ const control =
 								<option value={area.slug}>{area.label}</option>
 							))}
 						</select>
-					</div>
-					<div class="flex min-w-0 flex-1 flex-col gap-1.5">
-						<label class="text-label" for="discovery-name">
+						<label class="text-label font-semibold" for="discovery-name">
 							{FILTER_LABELS.name}
 						</label>
 						<input id="discovery-name" name={FILTER_PARAMS.name} type="search" class={control} />
-					</div>
-					<button
-						type="submit"
-						class="inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center rounded-pill bg-brand-primary px-5 text-label text-surface-base hover:bg-brand-dark"
-					>
-						ค้นหาหน่วยบริการ
-					</button>
-				</form>
+						<button
+							type="submit"
+							class="mt-1.5 inline-flex h-13 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-pill bg-accent-warm px-7 text-body font-semibold text-brand-dark hover:shadow-card motion-safe:transition-shadow"
+						>
+							<SubmitStateIcon>
+								<Search class="shrink-0" size={20} />
+							</SubmitStateIcon>
+							ค้นหา
+						</button>
+					</form>
+				</div>
 			</div>
 		</section>
 	)}
@@ -448,4 +492,18 @@ const control =
 			</div>
 		</div>
 	</section>
+
+	<script is:inline>
+		for (const form of document.querySelectorAll("form[data-submit-state]")) {
+			form.addEventListener("submit", (event) => {
+				if ("submitting" in form.dataset) event.preventDefault();
+				else form.dataset.submitting = "";
+			});
+		}
+		addEventListener("pageshow", () => {
+			for (const form of document.querySelectorAll("form[data-submitting]")) {
+				delete form.dataset.submitting;
+			}
+		});
+	</script>
 </SiteLayout>

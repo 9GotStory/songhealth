@@ -1,0 +1,24 @@
+---
+// The icon of a submit button that shows its form's submit state (Feature 008 #246; spec #239
+// "Motion and loading"): the icon from the slot, and in its place a spinner once the form is
+// submitted, until the page changes.
+//
+// The form carries `data-submit-state` and the class `group/submit`. The Homepage's one inline
+// script (src/pages/index.astro) marks a submitted form with `data-submitting`, ignores a further
+// submit while the mark is there, and takes the mark off when the page is shown again from
+// history. Without JavaScript the form submits as any other and the icon stays.
+//
+// The spinner is a ring in the button's text colour with one quarter open, 20 px as the icons
+// beside it (docs/design/DESIGN.md §5). It turns only under
+// `prefers-reduced-motion: no-preference`, and stands still otherwise. Both parts are decorative:
+// the button keeps its name.
+---
+
+<span data-testid="submit-icon" class="inline-flex shrink-0 group-data-submitting/submit:hidden">
+	<slot />
+</span>
+<span
+	data-testid="submit-spinner"
+	aria-hidden="true"
+	class="hidden size-5 shrink-0 rounded-pill border-[2.5px] border-current border-r-transparent group-data-submitting/submit:block motion-safe:animate-spin"
+></span>
