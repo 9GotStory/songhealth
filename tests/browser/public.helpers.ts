@@ -720,7 +720,8 @@ export const HOMEPAGE_HEADLINE =
 export const HOMEPAGE_HEADINGS = {
 	services: "บริการประชาชน",
 	leadership: "ผู้บริหาร",
-	news: "เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง",
+	news: "ข่าวประชาสัมพันธ์",
+	announcements: "ประกาศ",
 	health: "ความรู้สุขภาพ",
 	discovery: "ค้นหาหน่วยบริการสุขภาพในอำเภอสอง",
 	activities: "กิจกรรม",

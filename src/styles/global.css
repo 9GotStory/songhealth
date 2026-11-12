@@ -247,6 +247,19 @@
 }
 
 /*
+ * The deep green visual that stands in for a missing picture under surface-base text, as the large
+ * Latest News card's (spec #239 "Latest News"; Product Owner, 2026-11-12: #244 comment 6809892992,
+ * item 2): brand-primary to brand-dark, with the deep-highlight glow from its upper right.
+ * brand-dark lies under the gradients, so the text stays readable where a browser draws neither.
+ */
+@utility deep-visual {
+	background-color: var(--color-brand-dark);
+	background-image:
+		radial-gradient(26.25rem 18.75rem at 85% 0%, var(--color-deep-highlight), transparent 65%),
+		linear-gradient(140deg, var(--color-brand-primary), var(--color-brand-dark));
+}
+
+/*
  * The hero's headline (spec #239 "Hero and Featured", "Tokens"), sizes beyond the type scale: 29 /
  * 42 below `sm`, 34 / 48 from `sm`, and from `lg` 34 to 44 px with the window, so its three lines
  * fit beside the Featured card at 1,024 px without a third breakpoint. With nothing Featured it is

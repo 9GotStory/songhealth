@@ -16,11 +16,16 @@
 //   first three Leadership by Leadership order (src/lib/personnel-directory.ts), fewer when fewer
 //   exist, in one white strip in the page colour, with a link to /about/leadership. It starts
 //   below the Services' cards, after the room the field leaves, and takes its space below from the
-//   News section, or its own when that section is left out;
-// - the newest published News that is not the Featured item, as one card, beside up to 3 current
-//   Announcements, newest first by announcement date, the Featured one left out (`04` §7), each
-//   with its status and dates as the Announcements list shows them (src/lib/announcements.ts), each
-//   box followed by a link to its own list;
+//   section that follows it, or its own when Latest News and the Announcements are both left out;
+// - Latest News (Feature 008 #244; spec #239 "Latest News"; HomeNewsCard): the five newest
+//   published News, the Featured one left out (`04` §7), the newest as a large card. With five,
+//   the large card stands beside the other four two by two from `lg` and spans the row above them
+//   from `sm`; below `sm` three compact rows follow it. With fewer, the grid has two columns from
+//   `sm` and the large card spans the row when the others are an even number, so no cell is empty;
+// - up to 3 current Announcements, newest first by announcement date, the Featured one left out
+//   (`04` §7), each with its status and dates as the Announcements list shows them
+//   (src/lib/announcements.ts), in a section of their own, their rows in one bordered box (Product
+//   Owner, 2026-11-12: #244 comment 6809892992, item 4);
 // - Health Information: the latest 4 Health Content items, each labelled with its first Health
 //   Topic, the `topic` term EmDash hydrates first (src/lib/terms.ts);
 // - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
@@ -34,8 +39,8 @@
 //
 // Each section between the hero and the Contact Summary opens with the Homepage section heading
 // (spec #239 "Section headings"; SectionHeading): an icon tile, a label and the H2. The Frequently
-// Used Services, Health Information and Activities are named as their lists are, and their
-// heading links to that list; the News box and the Announcements box keep a link each under them.
+// Used Services, the Announcements, Health Information and Activities are named as their lists
+// are, Latest News is "ข่าวประชาสัมพันธ์", and each of these headings links to the section's list.
 // The sections of later tickets take the heading now, without a lead, so the page has one heading
 // style (Product Owner, 2026-11-11: #241 comment 6791096480, item 4).
 //
@@ -44,20 +49,20 @@
 // Health Information, Activities and Quick Access go two to a row in their compact cards, the
 // Health Content cards without their summary; the Contact
 // Summary's lead and the map's stand-in are left out; each section after the deep field has 32 px
-// of space above and below it; and the News card's summary is clamped to three lines. The 4th
+// of space above and below it, the Announcements after Latest News below only. The 4th
 // Activity fills the second row of two; a desktop row holds three.
 //
-// A section with nothing to show is left out (`04` §17): the Frequently Used Services, News and
-// Announcements together, the Leadership strip, Health Information, Health Service Discovery while
+// A section with nothing to show is left out (`04` §17): the Frequently Used Services, Latest News,
+// the Announcements, the Leadership strip, Health Information, Health Service Discovery while
 // no Health Service is published, Activities and Quick Access. The hero and the Contact Summary
 // always render, so the page answers with no content at all. The site title is the page's H1,
 // hidden from sight in the hero, whose headline shows in its place (spec #239 "Hero and Featured").
 //
 // Beyond the Figma frame, on the Product Owner's decision (2026-10-30: #64 comment 6526131459):
 // the links to the News, Announcements and Health Content lists, since the Announcements list is in
-// no navigation; each Announcement's status; and the Contact Summary's lead as the page's
-// description, since a tagline is a slogan and EmDash's site settings hold no description (emdash
-// 1.1.0 src/api/schemas/settings.ts).
+// no navigation (each in its section's heading); each Announcement's status; and the Contact
+// Summary's lead as the page's description, since a tagline is a slogan and EmDash's site settings
+// hold no description (emdash 1.1.0 src/api/schemas/settings.ts).
 //
 // The meta element named "songhealth-foundation" with content "public-runtime" is the Feature 001
 // public-runtime marker (T011): tests/browser/foundation.spec.ts, the development runtime's verify
@@ -75,6 +80,7 @@ import ArrowLink from "../components/ArrowLink.astro";
 import HomeDeepField from "../components/HomeDeepField.astro";
 import HomeHero from "../components/HomeHero.astro";
 import HomeLeadershipStrip from "../components/HomeLeadershipStrip.astro";
+import HomeNewsCard from "../components/HomeNewsCard.astro";
 import HomeServiceCard from "../components/HomeServiceCard.astro";
 import OfficeContactDetails from "../components/OfficeContactDetails.astro";
 import QuickLinkCard from "../components/QuickLinkCard.astro";
@@ -98,7 +104,7 @@ import {
 } from "../lib/health-service-directory";
 import { directoryOverview } from "../lib/health-services";
 import { readHomepageCuration } from "../lib/homepage-curation";
-import { latestNews, newsPath } from "../lib/news";
+import { latestNews } from "../lib/news";
 import { readOfficeContact } from "../lib/office-contact";
 import { OFFICE_SUMMARY } from "../lib/office-summary";
 import { listHomepageLeadership } from "../lib/personnel";
@@ -122,7 +128,7 @@ const [
 	getSiteIdentity(Astro.url),
 	readHomepageCuration(Astro.url.origin, now),
 	listHomepageLeadership(),
-	latestNews(2),
+	latestNews(6),
 	currentAnnouncements(4, now),
 	latestHealthContent(4),
 	directoryOverview(),
@@ -136,13 +142,38 @@ const notFeatured =
 	(collection: string) =>
 	({ data }: { data: { id: string } }) =>
 		!(featured?.collection === collection && featured.id === data.id);
-/** The News card: the newest News that is not Featured. */
-const news = newestNews.find(notFeatured("news"));
+/** The Latest News: the five newest News that are not Featured. */
+const news = newestNews.filter(notFeatured("news")).slice(0, 5);
 /** Up to 3 current Announcements that are not Featured. */
 const announcements = newestAnnouncements.filter(notFeatured("announcements")).slice(0, 3);
-/** Whether the News section shows: it has the News card or a current Announcement. */
-const showsNews = news !== undefined || announcements.length > 0;
-const newsCategory = news && termsOf(news.data, "news_category")[0];
+const showsNews = news.length > 0;
+const showsAnnouncements = announcements.length > 0;
+/**
+ * Whether a section follows the Leadership strip on the page's own colour and gives the strip its
+ * space below: Latest News, or the current Announcements when there is no News.
+ */
+const followsStrip = showsNews || showsAnnouncements;
+/**
+ * Whether the large News card spans the row from `sm`: when the small cards are an even number, so
+ * the two columns leave no empty cell.
+ */
+const largeSpansRow = news.length % 2 === 1;
+/** Whether the large News card stands beside the four small cards from `lg`. */
+const largeBesideFour = news.length === 5;
+/**
+ * The large News card's least height: 300 px, 380 px from `sm` where it spans the row, and 520 px
+ * from `lg` beside the four small cards.
+ */
+const largeCardHeight = [
+	"min-h-75",
+	largeSpansRow && "sm:min-h-95",
+	largeBesideFour && "lg:min-h-130",
+]
+	.filter(Boolean)
+	.join(" ");
+/** The space below a section after the deep field, and the same above it. */
+const spaceBelow = "pb-8 sm:pb-16 lg:pb-20";
+const spaceAbove = "pt-8 sm:pt-16 lg:pt-20";
 
 /** The Health Service Discovery fields' box: 44 px high, with a 3:1 boundary, as FilterForm's. */
 const control =
@@ -186,7 +217,7 @@ const control =
 	{leaders.length > 0 && (
 		<section
 			aria-labelledby="home-leadership"
-			class:list={["pt-8 sm:pt-10", !showsNews && "pb-8 sm:pb-16 lg:pb-20"]}
+			class:list={["pt-8 sm:pt-10", !followsStrip && spaceBelow]}
 		>
 			<div class="page-container">
 				<HomeLeadershipStrip id="home-leadership" people={leaders} />
@@ -195,72 +226,72 @@ const control =
 	)}
 
 	{showsNews && (
-		<section aria-labelledby="home-news" class="py-8 sm:py-16 lg:py-20">
+		<section aria-labelledby="home-news" class:list={[spaceAbove, spaceBelow]}>
 			<div class="page-container flex flex-col gap-7">
-				<SectionHeading id="home-news" label="ข่าวสาร" title="เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง">
+				<SectionHeading id="home-news" label="ข่าวสาร" title="ข่าวประชาสัมพันธ์" href="/news">
 					<MessageSquare slot="icon" class="shrink-0" size={24} />
 				</SectionHeading>
-				<div
+				<ul
 					class:list={[
-						"grid gap-6",
-						news && announcements.length > 0 && "lg:grid-cols-[minmax(0,1fr)_26rem]",
+						"grid gap-3.5 sm:grid-cols-2 sm:gap-6",
+						largeBesideFour && "lg:grid-cols-[1.25fr_1fr_1fr]",
 					]}
 				>
-					{news && (
-						<div class="flex flex-col gap-4">
-							<article class="flex flex-1 flex-col gap-4 rounded-24 bg-brand-primary px-6 py-7 text-surface-base lg:px-7.5">
-								{newsCategory && <p class="text-label wrap-anywhere">{newsCategory.label}</p>}
-								<h3 class="text-h3 wrap-anywhere lg:text-h1">
-									<ThaiTitle text={news.data.title} />
-								</h3>
-								{news.data.summary && (
-									<p class="line-clamp-4 text-body-large max-sm:line-clamp-3">
-										{news.data.summary}
-									</p>
-								)}
+					{news.map((item, index) => (
+						<li
+							class:list={[
+								"min-w-0",
+								index === 0 && largeSpansRow && "sm:col-span-2",
+								index === 0 && largeBesideFour && "lg:col-span-1 lg:row-span-2",
+								index === 4 && "max-sm:hidden",
+							]}
+						>
+							{index === 0 ? (
+								<HomeNewsCard news={item} large class={largeCardHeight} />
+							) : (
+								<HomeNewsCard news={item} />
+							)}
+						</li>
+					))}
+				</ul>
+			</div>
+		</section>
+	)}
+
+	{showsAnnouncements && (
+		<section
+			aria-labelledby="home-announcements"
+			class:list={[!showsNews && spaceAbove, spaceBelow]}
+		>
+			<div class="page-container flex flex-col gap-7">
+				<SectionHeading
+					id="home-announcements"
+					label="แจ้งให้ทราบ"
+					title={ANNOUNCEMENTS_TITLE}
+					href={ANNOUNCEMENTS_PATH}
+				>
+					<FileText slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
+				<div class="rounded-24 border border-border-default bg-surface-base">
+					<p class="px-6 py-5 text-small text-text-secondary">
+						ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ
+					</p>
+					<ul>
+						{announcements.map((announcement) => (
+							<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
+								<p class="wrap-anywhere">
+									<ThaiTitle text={announcement.data.title} />
+								</p>
+								<AnnouncementStatusLine data={announcement.data} now={now} />
 								<ArrowLink
-									href={newsPath(news.id)}
-									context={news.data.title}
-									onDark
-									class="mt-auto"
+									href={announcementPath(announcement.id)}
+									context={announcement.data.title}
 								>
-									อ่านข่าว
+									ดูรายละเอียด
 								</ArrowLink>
-							</article>
-							<ArrowLink href="/news">ดูข่าวทั้งหมด</ArrowLink>
-						</div>
-					)}
-					{announcements.length > 0 && (
-						<div class="flex flex-col gap-4">
-							<div class="flex flex-1 flex-col rounded-24 border border-border-default bg-surface-base">
-								<div class="flex flex-col gap-1 px-6 pt-6 pb-5">
-									<h3 id="home-announcements" class="text-h3 text-text-primary">
-										<ThaiTitle text="ประกาศ" />
-									</h3>
-									<p class="text-small text-text-secondary">
-										ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ
-									</p>
-								</div>
-								<ul aria-labelledby="home-announcements">
-									{announcements.map((announcement) => (
-										<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
-											<p class="wrap-anywhere">
-												<ThaiTitle text={announcement.data.title} />
-											</p>
-											<AnnouncementStatusLine data={announcement.data} now={now} />
-											<ArrowLink
-												href={announcementPath(announcement.id)}
-												context={announcement.data.title}
-											>
-												ดูรายละเอียด
-											</ArrowLink>
-										</li>
-									))}
-								</ul>
-							</div>
-							<ArrowLink href={ANNOUNCEMENTS_PATH}>ดู{ANNOUNCEMENTS_TITLE}ทั้งหมด</ArrowLink>
-						</div>
-					)}
+							</li>
+						))}
+					</ul>
 				</div>
 			</div>
 		</section>

@@ -8,19 +8,19 @@
 // and the site search, the site title being the page's H1 out of sight (Feature 008 #241; spec
 // #239 "Hero and Featured"; its own tests are in public-homepage-curation.spec.ts); the Leadership
 // strip, the first three Leadership in Leadership order, after the Frequently Used Services
-// (Feature 008 #243; spec #239 "Leadership strip"); the newest published News beside up to 3
-// current Announcements; the latest 4 Health Content items, each labelled with its first Health
-// Topic; a Health Service Discovery form that submits an Area and a name to /health-services; the
-// latest Activities by Activity date, 3 on a desktop and 4 on a phone, each with its picture or a
-// visual fallback and "กิจกรรม • date"; and the Contact Summary from Office Contact. On a phone the
-// sections keep that order, and Health Information, Activities and Quick Access show their cards
-// two to a row (Feature 006 #146; spec #144 "Homepage (`04`)"); the Frequently Used Services go one
-// to a row there (Feature 008 #242; public-homepage-curation). An optional section with nothing to
-// show disappears. The hero and the Contact Summary always render, and the page answers with no
-// content at all. Closed Announcements, drafts, unpublished and trashed entries never show. The
-// curated sections between them have their own suite (public-homepage-curation.spec.ts); the tests
-// here that look at the whole page set the Homepage menus they need and put back what the menus
-// held.
+// (Feature 008 #243; spec #239 "Leadership strip"); the five newest published News, the first as a
+// large card (Feature 008 #244; spec #239 "Latest News"); up to 3 current Announcements; the latest
+// 4 Health Content items, each labelled with its first Health Topic; a Health Service Discovery
+// form that submits an Area and a name to /health-services; the latest Activities by Activity date,
+// 3 on a desktop and 4 on a phone, each with its picture or a visual fallback and "กิจกรรม • date";
+// and the Contact Summary from Office Contact. On a phone the sections keep that order, and Health
+// Information, Activities and Quick Access show their cards two to a row (Feature 006 #146; spec
+// #144 "Homepage (`04`)"); the Frequently Used Services go one to a row there (Feature 008 #242;
+// public-homepage-curation). An optional section with nothing to show disappears. The hero and the
+// Contact Summary always render, and the page answers with no content at all. Closed Announcements,
+// drafts, unpublished and trashed entries never show. The curated sections between them have their
+// own suite (public-homepage-curation.spec.ts); the tests here that look at the whole page set the
+// Homepage menus they need and put back what the menus held.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -33,7 +33,7 @@
 // from 2032 on. A suite's fixtures stay until it ends, so a later test dates its own after the
 // earlier tests'.
 
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import {
 	cmsRequest,
@@ -90,9 +90,6 @@ import {
 
 /** The Homepage menus with nothing in them, so no curated section shows. */
 const EMPTY_MENUS = { featured: [], services: [], quickAccess: [] };
-
-/** The heading of the current Announcements beside the News card, which names their list. */
-const ANNOUNCEMENTS_HEADING = "ประกาศ";
 
 /** The Contact Summary's lead, which is also the Homepage's description and the hero's headline. */
 const CONTACT_LEAD = HOMEPAGE_HEADLINE;
@@ -215,9 +212,34 @@ async function spaceBelowStrip(page: Page): Promise<number> {
 
 /** The current Announcements' links, in order. */
 function announcementLinks(page: Page) {
-	return homepageSection(page, HOMEPAGE_HEADINGS.news)
-		.getByRole("list", { name: ANNOUNCEMENTS_HEADING })
-		.getByRole("link");
+	return homepageSection(page, HOMEPAGE_HEADINGS.announcements).getByRole("list").getByRole("link");
+}
+
+/** The Latest News' cards, in order: the large card, then the small ones. */
+function newsCards(page: Page) {
+	return homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("article");
+}
+
+/**
+ * Whether the `cards` in each row reach both sides of `list` as the page is laid out now, so no
+ * cell of the grid is empty. Cards whose tops lie within 1 px of each other share a row.
+ */
+async function rowsFill(cards: Locator, list: Locator): Promise<boolean> {
+	const { x, width } = await boxOf(list, "the list of cards");
+	const rows = await cards.evaluateAll((elements) => {
+		const rows: Array<{ top: number; left: number; right: number }> = [];
+		for (const element of elements) {
+			const { top, left, right } = element.getBoundingClientRect();
+			const row = rows.find((candidate) => Math.abs(candidate.top - top) < 1);
+			if (!row) rows.push({ top, left, right });
+			else
+				Object.assign(row, { left: Math.min(row.left, left), right: Math.max(row.right, right) });
+		}
+		return rows;
+	});
+	return rows.every(
+		({ left, right }) => Math.abs(left - x) <= 1 && Math.abs(right - (x + width)) <= 1,
+	);
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -265,7 +287,7 @@ test("with no published content at all, the Homepage still answers with the hero
 	});
 });
 
-test("closed Announcements alone leave the News section out, and a current one brings it back without a News card", async ({
+test("closed Announcements alone leave the Announcements section out, and a current one brings it back without Latest News, at the News section's distance from the strip", async ({
 	page,
 }) => {
 	await borrowAllContent();
@@ -274,7 +296,7 @@ test("closed Announcements alone leave the News section out, and a current one b
 	});
 	await publish("announcements", closed);
 	await page.goto("/");
-	await expect(homepageSection(page, HOMEPAGE_HEADINGS.news)).toHaveCount(0);
+	await expect(homepageSection(page, HOMEPAGE_HEADINGS.announcements)).toHaveCount(0);
 	await expect(page.getByRole("main")).not.toContainText(closed.title);
 
 	const current = await create("announcements", "current-only", {
@@ -282,26 +304,74 @@ test("closed Announcements alone leave the News section out, and a current one b
 	});
 	await publish("announcements", current);
 	await page.goto("/");
-	await expect(homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("article")).toHaveCount(0);
-	await expect(
-		homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("link", { name: "ดูข่าวทั้งหมด" }),
-	).toHaveCount(0);
+	await expect(homepageSection(page, HOMEPAGE_HEADINGS.news)).toHaveCount(0);
 	await expect(announcementLinks(page)).toHaveCount(1);
 	await expect(announcementLinks(page)).toHaveAccessibleName(`ดูรายละเอียด ${current.title}`);
 	await expect(page.getByRole("main")).not.toContainText(closed.title);
+	// Without Latest News above it, the section takes the space above that the News section has,
+	// which is the gap under the Leadership strip.
+	const announcements = homepageSection(page, HOMEPAGE_HEADINGS.announcements);
+	for (const [width, space] of [
+		[1440, "80px"],
+		[768, "64px"],
+		[375, "32px"],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		await expect(announcements, `the space above at ${width} px`).toHaveCSS("padding-top", space);
+	}
 });
 
-test("a News without a current Announcement brings the News section back with its card alone", async ({
+test("with fewer than five News the large card and the others fill every row: one alone, two side by side, three with the large card across the row, four two by two, and one below another under 640 px, with no Announcements section", async ({
 	page,
 }) => {
 	await borrowAllContent();
-	const lone = await create("news", "without-announcements");
-	await publish("news", lone);
-	await page.goto("/");
-	const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
-	await expect(news.getByRole("article").getByRole("heading", { level: 3 })).toHaveText(lone.title);
-	await expect(news.getByRole("list", { name: ANNOUNCEMENTS_HEADING })).toHaveCount(0);
-	await expect(news.getByRole("link", { name: "ดูประกาศทั้งหมด" })).toHaveCount(0);
+	const published: DraftFixture[] = [];
+	const cards = newsCards(page);
+	const list = homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("list");
+	for (const [count, rows] of [
+		[1, [1]],
+		[2, [2]],
+		[3, [1, 2]],
+		[4, [2, 2]],
+	] as const) {
+		const next = await create("news", `fewer-than-five-${count}`);
+		await publish("news", next);
+		published.unshift(next);
+		await page.goto("/");
+		await expect(cards.getByRole("heading", { level: 3 }), `${count} News`).toHaveText(
+			published.map(({ title }) => title),
+		);
+		/** The large card's height, which is its least height while it has the row to itself. */
+		const largeHeight = async () => (await boxOf(cards.first(), "the large card")).height;
+		for (const width of [1440, 768, 640]) {
+			await page.setViewportSize({ width, height: 900 });
+			expect(await itemsPerRow(cards), `${count} News in rows at ${width} px`).toEqual(rows);
+			expect(await rowsFill(cards, list), `${count} News fill each row at ${width} px`).toBe(true);
+			if (count === 1) expect(await largeHeight(), `one News at ${width} px`).toBe(380);
+		}
+		for (const width of [639, 375]) {
+			await page.setViewportSize({ width, height: 900 });
+			expect(await itemsPerRow(cards), `${count} News at ${width} px`).toEqual(
+				published.map(() => 1),
+			);
+			expect(await rowsFill(cards, list), `${count} News fill each row at ${width} px`).toBe(true);
+			if (count === 1) expect(await largeHeight(), `one News at ${width} px`).toBe(300);
+		}
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+	}
+	// The large card without a picture shows its visual, and the title stays in sight on it.
+	await expect(cards.first().getByTestId("news-visual")).toBeVisible();
+	await expect(cards.first().getByRole("heading", { level: 3 })).toBeVisible();
+	await expect(homepageSection(page, HOMEPAGE_HEADINGS.announcements)).toHaveCount(0);
+	// The visual's tile lies in front of the gradient and is decoration: a press on it opens the
+	// News.
+	await cards.first().scrollIntoViewIfNeeded();
+	const tile = await boxOf(
+		cards.first().getByTestId("news-visual").locator("span"),
+		"the visual's tile",
+	);
+	await page.mouse.click(tile.x + tile.width / 2, tile.y + tile.height / 2);
+	await expect(page).toHaveURL(`/news/${published[0]!.slug}`);
 });
 
 test("the page's H1 is the site title from the site settings, and the hero shows neither it nor the tagline", async ({
@@ -490,42 +560,217 @@ test("two Leadership divide the strip's row between them and one takes it whole,
 	await expect(leadershipStrip(page), "no strip without Leadership").toHaveCount(0);
 });
 
-test("the News card shows the newest published News with its category, title and summary, and reads it with อ่านข่าว", async ({
+test("Latest News shows the five newest published News, newest first, each with its date and one link named by its title, a picture showing its middle or the visual in its place, and never a sixth, a draft, an unpublished or a trashed one", async ({
 	page,
 }) => {
-	const category = await createTerm("news_category", "ข่าวประชาสัมพันธ์");
-	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปข่าวล่าสุด ${crypto.randomUUID().slice(0, 6)}`;
-	const older = await create("news", "older");
-	const newest = await create("news", "newest", {
-		data: { summary },
-		taxonomies: { news_category: [category.slug] },
+	const pictured = async () => ({
+		data: {
+			featured_image: {
+				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพข่าว`),
+			},
+		},
 	});
+	const sixth = await create("news", "sixth");
+	const fifth = await create("news", "fifth");
+	const fourth = await create("news", "fourth");
+	const third = await create("news", "third", await pictured());
+	const second = await create("news", "second");
+	const newest = await create("news", "newest", await pictured());
 	const draft = await create("news", "draft");
 	const unpublished = await create("news", "unpublished");
 	const trashed = await create("news", "trashed");
-	await publish("news", older, newest, unpublished, trashed);
+	await publish("news", sixth, fifth, fourth, third, second, newest, unpublished, trashed);
 	expect((await unpublishEntry(admin, "news", unpublished.id)).ok, "unpublish").toBe(true);
 	expect((await trashEntry(admin, "news", trashed.id)).ok, "trash").toBe(true);
+	const today = thaiDate(new Date().toISOString());
 
 	await page.goto("/");
-	const card = homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("article");
-	await expect(card).toHaveCount(1);
-	await expect(card.getByRole("heading", { level: 3 })).toHaveText(newest.title);
-	await expect(card.getByText(category.label, { exact: true })).toBeVisible();
-	await expect(card.getByText(summary, { exact: true })).toBeVisible();
-	await expect(card.getByRole("link", { name: `อ่านข่าว ${newest.title}` })).toHaveAttribute(
-		"href",
-		`/news/${newest.slug}`,
+	const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
+	const cards = newsCards(page);
+	const shown = [newest, second, third, fourth, fifth];
+	await expect(cards.getByRole("heading", { level: 3 })).toHaveText(
+		shown.map(({ title }) => title),
 	);
-	await expect(
-		homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("link", { name: "ดูข่าวทั้งหมด" }),
-	).toHaveAttribute("href", "/news");
-	for (const hidden of [older, draft, unpublished, trashed]) {
+	for (const [index, item] of shown.entries()) {
+		const card = cards.nth(index);
+		await expect(card.locator("time"), item.title).toHaveText(today);
+		await expect(card.getByRole("link"), item.title).toHaveCount(1);
+		await expect(card.getByRole("link", { name: item.title, exact: true })).toHaveAttribute(
+			"href",
+			`/news/${item.slug}`,
+		);
+		const picture = card.locator("img");
+		if (item === newest || item === third) {
+			await picture.scrollIntoViewIfNeeded();
+			await expectImageLoaded(picture, `the picture of ${item.title}`);
+			// The picture covers its box from its middle, whatever its shape.
+			expect(
+				await picture.evaluate((element) => {
+					const style = getComputedStyle(element);
+					return [style.objectFit, style.objectPosition];
+				}),
+				`the crop of ${item.title}`,
+			).toEqual(["cover", "50% 50%"]);
+			if (item === third) {
+				const box = await boxOf(picture, "a small card's picture");
+				expect(box.width / box.height, "a small card's picture is 16:9").toBeCloseTo(16 / 9, 1);
+			}
+			await expect(card.getByTestId("news-visual"), item.title).toHaveCount(0);
+		} else {
+			await expect(picture, item.title).toHaveCount(0);
+			await expect(card.getByTestId("news-visual"), item.title).toBeVisible();
+		}
+	}
+	await expect(news.getByRole("link", { name: "ดูข่าวประชาสัมพันธ์ทั้งหมด" })).toHaveAttribute(
+		"href",
+		"/news",
+	);
+	for (const hidden of [sixth, draft, unpublished, trashed]) {
 		await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
 	}
 });
 
-test("up to 3 current Announcements show beside it, newest first by announcement date with the status the list states, and never a closed one or a draft", async ({
+test("from 1,024 px the large News card stands at the left beside the other four two by two, from 640 px it spans the row above them two to a row, below 640 px three compact rows follow it, and a small card keeps a long title to two lines", async ({
+	page,
+}) => {
+	const long =
+		"ซึ่งมีชื่อเรื่องยาวเกินกว่าสองบรรทัดของการ์ดใบเล็กในทุกความกว้างของหน้าจอ เพื่อดูว่าชื่อเรื่องถูกตัดให้เหลือสองบรรทัด";
+	const items: DraftFixture[] = [];
+	for (const label of ["layout-5", "layout-4", "layout-3", "layout-2", "layout-1"]) {
+		const item = await createSyntheticDraft(admin, "news", `ข่าว ${long}`, label);
+		await publish("news", item);
+		items.unshift(item);
+	}
+	await page.goto("/");
+	const cards = newsCards(page);
+	const list = homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("list");
+	await expect(cards.getByRole("heading", { level: 3 })).toHaveText(
+		items.map(({ title }) => title),
+	);
+	const boxes = () =>
+		cards.evaluateAll((elements) =>
+			elements.map((element) => {
+				const { left, top, right, bottom, width } = element.getBoundingClientRect();
+				return { left, top, right, bottom, width, shown: width > 0 };
+			}),
+		);
+	/** How many lines a card's title shows, and whether more of it lies below them. */
+	const titleOf = (index: number) =>
+		cards
+			.nth(index)
+			.getByRole("heading", { level: 3 })
+			.evaluate((heading) => ({
+				lines: Math.round(
+					heading.getBoundingClientRect().height / parseFloat(getComputedStyle(heading).lineHeight),
+				),
+				clamped: heading.scrollHeight > heading.clientHeight,
+			}));
+
+	for (const width of [1440, 1024]) {
+		await page.setViewportSize({ width, height: 900 });
+		const [large, ...small] = await boxes();
+		const at = `at ${width} px`;
+		expect(await itemsPerRow(cards), `the rows ${at}`).toEqual([3, 2]);
+		expect(large!.right, `the large card is at the left ${at}`).toBeLessThan(small[0]!.left);
+		expect(large!.top, `the large card starts with the first row ${at}`).toBeCloseTo(
+			small[0]!.top,
+			0,
+		);
+		expect(large!.bottom, `the large card ends with the second row ${at}`).toBeCloseTo(
+			small[2]!.bottom,
+			0,
+		);
+		expect(small[2]!.left, `the second row starts under the first ${at}`).toBeCloseTo(
+			small[0]!.left,
+			0,
+		);
+		expect(small[3]!.right, `the second row ends under the first ${at}`).toBeCloseTo(
+			small[1]!.right,
+			0,
+		);
+		expect(await titleOf(1), `a small card's title ${at}`).toEqual({ lines: 2, clamped: true });
+		expect(await titleOf(0), `the large card's title ${at}`).toEqual({ lines: 3, clamped: true });
+		expect(large!.bottom - large!.top, `the large card's height ${at}`).toBeGreaterThanOrEqual(520);
+	}
+	for (const width of [1023, 768, 640]) {
+		await page.setViewportSize({ width, height: 900 });
+		expect(await itemsPerRow(cards), `the rows at ${width} px`).toEqual([1, 2, 2]);
+		expect(await rowsFill(cards, list), `each row is full at ${width} px`).toBe(true);
+		expect(await titleOf(1), `a small card's title at ${width} px`).toEqual({
+			lines: 2,
+			clamped: true,
+		});
+		// From 640 px a small card's picture, or the visual in its place, is 16:9.
+		const visual = await boxOf(cards.nth(1).getByTestId("news-visual"), "a small card's visual");
+		expect(visual.width / visual.height, `the visual's shape at ${width} px`).toBeCloseTo(
+			16 / 9,
+			1,
+		);
+	}
+	for (const width of [639, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		const shown = (await boxes()).filter((box) => box.shown);
+		expect(shown.length, `the large card and three rows at ${width} px`).toBe(4);
+		await expect(cards.nth(4), `the fifth News at ${width} px`).toBeHidden();
+		expect(await rowsFill(cards.locator("visible=true"), list), `rows at ${width} px`).toBe(true);
+		// At 639 px the large card is wide enough for the whole title in three lines.
+		if (width < 639) {
+			expect(await titleOf(0), `the large card's title at ${width} px`).toEqual({
+				lines: 3,
+				clamped: true,
+			});
+		}
+		for (const index of [1, 2, 3]) {
+			// A compact row: a 120 px picture at 4:3 with the date and the title beside it.
+			const visual = await boxOf(cards.nth(index).getByTestId("news-visual"), "a row's visual");
+			const title = await boxOf(cards.nth(index).getByRole("heading", { level: 3 }), "its title");
+			expect([visual.width, visual.height], `row ${index}'s visual at ${width} px`).toEqual([
+				120, 90,
+			]);
+			expect(visual.x + visual.width, `row ${index}'s title beside it`).toBeLessThanOrEqual(
+				title.x,
+			);
+			// "ความดันโลหิตสูง" is 107 px at body size, semibold (docs/design/DESIGN.md §7.3).
+			expect(title.width, `row ${index}'s room for a title at ${width} px`).toBeGreaterThanOrEqual(
+				107,
+			);
+			expect(await titleOf(index), `row ${index}'s title at ${width} px`).toEqual({
+				lines: 2,
+				clamped: true,
+			});
+		}
+		await expectNoHorizontalScroll(page, `/ with five News at ${width} px`);
+	}
+});
+
+test("under the pointer a small News card rises 6 px, and a press just above its resting lower edge still opens the News", async ({
+	page,
+}) => {
+	const small = await create("news", "hover-small");
+	await publish("news", small, await create("news", "hover-large"));
+	await page.goto("/");
+	const card = newsCards(page).nth(1);
+	await expect(card.getByRole("heading", { level: 3 })).toHaveText(small.title);
+	// The card's white surface, a box with no role of its own.
+	const surface = card.getByTestId("news-surface");
+	await card.scrollIntoViewIfNeeded();
+	const place = await boxOf(card, "the card's place");
+	expect((await boxOf(surface, "the card's surface")).y, "the card at rest").toBeCloseTo(
+		place.y,
+		0,
+	);
+	const edge = { x: place.x + place.width / 2, y: place.y + place.height - 3 };
+	await page.mouse.move(edge.x, edge.y);
+	await expect
+		.poll(async () => (await boxOf(surface, "the card's surface")).y, {
+			message: "the card under the pointer has risen 6 px",
+		})
+		.toBeCloseTo(place.y - 6, 0);
+	await page.mouse.click(edge.x, edge.y);
+	await expect(page).toHaveURL(`/news/${small.slug}`);
+});
+
+test("up to 3 current Announcements show in their own section after Latest News, newest first by announcement date with the status the list states, and never a closed one or a draft", async ({
 	page,
 }) => {
 	const at = (day: number) => `2032-01-${String(day).padStart(2, "0")}T03:00:00.000Z`;
@@ -552,32 +797,26 @@ test("up to 3 current Announcements show beside it, newest first by announcement
 		await expect(links.nth(index)).toHaveAttribute("href", `/announcements/${announcement.slug}`);
 	}
 	// Each states its status and dates as the Announcements list does; one without dates, none.
-	const items = homepageSection(page, HOMEPAGE_HEADINGS.news)
-		.getByRole("list", { name: ANNOUNCEMENTS_HEADING })
-		.getByRole("listitem");
+	const announcements = homepageSection(page, HOMEPAGE_HEADINGS.announcements);
+	await expect(announcements, "after Latest News the section adds no space above").toHaveCSS(
+		"padding-top",
+		"0px",
+	);
+	const items = announcements.getByRole("listitem");
 	await expect(items.nth(0)).not.toContainText(/ยังไม่เปิด|เปิดอยู่|วันที่/);
 	await expect(items.nth(1)).toContainText("ยังไม่เปิด");
 	await expect(items.nth(1)).toContainText(`วันที่เริ่มต้น ${thaiDate(OPENS_LATER)}`);
 	await expect(items.nth(1)).toContainText(`วันที่สิ้นสุด ${thaiDate(CLOSES_LATER)}`);
 	await expect(items.nth(2)).toContainText("เปิดอยู่");
 	await expect(items.nth(2)).toContainText(`วันที่สิ้นสุด ${thaiDate(CLOSES_LATER)}`);
-	await expect(
-		homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("link", { name: "ดูประกาศทั้งหมด" }),
-	).toHaveAttribute("href", "/announcements");
-	// Each list link follows its own box: the order a phone shows them in, and a screen reader reads.
-	const order = [
-		/^อ่านข่าว /,
-		/^ดูข่าวทั้งหมด$/,
-		/^ดูรายละเอียด /,
-		/^ดูรายละเอียด /,
-		/^ดูรายละเอียด /,
-		/^ดูประกาศทั้งหมด$/,
-	];
-	const sectionLinks = homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("link");
+	// The heading's link to the list comes first, then each Announcement's own.
+	const order = [/^ดูประกาศทั้งหมด$/, /^ดูรายละเอียด /, /^ดูรายละเอียด /, /^ดูรายละเอียด /];
+	const sectionLinks = announcements.getByRole("link");
 	await expect(sectionLinks).toHaveCount(order.length);
 	for (const [index, name] of order.entries()) {
 		await expect(sectionLinks.nth(index)).toHaveAccessibleName(name);
 	}
+	await expect(sectionLinks.first()).toHaveAttribute("href", "/announcements");
 	for (const hidden of [fourth, closed, draft]) {
 		await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
 	}
@@ -799,7 +1038,7 @@ test("with every section showing, the sections follow the Figma order on a deskt
 }) => {
 	// Published entries of each kind, so every section shows whichever tests ran before, and three of
 	// each card, so a row of two shows as two and not as more. The Featured News is published first,
-	// so the News card shows the other one.
+	// so Latest News leads with the other one.
 	const { featured, services } = await test.step("Prepare native fixtures", async () => {
 		const featured = await create("news", "every-section-featured", {
 			data: {
@@ -842,6 +1081,7 @@ test("with every section showing, the sections follow the Figma order on a deskt
 		HOMEPAGE_HEADINGS.services,
 		HOMEPAGE_HEADINGS.leadership,
 		HOMEPAGE_HEADINGS.news,
+		HOMEPAGE_HEADINGS.announcements,
 		HOMEPAGE_HEADINGS.health,
 		HOMEPAGE_HEADINGS.discovery,
 		HOMEPAGE_HEADINGS.activities,

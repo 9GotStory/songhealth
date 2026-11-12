@@ -4,7 +4,7 @@
 // section shows content: each list page lists entries titled "[ตัวอย่าง] …", and the first of them
 // opens on its own page under that title; the Personnel lists and the Contact page show theirs;
 // each reserved Basic Page's address shows the page published there, the dataset's or the
-// office's own; the Homepage shows a Featured item, both its News card and its Announcements,
+// office's own; the Homepage shows a Featured item, Latest News and the current Announcements,
 // and every other section that hides while it has nothing to show; and the ITA landing leads to the
 // dataset's fiscal year, whose page lists its MOITs, one of them with a file removed from the
 // library (#126). Every public template but the 404 page, as the dataset fills it, passes the axe
@@ -164,11 +164,10 @@ test("the Homepage shows a Featured item and every section", async ({ page }) =>
 	for (const [section, heading] of Object.entries(HOMEPAGE_HEADINGS)) {
 		await expect(homepageSection(page, heading), `the ${section} section`).toBeVisible();
 	}
-	// The News and Announcements section shows while either half has some (src/pages/index.astro).
 	const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
-	await expect(news.getByRole("article"), "the News card").toContainText(MARK);
+	await expect(news.getByRole("article").first(), "the newest News").toContainText(MARK);
 	await expect(
-		news.getByRole("list", { name: "ประกาศ" }).getByRole("listitem").first(),
+		homepageSection(page, HOMEPAGE_HEADINGS.announcements).getByRole("listitem").first(),
 		"the current Announcements",
 	).toContainText(MARK);
 	await expect(
