@@ -261,11 +261,13 @@ content model from the model-update step:
     has none, after the fields they name, so a run cut short after creating a collection still
     gives it them;
   - its fields: it creates the seed's fields that the collection lacks, such as Personnel's
-    `leadership_order`, and removes none. A blocks field gets the seed's allowed block types, in
-    the order the Admin's picker offers them, and its item limit. A new seed field also joins the
-    approved field list of the Feature 002 suite that allow-lists that collection
-    (`tests/browser/cms-personnel.spec.ts`, `cms-facilities.spec.ts`), or that suite fails on the
-    unexpected field.
+    `leadership_order` and Service's `icon`, and removes none. A blocks field gets the seed's
+    allowed block types, in the order the Admin's picker offers them, and its item limit. A choice
+    field (`select`), such as Service's `icon`, gets the seed's values in the seed's order, the
+    order the editor lists them in (#248); an entry that holds a value the seed no longer has keeps
+    it until staff choose again. A new seed field also joins the approved field list of the
+    Feature 002 suite that allow-lists that collection (`tests/browser/cms-personnel.spec.ts`,
+    `cms-facilities.spec.ts`), or that suite fails on the unexpected field.
 
   For each taxonomy the seed gives reference terms, such as the Document Types `policy`, `plan` and
   `result` that the About pages list by, it adds the terms whose slug the taxonomy lacks. A term
@@ -307,8 +309,9 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
 ```
 
 - **What it holds.** `scripts/demo-dataset/content.ts` defines it: News (some of it Health News),
-  Activities with and without pictures, Announcements (current, upcoming and closed), Services,
-  Health Services in three demo Areas, Health Content, Health Reports with their Documents,
+  Activities with and without pictures, Announcements (current, upcoming and closed), Services
+  with an icon each (#248), Health Services in three demo Areas, Health Content, Health Reports
+  with their Documents,
   Documents of the types policy, plan and result (one superseded by its successor), Personnel
   with two Leadership, the reserved Basic Pages, Office Contact values with the Facebook and
   YouTube handles, items in the three Homepage menus, and MOIT 1 and MOIT 2 of fiscal year 2570
@@ -395,7 +398,8 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
   collection with its fields, its Evidence field's allowed block types and limit, and the three
   ITA block types. #169's is each collection's Admin sidebar folder, position and icon. Feature
   005's is the terms the migrated content uses (#175): the Announcement types `procurement`,
-  `recruitment` and `general`, the Document Type `order` and the Topic `pm25`;
+  `recruitment` and `general`, the Document Type `order` and the Topic `pm25`. Feature 008's is
+  Service's `icon` field with its 18 names, in order (#248);
 - the Office Contact plugin is registered and enabled, with its settings form.
 
 Runtime results are interpreted only against the commit verify reports.
