@@ -514,16 +514,17 @@ const discoveryField =
 
 	<script is:inline>
 		for (const form of document.querySelectorAll("form[data-submit-state]")) {
+			let release;
+			const open = () => {
+				clearTimeout(release);
+				delete form.dataset.submitting;
+			};
 			form.addEventListener("submit", (event) => {
 				if ("submitting" in form.dataset) return event.preventDefault();
 				form.dataset.submitting = "";
-				setTimeout(() => delete form.dataset.submitting, 10000);
+				release = setTimeout(open, 10000);
 			});
+			addEventListener("pageshow", open);
 		}
-		addEventListener("pageshow", () => {
-			for (const form of document.querySelectorAll("form[data-submitting]")) {
-				delete form.dataset.submitting;
-			}
-		});
 	</script>
 </SiteLayout>

@@ -1405,12 +1405,11 @@ test("with one Health Service that has no Area the band counts it and shows no n
 	});
 });
 
-test("the band directly below the deep field has the sections' space above it, the Activities after it have theirs, Health Information before it takes that space instead, and without the band the Activities follow Health Information's space", async ({
+test("directly below the deep field the Activities have the sections' space above them, and so has the band before them, where they keep theirs; Health Information before the band takes that space instead, and without the band the Activities follow Health Information's space below, or the News' own", async ({
 	page,
 }) => {
 	await borrowAllContent();
-	const facility = await createSyntheticHealthService(admin, "spacing-chain");
-	await publish("health_services", facility);
+	await publish("activities", await create("activities", "spacing-chain"));
 	const spaces = [
 		[1440, 80],
 		[768, 64],
@@ -1430,28 +1429,37 @@ test("the band directly below the deep field has the sections' space above it, t
 		}
 		await page.setViewportSize(DESKTOP_VIEWPORT);
 	};
+	/** Return a fixture to draft. */
+	const unpublish = async (collection: Collection, fixture: DraftFixture) => {
+		const unpublished = await unpublishEntry(admin, collection, fixture.id);
+		expect(unpublished.ok, `unpublishing: ${nativeRefusalOf(unpublished)}`).toBe(true);
+	};
 	await withHomepageMenus(admin, EMPTY_MENUS, async () => {
-		// The band alone, with no Leadership, News or Announcements above it.
+		// The Activities alone, with no Leadership, News, Announcements or band above them.
+		await page.goto("/");
+		await expect(discovery).toHaveCount(0);
+		await expectSpaceAbove(activities, "the Activities", true);
+
+		// The band takes that place, and the Activities keep their space after it.
+		const facility = await createSyntheticHealthService(admin, "spacing-chain");
+		await publish("health_services", facility);
 		await page.goto("/");
 		await expect(health).toHaveCount(0);
 		await expectSpaceAbove(discovery, "the band", true);
-
-		await publish("activities", await create("activities", "spacing-chain"));
-		await page.goto("/");
 		await expectSpaceAbove(activities, "the Activities", true);
 		await expect(discovery, "the band's space below before the Activities").toHaveCSS(
 			"padding-bottom",
 			"0px",
 		);
 
-		await publish("health_content", await create("health_content", "spacing-chain"));
+		const item = await create("health_content", "spacing-chain");
+		await publish("health_content", item);
 		await page.goto("/");
 		await expectSpaceAbove(health, "Health Information", true);
 		await expectSpaceAbove(discovery, "the band", false);
 
 		// Without the band, Health Information's space below is the only space before the Activities.
-		const unpublished = await unpublishEntry(admin, "health_services", facility.id);
-		expect(unpublished.ok, `unpublishing: ${nativeRefusalOf(unpublished)}`).toBe(true);
+		await unpublish("health_services", facility);
 		await page.goto("/");
 		await expect(discovery).toHaveCount(0);
 		await expectSpaceAbove(activities, "the Activities", false);
@@ -1462,6 +1470,14 @@ test("the band directly below the deep field has the sections' space above it, t
 				`${space}px`,
 			);
 		}
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+
+		// After Latest News alone, the Activities follow the News' own space below.
+		await unpublish("health_content", item);
+		await publish("news", await create("news", "spacing-chain"));
+		await page.goto("/");
+		await expect(health).toHaveCount(0);
+		await expectSpaceAbove(activities, "the Activities", false);
 	});
 });
 
@@ -1527,12 +1543,14 @@ for (const form of SUBMIT_FORMS) {
 		await expect(spinner).toBeHidden();
 		await expect(icon).toBeVisible();
 
-		// A result that never opens here leaves the form shut for ten seconds, no longer.
+		// A result that never opens here leaves the form shut for ten seconds, no longer: counted
+		// from this submit, six seconds after the first one, whose own ten seconds no longer count.
+		await page.clock.fastForward(6_000);
 		await button.click();
 		await expect(spinner).toBeVisible();
 		expect(sent, "a second request once the state has cleared").toHaveLength(2);
 		await page.clock.fastForward(5_000);
-		await expect(spinner).toBeVisible();
+		await expect(spinner, "five seconds after the second submit").toBeVisible();
 		await page.clock.fastForward(6_000);
 		await expect(spinner).toBeHidden();
 		await expect(icon).toBeVisible();
