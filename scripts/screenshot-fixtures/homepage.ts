@@ -1,7 +1,7 @@
 // Screenshot content for the Homepage (#64, #65): two published News, the newer with a category and
 // summary; three current Announcements and a closed one; four Health Content items with their
 // Health Topics; two Health Services in two Areas; three Activities, two with a picture; and a full
-// Office Contact. The curated sections take a Featured News with a picture, which the News card
+// Office Contact. The curated sections take a Featured News with a picture, which Latest News
 // then leaves out; six Services of the `00` §8.2 catalog; and the Quick Access shortcuts the frame
 // keeps, Documents and Health Information (docs/design/homepage-concept-v1.md §10). Captures /.
 

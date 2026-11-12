@@ -298,8 +298,8 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 				const pictureCard = activities
 					.getByRole("article")
 					.filter({ hasText: extraActivities[0].title });
-				// A lazy picture far below the window loads once it comes near: the page is longer from
-				// 640 px since Latest News shows five (#244).
+				// A lazy picture far below the window loads once it comes near, and from 640 px Latest
+				// News' five cards lie above this one (#244).
 				await pictureCard.locator("img").scrollIntoViewIfNeeded();
 				await expectImageLoaded(pictureCard.locator("img"), "Homepage Activity picture");
 				await clickCardSurface(page, pictureCard.locator("img"));

@@ -308,15 +308,17 @@ test("closed Announcements alone leave the Announcements section out, and a curr
 	await expect(announcementLinks(page)).toHaveCount(1);
 	await expect(announcementLinks(page)).toHaveAccessibleName(`ดูรายละเอียด ${current.title}`);
 	await expect(page.getByRole("main")).not.toContainText(closed.title);
-	// Without Latest News above it, the section keeps the space above its heading that the News
-	// section has: 80 px from 1,024 px, down to the heading's icon tile.
+	// Without Latest News above it, the section takes the space above that the News section has,
+	// which is the gap under the Leadership strip.
 	const announcements = homepageSection(page, HOMEPAGE_HEADINGS.announcements);
-	const section = await boxOf(announcements, "the Announcements section");
-	const heading = await boxOf(
-		announcements.getByRole("heading", { level: 2 }),
-		"the Announcements heading",
-	);
-	expect(heading.y - section.y, "the space above the heading").toBeGreaterThanOrEqual(80);
+	for (const [width, space] of [
+		[1440, "80px"],
+		[768, "64px"],
+		[375, "32px"],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		await expect(announcements, `the space above at ${width} px`).toHaveCSS("padding-top", space);
+	}
 });
 
 test("with fewer than five News the large card and the others fill every row: one alone, two side by side, three with the large card across the row, four two by two, and one below another under 640 px, with no Announcements section", async ({
@@ -339,14 +341,22 @@ test("with fewer than five News the large card and the others fill every row: on
 		await expect(cards.getByRole("heading", { level: 3 }), `${count} News`).toHaveText(
 			published.map(({ title }) => title),
 		);
-		for (const width of [1440, 768]) {
+		/** The large card's height, which is its least height while it has the row to itself. */
+		const largeHeight = async () => (await boxOf(cards.first(), "the large card")).height;
+		for (const width of [1440, 768, 640]) {
 			await page.setViewportSize({ width, height: 900 });
 			expect(await itemsPerRow(cards), `${count} News in rows at ${width} px`).toEqual(rows);
 			expect(await rowsFill(cards, list), `${count} News fill each row at ${width} px`).toBe(true);
+			if (count === 1) expect(await largeHeight(), `one News at ${width} px`).toBe(380);
 		}
-		await page.setViewportSize(PHONE_VIEWPORT);
-		expect(await itemsPerRow(cards), `${count} News at 375 px`).toEqual(published.map(() => 1));
-		expect(await rowsFill(cards, list), `${count} News fill each row at 375 px`).toBe(true);
+		for (const width of [639, 375]) {
+			await page.setViewportSize({ width, height: 900 });
+			expect(await itemsPerRow(cards), `${count} News at ${width} px`).toEqual(
+				published.map(() => 1),
+			);
+			expect(await rowsFill(cards, list), `${count} News fill each row at ${width} px`).toBe(true);
+			if (count === 1) expect(await largeHeight(), `one News at ${width} px`).toBe(300);
+		}
 		await page.setViewportSize(DESKTOP_VIEWPORT);
 	}
 	// The large card without a picture shows its visual, and the title stays in sight on it.
@@ -355,6 +365,7 @@ test("with fewer than five News the large card and the others fill every row: on
 	await expect(homepageSection(page, HOMEPAGE_HEADINGS.announcements)).toHaveCount(0);
 	// The visual's tile lies in front of the gradient and is decoration: a press on it opens the
 	// News.
+	await cards.first().scrollIntoViewIfNeeded();
 	const tile = await boxOf(
 		cards.first().getByTestId("news-visual").locator("span"),
 		"the visual's tile",
@@ -600,6 +611,10 @@ test("Latest News shows the five newest published News, newest first, each with 
 				}),
 				`the crop of ${item.title}`,
 			).toEqual(["cover", "50% 50%"]);
+			if (item === third) {
+				const box = await boxOf(picture, "a small card's picture");
+				expect(box.width / box.height, "a small card's picture is 16:9").toBeCloseTo(16 / 9, 1);
+			}
 			await expect(card.getByTestId("news-visual"), item.title).toHaveCount(0);
 		} else {
 			await expect(picture, item.title).toHaveCount(0);
@@ -639,7 +654,7 @@ test("from 1,024 px the large News card stands at the left beside the other four
 				return { left, top, right, bottom, width, shown: width > 0 };
 			}),
 		);
-	/** How many lines a small card's title shows, and whether more of it lies below them. */
+	/** How many lines a card's title shows, and whether more of it lies below them. */
 	const titleOf = (index: number) =>
 		cards
 			.nth(index)
@@ -674,11 +689,17 @@ test("from 1,024 px the large News card stands at the left beside the other four
 			0,
 		);
 		expect(await titleOf(1), `a small card's title ${at}`).toEqual({ lines: 2, clamped: true });
+		expect(await titleOf(0), `the large card's title ${at}`).toEqual({ lines: 3, clamped: true });
+		expect(large!.bottom - large!.top, `the large card's height ${at}`).toBeGreaterThanOrEqual(520);
 	}
 	for (const width of [1023, 768, 640]) {
 		await page.setViewportSize({ width, height: 900 });
 		expect(await itemsPerRow(cards), `the rows at ${width} px`).toEqual([1, 2, 2]);
 		expect(await rowsFill(cards, list), `each row is full at ${width} px`).toBe(true);
+		expect(await titleOf(1), `a small card's title at ${width} px`).toEqual({
+			lines: 2,
+			clamped: true,
+		});
 		// From 640 px a small card's picture, or the visual in its place, is 16:9.
 		const visual = await boxOf(cards.nth(1).getByTestId("news-visual"), "a small card's visual");
 		expect(visual.width / visual.height, `the visual's shape at ${width} px`).toBeCloseTo(
@@ -692,6 +713,13 @@ test("from 1,024 px the large News card stands at the left beside the other four
 		expect(shown.length, `the large card and three rows at ${width} px`).toBe(4);
 		await expect(cards.nth(4), `the fifth News at ${width} px`).toBeHidden();
 		expect(await rowsFill(cards.locator("visible=true"), list), `rows at ${width} px`).toBe(true);
+		// At 639 px the large card is wide enough for the whole title in three lines.
+		if (width < 639) {
+			expect(await titleOf(0), `the large card's title at ${width} px`).toEqual({
+				lines: 3,
+				clamped: true,
+			});
+		}
 		for (const index of [1, 2, 3]) {
 			// A compact row: a 120 px picture at 4:3 with the date and the title beside it.
 			const visual = await boxOf(cards.nth(index).getByTestId("news-visual"), "a row's visual");
@@ -701,6 +729,10 @@ test("from 1,024 px the large News card stands at the left beside the other four
 			]);
 			expect(visual.x + visual.width, `row ${index}'s title beside it`).toBeLessThanOrEqual(
 				title.x,
+			);
+			// "ความดันโลหิตสูง" is 107 px at body size, semibold (docs/design/DESIGN.md §7.3).
+			expect(title.width, `row ${index}'s room for a title at ${width} px`).toBeGreaterThanOrEqual(
+				107,
 			);
 			expect(await titleOf(index), `row ${index}'s title at ${width} px`).toEqual({
 				lines: 2,
@@ -766,6 +798,10 @@ test("up to 3 current Announcements show in their own section after Latest News,
 	}
 	// Each states its status and dates as the Announcements list does; one without dates, none.
 	const announcements = homepageSection(page, HOMEPAGE_HEADINGS.announcements);
+	await expect(announcements, "after Latest News the section adds no space above").toHaveCSS(
+		"padding-top",
+		"0px",
+	);
 	const items = announcements.getByRole("listitem");
 	await expect(items.nth(0)).not.toContainText(/ยังไม่เปิด|เปิดอยู่|วันที่/);
 	await expect(items.nth(1)).toContainText("ยังไม่เปิด");
@@ -1002,7 +1038,7 @@ test("with every section showing, the sections follow the Figma order on a deskt
 }) => {
 	// Published entries of each kind, so every section shows whichever tests ran before, and three of
 	// each card, so a row of two shows as two and not as more. The Featured News is published first,
-	// so the News card shows the other one.
+	// so Latest News leads with the other one.
 	const { featured, services } = await test.step("Prepare native fixtures", async () => {
 		const featured = await create("news", "every-section-featured", {
 			data: {
