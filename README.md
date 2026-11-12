@@ -166,7 +166,8 @@ Tests target the runtime with its own credentials, which are never printed or co
 # enables the Admin UI journeys of cms-lifecycle-ui, cms-editor and cms-menus-ui); without a suite,
 # every suite. playwright.config.ts runs them one worker at a time
 scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts
-# every suite that reads a Homepage section, before the review of a change to the Homepage
+# every suite that reads a Homepage section or opens the Homepage, before the review of a change
+# to the Homepage
 scripts/dev-runtime-env.sh npm run test:browser:homepage
 # T021 public reads, only through the coordinator, from a checkout at the promoted commit
 scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs

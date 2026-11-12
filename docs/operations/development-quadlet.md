@@ -131,6 +131,10 @@ the real state first and only adds what is missing:
     items. It exits 1 while any remain. It also counts the demo dataset's entries and lists any
     that is not published, with exit 1: a suite that returns the runtime's content to draft can
     fail to give it back, and `demo-dataset.ts add` publishes it again.
+  - **The database during a run.** Residue's last line counts the database connection errors in
+    the app's journal over the last hour, with the first one's time. A suite's timeout or a 500
+    from the native API at that time is the host's: run that suite again alone before reading
+    the change for a cause (#246 retro). The line never changes the exit status.
   - **The 404 log.** EmDash logs every miss, including the tests' deliberate requests for
     missing pages. That log can be cleared only as a whole or pruned by age, not entry by entry,
     so its synthetic misses stay until one clear just before the Product Owner's review (Feature

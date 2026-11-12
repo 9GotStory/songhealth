@@ -24,7 +24,7 @@
     "jscpd": "jscpd --config .jscpd.json && jscpd --config .jscpd.json --update-baseline --silent && git diff --exit-code -- .jscpd-baseline.json",
     "lint:shell": "./scripts/lint-shell.sh",
     "test:browser": "playwright test",
-    "test:browser:homepage": "playwright test $(grep -l 'homepageSection\\|HOMEPAGE_HEADINGS' tests/browser/*.spec.ts)",
+    "test:browser:homepage": "playwright test $(grep -lE 'homepageSection|HOMEPAGE_HEADINGS|goto\\(\"/\"\\)|\\[\"/\",' tests/browser/*.spec.ts)",
     "verify:startup": "./tests/operations/verify-startup.sh"
   },
   "dependencies": {

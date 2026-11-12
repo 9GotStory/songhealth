@@ -101,6 +101,9 @@ and why, and `.jscpd-baseline.json` records them.
 
 ## Tests
 
+- Playwright's behaviour the suites rely on (a page that is leaving, route globs, page timers)
+  is in `docs/agents/playwright-test-1.63.0.md`: read it before a test that watches a navigation,
+  holds a request or waits on a timer.
 - Public-page suites take `test` and `expect` from `tests/browser/public.helpers.ts`, so the
   third-party request guard runs. Each template's pages are checked at both `VIEWPORTS` with
   `expectNoAxeViolations` and `expectVisibleFocusOnEveryStop`, and at 320 px with

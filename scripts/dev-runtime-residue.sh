@@ -21,6 +21,10 @@
 # review (#67 retro), and only while every miss in it is synthetic: otherwise it lists the others,
 # clears nothing and exits 3 (#123 retro). --clear-404-log-including-others clears them too, once
 # someone has looked at them. Exit status 2: the count or the clear failed, or a wrong argument.
+# Its last line counts the database connection errors in the app's journal over the last hour,
+# the span of a full suite: a run that failed on a timeout or a 500 while the database dropped its
+# connections is the host's, not the change's (#246 retro: two cases of the last suite failed while
+# another project's containers loaded the host). The line never changes the exit status.
 set -uo pipefail
 # shellcheck source=scripts/dev-runtime-common.sh
 . "$(dirname "${BASH_SOURCE[0]}")/dev-runtime-common.sh"
@@ -140,3 +144,13 @@ found = any(left.values())
 print("RESIDUE: FOUND" if found else "RESIDUE: NONE")
 sys.exit(1 if found or demo_unpublished else 0)
 PY
+status=$?
+# LC_ALL=C: the host's Thai locale gives journalctl dates it then cannot select by.
+errors=$(LC_ALL=C journalctl --user -u "$APP" --since "-1h" --no-pager 2>/dev/null \
+  | grep -E 'Connection terminated unexpectedly|not yet accepting connections' || true)
+if [[ -n $errors ]]; then
+  echo "database: $(wc -l <<<"$errors") connection errors in the app's journal in the last hour, the first at $(head -1 <<<"$errors" | cut -c1-15)"
+else
+  echo "database: 0 connection errors in the app's journal in the last hour"
+fi
+exit "$status"
