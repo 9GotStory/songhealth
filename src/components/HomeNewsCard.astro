@@ -9,7 +9,8 @@
 // at 80 % or more under the title's three lines at most, so it reads over any picture (measured
 // with scripts/measure-text-contrast.ts over a white picture; docs/design/DESIGN.md §8.6). Without
 // a picture it shows the deep green visual (item 2) with an accent-warm tile near its top, in
-// front of the gradient, which holds a 24 px icon (Product Owner, 2026-11-12: #244 comment
+// front of the gradient, which holds a 24 px icon and takes no pointer events, so a press on it
+// reaches the card's link (Product Owner, 2026-11-12: #244 comment
 // 6810203896; the icon sizes of docs/design/DESIGN.md §5).
 //
 // A small card is a 16:9 picture, the date and the title in two lines at most. Below `sm` it is a
@@ -29,7 +30,8 @@
 //
 // The picture's zoom and a small card's lift under the pointer move only under
 // `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading"). The article keeps its
-// place and its surface lifts inside it, as HomeServiceCard's does.
+// place and its surface lifts inside it, as HomeServiceCard's does; the link covers the article,
+// so a press on the strip the surface left still opens the News.
 import Heart from "@lucide/astro/icons/heart";
 import { Image } from "emdash/ui";
 import { availableMedia } from "../lib/media";
@@ -72,7 +74,7 @@ const zoom =
 				<div
 					aria-hidden="true"
 					data-testid="news-visual"
-					class="deep-visual absolute inset-0 flex justify-center pt-10"
+					class="deep-visual pointer-events-none absolute inset-0 flex justify-center pt-10"
 				>
 					<span class="relative z-10 flex size-18 items-center justify-center rounded-22 bg-accent-warm text-brand-dark">
 						<Heart class="shrink-0" size={24} />
@@ -97,7 +99,10 @@ const zoom =
 	</article>
 ) : (
 	<article class:list={["group relative h-full", className]}>
-		<div class="flex h-full items-center overflow-hidden rounded-22 bg-surface-base shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:-translate-y-1.5 motion-safe:group-hover:shadow-deep sm:flex-col sm:items-stretch">
+		<div
+			data-testid="news-surface"
+			class="flex h-full items-center overflow-hidden rounded-22 bg-surface-base shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:-translate-y-1.5 motion-safe:group-hover:shadow-deep sm:flex-col sm:items-stretch"
+		>
 			<div class="relative m-2.5 aspect-4/3 w-30 shrink-0 overflow-hidden rounded-14 bg-surface-soft sm:m-0 sm:aspect-video sm:w-auto sm:rounded-none">
 				{image ? (
 					<Image

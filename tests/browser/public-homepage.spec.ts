@@ -353,6 +353,14 @@ test("with fewer than five News the large card and the others fill every row: on
 	await expect(cards.first().getByTestId("news-visual")).toBeVisible();
 	await expect(cards.first().getByRole("heading", { level: 3 })).toBeVisible();
 	await expect(homepageSection(page, HOMEPAGE_HEADINGS.announcements)).toHaveCount(0);
+	// The visual's tile lies in front of the gradient and is decoration: a press on it opens the
+	// News.
+	const tile = await boxOf(
+		cards.first().getByTestId("news-visual").locator("span"),
+		"the visual's tile",
+	);
+	await page.mouse.click(tile.x + tile.width / 2, tile.y + tile.height / 2);
+	await expect(page).toHaveURL(`/news/${published[0]!.slug}`);
 });
 
 test("the page's H1 is the site title from the site settings, and the hero shows neither it nor the tagline", async ({
@@ -701,6 +709,33 @@ test("from 1,024 px the large News card stands at the left beside the other four
 		}
 		await expectNoHorizontalScroll(page, `/ with five News at ${width} px`);
 	}
+});
+
+test("under the pointer a small News card rises 6 px, and a press just above its resting lower edge still opens the News", async ({
+	page,
+}) => {
+	const small = await create("news", "hover-small");
+	await publish("news", small, await create("news", "hover-large"));
+	await page.goto("/");
+	const card = newsCards(page).nth(1);
+	await expect(card.getByRole("heading", { level: 3 })).toHaveText(small.title);
+	// The card's white surface, a box with no role of its own.
+	const surface = card.getByTestId("news-surface");
+	await card.scrollIntoViewIfNeeded();
+	const place = await boxOf(card, "the card's place");
+	expect((await boxOf(surface, "the card's surface")).y, "the card at rest").toBeCloseTo(
+		place.y,
+		0,
+	);
+	const edge = { x: place.x + place.width / 2, y: place.y + place.height - 3 };
+	await page.mouse.move(edge.x, edge.y);
+	await expect
+		.poll(async () => (await boxOf(surface, "the card's surface")).y, {
+			message: "the card under the pointer has risen 6 px",
+		})
+		.toBeCloseTo(place.y - 6, 0);
+	await page.mouse.click(edge.x, edge.y);
+	await expect(page).toHaveURL(`/news/${small.slug}`);
 });
 
 test("up to 3 current Announcements show in their own section after Latest News, newest first by announcement date with the status the list states, and never a closed one or a draft", async ({

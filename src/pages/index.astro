@@ -154,18 +154,26 @@ const showsAnnouncements = announcements.length > 0;
  */
 const followsStrip = showsNews || showsAnnouncements;
 /**
+ * Whether the large News card spans the row from `sm`: when the small cards are an even number, so
+ * the two columns leave no empty cell.
+ */
+const largeSpansRow = news.length % 2 === 1;
+/** Whether the large News card stands beside the four small cards from `lg`. */
+const largeBesideFour = news.length === 5;
+/**
  * The large News card's least height: 300 px, 380 px from `sm` where it spans the row, and 520 px
  * from `lg` beside the four small cards.
  */
 const largeCardHeight = [
 	"min-h-75",
-	news.length % 2 === 1 && "sm:min-h-95",
-	news.length === 5 && "lg:min-h-130",
+	largeSpansRow && "sm:min-h-95",
+	largeBesideFour && "lg:min-h-130",
 ]
 	.filter(Boolean)
 	.join(" ");
-/** The space above and below a section after the deep field. */
-const sectionSpace = "py-8 sm:py-16 lg:py-20";
+/** The space below a section after the deep field, and the same above it. */
+const spaceBelow = "pb-8 sm:pb-16 lg:pb-20";
+const spaceAbove = "pt-8 sm:pt-16 lg:pt-20";
 
 /** The Health Service Discovery fields' box: 44 px high, with a 3:1 boundary, as FilterForm's. */
 const control =
@@ -209,7 +217,7 @@ const control =
 	{leaders.length > 0 && (
 		<section
 			aria-labelledby="home-leadership"
-			class:list={["pt-8 sm:pt-10", !followsStrip && "pb-8 sm:pb-16 lg:pb-20"]}
+			class:list={["pt-8 sm:pt-10", !followsStrip && spaceBelow]}
 		>
 			<div class="page-container">
 				<HomeLeadershipStrip id="home-leadership" people={leaders} />
@@ -218,7 +226,7 @@ const control =
 	)}
 
 	{showsNews && (
-		<section aria-labelledby="home-news" class={sectionSpace}>
+		<section aria-labelledby="home-news" class:list={[spaceAbove, spaceBelow]}>
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading id="home-news" label="ข่าวสาร" title="ข่าวประชาสัมพันธ์" href="/news">
 					<MessageSquare slot="icon" class="shrink-0" size={24} />
@@ -226,15 +234,15 @@ const control =
 				<ul
 					class:list={[
 						"grid gap-3.5 sm:grid-cols-2 sm:gap-6",
-						news.length === 5 && "lg:grid-cols-[1.25fr_1fr_1fr]",
+						largeBesideFour && "lg:grid-cols-[1.25fr_1fr_1fr]",
 					]}
 				>
 					{news.map((item, index) => (
 						<li
 							class:list={[
 								"min-w-0",
-								index === 0 && news.length % 2 === 1 && "sm:col-span-2",
-								index === 0 && news.length === 5 && "lg:col-span-1 lg:row-span-2",
+								index === 0 && largeSpansRow && "sm:col-span-2",
+								index === 0 && largeBesideFour && "lg:col-span-1 lg:row-span-2",
 								index === 4 && "max-sm:hidden",
 							]}
 						>
@@ -253,7 +261,7 @@ const control =
 	{showsAnnouncements && (
 		<section
 			aria-labelledby="home-announcements"
-			class:list={[showsNews ? "pb-8 sm:pb-16 lg:pb-20" : sectionSpace]}
+			class:list={[!showsNews && spaceAbove, spaceBelow]}
 		>
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
