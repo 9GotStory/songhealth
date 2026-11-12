@@ -194,6 +194,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-secondary-on-soft` (the tagline) on the header's surface over `brand-dark`, the darkest fill a page scrolls under it (`text-secondary` there would be 4.15:1) | 4.73:1 |
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
+| `accent-warm` (the month and year) on a Current Announcement's date tile, where they sit on its `brand-primary` to `brand-dark` gradient: measured, the one exception to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (the dotted label's closed state, which no page shows yet) | 13.85:1 |
