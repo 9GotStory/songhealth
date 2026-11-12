@@ -4,7 +4,7 @@
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > ticket by ticket from #240, and awaits the Product Owner's acceptance on #239.
-> **Updated:** 2026-11-12 (Feature 008 #245); first drafted 2026-10-30
+> **Updated:** 2026-11-12 (Feature 008 #246); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -100,7 +100,8 @@ recognizably connected to the local health-service network.
    CSS-in-JS, and no Tailwind v3 setup or `tailwind.config.js`. An inline `style` carries only a
    value computed from content: the shell's `--menu-height` from its number of menu items (§7.4).
 5. States and widths use Tailwind's variants (`hover:`, `focus-visible:`, `group-*`, `max-sm:`,
-   `supports-[…]:` and the breakpoints of §6). Pages work without client JavaScript (§11).
+   `supports-[…]:`, `group-data-*:` and the breakpoints of §6). Pages work without client
+   JavaScript (§11).
 6. A colour or type style the tokens lack becomes a named token with its source, and §3.1 records
    it. An arbitrary value is for a measured detail only, such as the post picture's `28rem`
    column.
@@ -199,6 +200,8 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (the dotted label's closed state, which no page shows yet) | 13.85:1 |
 | `text-secondary-on-soft` on `surface-base`, the lightest the Current Announcements' glow makes the band under its lead | 5.66:1 |
+| `surface-base` (the label, the lead and the counts' words) on the Health Service Discovery band's gradient: measured (§8.9) | 5.20:1 or more |
+| `accent-warm` (the counts' numbers, large text) on the band's gradient, over its glow: measured (§8.9) | 3.22:1 or more |
 | `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
 There is no alert colour: a status is stated in text, and colour supports it.
@@ -259,8 +262,8 @@ own module.
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
   2026-11-11: #241 comment 6791096480, item 1): 16 px in the heading's link, 20 px in the search's
-  submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7). The hero's search field opens with a 20 px `search`
-  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News). Every Service card shows
+  submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). The hero's search field opens with a 20 px `search`
+  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's). Every Service card shows
   the one Service icon, `hand-heart`.
 - **Accessibility:** an icon is decorative. Lucide hides it from assistive technology, the text
   names the link or button, and an icon-only action has an accessible name. Every icon takes
@@ -331,12 +334,12 @@ this document names:
   with no nested anchors or another focus stop. Enter, modified clicks and new-tab actions work.
 - **Interaction:** hover adds a 2 px `brand-primary` ring without moving/resizing the card and
   makes its title green and underlined. The resting border/shadow remains; keyboard focus uses
-  the global 3 px outline around the whole card. The Homepage's separately composed
-  Health Information cards, its Service cards (§8.4) and News cards (§8.6), and multi-action
+  the global 3 px outline around the whole card. The Homepage's own
+  Service cards (§8.4), News cards (§8.6) and Health Content cards (§8.8), and multi-action
   cards, keep their own interactions.
 - **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
-  Health Content card in a list to 16:10 (`ContentCard.astro`); the Homepage's Health
-  Information cards show no picture, and its News cards have their own boxes (§8.6). Every crop centres on the middle, or around the focal point
+  Health Content card in a list to 16:10 (`ContentCard.astro`); the Homepage's News
+  and Health Content cards have their own boxes (§8.6, §8.8). Every crop centres on the middle, or around the focal point
   that the field's value carries. A One Page in a card therefore shows its middle, where its photo
   collage is (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144 names the 16:9 crop, exact
   for Activity cards only).
@@ -345,7 +348,7 @@ this document names:
 - **Compact cards**, the Homepage's below 640 px (§8.2):
   - their side padding is 12 px, a measured fit: a card keeps 112 px for a title at 320 px, and
     "ความดันโลหิตสูง" is 107 px at body size, semibold;
-  - the title is at body size, semibold, and the Health Content cards leave out their summary;
+  - the title is at body size, semibold;
   - a Quick Link card's label lies across the card's content width, and its 24 px arrow on a row
     of its own at the lower right, at least 8 px below the label. The card grows with its label,
     with no one fixed height, and the cards of a row share one height. One line of label makes it
@@ -477,8 +480,9 @@ order:
 4. Leadership (the first three by Leadership order, in one strip; §8.5).
 5. Latest News (the five newest, the first as a large card; §8.6), then the Current Announcements
    (the four newest, as dated rows; §8.7).
-6. Health Information (the latest 4 Health Content items).
-7. Health Service Discovery (a form into `/health-services`, no directory on the Homepage).
+6. Health Information (Health Topic chips, then the latest 4 Health Content items; §8.8).
+7. Health Service Discovery (a band with the directory's counts and a form into
+   `/health-services`, no directory on the Homepage; §8.9).
 8. Activities (the latest, by when they were held).
 9. Quick Access (optional, up to 4 shortcuts to canonical destinations).
 10. Contact Summary (the office's address, telephone and hours; a static map stand-in).
@@ -495,11 +499,13 @@ Health Information and Activities are named as their lists are ("บริกา
 Each of these headings holds a pill link to the section's list that reads "ทั้งหมด", named
 "ดู…ทั้งหมด" with the section's name; below `sm` it is a round 44 px arrow button with the same
 name (`SectionListLink`). A heading has no lead; the Current Announcements show their lead and
-their link beside it (§8.7). The Health Service Discovery and Quick Access sections take the
-heading now and keep their titles until their own tickets (#241 comment 6791096480, item 4).
+their link beside it (§8.7), and the Health Service Discovery band its lead under it (§8.9). The
+Quick Access section takes the heading now and keeps its title until its own ticket (#241 comment
+6791096480, item 4).
 
-From `lg`, Health Information shows 4 to a row, Activities 3 and Quick Access 4. Below `lg` each
-shows 2 to a row, 12 px apart below `sm` and 24 px from `sm`. The Frequently Used Services have
+From `lg`, Activities show 3 to a row and Quick Access 4. Below `lg` each
+shows 2 to a row, 12 px apart below `sm` and 24 px from `sm`. Health Information has its own
+grid (§8.8). The Frequently Used Services have
 their own grid (§8.4).
 
 ### 8.1 Hero and Featured
@@ -543,17 +549,19 @@ Below 640 px the Homepage is shorter, with every section kept in its order (Prod
 - Each section after the deep field has 32 px of space above and below it, except the Leadership
   strip, which has it above and takes the space below from the News section (§8.5).
 - The Contact Summary's lead and the map stand-in are hidden.
-- Health Information, Activities and Quick Access go two to a row, 12 px apart, in compact cards
+- Activities and Quick Access go two to a row, 12 px apart, in compact cards
   (§7.3). The Frequently Used Services go one to a row (§8.4).
+- Health Information shows its four Health Content items as compact rows (§8.8).
 - Latest News shows the large card and three compact rows (§8.6).
 - The Current Announcements show three rows (§8.7).
 - Phones and tablets show the latest 4 Activities, two by two; a desktop row shows 3.
 
 The Homepage's height with the demo dataset, measured on 2026-11-12 at the application code of
-`feat/008-245-announcement-rows` `1f8ec78` with `scripts/capture-screenshots.mjs`: 5,749 px at
-1,440 px, 5,933 px at 1,024 px, 7,367 px at 768 px, 6,108 px at 375 px and 6,681 px at 320 px, with
-the dataset's two Leadership in the strip (§8.5), five News (§8.6) and four Current Announcements
-(§8.7).
+`feat/008-246-health-discovery` `ebce012` with `scripts/capture-screenshots.mjs`: 5,948 px at
+1,440 px, 6,127 px at 1,024 px, 7,964 px at 768 px, 6,456 px at 375 px and 7,111 px at 320 px, with
+the dataset's two Leadership in the strip (§8.5), five News (§8.6), four Current Announcements
+(§8.7), five Health Topic chips and four Health Content items without pictures (§8.8), and four
+Health Services in three Areas (§8.9).
 
 The Product Owner accepted the phone Homepage at 5,771 px at 375 px with the prototype's data, in
 place of the grill's target of about 5,000 px (spec #144). The height moves with the titles and the
@@ -751,6 +759,84 @@ News as a section of their own:
   10 px to the right with the `deep` shadow, only under `prefers-reduced-motion: no-preference`.
   Keyboard focus is the global 3 px outline around the row.
 
+### 8.8 Health Information
+
+Health Information (`HomeHealthCard`; spec #239 "Health Information") follows the Current
+Announcements on the page's colour:
+
+- **The space:** the sections' space below (80, 64 and 32 px), and the same above only after a
+  band: the Current Announcements, or the deep field when neither the Leadership strip nor Latest
+  News stands between. After Latest News or the Leadership strip it takes theirs.
+- **The chips:** one for each Health Topic the Health Content list's filter offers
+  (`src/lib/terms.ts` `offeredTerms`), in the filter's order, as a list named "ประเด็นสุขภาพ".
+  Each is a pill link to `/health/content?topic=<slug>`, the list narrowed to that topic:
+  `brand-primary` on `surface-base` with a 1.5 px `border-default` edge at 14 / 22 medium (13 / 20
+  below `sm`), `surface-base` on `brand-primary` under the pointer; 34 px high, 28 px below `sm`.
+  The row wraps, 10 px apart (8 px below `sm`). With no topic offered the row is left out.
+- **The cards** are the latest 4 Health Content items, four to a row from `lg` and two from `sm`,
+  24 px apart. A card is white, radius 22, with the `card` shadow and 10 px of padding:
+  - the picture, radius 14, at 4:3 from `lg` and 16:9 from `sm`, covering its box from its middle
+    (§7.3) and decorative; without one, the `plain-visual` with a green tile and a 24 px
+    `heart-pulse`;
+  - the first Health Topic as a pill badge at 13 / 20 semibold, `brand-dark` on `accent-warm`
+    (7.75:1), 13 px over the picture's lower edge. It wraps, so a long topic is fully readable (the
+    prototype cut it with an ellipsis). A Health Content item without a topic shows no badge;
+  - the title at 18 / 30 semibold, the summary at 14 / 22 in `text-secondary` in three lines at
+    most, and "อ่านต่อ" at 14 / 22 semibold in `brand-primary` with a 16 px `arrow-right`, at the
+    card's lower edge.
+- **Below `sm`** a card is a compact row, 12 px from the next: a 112 px picture at 4:3 at the
+  left, then the badge and the title at 16 / 26 semibold, without the summary and "อ่านต่อ". At
+  320 px that leaves 142 px for the title, above the 107 px of "ความดันโลหิตสูง" (§7.3).
+- **The link:** the title is an H3, and one link over the whole card is named "อ่านต่อ" and the
+  title; the topic and the summary stay outside the link's name.
+- **Under the pointer** the card rises 6 px with the `deep` shadow and the arrow moves 4 px to the
+  right, only under `prefers-reduced-motion: no-preference`. Keyboard focus is the global 3 px
+  outline around the card.
+
+### 8.9 Health Service Discovery
+
+Health Service Discovery (spec #239 "Health Service Discovery") is a band inside the page's
+container, on the page's colour. With no published Health Service it is left out.
+
+- **The space:** it follows Health Information's space below. It takes that space above itself
+  when Health Information is left out and a band precedes it, and its own space below when no
+  Activities follow.
+- **The band** is the `deep-band` utility: `brand-primary` to `brand-dark` at 120°, with the
+  `deep-highlight` glow from its lower left corner, radius 32 (24 below `sm`) and the `deep`
+  shadow; 56 px of padding from `lg`, 40 px from `sm`, 28 px above and below and 20 px at the
+  sides under it. From `lg` a 340 px ring in `accent-warm` at 45 % lies at its upper right corner,
+  behind the form; below `lg` it is left out, where it would cross the heading and the lead. It
+  takes no pointer events.
+- **The heading** is the section heading with its icon tile (Product Owner, 2026-11-12: #246
+  comment 6816725778, item 1): the label "หน่วยบริการ" in `surface-base`, as on the deep field
+  (§8.4; the prototype's `accent-warm` read 4.26:1 at 1,440 px and 2.28:1 at 320 px there), and
+  the H2 "หน่วยบริการสุขภาพในอำเภอสอง". Under it the lead "เลือกตำบลหรือพิมพ์ชื่อ
+  เพื่อดูข้อมูลติดต่อ เวลาเปิดบริการ และแผนที่" at 18 / 30 (16 / 26 below `sm`).
+- **The counts**, read from the directory: the number of published Health Services with
+  "หน่วยบริการ", and the number of Areas the directory's filter offers with "พื้นที่", the
+  directory's word (item 2). The second is left out when no Health Service has an Area. A number
+  is `accent-warm` at the h1 size bold from `sm` and the h2 size below; its word is `surface-base`
+  at 16 / 26.
+- **The form** is the directory's (§7.7): the Area select ("พื้นที่รับผิดชอบ", "ทุกพื้นที่" first)
+  and the name field ("ชื่อหน่วยบริการ"), a GET form to `/health-services` with the directory's
+  parameters `area` and `name`. It lies in a white card, radius 24, with the `deep` shadow, at
+  the band's right from `lg` and under the counts below. A field is 52 px high, radius 14, with a
+  1.5 px `border-input` edge; the button is an `accent-warm` pill, 52 px high, that reads "ค้นหา"
+  in `brand-dark` after a 20 px `search` icon. The focus ring in the card is `brand-primary`.
+- **Measured** with `scripts/measure-text-contrast.ts` on the demo dataset at the application
+  code of `ebce012`, at 1,440, 1,024, 768, 375 and 320 px: the label 7.00:1 or more, the
+  H2 6.99:1, the lead 5.79:1, the counts' words 5.20:1, and the numbers, which are
+  large text over the glow, 3.22:1 (§3.2). A change to the band's gradient or to the counts'
+  place needs a new measure.
+
+**The submit state** (spec #239 "Motion and loading"; `SubmitStateIcon`): after submit, the
+button of the hero's site search and of this form shows a spinner in place of its icon, a 20 px
+ring in the button's text colour with one quarter open, and a further submit is ignored until the
+page changes (item 3). The mark is taken off when the page is shown again from history, as after
+the browser's back button. The spinner turns only under `prefers-reduced-motion: no-preference`.
+This is the site's one script, inline at the end of the Homepage; without JavaScript both forms
+submit as plain forms. Forms on other pages are unchanged.
+
 ## 9. Post pages: News, Activity and Health Content
 
 ### 9.1 The header and two columns
@@ -850,7 +936,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - Every link and button shows its focus: a 3 px `brand-primary` ring, `accent-warm` on dark
   surfaces. No keyboard trap.
 - Pages work without client JavaScript. The mobile menu, the MOIT page's Requirements and an
-  Activity's folded photos are native disclosures that name their state.
+  Activity's folded photos are native disclosures that name their state. The one script, the
+  Homepage's submit state, adds to forms that submit without it (§8.9).
 - Touch targets of about 44×44 CSS px, with room between them.
 - Contrast: WCAG 2.2 AA (§3.2).
 - An informative image has alt text, a decorative one empty alt. A card's or the Featured picture
@@ -1005,3 +1092,12 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   list. Authority: spec #239 "Current Announcements", the notes on #245 and #245 comment
   6812117246 (the band and its glow, the solid link). Which Announcements show, their order and
   their addresses remain; four show where three did.
+- **v1.2 Homepage Health Information and Health Service Discovery (2026-11-12, Feature 008
+  #246):** Health Information shows a row of Health Topic chips, each a link to the Health Content
+  list narrowed to its topic, and its own cards with a picture and the topic as a badge, compact
+  rows below 640 px (§8.8). Health Service Discovery is a rounded green band with the directory's
+  counts and form (§8.9), and the Homepage's two forms show a spinner after submit, the site's one
+  script (§8.9, §11). Authority: spec #239 "Health Information", "Health Service Discovery" and
+  "Motion and loading", the notes on #246 and #246 comment 6816725778 (the heading with its icon
+  tile, "พื้นที่", both forms). Which Health Content shows, the form's parameters and each
+  address remain.

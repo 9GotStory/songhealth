@@ -11,12 +11,15 @@
 // (Feature 008 #243; spec #239 "Leadership strip"); the five newest published News, the first as a
 // large card (Feature 008 #244; spec #239 "Latest News"); four current Announcements as dated rows
 // in a band of their own, three below 640 px (Feature 008 #245; spec #239 "Current
-// Announcements"); the latest
-// 4 Health Content items, each labelled with its first Health Topic; a Health Service Discovery
-// form that submits an Area and a name to /health-services; the latest Activities by Activity date,
+// Announcements"); a chip for each Health Topic the Health Content list's filter offers and the
+// latest 4 Health Content items as cards with their first Health Topic as a badge, and the Health
+// Service Discovery band with the directory's counts and a form that submits an Area and a name to
+// /health-services (Feature 008 #246; spec #239 "Health Information", "Health Service Discovery");
+// the hero's search and that form showing a spinner after submit (spec #239 "Motion and
+// loading"); the latest Activities by Activity date,
 // 3 on a desktop and 4 on a phone, each with its picture or a visual fallback and "กิจกรรม • date";
-// and the Contact Summary from Office Contact. On a phone the sections keep that order, and Health
-// Information, Activities and Quick Access show their cards two to a row (Feature 006 #146; spec
+// and the Contact Summary from Office Contact. On a phone the sections keep that order, and
+// Activities and Quick Access show their cards two to a row (Feature 006 #146; spec
 // #144 "Homepage (`04`)"); the Frequently Used Services go one to a row there (Feature 008 #242;
 // public-homepage-curation). An optional section with nothing to show disappears. The hero and the
 // Contact Summary always render, and the page answers with no content at all. Closed Announcements,
