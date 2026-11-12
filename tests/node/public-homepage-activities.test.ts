@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { activitiesLayout } from "../../src/lib/homepage-activities.ts";
+import { activitiesLayout, activityPictureSizes } from "../../src/lib/homepage-activities.ts";
 
 describe("the Homepage's Activities layout", () => {
 	it("is one large tile beside four small ones with five Activities", () => {
@@ -20,6 +20,19 @@ describe("the Homepage's Activities layout", () => {
 		assert.deepEqual(activitiesLayout(3), { large: false, columns: 3, firstSpansRow: true });
 		assert.deepEqual(activitiesLayout(2), { large: false, columns: 2, firstSpansRow: false });
 		assert.deepEqual(activitiesLayout(1), { large: false, columns: 1, firstSpansRow: true });
+	});
+
+	it("gives each picture the width of its tile: its share of the 1,200 px container from 1,024 px, and the row or half of it below", () => {
+		// Five: the large tile takes two of four columns, and the row below.
+		assert.equal(activityPictureSizes(5, 0), "(min-width: 64rem) 37.5rem, 100vw");
+		assert.equal(activityPictureSizes(5, 1), "(min-width: 64rem) 18.75rem, 50vw");
+		assert.equal(activityPictureSizes(5, 4), "(min-width: 64rem) 18.75rem, 50vw");
+		// Fewer: equal shares, the first across the row below with one or three.
+		assert.equal(activityPictureSizes(1, 0), "(min-width: 64rem) 75rem, 100vw");
+		assert.equal(activityPictureSizes(2, 0), "(min-width: 64rem) 37.5rem, 50vw");
+		assert.equal(activityPictureSizes(3, 0), "(min-width: 64rem) 25rem, 100vw");
+		assert.equal(activityPictureSizes(3, 2), "(min-width: 64rem) 25rem, 50vw");
+		assert.equal(activityPictureSizes(4, 0), "(min-width: 64rem) 18.75rem, 50vw");
 	});
 
 	it("leaves no cell of two columns empty below 1,024 px, whatever the number", () => {

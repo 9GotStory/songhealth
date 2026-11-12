@@ -12,17 +12,28 @@ export interface ActivitiesLayout {
 	/** The newest Activity is the large tile, two rows high, beside the four others. */
 	large: boolean;
 	/** How many columns the grid has from `lg`. */
-	columns: 1 | 2 | 3 | 4;
+	columns: number;
 	/** Below `lg`, where the grid has two columns, the first tile spans the row. */
 	firstSpansRow: boolean;
 }
 
 /** The layout for `count` Activities, 1 to 5. */
 export function activitiesLayout(count: number): ActivitiesLayout {
-	const large = count >= 5;
-	return {
-		large,
-		columns: large ? 4 : (Math.max(count, 1) as ActivitiesLayout["columns"]),
-		firstSpansRow: count % 2 === 1,
-	};
+	const large = count === 5;
+	return { large, columns: large ? 4 : count, firstSpansRow: count % 2 === 1 };
+}
+
+/** The page container's width from `lg`, in rem (src/styles/global.css --container-content). */
+const CONTAINER_REM = 75;
+
+/**
+ * The `sizes` of the picture of the tile at `index`, from 0, among `count` Activities: its share
+ * of the container from `lg`, where the large tile takes two of the four columns, and below `lg`
+ * the row when the tile spans it, else half the row.
+ */
+export function activityPictureSizes(count: number, index: number): string {
+	const { large, columns, firstSpansRow } = activitiesLayout(count);
+	const first = index === 0;
+	const fromLg = (CONTAINER_REM / columns) * (large && first ? 2 : 1);
+	return `(min-width: 64rem) ${fromLg}rem, ${first && firstSpansRow ? "100vw" : "50vw"}`;
 }

@@ -53,12 +53,12 @@
 //   link and its opening hours, each only when set, and a button to /contact. No map is embedded
 //   or stood in for.
 //
-// Each section between the hero and the Contact Summary opens with the Homepage section heading
-// (spec #239 "Section headings"; SectionHeading): an icon tile, a label and the H2. The Frequently
-// Used Services, the Announcements, Health Information and Activities are named as their lists
-// are, Latest News is "ข่าวประชาสัมพันธ์", and each of these headings links to the section's list.
-// The sections of later tickets take the heading now, without a lead, so the page has one heading
-// style (Product Owner, 2026-11-11: #241 comment 6791096480, item 4). The Current Announcements
+// Each section after the hero, the Leadership strip aside, opens with the Homepage section
+// heading (spec #239 "Section headings"; SectionHeading): an icon tile, a label and the H2, so the
+// page has one heading style (Product Owner, 2026-11-11: #241 comment 6791096480, item 4). The
+// Frequently Used Services, the Announcements, Health Information and Activities are named as
+// their lists are, Latest News is "ข่าวประชาสัมพันธ์", and each of these headings links to the
+// section's list. A heading has no lead. The Current Announcements
 // show their lead and their link beside the heading, and the Health Service Discovery band its
 // lead under it.
 //
@@ -86,9 +86,9 @@
 //
 // Beyond the Figma frame, on the Product Owner's decision (2026-10-30: #64 comment 6526131459):
 // the links to the News, Announcements and Health Content lists, since the Announcements list is in
-// no navigation (each in its section's heading); each Announcement's status; and the Contact
-// Summary's lead as the page's description, since a tagline is a slogan and EmDash's site settings
-// hold no description (emdash 1.1.0 src/api/schemas/settings.ts).
+// no navigation (each in its section's heading); each Announcement's status; and the office
+// summary as the page's description, since a tagline is a slogan and EmDash's site settings hold
+// no description (emdash 1.1.0 src/api/schemas/settings.ts).
 //
 // The meta element named "songhealth-foundation" with content "public-runtime" is the Feature 001
 // public-runtime marker (T011): tests/browser/foundation.spec.ts, the development runtime's verify
@@ -125,7 +125,7 @@ import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE } from "../lib/health";
 import { healthContentListPath, latestHealthContent } from "../lib/health-content";
 import { FILTER_LABELS, FILTER_PARAMS, directoryPath } from "../lib/health-service-directory";
 import { directoryOverview } from "../lib/health-services";
-import { activitiesLayout } from "../lib/homepage-activities";
+import { activitiesLayout, activityPictureSizes } from "../lib/homepage-activities";
 import { readHomepageCuration } from "../lib/homepage-curation";
 import { homepageSpacing, type HomepageSection } from "../lib/homepage-spacing";
 import { latestNews } from "../lib/news";
@@ -219,12 +219,13 @@ const spaceOf = (section: HomepageSection) => [
 
 /** The Activities' grid: its columns from `lg` and its rows' heights. */
 const activityLayout = activitiesLayout(activities.length);
-const activityColumns = {
-	1: "lg:grid-cols-1",
-	2: "lg:grid-cols-2",
-	3: "lg:grid-cols-3",
-	4: "lg:grid-cols-4",
-}[activityLayout.columns];
+const activityColumns = [
+	"",
+	"lg:grid-cols-1",
+	"lg:grid-cols-2",
+	"lg:grid-cols-3",
+	"lg:grid-cols-4",
+][activityLayout.columns];
 
 /**
  * A Health Service Discovery field's box: 52 px high, with the 3:1 boundary colour FilterForm's
@@ -489,7 +490,12 @@ const discoveryField =
 									"row-span-2 lg:col-span-2 lg:col-start-3 lg:row-start-1",
 							]}
 						>
-							<HomeActivityTile activity={activity} large={index === 0 && activityLayout.large} />
+							<HomeActivityTile
+								activity={activity}
+								sizes={activityPictureSizes(activities.length, index)}
+								large={index === 0 && activityLayout.large}
+								spansRow={index === 0 && activityLayout.firstSpansRow}
+							/>
 						</li>
 					))}
 				</ul>

@@ -79,6 +79,7 @@ import {
 	detailOf,
 	expect,
 	expectAccessibleAtEachWidth,
+	expectFocusRingWhole,
 	expectImageLoaded,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
@@ -1623,6 +1624,14 @@ test("the Activities show the latest five by Activity date at every width, each 
 	const large = tiles.first();
 	await large.scrollIntoViewIfNeeded();
 	await expectImageLoaded(large.locator("img"), "the latest Activity's picture");
+	// The picture is asked for at the large tile's width: half the container, the row below.
+	await expect(large.locator("img")).toHaveAttribute("sizes", "(min-width: 64rem) 37.5rem, 100vw");
+	for (const index of [0, 1]) {
+		await expectFocusRingWhole(
+			tiles.nth(index).getByRole("link"),
+			`the tile in place ${index + 1}`,
+		);
+	}
 	await expect(large.getByTestId("activity-visual")).toHaveCount(0);
 	for (const index of [1, 2, 3, 4]) {
 		await expect(tiles.nth(index).locator("img")).toHaveCount(0);
@@ -1677,6 +1686,10 @@ test("the Activities show the latest five by Activity date at every width, each 
 		await page.setViewportSize({ width, height: 900 });
 		expect(await itemsPerRow(tiles), `the tiles in rows at ${width} px`).toEqual([1, 2, 2]);
 		expect(await rowsFill(tiles, list), `the tiles fill each row at ${width} px`).toBe(true);
+		expect(
+			(await boxOf(large, "the large tile")).height,
+			`the large tile is two rows high at ${width} px`,
+		).toBeGreaterThan(2 * (await boxOf(tiles.nth(1), "a small tile")).height);
 		await expect(large.locator("time"), `the large tile's date at ${width} px`).toBeVisible();
 		const smallDate = tiles.nth(1).locator("time");
 		if (width >= 640) await expect(smallDate, `a small tile's date at ${width} px`).toBeVisible();
@@ -1728,6 +1741,16 @@ test("with fewer than five Activities the tiles are equal and fill one row from 
 			expect(await itemsPerRow(tiles), `${count} Activities at ${width} px`).toEqual(rowsBelow);
 			expect(await rowsFill(tiles, list), `${count} fill each row at ${width} px`).toBe(true);
 		}
+		// Below 640 px a tile across the row keeps its date, and one half the row wide shows none.
+		const firstSpansRow = rowsBelow[0] === 1;
+		if (firstSpansRow) {
+			await expect(tiles.first().locator("time"), `the first of ${count} at 375 px`).toBeVisible();
+		} else {
+			await expect(tiles.first().locator("time"), `the first of ${count} at 375 px`).toBeHidden();
+		}
+		if (count > 1) {
+			await expect(tiles.last().locator("time"), `the last of ${count} at 375 px`).toBeHidden();
+		}
 		await page.setViewportSize(DESKTOP_VIEWPORT);
 	}
 });
@@ -1760,6 +1783,17 @@ test("the Contact Summary is one card under the heading ติดต่อสำ
 		await expect(map).toHaveAttribute("rel", "noopener");
 		const telephone = detailOf(page, "โทรศัพท์").getByRole("link", { name: "054 591 234" });
 		await expect(telephone).toHaveAttribute("href", "tel:054591234");
+		// Large and in accent-warm: 40 px from 640 px, the h2 size below.
+		await expect(telephone).toHaveCSS("color", await tokenColor(page, "accent-warm"));
+		for (const [width, size] of [
+			[1440, "40px"],
+			[640, "40px"],
+			[639, "34px"],
+		] as const) {
+			await page.setViewportSize({ width, height: 900 });
+			await expect(telephone, `the telephone's size at ${width} px`).toHaveCSS("font-size", size);
+		}
+		await page.setViewportSize(DESKTOP_VIEWPORT);
 		await expect(detailOf(page, "เวลาทำการ")).toHaveText(values.opening_hours);
 		await expect(contact, "the email stays on /contact").not.toContainText(values.email);
 		const button = contact.getByRole("link", { name: CONTACT_PAGE_LINK, exact: true });
@@ -1814,6 +1848,8 @@ test("the Contact Summary is one card under the heading ติดต่อสำ
 			await expect(detailOf(page, "โทรศัพท์")).toHaveText("054 591 234 ต่อ 12");
 			await expect(detailOf(page, "โทรศัพท์").getByRole("link")).toHaveCount(0);
 			await expect(contact.getByRole("link", { name: /เปิดแผนที่/ })).toHaveCount(0);
+			// With neither an address nor hours the card holds no list for them.
+			await expect(contact.locator("dl")).toHaveCount(1);
 			await page.setViewportSize(MOBILE_VIEWPORT);
 			await expectNoHorizontalScroll(page, "/ with a long telephone text at 320 px");
 		},
@@ -1835,6 +1871,23 @@ test("with one shortcut Quick Access shows it on the Homepage's card surface, af
 		await expect(link).toHaveCSS("background-color", await tokenColor(page, "surface-base"));
 		await expect(link).toHaveCSS("border-top-width", "0px");
 		await expect(link).not.toHaveCSS("box-shadow", "none");
+		await expectFocusRingWhole(link, "the shortcut");
+		// After the Activities it has the sections' space below it alone, and the Contact Summary
+		// after it none above.
+		for (const [width, space] of [
+			[1440, "80px"],
+			[768, "64px"],
+			[375, "32px"],
+		] as const) {
+			await page.setViewportSize({ width, height: 900 });
+			await expect(quickAccess, `Quick Access at ${width} px`).toHaveCSS("padding-top", "0px");
+			await expect(quickAccess, `Quick Access at ${width} px`).toHaveCSS("padding-bottom", space);
+			await expect(contactSection(page), `the Contact Summary at ${width} px`).toHaveCSS(
+				"padding-top",
+				"0px",
+			);
+		}
+		await page.setViewportSize(DESKTOP_VIEWPORT);
 		expect(
 			(await sectionHeadings(page).allTextContents()).map((text) => text.trim()).slice(-3),
 			"the last three sections",

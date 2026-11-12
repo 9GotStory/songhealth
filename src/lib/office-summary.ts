@@ -1,5 +1,5 @@
 // The office summary sentence (docs/design/homepage-concept-v1.md §11): the Homepage hero's
-// headline, the Contact Summary's lead and the page's description (Feature 008 #241; spec #239
+// headline and the page's description (Feature 008 #241; spec #239
 // "Hero and Featured"). The module imports nothing, so node:test checks it directly.
 
 /** One line of the hero's headline from `lg`: its text, then the words the headline marks. */
