@@ -250,7 +250,11 @@ test.beforeAll(async () => {
 	({ siteTitle } = await siteTitleParts(admin));
 });
 
-test.afterEach(async () => {
+// Giving back everything a test of an empty Homepage borrowed publishes some 60 entries one by one,
+// which under a full run's load outlasts the test's own 30 seconds and leaves the rest as drafts
+// (#244 retro). The hook has two minutes more.
+test.afterEach(async ({}, testInfo) => {
+	testInfo.setTimeout(testInfo.timeout + 120_000);
 	await borrowed.giveBack(admin);
 });
 

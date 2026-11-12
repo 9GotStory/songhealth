@@ -244,6 +244,14 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 				// The Homepage's own Service card (Feature 008 #242): its hover and focus ring are in
 				// public-homepage-curation.spec.ts.
 				await expectWholeCardLink(page, serviceCard, service.title, 3);
+				// Latest News' own cards (Feature 008 #244): the newest News, without a picture, is
+				// the large card, and the pictured one after it a small card.
+				const latestNews = homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("article");
+				const largeNewsCard = latestNews.filter({ hasText: news.title });
+				const smallNewsCard = latestNews.filter({ hasText: pictureEntries.news!.title });
+				await expect(latestNews.getByRole("heading", { level: 3 }).first()).toHaveText(news.title);
+				await expectWholeCardLink(page, largeNewsCard, news.title, 3);
+				await expectWholeCardLink(page, smallNewsCard, pictureEntries.news!.title, 3);
 				await expectCardInteraction(page, activityCard, activity.title, 3);
 				const visible = width < 1024 ? 4 : 3;
 				await expect(activities.getByRole("article").getByRole("link")).toHaveCount(visible);
@@ -277,30 +285,31 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 					});
 				}
 				await expectNoHorizontalScroll(page, "Homepage cards");
-				for (const [fixture, card, visual, path] of [
-					[service, serviceCard, "service-icon", `/services/${service.slug}`],
-					[activity, activityCard, "activity-visual", `/activities/${activity.slug}`],
+				// Each card with the part of it a citizen points at: an icon, a visual's tile, a picture.
+				for (const [fixture, card, part, path] of [
+					[service, serviceCard, serviceCard.getByTestId("service-icon"), "/services/"],
+					[activity, activityCard, activityCard.getByTestId("activity-visual"), "/activities/"],
+					[news, largeNewsCard, largeNewsCard.getByTestId("news-visual").locator("span"), "/news/"],
+					[pictureEntries.news!, smallNewsCard, smallNewsCard.locator("img"), "/news/"],
 				] as const) {
+					const destination = `${path}${fixture.slug}`;
 					await page.goto("/");
-					await clickCardSurface(page, card.getByTestId(visual));
-					await expectCardDestination(page, path, fixture);
+					await clickCardSurface(page, part);
+					await expectCardDestination(page, destination, fixture);
 					await page.goto("/");
 					const link = card.getByRole("link", { name: fixture.title, exact: true });
 					await link.focus();
 					await link.press("Enter");
-					await expectCardDestination(page, path, fixture);
+					await expectCardDestination(page, destination, fixture);
 					await page.goto("/");
 					const box = await card.boundingBox();
 					await card.click({ position: { x: box!.width - 8, y: box!.height - 8 } });
-					await expectCardDestination(page, path, fixture);
+					await expectCardDestination(page, destination, fixture);
 				}
 				await page.goto("/");
 				const pictureCard = activities
 					.getByRole("article")
 					.filter({ hasText: extraActivities[0].title });
-				// A lazy picture far below the window loads once it comes near, and from 640 px Latest
-				// News' five cards lie above this one (#244).
-				await pictureCard.locator("img").scrollIntoViewIfNeeded();
 				await expectImageLoaded(pictureCard.locator("img"), "Homepage Activity picture");
 				await clickCardSurface(page, pictureCard.locator("img"));
 				await expectCardDestination(
