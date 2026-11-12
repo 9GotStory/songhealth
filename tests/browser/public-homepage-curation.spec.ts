@@ -8,7 +8,7 @@
 //   with its whole picture or the plain visual, "เรื่องเด่น" with the date its list shows it by,
 //   and its title, the whole card a link to it. A closed Announcement is not Featured. With no
 //   such item the hero shows no card, and its headline is larger. The Featured item is not
-//   repeated as the News card or among the current Announcements. The picture shows whole, a
+//   repeated in Latest News or among the current Announcements. The picture shows whole, a
 //   landscape banner and a portrait One Page alike (Feature 006 #146; spec #144 "Homepage
 //   (`04`)"), and a title that keeps a long word whole stays inside the card. From 640 px the
 //   card sits beside the headline without touching it, and below that under the search (Product
@@ -294,7 +294,7 @@ test("an Announcement without a picture is Featured with the plain visual and it
 			await expect(shown.getByRole("heading", { level: 2 })).toHaveText(announcement.title);
 			await expect(shown.locator("img")).toHaveCount(0);
 			await expect(shown.getByTestId("featured-visual")).toHaveCount(1);
-			// The newest current Announcement, so the list beside the News card would lead with it.
+			// The newest current Announcement, so the Announcements section would lead with it.
 			await expect(
 				page.getByRole("main").getByRole("link", { name: `ดูรายละเอียด ${announcement.title}` }),
 			).toHaveCount(0);
@@ -433,9 +433,14 @@ test("unpublishing the Featured entry takes it off the Homepage without a menu e
 	);
 });
 
-test("the Featured News is not repeated as the News card, which shows the next newest News", async ({
+test("the Featured News is not repeated in Latest News, which still shows five: the next five newest News", async ({
 	page,
 }) => {
+	const older: DraftFixture[] = [];
+	for (const label of ["sixth-newest", "fifth-newest", "fourth-newest", "third-newest"]) {
+		older.unshift(await create("news", label));
+		await publish("news", older[0]!);
+	}
 	const next = await create("news", "next-newest");
 	const featured = await create("news", "featured-newest");
 	await publish("news", next, featured);
@@ -447,7 +452,7 @@ test("the Featured News is not repeated as the News card, which shows the next n
 		);
 		const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
 		await expect(news.getByRole("article").getByRole("heading", { level: 3 })).toHaveText(
-			next.title,
+			[next, ...older].map(({ title }) => title),
 		);
 		await expect(news).not.toContainText(featured.title);
 	});

@@ -4,7 +4,7 @@
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > ticket by ticket from #240, and awaits the Product Owner's acceptance on #239.
-> **Updated:** 2026-11-11 (Feature 008 #243); first drafted 2026-10-30
+> **Updated:** 2026-11-12 (Feature 008 #244); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -93,7 +93,7 @@ recognizably connected to the local health-service network.
 3. Templates style with utility classes in Astro components. The global stylesheet holds only the
    tokens, the base styles (the page gutter and the focus ring), the utilities (`page-container`;
    `focus-ring-on-dark` and `focus-ring-on-light`; the header's `header-title` and
-   `header-nav-item`; the Homepage's `deep-field`, `plain-visual`, `hero-headline`,
+   `header-nav-item`; the Homepage's `deep-field`, `deep-visual`, `plain-visual`, `hero-headline`,
    `hero-headline-alone` and `section-title`) and the `.rich-text` typography of Portable Text
    bodies, which EmDash renders as plain HTML that takes no utility classes.
 4. No other plain CSS selectors for component styling, no CSS Modules, Astro `<style>` blocks or
@@ -112,7 +112,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `brand-primary` | `#0b6b57` | links, primary buttons, the News card, the focus ring on light surfaces |
+| `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
 | `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, and the ring of the first person in the Leadership strip |
 | `text-primary` | `#16211d` | body text |
@@ -271,8 +271,8 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
 - **Breakpoints:** Tailwind's own, with no custom one.
   - below `sm` (640 px): phones;
   - `sm`, from 640 px: wider phones and tablets, where the Homepage's hero takes two columns;
-  - `lg`, from 1,024 px: desktop, with the two-column layouts (News beside
-    Announcements, the post pages, the MOIT page's table of contents).
+  - `lg`, from 1,024 px: desktop, with the two-column layouts (the post pages, the MOIT page's
+    table of contents) and the Homepage's large News card beside its four small ones (§8.6).
   - `md` and `xl` are not used.
 - **Widths checked:** 1,440 px (desktop, Concept v1's frame), 375 px (a common phone, where the
   phone Homepage is measured) and 320 px (reflow, WCAG 2.2 SC 1.4.10). A rule from `lg` is checked
@@ -323,12 +323,12 @@ this document names:
   with no nested anchors or another focus stop. Enter, modified clicks and new-tab actions work.
 - **Interaction:** hover adds a 2 px `brand-primary` ring without moving/resizing the card and
   makes its title green and underlined. The resting border/shadow remains; keyboard focus uses
-  the global 3 px outline around the whole card. The Homepage's separately composed News and
-  Health Information cards, its Service cards (§8.4), and multi-action cards, keep their own
-  interactions.
+  the global 3 px outline around the whole card. The Homepage's separately composed
+  Health Information cards, its Service cards (§8.4) and News cards (§8.6), and multi-action
+  cards, keep their own interactions.
 - **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
-  Health Content card in a list to 16:10 (`ContentCard.astro`); the Homepage's News and Health
-  Information cards show no picture. Both crops centre on the middle, or around the focal point
+  Health Content card in a list to 16:10 (`ContentCard.astro`); the Homepage's Health
+  Information cards show no picture, and its News cards have their own boxes (§8.6). Every crop centres on the middle, or around the focal point
   that the field's value carries. A One Page in a card therefore shows its middle, where its photo
   collage is (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144 names the 16:9 crop, exact
   for Activity cards only).
@@ -467,7 +467,7 @@ order:
 2. Featured (optional; one item, not an autoplay carousel).
 3. Frequently Used Services (curated, up to 6).
 4. Leadership (the first three by Leadership order, in one strip; §8.5).
-5. Latest News + Current Announcements.
+5. Latest News (the five newest, the first as a large card; §8.6), then the Current Announcements.
 6. Health Information (the latest 4 Health Content items).
 7. Health Service Discovery (a form into `/health-services`, no directory on the Homepage).
 8. Activities (the latest, by when they were held).
@@ -480,12 +480,16 @@ compact heading (§8.5), opens with `SectionHeading` (spec #239
 "Section headings"): an icon tile (72 px, 52 px below `sm`; a `brand-primary` to `brand-dark`
 gradient with an `accent-warm` icon, or `accent-warm` with a `brand-dark` icon on a dark surface),
 a label between slashes, and the H2. The label is `brand-primary`, `accent-warm` on `brand-dark`,
-and `surface-base` on the deep field (§8.4). Frequently Used Services, Health Information and Activities
-are named as their lists are ("บริการประชาชน", "ความรู้สุขภาพ", "กิจกรรม"), and their heading holds
-a pill link to that list that reads "ทั้งหมด", named "ดู…ทั้งหมด" with the section's name; below `sm`
-it is a round 44 px arrow button with the same name. A heading has no lead; the News and
-Announcements, Health Service Discovery and Quick Access sections take the heading now and keep
-their titles until their own tickets (#241 comment 6791096480, item 4).
+and `surface-base` on the deep field (§8.4). Frequently Used Services, the Current Announcements,
+Health Information and Activities are named as their lists are ("บริการประชาชน", "ประกาศ",
+"ความรู้สุขภาพ", "กิจกรรม"), and Latest News is "ข่าวประชาสัมพันธ์" (spec #239 "Section headings").
+Each of these headings holds a pill link to the section's list that reads "ทั้งหมด", named
+"ดู…ทั้งหมด" with the section's name; below `sm` it is a round 44 px arrow button with the same
+name. A heading has no lead. The Health Service Discovery and Quick Access sections take the
+heading now and keep their titles until their own tickets (#241 comment 6791096480, item 4). The
+Current Announcements are a section of their own after Latest News, under their heading, and keep
+their rows in one bordered box, with the lead as its first line, until #245 (Product Owner,
+2026-11-12: #244 comment 6809892992, item 4).
 
 From `lg`, Health Information shows 4 to a row, Activities 3 and Quick Access 4. Below `lg` each
 shows 2 to a row, 12 px apart below `sm` and 24 px from `sm`. The Frequently Used Services have
@@ -534,7 +538,7 @@ Below 640 px the Homepage is shorter, with every section kept in its order (Prod
 - The Contact Summary's lead and the map stand-in are hidden.
 - Health Information, Activities and Quick Access go two to a row, 12 px apart, in compact cards
   (§7.3). The Frequently Used Services go one to a row (§8.4).
-- The News card's summary is clamped to three lines.
+- Latest News shows the large card and three compact rows (§8.6).
 - Phones and tablets show the latest 4 Activities, two by two; a desktop row shows 3.
 
 The Homepage's height with the demo dataset, measured on 2026-11-11 at the application code of
@@ -646,8 +650,44 @@ in the page colour:
   heading lies above, with the link at its right over a `border-default` line. **From `sm`** the
   first person takes a row and the others share the next. **Below `sm`** everyone stacks.
 - **Space:** 32 px above the strip below `sm` and 40 px from `sm`, after the room the field leaves
-  under it (§8.4). The News section's own space follows it; while that section is left out, the
-  strip takes the same space below itself (32, 64 and 80 px).
+  under it (§8.4). The space above the section that follows it on the page colour comes next:
+  Latest News, or the Current Announcements when no News shows. While both are left out, the strip
+  takes the same space below itself (32, 64 and 80 px).
+
+### 8.6 Latest News
+
+Latest News (`HomeNewsCard`; spec #239 "Latest News") follows the Leadership strip, under the
+section heading "ข่าวประชาสัมพันธ์" with its "ทั้งหมด" link to `/news`:
+
+- **The News** are the five newest published News in the lists' order, after the Featured item is
+  removed (`04` §7). With none the section is left out.
+- **The large card** is the newest: its picture covering the card, radius 24, with the date in an
+  `accent-warm` pill (13 / 20 semibold, `brand-dark`) and the title in `surface-base` at H3 size
+  (18 / 30 semibold below `sm`), three lines at most, over a `brand-dark` gradient from the card's
+  foot (Product Owner, 2026-11-12: #244 comment 6809892992, item 1, for the date). The gradient is
+  96 % `brand-dark` at the foot and 80 % at 60 % of its height, with 96 px of it above the pill, so
+  the title's lines lie where it is 80 % or more (§3.2). Without a picture the card shows the deep
+  green visual, `deep-visual`: `brand-primary` to `brand-dark` with the `deep-highlight` glow (item
+  2), and near its top a 72 px `accent-warm` tile with a 24 px `brand-dark` icon (#244 comment
+  6810203896: the prototype's 120 px heart is outside §5's sizes).
+- **A small card** is white, radius 22, with the `card` shadow: a 16:9 picture, the date at 13 / 20
+  semibold in `brand-primary`, and the title at 18 / 30 semibold in two lines at most. **Below
+  `sm`** it is a compact row: a 120 px picture at 4:3, radius 14, 10 px inside the card, with the
+  date and the title, at body size, beside it (item 3); 130 px remain for the title at 320 px.
+  Without a picture it shows the plain visual with a 48 px tile, the section heading's gradient,
+  and its 24 px icon.
+- **Every picture** covers its box from its middle (§7.3) and is decorative. The title is an H3
+  that names one link over the whole card; the date stays outside the link's name.
+- **The grid, five News:** from `lg` the large card at the left, 520 px high or more, in a column
+  1.25 times the others, beside the four small cards two by two, 24 px apart. From `sm` the large
+  card spans the row, 380 px high or more, above the four two by two. Below `sm` the large card,
+  300 px high or more, then three rows, 14 px apart; the fifth News is not shown.
+- **Fewer than five:** two columns from `sm`, and the large card spans the row when the others are
+  an even number, so no cell is empty: one alone, two side by side, three with the large card
+  above two, four two by two with the large card as the first. Below `sm` they stack.
+- **Under the pointer** a picture grows by 6 % inside its box and a small card lifts 6 px with the
+  `deep` shadow, only under `prefers-reduced-motion: no-preference`. Keyboard focus is the global
+  3 px outline around the card.
 
 ## 9. Post pages: News, Activity and Health Content
 
@@ -888,3 +928,11 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   §6.1). Authority: spec #239 "Leadership strip", the note on #243 (comment 6798581211) and #243 comment
   6809325869 (the compact heading, the ring alone). The
   Leadership page and its order remain.
+- **v1.3 Homepage Latest News (2026-11-12, Feature 008 #244):** Latest News is a section of its own
+  (§8, §8.6): the five newest News after the Featured item, the newest as a large picture card
+  with its date and title over a gradient, then four small cards, compact rows below 640 px; the
+  `deep-visual` for a large card without a picture. The Current Announcements become the next
+  section under their own heading, their rows unchanged until #245. Authority: spec #239 "Latest
+  News", the notes on #244 (comments 6791841635 and 6809555807) and #244 comment 6809892992 (the
+  date on the large card, the deep green visual, the 4:3 picture in a compact row, the
+  Announcements' section) and comment 6810203896 (a tile with a 24 px icon on a visual). Which News show, their order and their addresses remain.
