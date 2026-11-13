@@ -1,11 +1,12 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.2, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.3, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
-> 6841960594).
-> **Updated:** 2026-11-13 (Feature 008 #250); first drafted 2026-10-30
+> 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
+> implemented by #281–#287; its acceptance is still to come.
+> **Updated:** 2026-11-13 (Feature 009 #281); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -44,6 +45,16 @@
 > history, and #250 the direction, the measures and the limits (§2, §6, §8.2, §10). Every other
 > page keeps its content's design under the new shell until its own feature.
 
+> **Feature 009 decision (Product Owner, 2026-11-13; spec #280):** the News, Health News and Health
+> Content lists and the Post page of a News, Activity or Health Content item are redesigned after
+> the Homepage as it is built, "เราจะต้องเป็นไปแนวทางเดียวกันของหน้าแรกนะ", in the look the Product
+> Owner picked from a prototype's variant C. A page's heading lies on the deep green field with its
+> breadcrumb in white, and what follows starts over the field's lower edge (§7.8). `/news` is headed
+> "ข่าวประชาสัมพันธ์" under the label "ข่าวสาร"; its title in the head, the menu and the breadcrumb
+> stay "ข่าวสาร". Every address, read and behaviour stays, and no colour, type size, radius or
+> shadow joins the tokens. #281 to #287 implement it, each with its own decisions in §13's change
+> history. Every page outside the feature keeps its design.
+
 ## 1. Scope, authority and status
 
 This document records the public presentation of Songhealth: its tokens, its components, the
@@ -76,8 +87,10 @@ health-service network.
 - **A redesign, page by page, the Homepage first** (spec #239). The Product Owner found the site
   too plain, "ตอนนี้ฉันอยากปรับปรุง design frontend ทั้งหมด เนื่องจากมันดูเรียบง่ายเกินไป" (2026-11-10),
   and asked for a new design: "รอบนี้ออกแบบใหม่เลย". The Homepage and the shell every page shares
-  have it (§7.4, §8). Every other page keeps the design of §7 and §9 under the new shell until its
-  own feature.
+  have it (§7.4, §8). Feature 009 brings it to the News, Health News and Health Content lists and
+  the Post pages (spec #280): so far `/news` has its heading on the deep field (§7.8), with the
+  cards of §7.3 under it. Every other page keeps the design of §7 and §9 under the new shell until
+  its own feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
   "มันยังดูธรรมดา เรียบง่ายเกินไป ไม่ได้ดูทันสมัย หรือ สมัยใหม่เลย", and naming two sites as the look
@@ -117,7 +130,8 @@ health-service network.
    `header-nav-item`; the Homepage's `deep-field`, `deep-band`, `deep-visual`, `plain-visual`, `hero-headline`,
    `hero-headline-alone` and `section-title`; the Homepage's motion, §8.12: `hero-enter`,
    `featured-card-enter`, `featured-sheet-enter`, `scroll-reveal` and `picture-shimmer`, with the keyframes they run) and the `.rich-text` typography of Portable Text
-   bodies, which EmDash renders as plain HTML that takes no utility classes.
+   bodies, which EmDash renders as plain HTML that takes no utility classes. A list's heading
+   uses `deep-field`, `section-title` and `hero-enter` too (§7.8).
 4. No other plain CSS selectors for component styling, no CSS Modules, Astro `<style>` blocks or
    CSS-in-JS, and no Tailwind v3 setup or `tailwind.config.js`. An inline `style` carries only a
    value computed from content: the shell's `--menu-height` from its number of menu items (§7.4).
@@ -137,7 +151,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and in the Current Announcements the month and year on a date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and in the Current Announcements the month and year on a date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -186,7 +200,8 @@ Three Homepage styles are utilities beyond the scale too (spec #239 "Tokens"), e
 `hero-headline`, 29 / 42 below 640 px, 34 / 48 from 640 px, and from 1,024 px 34 to 44 px with the
 window on a line of 1.42; `hero-headline-alone`, the headline with nothing Featured, 29 / 42, then
 38 / 54 from 640 px and 52 / 74 from 1,024 px; and `section-title`, a Homepage section's H2, 26 /
-38, then 36 / 48 from 640 px and 42 / 54 from 1,024 px.
+38, then 36 / 48 from 640 px and 42 / 54 from 1,024 px. A list page's H1 on the deep field is
+`section-title` too (§7.8).
 
 Radii are named by their size in px: 14, 16, 18, 20, 22, 24, 26 and 32, and `pill` (999 px). Four
 shadows: `card`, `0 10px 15px rgb(13 46 36 / 0.08)`; `header`, the sticky header's lower edge,
@@ -223,6 +238,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-primary` on `status-closed` (the dotted label's closed state, which no page shows yet) | 13.85:1 |
 | `text-secondary-on-soft` on `surface-base`, the lightest the Current Announcements' glow makes the band under its lead | 5.66:1 |
 | `surface-base` (the label, the lead and the counts' words) on the Health Service Discovery band's gradient: measured (§8.9) | 5.20:1 or more |
+| `surface-base` (the breadcrumb, the label, the H1 and the lead) on the field under the heading of `/news`: measured (§7.8) | 6.63:1 or more |
 | `accent-warm` (the counts' numbers, large text) on the band's gradient, over its glow: measured (§8.9) | 3.22:1 or more |
 | `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
@@ -232,14 +248,17 @@ There is no alert colour: a status is stated in text, and colour supports it.
 
 - **Typeface:** Noto Sans Thai, self-hosted through Astro's Fonts API (`astro.config.mjs`,
   `src/assets/fonts/README.md`).
-- **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`. A
+- **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`; the H1
+  of a list page on the deep field, so far `/news`, is `section-title` instead, under its label
+  (§7.8). A
   Homepage section's H2 is `section-title` (§3.1), under a label at label size between slashes. The
   Homepage's H1, the site title, is out of sight: the hero's headline shows in its place (§8.1).
   The Leadership strip's H2 is H3 size in bold, its compact heading (§8.5). Keep the `h1` → `h2`
   → `h3` order whatever the visual size.
-- **Sizes beyond the scale** are the Homepage's alone (§3.1): `hero-headline` and
+- **Sizes beyond the scale** are the Homepage's (§3.1), and one of them a list heading's:
+  `hero-headline` and
   `hero-headline-alone` for the hero's headline, up to 44 px beside a Featured card and 52 px
-  without one; `section-title`, up to 42 / 54; and `telephone`, 40 / 52, on the contact card from 640 px. The
+  without one; `section-title`, up to 42 / 54, also a list page's H1 on the deep field (§7.8); and `telephone`, 40 / 52, on the contact card from 640 px. The
   header's title and navigation items scale with the window from 1,024 px (§7.4).
 - **Copy:** concise, natural Thai. Dates and categories sit below the title in emphasis, and colour
   is never the only cue. No hard-coded dates, opening hours, news, phone numbers or service status.
@@ -288,7 +307,8 @@ own module.
 - **Direction:** an onward link on this site ends in `chevron-right`, and a link that leaves it in
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
-  2026-11-11: #241 comment 6791096480, item 1): 16 px in the heading's link, 20 px in the search's
+  2026-11-11: #241 comment 6791096480, item 1), and so does the link of a list's heading on the
+  deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link, 20 px in the search's
   submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The hero's search field opens with a 20 px `search`
   icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's). A Service card shows
   the Service's icon (below).
@@ -337,17 +357,20 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
   - below `sm` (640 px): phones;
   - `sm`, from 640 px: wider phones and tablets. On the Homepage the Featured card sits beside
     the hero's headline (§8.1), the Services, the small News cards and the Health Content cards
-    go two to a row, and the Services' grid overlaps the deep field's edge (§8.4);
+    go two to a row, and the Services' grid overlaps the deep field's edge (§8.4). A list's
+    heading has its link at its right, and its field the small glow in its corner (§7.8);
   - `lg`, from 1,024 px: desktop, with the main navigation in the header (§7.4), the two-column
     layouts (the post pages, the MOIT page's table of contents) and, on the Homepage, up to
     three Services and four Health Content cards to a row, the Leadership strip in one row, the large
     News card and the large Activity tile beside their small ones, and the Current Announcements'
-    heading beside their rows (§8.4 to §8.11).
+    heading beside their rows (§8.4 to §8.11). The field under a list's heading has its ring
+    (§7.8).
   - `md` and `xl` are not used.
 - **Widths checked:** 1,440 px (desktop), 375 px (a common phone) and 320 px (reflow, WCAG 2.2
   SC 1.4.10). A rule from a breakpoint is checked on both sides of it, as at 1,023 and 1,024 px
   (CODING_STANDARDS "Tests"). The Homepage and the shell are also measured and captured at
-  1,024 and 768 px, the five widths of Feature 008 (spec #239 "Testing Decisions"; §8.2).
+  1,024 and 768 px, the five widths of Feature 008 (spec #239 "Testing Decisions"; §8.2), and so
+  are Feature 009's pages (spec #280 "Testing Decisions"; §7.8).
 - **Container:** the 1,200 px content column, centred (`page-container`), with a gutter of 16 px
   below `sm` and 24 px from `sm`, so a 1,440 px window has 120 px either side.
 - **Spacing:** the 4/8/12/16/24/32/48/64/80 px rhythm. Between two Homepage sections after the deep
@@ -366,7 +389,7 @@ this document names:
 | Area | Components |
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
-| Headings | `PageHeading`, `SectionHeading`, `ThaiTitle` |
+| Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
 | Cards | `ContentCard` (News, Health Content), `ActivityCard`, `ServiceCard`, `QuickLinkCard`, `PersonCard` |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
 | Posts | `PostHeader`, `PostColumns`, `PostBody`, `ActivityPhotos`, `RichText` |
@@ -480,6 +503,10 @@ the focus rings, axe, and the configured and fallback identities, restoring sett
   as before. Breadcrumb labels remain outside ThaiTitle's word-keeping scope (§4.1).
 - The public-browser suite covers long and short labels at 320/375/639/640/1440 px, ancestor
   destinations, H1, clipping, keyboard navigation, axe, reflow and JavaScript-disabled pages.
+- On the deep field under a page's heading (§7.8) the links and the current page are
+  `surface-base` and the separators `surface-base` at 75 %, with the field's `accent-warm` focus
+  ring. The page shows the breadcrumb on its field in place of the shell's, with the same items,
+  markup and one-line rule; a link there keeps its underline and does not change under the pointer.
 
 ### 7.6 Pagination
 
@@ -528,6 +555,59 @@ Health Service Directory:
   fit run at 320, 375, 639, 640, 768, 1,023, 1,024 and 1,440 px, hover at 1,440 px, and axe, focus
   and reflow at 320, 375 and 1,440 px.
 
+### 7.8 List heading on the deep field
+
+`ListHeading` (Feature 009 #281; spec #280 "The field under a heading", "List heading") heads
+`/news`. Health News and Health Content keep `PageHeading`.
+
+- **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
+  `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
+  the `accent-warm` focus ring. What lies on it differs, each from a measure on the prototype (spec
+  #280 "Measured in the prototype": with the Homepage's glows and rings a list's lead read 3.42:1
+  and an outlined link's words 2.47:1):
+  - from `sm` its glow is small, 28 % of the field's width by 12 rem at the upper right corner;
+    below `sm` it is the utility's phone glow;
+  - it has the large ring alone, from `lg`;
+  - it has no `accent-warm` glow and no small ring, and no `surface-soft` glow either, as the
+    prototype's field (Product Owner, 2026-11-13: #281 comment 6847783611, item 2).
+- **On it, in this order:** the breadcrumb (§7.5), 24 px under the header; the Homepage's section
+  heading block (§8) with the page's H1 in `section-title` (§4), an `accent-warm` icon tile with a
+  `brand-dark` 24 px icon and the slashed label; and the lead at body-large, 16 px under the
+  heading. The breadcrumb and the heading are 24 px apart below `sm` and 32 px from `sm`. Every
+  text is solid `surface-base`: `scripts/measure-text-contrast.ts` cannot read text at 90 % white,
+  which Tailwind writes as `color-mix`.
+- **`/news`** is headed as the Homepage's Latest News (`NEWS_HEADING`, `src/lib/news.ts`): the
+  label "ข่าวสาร", the H1 "ข่าวประชาสัมพันธ์" and the `message-square` icon. Its title in the head,
+  its menu item and its breadcrumb read "ข่าวสาร" (spec #280 "Decisions", 3).
+- **The link.** `/news` has one, to Health News: a white pill, 52 px high from `sm` and 44 px
+  below, with "ข่าวสุขภาพ" in `brand-primary` at body size, semibold, and a 16 px `arrow-right`;
+  under the pointer it is `accent-warm` with `brand-dark` words. From `sm` it sits at the
+  heading's right, level with the heading's top; below `sm` it follows the lead, 20 px under it.
+  That is the prototype's place for it, where spec #280 says "on the lead's baseline" (Product
+  Owner, 2026-11-13: #281 comment 6846855734).
+- **What follows the heading** lies over the field's lower edge: the field's content ends 128 px
+  above the edge from `sm` and 96 px below, and the block that follows (`ListBody`) starts 88 px
+  above it from `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state, then the
+  pager (§7.6), 32 px apart; each keeps its content and behaviour. A card keeps the global
+  `brand-primary` focus ring, which is faint along the part of the first row that lies over the
+  field (1.89:1 on `brand-dark`) and clear on the page's colour; a card's ring over the field is
+  decided with the cards, in #283 and #284 (Product Owner, 2026-11-13: #281 comment 6847783611,
+  item 1).
+- **Motion** (§8.12): with motion allowed the heading block rises in as the page opens, and the
+  lead 0.1 s after it. The breadcrumb, the link and what follows show at once.
+- **Measured** on the development runtime at `3fe6f6b`, the demo dataset's six News:
+  - `scripts/measure-text-contrast.ts /news` at 1,440, 1,024, 768, 375 and 320 px, the lowest
+    reading of each text: the lead 6.63:1 (375 px), the H1 6.99:1 (320 px), the label 8.97:1
+    (320 px), the breadcrumb's current page 10.00:1 and its link 10.70:1 (320 px). The link's
+    words are `brand-primary` on `surface-base`, 6.45:1 (§3.2).
+  - `scripts/capture-screenshots.mjs`: the page is 1,507, 1,500, 2,042, 3,509 and 3,511 px high at
+    1,440, 1,024, 768, 375 and 320 px, where it was 1,501, 1,494, 2,030, 3,447 and 3,449 px at
+    `668d3e5` (#281's before screenshots).
+- `tests/browser/public-news.spec.ts` reads the heading's parts, their order and colours, the
+  head's title, the link's place and height on both sides of 640 px, the H1's size on both sides
+  of 640 and 1,024 px, what follows the heading with each empty state, the keyboard's order with the focus
+  ring, the motion and the page without JavaScript.
+
 ## 8. Homepage
 
 Source: `current/04-homepage.md` v2.7 and `current/03-sitemap.md` v2.7. The sections, in `04` §3's
@@ -574,7 +654,7 @@ to Latest News (§8.5).
 ### 8.1 Hero and Featured
 
 The hero (`HomeHero`; spec #239 "Hero and Featured") opens the page on the deep green field
-(`HomeDeepField`), which it shares with the Frequently Used Services (§8.4) and whose lower
+(`DeepField`), which it shares with the Frequently Used Services (§8.4) and whose lower
 corners are radius 32 (24 below `sm`):
 
 - **The chip** reads "เว็บไซต์ทางการ · กระทรวงสาธารณสุข".
@@ -1016,6 +1096,9 @@ stays the submit state (§8.9).
   box behind it. A missing picture's visual has no shimmer, nor has the Featured picture, which
   has its blurred copy behind it (§8.1), or a Leadership portrait in its ring (§8.5) (Product
   Owner: the same comment, item 2).
+- **A list heading's entrance.** On `/news` the heading block rises in as the hero's parts do,
+  starting at 0 s, and the lead at 0.1 s; nothing else on the page enters or reveals (§7.8;
+  `public-news.spec.ts` "/news moves only when motion is allowed: …").
 - **Hover** ships with each section (§8.1, §8.4, §8.6 to §8.10).
 - **Reduced motion and paper.** All of it runs only on a screen under
   `prefers-reduced-motion: no-preference`. With reduced motion preferred, and in print, nothing
@@ -1109,6 +1192,25 @@ The prototype's variant H, on the branch `prototype/home-redesign`, is the visua
 with the evidence round of #250 (`docs/evidence/250-homepage-redesign-evidence-round.md`), which
 names what the evidence does not cover.
 
+**What the Product Owner picked for the News lists and the Post page** on the Feature 009
+prototype (spec #280 "Decisions the Product Owner made"), after the Homepage as it is built and
+not its prototype ("design หน้าแรก (ปัจจุบัน)"):
+
+- the lists' heading on the deep field with the cards over its edge, and the newest item large on
+  a first page that no Health Topic narrows;
+- `/news` headed as the Homepage's section, "ข่าวสาร" and "ข่าวประชาสัมพันธ์", with a pill link to
+  Health News;
+- the Post page's header on the field, its picture in a white frame over the field's edge, its
+  text on the page's colour, its Health Topics as chips and an Activity's photos under a section
+  heading;
+- every earlier behaviour, address and read as it is, and the Homepage's motion with no new
+  effect.
+
+The prototype's variant C, on the branch `prototype/news-post-redesign`, is the visual reference
+(`docs/prototypes/news-post-redesign.md` there). Each ticket's decisions are on #281 to #287 and in
+§13; of these picks the code holds the heading of `/news` (§7.8). The feature's acceptance is still
+to come.
+
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
 Feature 008's picks above take the place of the smaller Featured title and the shorter phone page:
@@ -1175,8 +1277,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - The public suites check each template at 1,440 and 320 px with axe (WCAG 2.2 AA tags), focus on
   every stop and no sideways scrolling at 320 px, and at 375 px where a spec names it
   (CODING_STANDARDS "Tests"). There are no pixel tests: the look is the Product Owner's review of
-  each pull request's screenshots at 1,440, 375 and 320 px, and for the Homepage and the shell at
-  1,024 and 768 px too (§6).
+  each pull request's screenshots at 1,440, 375 and 320 px, and for the Homepage, the shell and
+  Feature 009's pages at 1,024 and 768 px too (§6).
 
 ## 12. Developer and agent handoff rules
 
@@ -1206,6 +1308,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - Decisions: ADR 0001 (Tailwind CSS v4), ADR 0003 (CMS images in production), ADR 0007 (the
   design's source).
 - Feature 006: spec #144 and tickets #145 to #151.
+- Feature 009: spec #280 and tickets #281 to #287.
 - Figma, as history: [Songhealth — Homepage Concept v1](https://www.figma.com/design/Lxdfd1dBgNNO28Rx62zGYO),
   described in `docs/design/homepage-concept-v1.md`.
 - Tailwind official: [Astro installation](https://tailwindcss.com/docs/installation/framework-guides/astro),
@@ -1366,3 +1469,16 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   tickets. `04` v2.7 and `03` v2.7 now place "ค้นหา" in the header and "ติดต่อเรา" in the footer
   (`04` §4, `03` §2). Authority: spec #239 "Documents" and "Decisions the Product Owner made",
   #239 comments 6786536858 and 6786631899, and the notes on #250. No page changed.
+
+- **v1.3 list heading on the deep field (2026-11-13, Feature 009 #281):** `/news` opens on the deep
+  green field (§7.8): its breadcrumb in white, the label "ข่าวสาร", the H1 "ข่าวประชาสัมพันธ์" in the
+  section title's type, its lead, and a white pill link "ข่าวสุขภาพ"; its cards, empty states and
+  pager start over the field's lower edge, and the heading rises in as the page opens (§8.12). It
+  replaces the page heading on the page's colour, with the H1 "ข่าวสาร" and the text link
+  "ดูเฉพาะข่าวสุขภาพ", under the shell's breadcrumb. `DeepField` takes the place of
+  `HomeDeepField` and serves both fields, and §2, §3, §3.2, §5, §6, §7.1 and §7.5 name the list
+  heading. Authority: spec #280 "The field under a heading", "List heading" and "Motion", and #281
+  comment 6846855734 (the link at the heading's upper right from 640 px, as the prototype has it)
+  and comment 6847783611 (a card's ring over the field waits for the cards; no `surface-soft` glow).
+  What the page lists, its order, its cards, its empty states' messages, its pager, its head and
+  its addresses remain, and so does every other page.

@@ -24,7 +24,8 @@
 	 * MOIT page's brand-dark header band, with the MOIT's number (#123, ITA prototype variant C). On
 	 * the Homepage's deep field (spec #239): the words the hero's headline marks, the search's submit
 	 * button, the sheet behind the Featured card, a section heading's icon tile, a Service card's
-	 * tile under the pointer, and the ring of the first person in the Leadership strip.
+	 * tile under the pointer, and the ring of the first person in the Leadership strip. On the field
+	 * under a list's heading (spec #280): the heading's icon tile, and its link under the pointer.
 	 */
 	--color-accent-warm: #f3c95f;
 	--color-text-primary: #16211d;
@@ -215,7 +216,9 @@
  * smaller one in the corner, so on a phone it stays clear of the text at the left. White text on
  * its lightest part, deep-highlight, is 4.30:1, so the field carries large text, and smaller text
  * at its darker left. brand-dark lies under the gradients, so the field's white text stays readable
- * where a browser draws neither.
+ * where a browser draws neither. The field under a list's heading sets --deep-field-glow from `sm`
+ * to a small glow in its corner, clear of its text (src/components/DeepField.astro; spec #280 "The
+ * field under a heading").
  */
 @utility deep-field {
 	background-color: var(--color-brand-dark);
@@ -315,7 +318,8 @@
 
 /*
  * A Homepage section's H2 (spec #239 "Tokens"), sizes beyond the type scale: 26 / 38 below `sm`,
- * 36 / 48 from `sm` and 42 / 54 from `lg`.
+ * 36 / 48 from `sm` and 42 / 54 from `lg`. A list page's H1 on the deep field has them too (spec
+ * #280 "List heading").
  */
 @utility section-title {
 	font-size: 1.625rem;
@@ -377,7 +381,8 @@
 /*
  * The entrance of a part of the hero as the page opens: it rises 28 px into its place while it
  * fades in, after --hero-enter-delay. The Featured card and the sheet behind it turn into their
- * tilt instead, the card after the hero's text and the sheet after the card.
+ * tilt instead, the card after the hero's text and the sheet after the card. A list's heading and
+ * its lead enter the same way (src/components/ListHeading.astro; spec #280 "Motion").
  */
 @utility hero-enter {
 	@media screen and (prefers-reduced-motion: no-preference) {

@@ -32,7 +32,9 @@
 //
 // An inner page passes its own crumbs, and the shell shows its breadcrumb above
 // the page's main content: หน้าแรก and the page's section, then those crumbs
-// (src/lib/navigation.ts breadcrumbTrail).
+// (src/lib/navigation.ts breadcrumbTrail). A page whose heading lies on the deep
+// field passes none and shows the same breadcrumb on its field
+// (src/components/ListHeading.astro; spec #280 "Scope of the change").
 //
 // The footer links to the reserved Basic Pages `privacy` and `accessibility`
 // while they are published, before ติดต่อเรา (src/lib/basic-pages.ts). Above
@@ -78,7 +80,8 @@ interface Props {
 	/**
 	 * The page's own crumbs, after หน้าแรก and its section: any page between the section and this
 	 * one, then this page's title. A section's landing page passes an empty list, and its
-	 * breadcrumb ends at the section. A page that omits `crumbs` has no breadcrumb.
+	 * breadcrumb ends at the section. A page that omits `crumbs` has no breadcrumb from the shell:
+	 * the Homepage has none, and a page with its heading on the deep field shows its own there.
 	 */
 	crumbs?: Crumb[];
 	/** The content entry the page renders, by its database id and slug. */

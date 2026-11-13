@@ -53,7 +53,8 @@ and why, and `.jscpd-baseline.json` records them.
 - Icons are Lucide's (Product Owner, 2026-10-31: #51 comments 6536026977, 6536052180). An onward
   link on this site ends in `chevron-right` and a link that leaves it in `arrow-up-right`; on the
   Homepage a round button, a section heading's link and a card take `arrow-right` (Product Owner,
-  2026-11-11: #241 comment 6791096480). An icon
+  2026-11-11: #241 comment 6791096480), and so does the link of a list's heading on the deep field
+  (spec #280 "List heading"). An icon
   is decorative: Lucide hides it from assistive technology, and the text names the link or button
   (`docs/agents/lucide-astro-1.59.0.md`). Its size follows its role (Product Owner, 2026-10-31:
   #105 comment 6536890963): 16 px for a direction icon beside label or small text, 20 px for an
@@ -85,9 +86,10 @@ and why, and `.jscpd-baseline.json` records them.
   element's edge (`tests/node/public-hover.test.ts`). A card that rises still opens from every part
   of its resting place: its link reaches over the strip its surface left, as
   `src/components/HomeServiceCard.astro` does (#242 retro).
-- `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the Homepage's deep
-  field it is 4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2;
-  Product Owner, 2026-11-11: #242 comment 6797113372, item 1). One measured exception: the month
+- `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
+  the Homepage's and the one under a page's heading (spec #280 "The field under a heading"), it is
+  4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product
+  Owner, 2026-11-11: #242 comment 6797113372, item 1). One measured exception: the month
   and year on a Current Announcement's date tile, 5.45:1 or more where they sit on its gradient
   (`docs/design/DESIGN.md` §8.7; Product Owner, 2026-11-12: #245 comment 6812837231). A change
   to the tile's size or gradient needs a new measure.

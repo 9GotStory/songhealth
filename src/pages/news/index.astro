@@ -4,12 +4,26 @@
 //
 // The canonical address keeps a valid page number, so each page of older News stays its own
 // address for search engines; a page number that is not one is dropped (src/lib/pagination.ts).
+//
+// The page opens on the deep field (Feature 009 #281; spec #280 "List heading"; ListHeading): it
+// is headed as the Homepage's Latest News, the label "ข่าวสาร" and the H1 "ข่าวประชาสัมพันธ์", with
+// a pill link to Health News, and the cards, the empty state and the pager lie over the field's
+// lower edge (ListBody). Its title in the head, the menu and the breadcrumb stay "ข่าวสาร" (spec
+// #280 "Decisions", 3).
+import MessageSquare from "@lucide/astro/icons/message-square";
 import ContentCardGrid from "../../components/ContentCardGrid.astro";
 import EmptyState from "../../components/EmptyState.astro";
-import PageHeading from "../../components/PageHeading.astro";
+import ListBody from "../../components/ListBody.astro";
+import ListHeading from "../../components/ListHeading.astro";
 import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { healthNewsPath, listNews, newsPath } from "../../lib/news";
+import {
+	HEALTH_NEWS_TITLE,
+	NEWS_HEADING,
+	healthNewsPath,
+	listNews,
+	newsPath,
+} from "../../lib/news";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../lib/pagination";
 
 const title = "ข่าวสาร";
@@ -19,24 +33,18 @@ const { entries, hasMore } = await listNews(page);
 const listUrl = new URL("/news", Astro.url);
 ---
 
-<SiteLayout
-	title={title}
-	section="news"
-	description={lead}
-	canonical={pageHref(listUrl, page)}
-	crumbs={[]}
->
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={title} lead={lead}>
-			<p>
-				<a
-					class="text-label text-brand-primary underline underline-offset-4"
-					href={healthNewsPath()}
-				>
-					ดูเฉพาะข่าวสุขภาพ
-				</a>
-			</p>
-		</PageHeading>
+<SiteLayout title={title} section="news" description={lead} canonical={pageHref(listUrl, page)}>
+	<ListHeading
+		section="news"
+		crumbs={[]}
+		label={NEWS_HEADING.label}
+		title={NEWS_HEADING.title}
+		lead={lead}
+		link={{ href: healthNewsPath(), label: HEALTH_NEWS_TITLE }}
+	>
+		<MessageSquare slot="icon" class="shrink-0" size={24} />
+	</ListHeading>
+	<ListBody>
 		{entries.length > 0 ? (
 			<ContentCardGrid entries={entries} labelTaxonomy="news_category" pathOf={newsPath} />
 		) : page > 1 ? (
@@ -48,5 +56,5 @@ const listUrl = new URL("/news", Astro.url);
 			<EmptyState message="ยังไม่มีข่าว" />
 		)}
 		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
-	</div>
+	</ListBody>
 </SiteLayout>
