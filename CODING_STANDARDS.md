@@ -120,6 +120,10 @@ and why, and `.jscpd-baseline.json` records them.
   `tests/browser/public-cards.spec.ts`: one link named by its title, a press on the part a citizen
   points at (its picture, or the tile of the visual in its place), a press on its lower corner, and
   Enter (#244 retro: a tile lay in front of the large News card's link, and no test pressed it).
+- Every page of a suite prefers reduced motion (`playwright.config.ts`), so a test reads a page
+  that stands still. A test of something that moves only where motion is allowed, such as a card
+  that rises under the pointer, allows it for its page with
+  `page.emulateMedia({ reducedMotion: "no-preference" })` (`docs/design/DESIGN.md` §8.12).
 - Tests assert what people see and use: text, links, status and focus. A link or button is
   checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
   out decorative `aria-hidden` icons. A `data-testid` marks only an element with no accessible

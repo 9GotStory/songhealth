@@ -16,6 +16,11 @@
 // not built yet (#124 retro). Chromium sends the header on a navigation and on a click (checked on
 // the development runtime, 2026-11-02), and EmDash bases no access decision on a referrer (the same
 // facts file).
+//
+// Every page prefers reduced motion, so a test reads a page that stands still: the Homepage's
+// entrance and reveal hold a part back and away from its place while they run (Feature 008 #249;
+// spec #239 "Motion and loading"). A test of motion allows it for its page with
+// `page.emulateMedia({ reducedMotion: "no-preference" })`.
 
 import { defineConfig, devices } from "@playwright/test";
 
@@ -33,6 +38,7 @@ export default defineConfig({
   use: {
     baseURL,
     extraHTTPHeaders: { referer: SYNTHETIC_REFERRER },
+    contextOptions: { reducedMotion: "reduce" },
   },
   projects: [
     {

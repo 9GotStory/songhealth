@@ -24,7 +24,9 @@
 // The card's lift and the arrow's shift under the pointer move only under
 // `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading"). The article keeps its
 // place and its surface lifts inside it, as HomeNewsCard's does; the link covers the article, so
-// a press on the strip the surface left still opens the Health Content.
+// a press on the strip the surface left still opens the Health Content. As the page opens a
+// picture's box shimmers, and stands plain with reduced motion preferred (`picture-shimmer`,
+// src/styles/global.css; Feature 008 #249).
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import HeartPulse from "@lucide/astro/icons/heart-pulse";
 import { Image } from "emdash/ui";
@@ -52,7 +54,12 @@ const titleId = `home-health-${crypto.randomUUID()}`;
 		data-testid="health-surface"
 		class="flex h-full items-center gap-3.5 rounded-22 bg-surface-base p-2.5 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:-translate-y-1.5 motion-safe:group-hover:shadow-deep sm:flex-col sm:items-stretch sm:gap-0 sm:pb-5.5"
 	>
-		<div class="relative aspect-4/3 w-28 shrink-0 overflow-hidden rounded-14 bg-surface-soft sm:aspect-video sm:w-auto lg:aspect-4/3">
+		<div
+			class:list={[
+				"relative aspect-4/3 w-28 shrink-0 overflow-hidden rounded-14 sm:aspect-video sm:w-auto lg:aspect-4/3",
+				image ? "picture-shimmer" : "bg-surface-soft",
+			]}
+		>
 			{image ? (
 				<Image
 					image={image}

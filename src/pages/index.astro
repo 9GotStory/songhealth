@@ -74,6 +74,13 @@
 // seconds, so a result that never opens here (a stopped load, one opened in another tab) does
 // not leave the form shut.
 //
+// Where motion is allowed (Feature 008 #249; spec #239 "Motion and loading";
+// docs/design/DESIGN.md §8.12), a section's heading and each of its cards, rows or tiles reveal as
+// they come into the window (`scroll-reveal`, src/styles/global.css), where the browser has
+// scroll-driven animation: on the `li`, never on the article that takes a card's hover. The
+// Leadership strip, the Health Topic chips, the discovery band and the contact card reveal as one
+// piece each. The decorations stand still. Motion adds no script.
+//
 // Below 640 px every section keeps its order (Feature 006 #146; spec #144 "Homepage (`04`)"):
 // Quick Access goes two to a row in its compact cards, and the space between two sections is
 // 32 px.
@@ -249,6 +256,7 @@ const discoveryField =
 						label="บริการ"
 						title={SERVICES_TITLE}
 						href={SERVICES_PATH}
+						class="scroll-reveal"
 					>
 						<Users slot="icon" class="shrink-0" size={24} />
 					</SectionHeading>
@@ -259,7 +267,7 @@ const discoveryField =
 						]}
 					>
 						{services.map((service) => (
-							<li>
+							<li class="scroll-reveal [--reveal-end:90%]">
 								<HomeServiceCard service={service} />
 							</li>
 						))}
@@ -283,7 +291,13 @@ const discoveryField =
 	{showsNews && (
 		<section aria-labelledby="home-news" class:list={spaceOf("news")}>
 			<div class="page-container flex flex-col gap-7">
-				<SectionHeading id="home-news" label="ข่าวสาร" title="ข่าวประชาสัมพันธ์" href="/news">
+				<SectionHeading
+					id="home-news"
+					label="ข่าวสาร"
+					title="ข่าวประชาสัมพันธ์"
+					href="/news"
+					class="scroll-reveal"
+				>
 					<MessageSquare slot="icon" class="shrink-0" size={24} />
 				</SectionHeading>
 				<ul
@@ -295,7 +309,7 @@ const discoveryField =
 					{news.map((item, index) => (
 						<li
 							class:list={[
-								"min-w-0",
+								"scroll-reveal min-w-0",
 								index === 0 && largeSpansRow && "sm:col-span-2",
 								index === 0 && largeBesideFour && "lg:col-span-1 lg:row-span-2",
 								index === 4 && "max-sm:hidden",
@@ -323,7 +337,7 @@ const discoveryField =
 				class="pointer-events-none absolute -top-15 -left-40 h-120 w-130 rounded-pill bg-linear-140 from-surface-base to-transparent to-70%"
 			/>
 			<div class="page-container relative grid gap-6 sm:gap-7 lg:grid-cols-[0.8fr_1.6fr] lg:items-start lg:gap-14">
-				<div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 lg:sticky lg:top-[calc(var(--header-offset)+1.5rem)] lg:block">
+				<div class="scroll-reveal grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 lg:sticky lg:top-[calc(var(--header-offset)+1.5rem)] lg:block">
 					<SectionHeading id="home-announcements" label="แจ้งให้ทราบ" title={ANNOUNCEMENTS_TITLE}>
 						<FileText slot="icon" class="shrink-0" size={24} />
 					</SectionHeading>
@@ -339,7 +353,7 @@ const discoveryField =
 				</div>
 				<ul class="flex flex-col gap-3.5">
 					{announcements.map((announcement, index) => (
-						<li class:list={[index === 3 && "max-sm:hidden"]}>
+						<li class:list={["scroll-reveal", index === 3 && "max-sm:hidden"]}>
 							<HomeAnnouncementRow announcement={announcement} now={now} />
 						</li>
 					))}
@@ -356,11 +370,15 @@ const discoveryField =
 					label="สุขภาพ"
 					title={HEALTH_CONTENT_TITLE}
 					href={HEALTH_CONTENT_PATH}
+					class="scroll-reveal"
 				>
 					<HeartPulse slot="icon" class="shrink-0" size={24} />
 				</SectionHeading>
 				{healthTopics.length > 0 && (
-					<ul aria-label="ประเด็นสุขภาพ" class="flex flex-wrap gap-2 sm:-mt-3 sm:gap-2.5">
+					<ul
+						aria-label="ประเด็นสุขภาพ"
+						class="scroll-reveal flex flex-wrap gap-2 sm:-mt-3 sm:gap-2.5"
+					>
 						{healthTopics.map((topic) => (
 							<li class="flex min-w-0">
 								<a
@@ -375,7 +393,7 @@ const discoveryField =
 				)}
 				<ul class="grid gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
 					{healthContent.map((item) => (
-						<li class="min-w-0">
+						<li class="scroll-reveal min-w-0">
 							<HomeHealthCard item={item} />
 						</li>
 					))}
@@ -389,7 +407,7 @@ const discoveryField =
 			<div class="page-container">
 				<div
 					data-testid="discovery-band"
-					class="deep-band focus-ring-on-dark relative grid items-center gap-6 overflow-clip rounded-24 px-5 py-7 text-surface-base shadow-deep sm:gap-8 sm:rounded-32 sm:p-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12 lg:p-14"
+					class="scroll-reveal deep-band focus-ring-on-dark relative grid items-center gap-6 overflow-clip rounded-24 px-5 py-7 text-surface-base shadow-deep sm:gap-8 sm:rounded-32 sm:p-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12 lg:p-14"
 				>
 					<span
 						aria-hidden="true"
@@ -470,6 +488,7 @@ const discoveryField =
 					label="ภาพกิจกรรม"
 					title={ACTIVITIES_TITLE}
 					href={ACTIVITIES_PATH}
+					class="scroll-reveal"
 				>
 					<Heart slot="icon" class="shrink-0" size={24} />
 				</SectionHeading>
@@ -483,7 +502,7 @@ const discoveryField =
 					{activities.map((activity, index) => (
 						<li
 							class:list={[
-								"min-w-0",
+								"scroll-reveal min-w-0",
 								index === 0 && activityLayout.firstSpansRow && "max-lg:col-span-2",
 								index === 0 &&
 									activityLayout.large &&
@@ -506,12 +525,17 @@ const discoveryField =
 	{quickAccess.length > 0 && (
 		<section aria-labelledby="home-quick-access" class:list={spaceOf("quickAccess")}>
 			<div class="page-container flex flex-col gap-7">
-				<SectionHeading id="home-quick-access" label="เข้าถึงข้อมูล" title="ข้อมูลและเอกสารสำคัญ">
+				<SectionHeading
+					id="home-quick-access"
+					label="เข้าถึงข้อมูล"
+					title="ข้อมูลและเอกสารสำคัญ"
+					class="scroll-reveal"
+				>
 					<FileText slot="icon" class="shrink-0" size={24} />
 				</SectionHeading>
 				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
 					{quickAccess.map((link) => (
-						<li>
+						<li class="scroll-reveal">
 							<HomeQuickLink href={link.href} label={link.label} />
 						</li>
 					))}

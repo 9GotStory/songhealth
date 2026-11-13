@@ -31,7 +31,9 @@
 // The picture's zoom and a small card's lift under the pointer move only under
 // `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading"). The article keeps its
 // place and its surface lifts inside it, as HomeServiceCard's does; the link covers the article,
-// so a press on the strip the surface left still opens the News.
+// so a press on the strip the surface left still opens the News. As the page opens a picture's box
+// shimmers, and stands plain with reduced motion preferred (`picture-shimmer`,
+// src/styles/global.css; Feature 008 #249).
 import Heart from "@lucide/astro/icons/heart";
 import { Image } from "emdash/ui";
 import { availableMedia } from "../lib/media";
@@ -62,7 +64,12 @@ const zoom =
 
 {large ? (
 	<article class:list={["group relative h-full", className]}>
-		<div class="absolute inset-0 overflow-hidden rounded-24 bg-surface-soft shadow-card">
+		<div
+			class:list={[
+				"absolute inset-0 overflow-hidden rounded-24 shadow-card",
+				image ? "picture-shimmer" : "bg-surface-soft",
+			]}
+		>
 			{image ? (
 				<Image
 					image={image}
@@ -103,7 +110,12 @@ const zoom =
 			data-testid="news-surface"
 			class="flex h-full items-center overflow-hidden rounded-22 bg-surface-base shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:-translate-y-1.5 motion-safe:group-hover:shadow-deep sm:flex-col sm:items-stretch"
 		>
-			<div class="relative m-2.5 aspect-4/3 w-30 shrink-0 overflow-hidden rounded-14 bg-surface-soft sm:m-0 sm:aspect-video sm:w-auto sm:rounded-none">
+			<div
+				class:list={[
+					"relative m-2.5 aspect-4/3 w-30 shrink-0 overflow-hidden rounded-14 sm:m-0 sm:aspect-video sm:w-auto sm:rounded-none",
+					image ? "picture-shimmer" : "bg-surface-soft",
+				]}
+			>
 				{image ? (
 					<Image
 						image={image}

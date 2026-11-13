@@ -14,7 +14,9 @@
 //
 // Each detail is a pair of a <dl> whose name only assistive technology reads; its icon, 20 px in
 // accent-warm, stands for the name in sight and is decorative. The ring at the card's lower right
-// shows from `lg` only, where it is clear of the text, and takes no pointer events.
+// shows from `lg` only, where it is clear of the text, and takes no pointer events. Where motion
+// is allowed the card reveals as it comes into the window (Feature 008 #249; spec #239 "Motion and
+// loading"; src/styles/global.css).
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import Clock from "@lucide/astro/icons/clock";
 import Headset from "@lucide/astro/icons/headset";
@@ -42,7 +44,7 @@ const telephoneClass =
 
 <div
 	data-testid="contact-card"
-	class="focus-ring-on-dark relative grid items-center gap-6 overflow-clip rounded-24 bg-linear-140 from-brand-dark to-brand-primary p-6 text-surface-base shadow-deep sm:p-10 lg:grid-cols-2 lg:gap-x-14 lg:px-14 lg:py-12"
+	class="scroll-reveal focus-ring-on-dark relative grid items-center gap-6 overflow-clip rounded-24 bg-linear-140 from-brand-dark to-brand-primary p-6 text-surface-base shadow-deep sm:p-10 lg:grid-cols-2 lg:gap-x-14 lg:px-14 lg:py-12"
 >
 	<span
 		aria-hidden="true"

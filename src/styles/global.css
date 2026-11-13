@@ -335,6 +335,116 @@
 }
 
 /*
+ * The Homepage's motion (Feature 008 #249; spec #239 "Motion and loading"), all of it only on a
+ * screen under `prefers-reduced-motion: no-preference`, so with reduced motion preferred, and on
+ * paper, the page stands still and whole. An entrance or a reveal only holds a part back before it
+ * runs (`backwards`): once over, it leaves the part to its own styles, such as a card's hover. No
+ * effect moves layout: a part changes its opacity, `translate`, `rotate` and `scale`, and a
+ * loading picture's box its background. Nothing moves by itself for longer than five seconds
+ * (WCAG 2.2 SC 2.2.2): the decorations stand still (Product Owner, 2026-11-13: #249 comment
+ * 6838503280).
+ */
+@keyframes rise-in {
+	from {
+		opacity: 0;
+		translate: 0 1.75rem;
+	}
+}
+
+@keyframes featured-card-in {
+	from {
+		opacity: 0;
+		translate: 0 2.5rem;
+		rotate: -10deg;
+		scale: 0.92;
+	}
+}
+
+@keyframes featured-sheet-in {
+	from {
+		opacity: 0;
+		translate: 0 0;
+		rotate: 0deg;
+	}
+}
+
+@keyframes picture-shimmer {
+	to {
+		background-position: 0 0;
+	}
+}
+
+/*
+ * The entrance of a part of the hero as the page opens: it rises 28 px into its place while it
+ * fades in, after --hero-enter-delay. The Featured card and the sheet behind it turn into their
+ * tilt instead, the card after the hero's text and the sheet after the card.
+ */
+@utility hero-enter {
+	@media screen and (prefers-reduced-motion: no-preference) {
+		animation: rise-in 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) var(--hero-enter-delay, 0s) backwards;
+	}
+}
+
+@utility featured-card-enter {
+	@media screen and (prefers-reduced-motion: no-preference) {
+		animation: featured-card-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s backwards;
+	}
+}
+
+@utility featured-sheet-enter {
+	@media screen and (prefers-reduced-motion: no-preference) {
+		animation: featured-sheet-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.45s backwards;
+	}
+}
+
+/*
+ * The reveal of a part of a section as it comes into the window: it rises and fades in over the
+ * first 60 % of its way in, or --reveal-end. Only where the browser has scroll-driven animation,
+ * so elsewhere nothing is ever hidden. A part that holds the keyboard's focus shows whole at once:
+ * focus scrolls a link only just into the window, where a tall part has barely begun. Longhands,
+ * not the `animation` shorthand: the build's minifier, lightningcss 1.33.0, folds
+ * `animation-timeline` into a shorthand, which Chromium 153 then drops whole (#249;
+ * docs/design/DESIGN.md §8.12).
+ */
+@utility scroll-reveal {
+	@media screen and (prefers-reduced-motion: no-preference) {
+		@supports (animation-timeline: view()) {
+			animation-name: rise-in;
+			animation-timing-function: linear;
+			animation-fill-mode: backwards;
+			animation-timeline: view();
+			animation-range: entry 0% entry var(--reveal-end, 60%);
+
+			&:focus-within {
+				animation-name: none;
+			}
+		}
+	}
+}
+
+/*
+ * The box of a picture that is loading: surface-soft with a lighter band of bg-page that crosses
+ * it three times in 4.8 s, which the loaded picture covers. The band is the middle fifth of a
+ * background three boxes wide, so before and after its passes the box shows surface-soft alone,
+ * as it does with reduced motion preferred.
+ */
+@utility picture-shimmer {
+	background-color: var(--color-surface-soft);
+
+	@media screen and (prefers-reduced-motion: no-preference) {
+		background-image: linear-gradient(
+			100deg,
+			var(--color-surface-soft) 40%,
+			var(--color-bg-page) 50%,
+			var(--color-surface-soft) 60%
+		);
+		background-size: 300% 100%;
+		background-position: 100% 0;
+		animation: picture-shimmer 1.6s linear 3;
+	}
+}
+
+/*
  * Focus ring on dark surfaces: accent-warm, 7.75:1 against brand-dark and 4.10:1 against
  * brand-primary, above the 3:1 a focus indicator needs.
  */

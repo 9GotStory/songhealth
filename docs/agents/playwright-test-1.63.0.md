@@ -31,6 +31,28 @@ When the pinned version changes, re-verify every line and rename this file:
   request for `/search?q=x`. Match by a predicate, `(url) => url.pathname === "/search"`, which
   `toHaveURL` and `unroute` take as well. Observed on the runtime (#246).
 
+- **A page the test fulfilled cannot open the runtime's socket.** After
+  `route.fulfill({ response, body })` on the document itself, Chromium 153 refuses the page's
+  WebSocket to the same loopback origin (`net::ERR_BLOCKED_BY_LOCAL_NETWORK_ACCESS_CHECKS`), Vite's
+  client then tries `ws://localhost:4324`, and the third-party request guard fails the test. A
+  fulfilled stylesheet or script does not do this: rewrite those and leave the document. The
+  development runtime also serves each stylesheet as a module (`**/*.css`, resource type
+  `script`) that replaces the copy in the page. Observed on the runtime (#249).
+
+## Media and motion
+
+- **Every page prefers reduced motion** through `contextOptions: { reducedMotion: "reduce" }` in
+  `./playwright.config.ts`; `page.emulateMedia({ reducedMotion: "no-preference" })` allows motion
+  for a page, and applies at once to a page already open. `emulateMedia` changes only the
+  features it names (#249).
+- **Chromium 153 has no switch that turns scroll-driven animation off.** With
+  `--disable-blink-features=ScrollTimeline`, `ViewTimeline` or `--disable-features=ScrollTimeline`
+  `CSS.supports("animation-timeline: view()")` stays true, and no other browser is installed. The
+  Homepage's motion test serves the stylesheet with its support query changed instead. Observed
+  with a launched browser (#249).
+- **A full-page screenshot does not scroll**, so a view timeline holds back what lies below the
+  window; `./scripts/capture-screenshots.mjs` opens its pages with reduced motion preferred (#249).
+
 ## Timers
 
 - **`page.clock` moves a page's timers.** `await page.clock.install()` before `goto`, then

@@ -25,9 +25,11 @@ interface Props {
 	href?: string;
 	/** The dark surface the section is on: brand-dark, or the Homepage's deep field. */
 	surface?: "dark" | "field";
+	/** The heading's own classes, such as its reveal as it comes into the window. */
+	class?: string;
 }
 
-const { id, label, title, href, surface } = Astro.props;
+const { id, label, title, href, surface, class: className } = Astro.props;
 const onDark = surface !== undefined;
 /** The label's colour, which keeps 4.5:1 on its surface. */
 const labelColor = {
@@ -37,7 +39,7 @@ const labelColor = {
 }[surface ?? "light"];
 ---
 
-<div class="flex items-center justify-between gap-4 sm:items-end sm:gap-6">
+<div class:list={["flex items-center justify-between gap-4 sm:items-end sm:gap-6", className]}>
 	<div class="flex min-w-0 items-center gap-3.5 sm:gap-5">
 		<span
 			aria-hidden="true"
