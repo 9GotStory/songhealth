@@ -77,10 +77,12 @@ import {
 	expectHeadingAtWidth,
 	expectHeadingOnField,
 	expectImageLoaded,
+	expectNoHorizontalScroll,
 	expectListMovesOnlyWhenAllowed,
 	expectPreviewRenders,
 	expectSiteNotFound,
 	expectStartsOverFieldEdge,
+	itemsPerRow,
 	listHeading,
 	listedItem,
 	listedTitles,
@@ -395,6 +397,135 @@ test("what follows the heading of /news starts over the field's lower edge, 64 p
 	);
 });
 
+/** The widths the first page's layout is read at, on both sides of 640 and 1,024 px. */
+const LAYOUT_WIDTHS = [1440, 1024, 1023, 768, 640, 639, 375, 320];
+
+/** `count` cards in rows of `perRow`, the last row holding what is left. */
+function rowsOf(count: number, perRow: number): number[] {
+	const rows: number[] = [];
+	for (let left = count; left > 0; left -= perRow) rows.push(Math.min(perRow, left));
+	return rows;
+}
+
+/**
+ * Fail unless the first page of /news, showing `count` News, leads with the large card laid out by
+ * the count at each of `LAYOUT_WIDTHS` (spec #280 "The first page"): from 1,024 px across the row
+ * and 440 px high or more with one News, two columns wide and as high as the card beside it, 380 px
+ * or more, with two, and two columns wide and two rows high, 520 px or more, beside the next two
+ * with three or more, the rest three to a row; from 640 px across the row, 380 px or more, the rest
+ * two to a row; below 640 px 300 px or more, then rows. Nothing is past the window.
+ */
+async function expectFirstPageLayout(page: Page, count: number): Promise<void> {
+	const { grid } = cardList(page);
+	const cells = grid.getByRole("listitem");
+	await expect(cells, `a cell holds each of ${count} News`).toHaveCount(count);
+	for (const width of LAYOUT_WIDTHS) {
+		await page.setViewportSize({ width, height: 900 });
+		await expectNoHorizontalScroll(page, `/news with ${count} News at ${width} px`);
+		const at = `with ${count} News at ${width} px`;
+		const gap = width >= 640 ? 24 : 14;
+		const row = await boxOf(grid, "the cards");
+		const boxes = await Promise.all(
+			Array.from({ length: count }, (_, index) => boxOf(cells.nth(index), `card ${index + 1}`)),
+		);
+		const [large, next, third] = boxes;
+		const beside = width >= 1024 && count >= 2;
+		if (beside) {
+			const column = next!.width;
+			expect(large!.width, `the large card is two columns wide ${at}`).toBeCloseTo(
+				2 * column + gap,
+				0,
+			);
+			expect(next!.x - (large!.x + large!.width), `the next card beside it ${at}`).toBeCloseTo(
+				gap,
+				0,
+			);
+			expect(next!.y, `the next card level with it ${at}`).toBeCloseTo(large!.y, 0);
+			if (count === 2) {
+				expect(large!.height, `as high as the card beside it ${at}`).toBeCloseTo(next!.height, 0);
+				expect(large!.height, `380 px or more ${at}`).toBeGreaterThanOrEqual(380);
+			} else {
+				expect(third!.x, `the third card under the second ${at}`).toBeCloseTo(next!.x, 0);
+				expect(third!.y - (next!.y + next!.height), `the second and third ${at}`).toBeCloseTo(
+					gap,
+					0,
+				);
+				expect(large!.y + large!.height, `two rows high ${at}`).toBeCloseTo(
+					third!.y + third!.height,
+					0,
+				);
+				expect(large!.height, `520 px or more ${at}`).toBeGreaterThanOrEqual(520);
+			}
+		} else {
+			expect(large!.width, `the large card spans the row ${at}`).toBeCloseTo(row.width, 0);
+			const least = width >= 1024 ? 440 : width >= 640 ? 380 : 300;
+			expect(large!.height, `${least} px or more ${at}`).toBeGreaterThanOrEqual(least);
+			if (next) {
+				expect(
+					next.y - (large!.y + large!.height),
+					`the next row ${gap} px under it ${at}`,
+				).toBeCloseTo(gap, 0);
+			}
+		}
+		const expected =
+			width >= 1024
+				? count >= 3
+					? [2, 1, ...rowsOf(count - 3, 3)]
+					: [1 + Math.min(count - 1, 1)]
+				: [1, ...rowsOf(count - 1, width >= 640 ? 2 : 1)];
+		expect(await itemsPerRow(cells), `the rows ${at}`).toEqual(expected);
+		// Every small card takes one column, a last row's alone too.
+		const column =
+			(row.width - (width >= 1024 ? 2 : width >= 640 ? 1 : 0) * gap) /
+			(width >= 1024 ? 3 : width >= 640 ? 2 : 1);
+		for (const [index, box] of boxes.slice(1).entries()) {
+			expect(box.width, `card ${index + 2} takes one column ${at}`).toBeCloseTo(column, 0);
+		}
+	}
+}
+
+test("the first page of /news leads with its newest News as the large card, shown once before the others in the list's order, laid out by the number of News: one, two, three and a full page of twelve, which ends with one card alone at two columns; nothing is past the window, and the second page has no large card", async ({
+	page,
+}) => {
+	test.setTimeout(240_000);
+	await whileNonePublished(admin, "news", async () => {
+		const published: DraftFixture[] = [];
+		const { cards, large } = cardList(page);
+		for (const [count, label] of [
+			[1, "count-01"],
+			[2, "count-02"],
+			[3, "count-03"],
+			[12, "count-12"],
+		] as const) {
+			while (published.length < count) {
+				const news = await createNews(`${label}-${String(published.length).padStart(2, "0")}`);
+				await publish(news);
+				published.push(news);
+			}
+			await page.setViewportSize(DESKTOP_VIEWPORT);
+			await page.goto("/news");
+			const newestFirst = published.toReversed().map((news) => news.title);
+			await expect(large, `one large card with ${count} News`).toHaveCount(1);
+			await expect(large.getByRole("heading", { level: 2 }), "the newest is large").toHaveText(
+				newestFirst[0]!,
+			);
+			expect(await listedTitles(page), `each News once, newest first, with ${count}`).toEqual(
+				newestFirst,
+			);
+			await expect(cards, `the large card and ${count - 1} small ones`).toHaveCount(count);
+			await expectFirstPageLayout(page, count);
+		}
+
+		// A thirteenth, the newest, moves the oldest to the second page.
+		await publish(await createNews("count-13"));
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+		await page.goto("/news?page=2");
+		await expect(cards, "the second page shows the oldest News").toHaveCount(1);
+		await expect(large, "no large card on the second page").toHaveCount(0);
+		expect(await listedTitles(page)).toEqual([published[0]!.title]);
+	});
+});
+
 test("a page past the last of /news shows ไม่พบข่าวในหน้านี้ with its way back over the field's lower edge, and no pager", async ({
 	page,
 }) => {
@@ -629,6 +760,7 @@ testListCards({
 	unlabelled: true,
 	createLabel: (label) => createTerm("news_category", label),
 	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพข่าวสำหรับทดสอบการ์ด"),
+	pageSize: PAGE_SIZE,
 	publishItem: (label, parts) => publishCardNews("news_category", label, parts),
 });
 
@@ -638,6 +770,7 @@ testListCards({
 	unlabelled: false,
 	createLabel: (label) => createTerm("topic", label),
 	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพข่าวสุขภาพสำหรับทดสอบการ์ด"),
+	pageSize: PAGE_SIZE,
 	publishItem: (label, parts) => publishCardNews("topic", label, parts),
 });
 

@@ -364,6 +364,7 @@ testListCards({
 	unlabelled: true,
 	createLabel: (label) => createTerm("topic", label),
 	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพความรู้สุขภาพสำหรับทดสอบการ์ด"),
+	pageSize: CONTENT_PAGE_SIZE,
 	publishItem: async (label, { term, summary, picture }) => {
 		const item = await createContent(label, {
 			data: {

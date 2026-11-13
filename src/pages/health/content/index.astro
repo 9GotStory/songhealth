@@ -69,6 +69,8 @@ const listUrl = new URL(healthContentListPath(topic), Astro.url);
 				labelTaxonomy="topic"
 				icon="heart-pulse"
 				pathOf={healthContentPath}
+				page={page}
+				narrowed={topic !== ""}
 			/>
 		) : page > 1 ? (
 			<EmptyState
