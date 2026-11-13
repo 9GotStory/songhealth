@@ -119,6 +119,15 @@ async function clickCardSurface(page: Page, target: Locator) {
 	await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
 }
 
+/**
+ * Rest the pointer on the visible part a citizen points at, whether the link wraps it or covers it.
+ */
+async function pointAtCardSurface(page: Page, target: Locator) {
+	await target.scrollIntoViewIfNeeded();
+	const box = await boxOf(target, "the part pointed at");
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+}
+
 /** One title-named native target over the card's whole surface, and one keyboard stop. */
 async function expectWholeCardLink(page: Page, card: Locator, title: string, level: 2 | 3) {
 	const link = card.getByRole("link", { name: title, exact: true });
@@ -176,6 +185,9 @@ async function expectListCardInteraction(page: Page, card: Locator, title: strin
 	const link = await expectWholeCardLink(page, card, title, 2);
 	const heading = card.getByRole("heading", { name: title, level: 2, exact: true });
 	const surface = card.getByTestId("news-surface");
+	// The link holds the keyboard's focus from the whole-card check; its band is focus's, not the
+	// pointer's.
+	await link.blur();
 	await page.mouse.move(0, 0);
 	const resting = {
 		surface: await boxOf(surface, "the card's surface"),
@@ -460,7 +472,7 @@ for (const width of [375, 1440]) {
 			await expect(picture).toHaveCSS("object-fit", "cover");
 			const box = (await picture.boundingBox())!;
 			expect(box.width / box.height).toBeCloseTo(width < 640 ? 4 / 3 : 16 / 9, 1);
-			await picture.hover();
+			await pointAtCardSurface(page, picture);
 			expect(await picture.boundingBox(), "with reduced motion the picture stays").toEqual(box);
 			await clickCardSurface(page, picture);
 			await expectCardDestination(page, path, fixture);
@@ -471,7 +483,7 @@ for (const width of [375, 1440]) {
 			await page.goto(list);
 			await card.scrollIntoViewIfNeeded();
 			const resting = await boxOf(picture, "the picture at rest");
-			await picture.hover();
+			await pointAtCardSurface(page, picture);
 			await expect
 				.poll(async () => (await boxOf(picture, "the picture")).width / resting.width, {
 					message: "the picture grows by 6 % under the pointer",
