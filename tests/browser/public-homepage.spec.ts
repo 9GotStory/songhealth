@@ -375,6 +375,9 @@ test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 test("with no published content at all, the Homepage still answers with the hero and the Contact Summary only", async ({
 	page,
 }) => {
+	// Returning the runtime's content to draft took 28.6 of a test's 30 seconds with the suite run
+	// alone (near-timeout-reporter, #249).
+	test.setTimeout(60_000);
 	await borrowAllContent();
 	await withHomepageMenus(admin, EMPTY_MENUS, async () => {
 		await withOfficeContact(admin, {}, {}, async () => {
@@ -1379,6 +1382,9 @@ test("the Health Service Discovery band shows its heading and lead, the number o
 test("with one Health Service that has no Area the band counts it and shows no number of Areas; Health Information follows Latest News without space of its own and the Announcements band with it, and the band keeps Health Information's space above it and the same below", async ({
 	page,
 }) => {
+	// Returning the runtime's content to draft outlasted a test's 30 seconds in two full runs of
+	// #249, and took 6 to 12 seconds in the others.
+	test.setTimeout(60_000);
 	await borrowAllContent();
 	await publish("health_services", await createSyntheticHealthService(admin, "no-area"));
 	await publish("news", await create("news", "before-health"));
