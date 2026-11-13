@@ -495,6 +495,17 @@ export async function boxOf(part: Locator, label: string) {
 	return (await part.boundingBox())!;
 }
 
+/** How opaque `part` shows as the page is now, through everything that holds it: 0 to 1. */
+export function shownOpacity(part: Locator): Promise<number> {
+	return part.evaluate((element) => {
+		let opacity = 1;
+		for (let node: Element | null = element; node; node = node.parentElement) {
+			opacity *= Number(getComputedStyle(node).opacity);
+		}
+		return opacity;
+	});
+}
+
 /**
  * The colour token `--color-<name>` (src/styles/global.css) as the page's browser computes a
  * colour, such as "rgb(11, 107, 87)", to compare with an element's computed style. Throws when the
