@@ -23,5 +23,6 @@
 	],
 	"ignoreUnresolved": ["^/src/"],
 	// Accepted Feature 002 evidence drivers: records, not maintained code.
-	"ignore": ["specs/**"],
+	// The Homepage prototype's builders on this throwaway branch: records too.
+	"ignore": ["specs/**", "docs/prototypes/**"],
 }
