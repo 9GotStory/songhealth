@@ -73,8 +73,8 @@ layered look that reads as a current official site and stays recognizably connec
 health-service network.
 
 - **A redesign, page by page, the Homepage first** (spec #239). The Product Owner found the site
-  too plain, "ตอนนี้ฉันอยากปรับปรุง design frontend ทั้งหมด เนื่องจากมันดูเรียบง่ายเกินไป", and asked
-  for a new design: "รอบนี้ออกแบบใหม่เลย" (2026-11-10). The Homepage and the shell every page shares
+  too plain, "ตอนนี้ฉันอยากปรับปรุง design frontend ทั้งหมด เนื่องจากมันดูเรียบง่ายเกินไป" (2026-11-10),
+  and asked for a new design: "รอบนี้ออกแบบใหม่เลย". The Homepage and the shell every page shares
   have it (§7.4, §8). Every other page keeps the design of §7 and §9 under the new shell until its
   own feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -238,7 +238,7 @@ There is no alert colour: a status is stated in text, and colour supports it.
   → `h3` order whatever the visual size.
 - **Sizes beyond the scale** are the Homepage's alone (§3.1): `hero-headline` and
   `hero-headline-alone` for the hero's headline, up to 44 px beside a Featured card and 52 px
-  without one; `section-title`, up to 42 / 54; and `telephone`, 40 / 52, on the contact card. The
+  without one; `section-title`, up to 42 / 54; and `telephone`, 40 / 52, on the contact card from 640 px. The
   header's title and navigation items scale with the window from 1,024 px (§7.4).
 - **Copy:** concise, natural Thai. Dates and categories sit below the title in emphasis, and colour
   is never the only cue. No hard-coded dates, opening hours, news, phone numbers or service status.
@@ -338,8 +338,8 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
     the hero's headline (§8.1), the Services, the small News cards and the Health Content cards
     go two to a row, and the Services' grid overlaps the deep field's edge (§8.4);
   - `lg`, from 1,024 px: desktop, with the main navigation in the header (§7.4), the two-column
-    layouts (the post pages, the MOIT page's table of contents) and, on the Homepage, three
-    Services and four Health Content cards to a row, the Leadership strip in one row, the large
+    layouts (the post pages, the MOIT page's table of contents) and, on the Homepage, up to
+    three Services and four Health Content cards to a row, the Leadership strip in one row, the large
     News card and the large Activity tile beside their small ones, and the Current Announcements'
     heading beside their rows (§8.4 to §8.11).
   - `md` and `xl` are not used.
@@ -349,8 +349,9 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
   1,024 and 768 px, the five widths of Feature 008 (spec #239 "Testing Decisions"; §8.2).
 - **Container:** the 1,200 px content column, centred (`page-container`), with a gutter of 16 px
   below `sm` and 24 px from `sm`, so a 1,440 px window has 120 px either side.
-- **Spacing:** the 4/8/12/16/24/32/48/64/80 px rhythm. Between two Homepage sections there is one
-  space of 32 px below `sm`, 64 px from `sm` and 80 px from `lg` (§8).
+- **Spacing:** the 4/8/12/16/24/32/48/64/80 px rhythm. Between two Homepage sections after the deep
+  field there is one space of 32 px below `sm`, 64 px from `sm` and 80 px from `lg`; the Leadership
+  strip has its own smaller space above it (§8, §8.5).
 - No horizontal carousel for primary content and no fixed-height text container: Thai text, 200 %
   zoom and changed text spacing reflow.
 
@@ -625,7 +626,8 @@ Health Services in three Areas (§8.9), five Activities and no Quick Access shor
 
 The Product Owner accepted a longer phone and tablet Homepage with the prototype: 6,319 px at
 390 px and 7,390 px at 768 px (spec #239 "Measured in the prototype"). The built page is 6,344 px
-at 375 px and 7,557 px at 768 px, 167 px above the tablet figure. The height moves with the titles
+at 375 px and 7,557 px at 768 px, 167 px above the tablet figure, which the Product Owner accepted
+on 2026-11-13 (#250 comment 6841312242, item 3). The height moves with the titles
 and the number of items: without a current Announcement it is 4,747 px at 1,440 px and 5,694 px at
 375 px, and with three Quick Access shortcuts 5,819 and 6,646 px, measured at the same commit with
 `scripts/capture-with-fixtures.ts` and `scripts/screenshot-fixtures/homepage-no-announcements.ts`
@@ -1102,16 +1104,17 @@ EmDash's Edit mode shows the block as a placeholder (`05` §5.1).
 
 The prototype's variant H, on the branch `prototype/home-redesign`, is the visual reference
 (`docs/prototypes/home-redesign.md` there). Each ticket's decisions are on #240 to #249 and in
-§13, and its screenshots are in its pull request. The Product Owner accepts the feature on #239,
+§13. The Product Owner accepts the feature on #239,
 with the evidence round of #250 (`docs/evidence/250-homepage-redesign-evidence-round.md`), which
 names what the evidence does not cover.
 
-**What the Product Owner picked for the other pages** on the Feature 006 prototype, with the
-legacy site's real content (spec #144 Further Notes):
+**What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
+content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
+Feature 008's picks above take the place of the smaller Featured title and the shorter phone page:
 
-- the design of the time over three new variants: "ฉันคิดว่าแบบเดิมที่เราทำมันยังดีกว่าที่คุณเสนอมาอีกนะ";
-- the Featured picture whole, titles that keep Thai words whole, and the same sections in the
-  same order on a phone ("โอเค เฉพาะหน้าแรก");
+- the current design over three new variants: "ฉันคิดว่าแบบเดิมที่เราทำมันยังดีกว่าที่คุณเสนอมาอีกนะ";
+- the Featured picture whole and a smaller Featured title, titles that keep Thai words whole, and
+  a shorter phone Homepage ("โอเค เฉพาะหน้าแรก");
 - cards that keep the centre crop ("คงครอปกลางภาพแบบเดิม (แนะนำ)");
 - posts in two columns ("สองคอลัมน์"), with a picture that stays in view ("ลอยตาม (แนะนำ)");
 - an Activity's photos as folding thumbnails ("รูปย่อ + พับส่วนเกิน (แนะนำ)").
@@ -1158,9 +1161,9 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   Activity's folded photos are native disclosures that name their state. The one script, the
   Homepage's submit state, adds to forms that submit without it (§8.9).
 - Touch targets of about 44×44 CSS px, with room between them. On the Homepage every link and control
-  is 24 px high or more (spec #239 "Accessibility"; read on the runtime at `94b8621` at 1,440,
+  in view is 24 px high or more (spec #239 "Accessibility"; read on the runtime at `94b8621` at 1,440,
   1,024, 768, 375 and 320 px, `docs/evidence/250-homepage-redesign-evidence-round.md`), and the
-  header's search link and menu button are 48 px (§7.4).
+  header's search link and menu button are 48 px and the open menu's rows 56 px (§7.4).
 - Contrast: WCAG 2.2 AA (§3.2).
 - An informative image has alt text, a decorative one empty alt. A card's or the Featured picture
   is decorative, as its title names the link. An icon-only button has a name, and the search input

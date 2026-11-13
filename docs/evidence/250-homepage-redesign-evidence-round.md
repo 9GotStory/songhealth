@@ -17,8 +17,9 @@ Product Owner gives on #239.
 
 ## Checks
 
-The runtime checks ran at `94b8621` between 01:10Z and 01:37Z; the local checks ran on #250's
-working tree between 01:38Z and 01:42Z.
+The runtime checks ran at `94b8621` between 01:10Z and 01:37Z. The local checks ran on #250's
+working tree between 01:38Z and 01:42Z, before the record was written, and again at the commit
+that holds this record.
 
 | Check | Command | Result |
 | --- | --- | --- |
@@ -54,10 +55,11 @@ scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts \
 Before: this round captured none. `before-home-<width>` and `before-news-<width>` are #240's, from
 the image branch `evidence/008-240-screenshots` at `696706d`, taken at `cba17a4` on `main` before
 the feature's first promotion (PR #251). Since then the runtime's database took Feature 008's
-model, the Service's icon; promoting `main` again needs `--replace` and leaves verify's
+model, the Service's icon (#248); promoting `main` again needs `--replace` and leaves verify's
 content-model check failing (`docs/operations/development-quadlet.md` "Promote a new commit").
-#247 emptied the demo dataset's Quick Access menu between the two (`DESIGN.md` §8.11), so the
-before and the after differ by more than the design.
+Between the two, #247 emptied the demo dataset's Quick Access menu (`DESIGN.md` §8.11) and #248
+gave its Services their icons (the note from #248), so the before and the after differ by more
+than the design.
 
 `scripts/evidence-branch.sh` put the 70 images on the image-only branch
 `evidence/008-250-screenshots`, at `488552158ba1d8dc3eafb5ab9cb484771d6032ee`.
@@ -135,7 +137,7 @@ and decided (#250 comment 6841312242):
 container's health check, and the log holds no window width, so it shows neither the Homepage
 steps nor the widths; those rest on the Product Owner's answer. After the answers the 404 log held
 no miss, residue reported RESIDUE: NONE with the 56 demo entries published, and verify VERIFY:
-PASS at `94b8621`. The walkthrough changed no content.
+PASS at `94b8621`. The steps were public pages, read anonymously.
 
 ## What the evidence does not cover
 
@@ -144,14 +146,19 @@ PASS at `94b8621`. The walkthrough changed no content.
   were the browser's device mode.
 - Real Leadership pictures: the demo dataset has two Leadership.
 - Real Announcement dates and categories: the dataset's Announcements have none, so every badge is
-  the general colour and no row shows a status line. #245's fixture screenshots show each colour
-  and the status line.
-- Health Content with pictures: the dataset's has none; the Homepage suite holds a card with one.
-- A built, minified stylesheet seen in a browser with motion allowed. The runtime serves the
-  stylesheet unminified. `npm run build:check` reads the built stylesheet; the look at a built
-  page is due with the first production image of this feature (the note from #249).
-- A browser without scroll-driven animation: none is installed, and the suite serves Chromium a
-  changed stylesheet in its place.
+  the general colour and no row shows a status line (the note from #245, which names its fixture
+  for each colour and the status line). The closed status fill shows on no page (the same note).
+- Health Content with pictures: the dataset's has none (the note from #246, which names the suite's
+  card with one). The prototype's dots on the Health Service Discovery band were not built (the
+  same note).
+- Activities with dark or busy pictures: the dataset's are light (the note from #247, which names
+  the fixture that measured the contrast over a white picture).
+- The MOIT page's table of contents under the sticky header: #240 measured nothing there (the note
+  from #240). The full run's keyboard walk of every page passed.
+- A built, minified stylesheet seen in a browser with motion allowed. By the note from #249 the
+  runtime serves the stylesheet unminified and `npm run build:check` reads the built one, which
+  exited 0 here; the look at a built page is due with the first production image of this feature.
+- A browser without scroll-driven animation: none is installed (the note from #249).
 - A real return from the browser's back/forward cache after a form's submit.
 - A telephone text that is not one number at widths other than 320 px, a contact card without a
   telephone, and a real map opened from "เปิดแผนที่".
