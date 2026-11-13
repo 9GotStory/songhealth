@@ -1084,15 +1084,17 @@ export async function expectEmptyStateUnderForm(
  * Fail unless the list page at `path` moves only when motion is allowed. With motion allowed its
  * heading block rises in as the page opens and its lead after it, while its breadcrumb and each of
  * `atOnce` show at once, and nothing runs by itself for more than five seconds (WCAG 2.2 SC
- * 2.2.2). With reduced motion preferred, and on paper, nothing moves. The page's height and each
- * part's place are the same either way, at the desktop width, 375 px and 320 px. The page ends on
- * a screen with motion allowed.
+ * 2.2.2); the empty state that `empty.path` shows, reading `empty.message`, shows at once too. With
+ * reduced motion preferred, and on paper, nothing moves. The page's height and each part's place
+ * are the same either way, at the desktop width, 375 px and 320 px. The page ends on a screen with
+ * motion allowed.
  */
 export async function expectListMovesOnlyWhenAllowed(
 	page: Page,
 	path: string,
 	heading: ListHeadingParts,
 	atOnce: Array<[name: string, part: Locator]>,
+	empty: { path: string; message: string },
 ): Promise<void> {
 	const main = page.getByRole("main");
 	const running = () => page.evaluate(() => document.getAnimations().length);
@@ -1155,6 +1157,16 @@ export async function expectListMovesOnlyWhenAllowed(
 		await expect(heading.title).toBeVisible();
 		const ends = await selfRunningEnds(page.locator("html"));
 		expect(Math.max(0, ...ends), "the last effect to end, in ms").toBeLessThanOrEqual(5_000);
+	});
+
+	await test.step("An empty state", async () => {
+		await page.goto(empty.path);
+		const message = main.getByText(empty.message, { exact: true });
+		await expect(message).toBeVisible();
+		expect(await entersAfter(message), "the empty state shows at once").toBe(-1);
+		await expect
+			.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
+			.toEqual([]);
 	});
 
 	await test.step("On paper", async () => {
@@ -1379,15 +1391,8 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 				["the last card", cards.last()],
 				["the pager", pager],
 			],
+			{ path: `${path}?page=10000`, message: list.pastLast },
 		);
-
-		// The page is still on a screen with motion allowed.
-		await page.goto(`${path}?page=10000`);
-		const empty = page.getByRole("main").getByText(list.pastLast, { exact: true });
-		expect(await entersAfter(empty), "the empty state shows at once").toBe(-1);
-		await expect
-			.poll(() => heldBack(page.getByRole("main")), { message: "the page shows whole" })
-			.toEqual([]);
 	});
 
 	test.describe(`${path} without JavaScript`, () => {

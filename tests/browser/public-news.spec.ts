@@ -454,19 +454,30 @@ test("on /news the keyboard goes from the breadcrumb to the link ข่าวส
 	);
 });
 
-test("/news moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, the link ข่าวสุขภาพ and the cards show at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
+test("/news moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, the link ข่าวสุขภาพ, the cards, the pager and an empty state show at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
 	page,
 }) => {
-	test.setTimeout(60_000);
-	const news = await createNews("motion");
-	await publish(news);
+	test.setTimeout(90_000);
+	// One more than a page, so the pager shows (Product Owner, 2026-11-13: #282 comment 6851937209).
+	const fixtures: DraftFixture[] = [];
+	for (let index = 0; index <= PAGE_SIZE; index += 1) {
+		fixtures.push(await createNews(`motion-${String(index).padStart(2, "0")}`));
+	}
+	for (const news of fixtures) await publish(news);
 	const heading = newsHeading(page);
-	const { cards } = cardList(page);
-	await expectListMovesOnlyWhenAllowed(page, "/news", heading, [
-		["the link to Health News", heading.link],
-		["the first card", cards.first()],
-		["the last card", cards.last()],
-	]);
+	const { cards, pager } = cardList(page);
+	await expectListMovesOnlyWhenAllowed(
+		page,
+		"/news",
+		heading,
+		[
+			["the link to Health News", heading.link],
+			["the first card", cards.first()],
+			["the last card", cards.last()],
+			["the pager", pager],
+		],
+		{ path: "/news?page=10000", message: "ไม่พบข่าวในหน้านี้" },
+	);
 });
 
 test.describe("without JavaScript", () => {
