@@ -568,7 +568,8 @@ Health Service Directory:
   - from `sm` its glow is small, 28 % of the field's width by 12 rem at the upper right corner;
     below `sm` it is the utility's phone glow;
   - it has the large ring alone, from `lg`;
-  - it has no `accent-warm` glow, no `surface-soft` glow and no small ring.
+  - it has no `accent-warm` glow and no small ring, and no `surface-soft` glow either, as the
+    prototype's field (Product Owner, 2026-11-13: #281 comment 6847783611, item 2).
 - **On it, in this order:** the breadcrumb (§7.5), 24 px under the header; the Homepage's section
   heading block (§8) with the page's H1 in `section-title` (§4), an `accent-warm` icon tile with a
   `brand-dark` 24 px icon and the slashed label; and the lead at body-large, 16 px under the
@@ -587,7 +588,11 @@ Health Service Directory:
 - **What follows the heading** lies over the field's lower edge: the field's content ends 128 px
   above the edge from `sm` and 96 px below, and the block that follows (`ListBody`) starts 88 px
   above it from `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state, then the
-  pager (§7.6), 32 px apart; each keeps its content and behaviour.
+  pager (§7.6), 32 px apart; each keeps its content and behaviour. A card keeps the global
+  `brand-primary` focus ring, which is faint along the part of the first row that lies over the
+  field (1.89:1 on `brand-dark`) and clear on the page's colour; a card's ring over the field is
+  decided with the cards, in #283 and #284 (Product Owner, 2026-11-13: #281 comment 6847783611,
+  item 1).
 - **Motion** (§8.12): with motion allowed the heading block rises in as the page opens, and the
   lead 0.1 s after it. The breadcrumb, the link and what follows show at once.
 - **Measured** on the development runtime at `3fe6f6b`, the demo dataset's six News:
@@ -1473,6 +1478,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   "ดูเฉพาะข่าวสุขภาพ", under the shell's breadcrumb. `DeepField` takes the place of
   `HomeDeepField` and serves both fields, and §2, §3, §3.2, §5, §6, §7.1 and §7.5 name the list
   heading. Authority: spec #280 "The field under a heading", "List heading" and "Motion", and #281
-  comment 6846855734 (the link at the heading's upper right from 640 px, as the prototype has it).
+  comment 6846855734 (the link at the heading's upper right from 640 px, as the prototype has it)
+  and comment 6847783611 (a card's ring over the field waits for the cards; no `surface-soft` glow).
   What the page lists, its order, its cards, its empty states' messages, its pager, its head and
   its addresses remain, and so does every other page.
