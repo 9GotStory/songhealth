@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 
 import { addedLinesOf, leaksIn } from "../../scripts/migration/leak-check.ts";
@@ -145,6 +145,17 @@ describe("the leak check", () => {
 		]);
 	});
 
+	it("reports a string once for a file it is given twice, by its staged lines and whole", () => {
+		const added = [
+			{ file: "tests/node/a.test.ts", lines: [NAME] },
+			{ file: "scripts/b.ts", lines: ["nothing"] },
+			{ file: "tests/node/a.test.ts", lines: ["// the whole file", NAME] },
+		];
+		assert.deepEqual(leaksIn(named, added), [
+			{ file: "tests/node/a.test.ts", what: "the file name of attachment 4" },
+		]);
+	});
+
 	it("finds a file name as the export's address writes it, percent-encoded", () => {
 		const encoded = encodeURIComponent("เอกสารสมมุติ.pdf");
 		const site = siteOf({
@@ -213,6 +224,18 @@ describe("the lines a commit adds", () => {
 		);
 	});
 
+	it("read a path that holds a space, after which git writes a tab", () => {
+		const diff = [
+			"diff --git a/tests/a b.ts b/tests/a b.ts",
+			"--- /dev/null",
+			"+++ b/tests/a b.ts\t",
+			"@@ -0,0 +1 @@",
+			"+added",
+			"",
+		].join("\n");
+		assert.deepEqual(addedLinesOf(diff), [{ file: "tests/a b.ts", lines: ["added"] }]);
+	});
+
 	it("are none for a deleted file, and none for an empty diff", () => {
 		const deleted = [
 			"diff --git a/tests/x.ts b/tests/x.ts",
@@ -236,12 +259,23 @@ describe("the leak-check command", () => {
 			directive(1, { title: `${LONG} ชื่อเรื่อง`, meta: {} }),
 		]);
 
-	/** Runs the command in a new repository holding `text` staged at `path`, under git settings. */
-	async function staged(text: string, path = "tests/x.ts", settings: string[][] = []) {
+	/** Runs `use` with a new folder that holds the synthetic export, then removes the folder. */
+	async function withExport<Result>(
+		use: (folder: string, exportFile: string) => Result | Promise<Result>,
+	): Promise<Result> {
 		const folder = await mkdtemp(join(tmpdir(), "songhealth-leak-check-test-"));
 		try {
 			const exportFile = join(folder, "export.xml");
 			await writeFile(exportFile, synthetic());
+			return await use(folder, exportFile);
+		} finally {
+			await rm(folder, { recursive: true });
+		}
+	}
+
+	/** Runs the command in a new repository holding `text` staged at `path`, under git settings. */
+	const staged = (text: string, path = "tests/x.ts", settings: string[][] = []) =>
+		withExport(async (folder, exportFile) => {
 			const repository = join(folder, "repository");
 			await mkdir(join(repository, "tests"), { recursive: true });
 			git(repository, "init", "--quiet");
@@ -249,10 +283,7 @@ describe("the leak-check command", () => {
 			await writeFile(join(repository, path), text);
 			git(repository, "add", path);
 			return runMigrationIn(repository, "leak-check", exportFile);
-		} finally {
-			await rm(folder, { recursive: true });
-		}
-	}
+		});
 
 	it("stops on a staged line that holds the export's file name, without printing it", async () => {
 		const { status, stderr, stdout } = await staged(`export const path = "${NAME}";\n`);
@@ -284,18 +315,12 @@ describe("the leak-check command", () => {
 	});
 
 	/** Runs the command on files holding `texts`, in a folder no repository holds. */
-	async function named(...texts: string[]) {
-		const folder = await mkdtemp(join(tmpdir(), "songhealth-leak-check-test-"));
-		try {
-			const exportFile = join(folder, "export.xml");
-			await writeFile(exportFile, synthetic());
+	const named = (...texts: string[]) =>
+		withExport(async (folder, exportFile) => {
 			const files = texts.map((_, index) => join(folder, `note-${index}.md`));
 			await Promise.all(files.map((file, index) => writeFile(file, texts[index]!)));
 			return runMigrationIn(folder, "leak-check", exportFile, ...files);
-		} finally {
-			await rm(folder, { recursive: true });
-		}
-	}
+		});
 
 	it("stops on a named file that holds the export's strings, without printing them", async () => {
 		const { status, stderr, stdout } = await named("Nothing here.\n", `It quotes ${NAME}.\n`);
@@ -315,4 +340,104 @@ describe("the leak-check command", () => {
 		assert.equal(status, 2);
 		assert.match(stderr, /usage/);
 	});
+
+	/**
+	 * Runs the command with --tree in a new repository whose one commit holds `files`, by path, after
+	 * `change` has changed the working tree, from the repository's folder `from`.
+	 */
+	const tree = (
+		files: Record<string, string>,
+		change: (repository: string) => Promise<void> = async () => {},
+		from = ".",
+	) =>
+		withExport(async (folder, exportFile) => {
+			const repository = join(folder, "repository");
+			for (const [path, text] of Object.entries(files)) {
+				await mkdir(dirname(join(repository, path)), { recursive: true });
+				await writeFile(join(repository, path), text);
+			}
+			git(repository, "init", "--quiet");
+			git(repository, "add", ".");
+			const author = ["-c", "user.name=test", "-c", "user.email=test@songhealth.invalid"];
+			const commit = git(
+				repository,
+				...author,
+				"commit",
+				"--quiet",
+				"--no-verify",
+				"-m",
+				"the tree",
+			);
+			assert.equal(commit.status, 0, commit.stderr);
+			await change(repository);
+			return runMigrationIn(join(repository, from), "leak-check", exportFile, "--tree");
+		});
+
+	it("with --tree, stops on a file the tree already holds, from any folder of the repository", async () => {
+		const { status, stderr, stdout } = await tree(
+			{ "scripts/old.ts": `export const path = "${NAME}";\n`, "tests/x.ts": "// nothing\n" },
+			undefined,
+			"tests",
+		);
+		assert.equal(status, 1);
+		assert.match(stderr, /^scripts\/old\.ts: the file name of attachment 11$/m);
+		assert.equal(stderr.includes("tests/x.ts"), false);
+		assert.equal(`${stdout}${stderr}`.includes(NAME), false);
+	});
+
+	it("with --tree, still reads the staged changes, and names a file once for a string", async () => {
+		const { status, stderr } = await tree({ "tests/x.ts": "// nothing\n" }, async (repository) => {
+			for (const name of ["new.ts", "gone.ts"]) {
+				await writeFile(join(repository, "tests", name), `export const path = "${NAME}";\n`);
+			}
+			await writeFile(join(repository, `tests/${NAME}`), "\0binary");
+			git(repository, "add", ".");
+			// Only the staged changes still hold this one.
+			await rm(join(repository, "tests/gone.ts"));
+		});
+		assert.equal(status, 1);
+		for (const place of ["tests/new.ts", "tests/gone.ts", "file's name"]) {
+			assert.equal(stderr.split(`${place}: the file name of attachment 11`).length - 1, 1, place);
+		}
+	});
+
+	it("with --tree, stops on a tracked file named after the export's file, even a binary one", async () => {
+		const { status, stderr } = await tree({ [`public/${NAME}`]: "\0binary" });
+		assert.equal(status, 1);
+		assert.match(stderr, /^a tracked file's name: the file name of attachment 11$/m);
+		assert.equal(stderr.includes(NAME), false);
+	});
+
+	it("with --tree, passes a tree that holds none of its strings", async () => {
+		const { status, stderr } = await tree({
+			"scripts/old.ts": 'export const path = "notice.pdf";\n',
+			"docs/note.md": "Nothing here.\n",
+		});
+		assert.equal(status, 0, stderr);
+	});
+
+	it("with --tree, passes over a file the working tree no longer holds", async () => {
+		const { status, stderr } = await tree(
+			{ "scripts/old.ts": `export const path = "${NAME}";\n`, "tests/x.ts": "// nothing\n" },
+			(repository) => rm(join(repository, "scripts/old.ts")),
+		);
+		assert.equal(status, 0, stderr);
+	});
+
+	it("with --tree, lets a research note name a real item, as a staged one may", async () => {
+		const { status, stderr } = await tree({ "docs/research/legacy.md": `It names ${NAME}.\n` });
+		assert.equal(status, 0, stderr);
+	});
+
+	it("takes --tree alone: with a file, or on another command, it is a wrong use", () =>
+		withExport((folder, exportFile) => {
+			for (const args of [
+				["leak-check", exportFile, "--tree", exportFile],
+				["plan", exportFile, join(folder, "wp-content.zip"), "--tree"],
+			]) {
+				const { status, stderr } = runMigrationIn(folder, ...args);
+				assert.equal(status, 2, args.join(" "));
+				assert.match(stderr, /usage/);
+			}
+		}));
 });
