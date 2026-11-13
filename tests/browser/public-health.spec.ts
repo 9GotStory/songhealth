@@ -13,6 +13,10 @@
 // /health/content offers only the Health Topics that published Health Content carries (spec #174
 // "Public list filters").
 //
+// /health/content opens on the deep field (Feature 009 #282; spec #280 "List heading", "What
+// follows a list's heading"): its breadcrumb, the label สุขภาพ, the H1 ความรู้สุขภาพ and its lead, with
+// its filter form first over the field's lower edge (public.helpers.ts testFilteredListOnField).
+//
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
 // widths). Fixtures are synthetic Health Content, Health Reports, Documents, topic and report-type
@@ -21,7 +25,9 @@
 // uniquely titled fixtures, or at a list narrowed to this suite's own Health Topic. Health Reports
 // that must lead the list are dated from 2030 on, after any real report; the paging test's are
 // dated latest, since earlier tests' fixtures stay until the suite ends. A synthetic News item
-// stands for another list that carries a topic.
+// stands for another list that carries a topic. One test needs a list with no Health Content at
+// all: it returns every published item to draft and publishes each again at its own date
+// (public.helpers.ts BorrowedEntries).
 //
 // Platform behaviour relied on (emdash 1.1.0):
 // - POST …/publish accepts `publishedAt` to backdate a publication
@@ -65,9 +71,11 @@ import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
 	SECTION_CRUMBS,
+	cardList,
 	detailOf,
 	expect,
 	expectBreadcrumb,
+	expectEmptyStateUnderForm,
 	expectFilteredEmpty,
 	expectImageLoaded,
 	expectPreviewRenders,
@@ -79,13 +87,21 @@ import {
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
+	testFilteredListOnField,
 	thaiDate,
+	whileNonePublished,
 } from "./public.helpers";
 
 /** The fixed number of Health Content items a list page shows. */
 const CONTENT_PAGE_SIZE = 12;
 /** The fixed number of Health Reports a list page shows. */
 const REPORTS_PAGE_SIZE = 20;
+
+/** The lead of /health/content, under its heading. */
+const CONTENT_LEAD = "ความรู้ด้านสุขภาพสำหรับประชาชนในอำเภอสอง เลือกประเด็นสุขภาพที่สนใจได้";
+
+/** The name of the filter form of /health/content. */
+const CONTENT_FILTER_FORM = "กรองความรู้สุขภาพ";
 
 /** What /health/content shows when its Health Topic matches nothing. */
 const CONTENT_FILTERED_EMPTY = {
@@ -138,6 +154,24 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
+
+// First in the suite, while the runtime holds only its own Health Content: each item is returned to
+// draft for this test and published again at its own date.
+test("with no published Health Content, /health/content shows ยังไม่มีความรู้สุขภาพ under its filter form over the field's lower edge, with no card and no pager", async ({
+	page,
+}) => {
+	test.setTimeout(90_000);
+	await whileNonePublished(admin, "health_content", async () => {
+		const response = await page.goto("/health/content");
+		expect(response?.status(), "GET /health/content").toBe(200);
+		await expect(cardList(page).cards).toHaveCount(0);
+		await expectEmptyStateUnderForm(
+			page,
+			page.getByRole("form", { name: CONTENT_FILTER_FORM }),
+			"ยังไม่มีความรู้สุขภาพ",
+		);
+	});
+});
 
 test("/health links to Health Content and to Health Reports under its own breadcrumb", async ({
 	page,
@@ -231,7 +265,7 @@ test("/health/content narrows to one Health Topic with ?topic=, keeps it in the 
 
 	await page.goto("/health/content");
 	// The filter is a plain GET form: it works without JavaScript and keeps the topic in the address.
-	const filter = page.getByRole("form", { name: "กรองความรู้สุขภาพ" });
+	const filter = page.getByRole("form", { name: CONTENT_FILTER_FORM });
 	await filter.getByLabel("ประเด็นสุขภาพ").selectOption({ label: topic.label });
 	await filter.getByRole("button", { name: "แสดงผล" }).click();
 	await expect(page).toHaveURL(`/health/content?topic=${topic.slug}`);
@@ -291,7 +325,7 @@ test("the /health/content topic filter offers only the Health Topics that publis
 	await page.goto("/health/content");
 	expect(
 		await offeredLabels(
-			page.getByRole("form", { name: "กรองความรู้สุขภาพ" }).getByLabel("ประเด็นสุขภาพ"),
+			page.getByRole("form", { name: CONTENT_FILTER_FORM }).getByLabel("ประเด็นสุขภาพ"),
 			[offered, draftOnly, newsOnly],
 		),
 		"a topic that only a draft or another list carries is not offered",
@@ -300,6 +334,23 @@ test("the /health/content topic filter offers only the Health Topics that publis
 	for (const term of [draftOnly, newsOnly]) {
 		await expectFilteredEmpty(page, `/health/content?topic=${term.slug}`, CONTENT_FILTERED_EMPTY);
 	}
+});
+
+testFilteredListOnField({
+	path: "/health/content",
+	crumbs: [HOME_CRUMB, SECTION_CRUMBS.health],
+	heading: { label: "สุขภาพ", title: "ความรู้สุขภาพ", lead: CONTENT_LEAD },
+	icon: "heart-pulse",
+	form: CONTENT_FILTER_FORM,
+	pageSize: CONTENT_PAGE_SIZE,
+	pastLast: "ไม่พบความรู้สุขภาพในหน้านี้",
+	filteredEmpty: CONTENT_FILTERED_EMPTY,
+	createTopic: (label) => createTerm("topic", label),
+	publishItem: async (label, topic) => {
+		const content = await createContent(label, { taxonomies: { topic: [topic.slug] } });
+		await publishContent(content);
+		return content;
+	},
 });
 
 test("a Health Content page shows its topics, source, last review date, picture with its alt text and body under its breadcrumb", async ({

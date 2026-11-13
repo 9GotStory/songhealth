@@ -7,10 +7,16 @@
 //
 // The canonical address keeps the chosen Health Topic and a valid page number, as on Health News,
 // so each view stays its own address for search engines.
+//
+// The page opens on the deep field as Health News does (Feature 009 #282; spec #280 "List
+// heading"; ListHeading), under the label "สุขภาพ", the Homepage's Health Information label, with
+// the heart-pulse icon and no link; the filter form comes first over the field's lower edge.
+import HeartPulse from "@lucide/astro/icons/heart-pulse";
 import ContentCardGrid from "../../../components/ContentCardGrid.astro";
 import EmptyState from "../../../components/EmptyState.astro";
 import FilterForm from "../../../components/FilterForm.astro";
-import PageHeading from "../../../components/PageHeading.astro";
+import ListBody from "../../../components/ListBody.astro";
+import ListHeading from "../../../components/ListHeading.astro";
 import Pagination from "../../../components/Pagination.astro";
 import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { HEALTH_CONTENT_TITLE } from "../../../lib/health";
@@ -33,15 +39,17 @@ const [topics, { entries, hasMore }] = await Promise.all([
 const listUrl = new URL(healthContentListPath(topic), Astro.url);
 ---
 
-<SiteLayout
-	title={title}
-	section="health"
-	description={lead}
-	canonical={pageHref(listUrl, page)}
-	crumbs={[{ label: title }]}
->
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={title} lead={lead} />
+<SiteLayout title={title} section="health" description={lead} canonical={pageHref(listUrl, page)}>
+	<ListHeading
+		section="health"
+		crumbs={[{ label: title }]}
+		label="สุขภาพ"
+		title={title}
+		lead={lead}
+	>
+		<HeartPulse slot="icon" class="shrink-0" size={24} />
+	</ListHeading>
+	<ListBody>
 		<FilterForm
 			label="กรองความรู้สุขภาพ"
 			action={healthContentListPath()}
@@ -71,5 +79,5 @@ const listUrl = new URL(healthContentListPath(topic), Astro.url);
 			<EmptyState message="ยังไม่มีความรู้สุขภาพ" />
 		)}
 		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
-	</div>
+	</ListBody>
 </SiteLayout>
