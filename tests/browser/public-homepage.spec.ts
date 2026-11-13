@@ -90,6 +90,7 @@ import {
 	listedItem,
 	listedTitles,
 	ownTitles,
+	shownOpacity,
 	siteTitleParts,
 	test,
 	thaiDate,
@@ -2074,17 +2075,6 @@ function heldBack(scope: Locator): Promise<string[]> {
 			})
 			.map((part) => `<${part.localName}> ${part.textContent?.trim().slice(0, 40)}`),
 	);
-}
-
-/** How opaque `part` shows as the page is now, through everything that holds it: 0 to 1. */
-function shownOpacity(part: Locator): Promise<number> {
-	return part.evaluate((element) => {
-		let opacity = 1;
-		for (let node: Element | null = element; node; node = node.parentElement) {
-			opacity *= Number(getComputedStyle(node).opacity);
-		}
-		return opacity;
-	});
 }
 
 /**

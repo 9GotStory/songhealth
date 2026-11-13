@@ -434,6 +434,12 @@ the ADR 0003 revisit of production images.
 - **A command of its own.** After `--`, a command runs while the image serves, with `CHECK_ORIGIN`,
   `CHECK_IMAGE` and `CHECK_NETWORK` in its environment, and its failure fails the check. ADR 0003's
   revisit runs `node scripts/measure-page-weight.ts <path>...` this way (#183).
+  `node scripts/check-built-reveal.ts [<screenshot-dir>]` reads the Homepage's reveal on the built
+  page in Playwright's Chromium: one part below the window waits with motion allowed, shows once
+  it is scrolled to, and shows from the start with reduced motion preferred. It fails when the
+  built page has lost the reveal, and writes a screenshot of each state into `<screenshot-dir>`
+  (#276). Run it after a change to the reveal's styles in `src/styles/global.css` or to a
+  dependency that builds the stylesheet (Product Owner, 2026-11-13: #276 comment 6842672237).
 - **Cleanup.** It removes the container and the image on every exit, pass or fail, and lists any
   image the run added that is still there. Other projects share this image storage, so it never
   removes an image by its age or by a difference in the image list. The image is never deployed or
