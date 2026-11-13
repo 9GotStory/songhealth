@@ -24,7 +24,8 @@
 	 * MOIT page's brand-dark header band, with the MOIT's number (#123, ITA prototype variant C). On
 	 * the Homepage's deep field (spec #239): the words the hero's headline marks, the search's submit
 	 * button, the sheet behind the Featured card, a section heading's icon tile, a Service card's
-	 * tile under the pointer, and the ring of the first person in the Leadership strip.
+	 * tile under the pointer, and the ring of the first person in the Leadership strip. On the field
+	 * under a list's heading (spec #280): the heading's icon tile, and its link under the pointer.
 	 */
 	--color-accent-warm: #f3c95f;
 	--color-text-primary: #16211d;

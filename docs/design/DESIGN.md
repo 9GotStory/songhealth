@@ -151,7 +151,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and in the Current Announcements the month and year on a date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and in the Current Announcements the month and year on a date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -200,7 +200,8 @@ Three Homepage styles are utilities beyond the scale too (spec #239 "Tokens"), e
 `hero-headline`, 29 / 42 below 640 px, 34 / 48 from 640 px, and from 1,024 px 34 to 44 px with the
 window on a line of 1.42; `hero-headline-alone`, the headline with nothing Featured, 29 / 42, then
 38 / 54 from 640 px and 52 / 74 from 1,024 px; and `section-title`, a Homepage section's H2, 26 /
-38, then 36 / 48 from 640 px and 42 / 54 from 1,024 px.
+38, then 36 / 48 from 640 px and 42 / 54 from 1,024 px. A list page's H1 on the deep field is
+`section-title` too (§7.8).
 
 Radii are named by their size in px: 14, 16, 18, 20, 22, 24, 26 and 32, and `pill` (999 px). Four
 shadows: `card`, `0 10px 15px rgb(13 46 36 / 0.08)`; `header`, the sticky header's lower edge,
@@ -247,14 +248,17 @@ There is no alert colour: a status is stated in text, and colour supports it.
 
 - **Typeface:** Noto Sans Thai, self-hosted through Astro's Fonts API (`astro.config.mjs`,
   `src/assets/fonts/README.md`).
-- **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`. A
+- **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`; the H1
+  of a list page on the deep field, so far `/news`, is `section-title` instead, under its label
+  (§7.8). A
   Homepage section's H2 is `section-title` (§3.1), under a label at label size between slashes. The
   Homepage's H1, the site title, is out of sight: the hero's headline shows in its place (§8.1).
   The Leadership strip's H2 is H3 size in bold, its compact heading (§8.5). Keep the `h1` → `h2`
   → `h3` order whatever the visual size.
-- **Sizes beyond the scale** are the Homepage's alone (§3.1): `hero-headline` and
+- **Sizes beyond the scale** are the Homepage's (§3.1), and one of them a list heading's:
+  `hero-headline` and
   `hero-headline-alone` for the hero's headline, up to 44 px beside a Featured card and 52 px
-  without one; `section-title`, up to 42 / 54; and `telephone`, 40 / 52, on the contact card from 640 px. The
+  without one; `section-title`, up to 42 / 54, also a list page's H1 on the deep field (§7.8); and `telephone`, 40 / 52, on the contact card from 640 px. The
   header's title and navigation items scale with the window from 1,024 px (§7.4).
 - **Copy:** concise, natural Thai. Dates and categories sit below the title in emphasis, and colour
   is never the only cue. No hard-coded dates, opening hours, news, phone numbers or service status.
@@ -385,7 +389,7 @@ this document names:
 | Area | Components |
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
-| Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` (§7.8), `ThaiTitle` |
+| Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
 | Cards | `ContentCard` (News, Health Content), `ActivityCard`, `ServiceCard`, `QuickLinkCard`, `PersonCard` |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
 | Posts | `PostHeader`, `PostColumns`, `PostBody`, `ActivityPhotos`, `RichText` |
@@ -556,7 +560,7 @@ Health Service Directory:
 `ListHeading` (Feature 009 #281; spec #280 "The field under a heading", "List heading") heads
 `/news`. Health News and Health Content keep `PageHeading`.
 
-- **The field** is the Homepage's deep green field (`DeepField` with `under="list"`, the
+- **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
   `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
   the `accent-warm` focus ring. What lies on it differs, each from a measure on the prototype (spec
   #280 "Measured in the prototype": with the Homepage's glows and rings a list's lead read 3.42:1
@@ -581,8 +585,8 @@ Health Service Directory:
   That is the prototype's place for it, where spec #280 says "on the lead's baseline" (Product
   Owner, 2026-11-13: #281 comment 6846855734).
 - **What follows the heading** lies over the field's lower edge: the field's content ends 128 px
-  above the edge from `sm` and 96 px below, and the block that follows starts 88 px above it from
-  `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state, then the
+  above the edge from `sm` and 96 px below, and the block that follows (`ListBody`) starts 88 px
+  above it from `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state, then the
   pager (§7.6), 32 px apart; each keeps its content and behaviour.
 - **Motion** (§8.12): with motion allowed the heading block rises in as the page opens, and the
   lead 0.1 s after it. The breadcrumb, the link and what follows show at once.
@@ -595,8 +599,8 @@ Health Service Directory:
     1,440, 1,024, 768, 375 and 320 px, where it was 1,501, 1,494, 2,030, 3,447 and 3,449 px at
     `668d3e5` (#281's before screenshots).
 - `tests/browser/public-news.spec.ts` reads the heading's parts, their order and colours, the
-  head's title, the link's place on both sides of 640 px, the H1's size on both sides of 640 and
-  1,024 px, what follows the heading with each empty state, the keyboard's order with the focus
+  head's title, the link's place and height on both sides of 640 px, the H1's size on both sides
+  of 640 and 1,024 px, what follows the heading with each empty state, the keyboard's order with the focus
   ring, the motion and the page without JavaScript.
 
 ## 8. Homepage

@@ -33,8 +33,9 @@ const PICTURES = [
 ];
 
 const count = Number(process.env.NEWS_LIST_COUNT ?? 2 * PAGE_SIZE);
-if (!Number.isInteger(count) || count < 1) {
-	throw new Error(`NEWS_LIST_COUNT must be a whole number of News, 1 or more: ${count}`);
+// Each News is published a day before the one above it, within one month.
+if (!Number.isInteger(count) || count < 1 || count > 28) {
+	throw new Error(`NEWS_LIST_COUNT must be a whole number of News, 1 to 28: ${count}`);
 }
 
 const fixtures: Fixtures = async ({ admin, helpers, borrow, picture, term }) => {

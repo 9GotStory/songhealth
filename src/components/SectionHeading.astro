@@ -9,7 +9,7 @@
 // section title's type (Feature 009 #281; spec #280 "List heading"; ListHeading.astro).
 //
 // The icon comes through the `icon` slot, a Lucide icon at 24 px, and is decorative: the tile is
-// hidden from assistive technology. On a dark surface the tile is accent-warm, the H2 is
+// hidden from assistive technology. On a dark surface the tile is accent-warm, the heading is
 // surface-base. The label is accent-warm on brand-dark (7.75:1) and surface-base on the
 // deep field, where the field is as light as brand-primary under it and accent-warm, 4.10:1 there,
 // is below the 4.5:1 its small text needs (measured at 3.93:1 at 320 px with nothing Featured,
@@ -19,7 +19,7 @@ import SectionListLink from "./SectionListLink.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
-	/** The H2's id, unique on the page, which the section names itself by. */
+	/** The heading's id, unique on the page, which a section names itself by. */
 	id?: string;
 	/** The small label above the heading. */
 	label: string;
