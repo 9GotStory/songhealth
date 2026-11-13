@@ -7,6 +7,7 @@
 //   node scripts/migration.ts import <export.xml> <wp-content.zip> --dry-run [--final]
 //   node scripts/migration.ts verify <export.xml> <wp-content.zip> <target>
 //   node scripts/migration.ts leak-check <export.xml> [<file>...]
+//   node scripts/migration.ts leak-check <export.xml> --tree
 //
 // where <target> is `--origin <url> --token-file <file>`.
 //
@@ -108,9 +109,12 @@
 // leak-check reads the lines the staged changes add, or the whole of each file it is given, such as
 // a pull request's body, and stops (exit 1) when one holds a file name, a title, a label, an alt
 // text or a caption of the export, naming the file and the item without repeating the string:
-// fixtures are made up (spec #174), and the repository and its pull requests are public.
-// .githooks/pre-commit runs it on the staged changes wherever the export exists, which CI's
-// checkout does not hold.
+// fixtures are made up (spec #174), and the repository and its pull requests are public. With
+// --tree it reads the staged changes, every tracked file's name and the whole of every tracked
+// file, as the working tree holds it: a text written before an export arrived is read against that
+// export (#289; names on the Product Owner's decision, #289 comment 6849845788).
+// .githooks/pre-commit runs it that way wherever the export exists, which CI's checkout does not
+// hold.
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -133,7 +137,8 @@ const USAGE = `usage: node scripts/migration.ts plan <export.xml> <wp-content.zi
        node scripts/migration.ts import <export.xml> <wp-content.zip> --origin <url> --token-file <file> [--final]
        node scripts/migration.ts import <export.xml> <wp-content.zip> --dry-run [--final]
        node scripts/migration.ts verify <export.xml> <wp-content.zip> --origin <url> --token-file <file>
-       node scripts/migration.ts leak-check <export.xml> [<file>...]`;
+       node scripts/migration.ts leak-check <export.xml> [<file>...]
+       node scripts/migration.ts leak-check <export.xml> --tree`;
 
 /** The files the commands write into the export's folder. */
 const LIST_FILE = "classification-list.csv";
@@ -431,35 +436,68 @@ const verifyCommand = (options: TargetOptions) =>
 		return result.failures.length === 0 ? 0 : 1;
 	});
 
-/** The lines the staged changes add, and the names of the files they add. */
-function stagedAdditions() {
-	const staged = (...options: string[]) =>
-		execFileSync("git", ["-c", "core.quotePath=false", "diff", "--cached", ...options], {
-			encoding: "utf8",
-			maxBuffer: 1024 ** 3,
-		});
+/** What git prints for `args`, run in `cwd` or in the current folder. */
+const git = (cwd: string | undefined, ...args: string[]) =>
+	execFileSync("git", ["-c", "core.quotePath=false", ...args], {
+		cwd,
+		encoding: "utf8",
+		maxBuffer: 1024 ** 3,
+	});
+
+/** The lines the staged changes add, by file. */
+const stagedLines = () =>
 	// Named prefixes, so that a clone's diff.noprefix or diff.mnemonicPrefix changes nothing here.
-	const lines = staged(
-		"--unified=0",
-		"--no-color",
-		"--no-ext-diff",
-		"--src-prefix=a/",
-		"--dst-prefix=b/",
+	addedLinesOf(
+		git(
+			undefined,
+			"diff",
+			"--cached",
+			"--unified=0",
+			"--no-color",
+			"--no-ext-diff",
+			"--src-prefix=a/",
+			"--dst-prefix=b/",
+		),
 	);
-	const names = staged("--name-only", "-z", "--diff-filter=ACR").split("\0").filter(Boolean);
-	return [
-		...addedLinesOf(lines),
-		...names.map((name) => ({ file: "a staged file's name", lines: [name] })),
-	];
+
+/** The names of the files the staged changes add. */
+const stagedNames = () => ({
+	file: "a staged file's name",
+	lines: git(undefined, "diff", "--cached", "--name-only", "-z", "--diff-filter=ACR").split("\0"),
+});
+
+/**
+ * Every tracked file's name, the ones the staged changes add among them, and each one's text as
+ * the working tree holds it, under its path from the root. A file the working tree no longer holds
+ * has no text.
+ */
+async function trackedFiles() {
+	const root = git(undefined, "rev-parse", "--show-toplevel").trimEnd();
+	const names = git(root, "ls-files", "-z").split("\0").filter(Boolean);
+	const tracked = [{ file: "a tracked file's name", lines: names }];
+	for (const file of names) {
+		try {
+			tracked.push({ file, lines: [await readFile(join(root, file), "utf8")] });
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+		}
+	}
+	return tracked;
 }
 
-async function leakCheckCommand(exportPath: string, files: string[]): Promise<number> {
-	const scanned =
-		files.length === 0
-			? stagedAdditions()
-			: await Promise.all(
-					files.map(async (file) => ({ file, lines: [await readFile(file, "utf8")] })),
-				);
+async function leakCheckCommand(
+	exportPath: string,
+	files: string[],
+	tree: boolean,
+): Promise<number> {
+	let scanned;
+	if (tree) scanned = [...stagedLines(), ...(await trackedFiles())];
+	else if (files.length === 0) scanned = [...stagedLines(), stagedNames()];
+	else {
+		scanned = await Promise.all(
+			files.map(async (file) => ({ file, lines: [await readFile(file, "utf8")] })),
+		);
+	}
 	const site = await readLegacySite(await readFile(exportPath, "utf8"));
 	const leaks = leaksIn(site, scanned);
 	for (const { file, what } of leaks) console.error(`${file}: ${what}`);
@@ -480,18 +518,21 @@ function commandOf(args: string[]): (() => Promise<number>) | undefined {
 				"token-file": { type: "string" },
 				final: { type: "boolean", default: false },
 				"dry-run": { type: "boolean", default: false },
+				tree: { type: "boolean", default: false },
 			},
 		});
 	} catch {
 		return undefined;
 	}
-	const { origin, "token-file": tokenFile, final, "dry-run": dryRun } = parsed.values;
+	const { origin, "token-file": tokenFile, final, "dry-run": dryRun, tree } = parsed.values;
 	const [command, exportPath, zipPath, ...others] = parsed.positionals;
 	const noTarget = origin === undefined && tokenFile === undefined;
 	const noOptions = noTarget && !final && !dryRun;
 	if (command === "leak-check" && exportPath !== undefined && noOptions) {
-		return () => leakCheckCommand(exportPath, parsed.positionals.slice(2));
+		const files = parsed.positionals.slice(2);
+		return tree && files.length > 0 ? undefined : () => leakCheckCommand(exportPath, files, tree);
 	}
+	if (tree) return undefined;
 	if (exportPath === undefined || zipPath === undefined || others.length > 0) return undefined;
 	if (command === "plan" && noOptions) return () => planCommand(exportPath, zipPath);
 	if (dryRun) {
