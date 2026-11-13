@@ -165,14 +165,21 @@ async function borrowPersonnel(): Promise<void> {
 	}
 }
 
-/** Return every published entry the Homepage shows by itself to draft, for the running test. */
+/**
+ * Return every published entry the Homepage shows by itself to draft, for the running test. Each
+ * collection is a step named with its number of entries, so a run that is slow here says so
+ * (tests/browser/near-timeout-reporter.ts; #249 retro: two full runs timed out in this, unseen).
+ */
 async function borrowAllContent(): Promise<void> {
-	await borrowPersonnel();
-	for (const collection of AUTOMATIC_COLLECTIONS) {
-		for (const { id } of await listPublishedEntries(admin, collection)) {
-			await borrowed.borrow(admin, collection, id);
+	await test.step("Return the runtime's content to draft", async () => {
+		await borrowPersonnel();
+		for (const collection of AUTOMATIC_COLLECTIONS) {
+			const entries = await listPublishedEntries(admin, collection);
+			await test.step(`${collection}: ${entries.length} entries`, async () => {
+				for (const { id } of entries) await borrowed.borrow(admin, collection, id);
+			});
 		}
-	}
+	});
 }
 
 /** Run `body` with the site title and tagline set as given, then put back what was there. */

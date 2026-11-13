@@ -965,7 +965,8 @@ stays the submit state (§8.9).
   stylesheet loaded in Playwright's Chromium, 2026-11-12: `CSS.supports("animation", "linear
   backwards rise-in view()")` is false, and with the longhands the computed `animation-timeline`
   is `view()`). The browser suites cannot see this: the development runtime serves the stylesheet
-  unminified.
+  unminified. `npm run build:check` reads the built stylesheets for it
+  (`scripts/check-built-styles.ts`).
 - **The decorations stand still.** The deep field's glows and the three rings do not move, in
   place of the prototype's drifting glows and turning rings: nothing on the page moves by itself
   for longer than five seconds, so the page needs no control that stops it (WCAG 2.2 SC 2.2.2;

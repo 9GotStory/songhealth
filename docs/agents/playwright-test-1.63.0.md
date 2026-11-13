@@ -50,6 +50,12 @@ When the pinned version changes, re-verify every line and rename this file:
   `CSS.supports("animation-timeline: view()")` stays true, and no other browser is installed. The
   Homepage's motion test serves the stylesheet with its support query changed instead. Observed
   with a launched browser (#249).
+- **A scroll-driven animation follows a scroll one frame later.** Right after
+  `scrollIntoViewIfNeeded()`, a key press that moves focus, or `window.scrollTo`, a part with a
+  view timeline still has the style of its place before the scroll: a box read then is 28 px off
+  on the Homepage, and an opacity read is stale. Poll until the part shows whole, or wait two
+  animation frames in the page, before reading its place. Observed on the runtime (#249: two hover
+  tests failed in a full run, and a measuring script read 19 focused links as transparent).
 - **A full-page screenshot does not scroll**, so a view timeline holds back what lies below the
   window; `./scripts/capture-screenshots.mjs` opens its pages with reduced motion preferred (#249).
 
