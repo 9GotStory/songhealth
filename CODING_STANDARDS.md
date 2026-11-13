@@ -147,6 +147,11 @@ and why, and `.jscpd-baseline.json` records them.
 - A test of a precedence rule, such as the longest listed word first or the newest entry first,
   gives its input in an order the rule must overturn, so the test fails without the rule (#145
   retro: a list already sorted longest first passed with the sort removed).
+- A test of code that reads two sources, such as a commit's staged lines and the tracked files,
+  gives each source a case that only it holds, so the test fails when either reading is left out.
+  A title that makes two claims has a failing run for each (#289 retro: a file both staged and in
+  the working tree passed with the staged lines unread; the review that read the test found
+  nothing, and the one that took the reading out did).
 - A new test's assertions that already hold before the change come before the one it must fail
   on, so the red run exercises them (#195 retro: a link-name check placed after the failing
   assertion expected a link the card does not have, and only review caught it). A loop over cases
