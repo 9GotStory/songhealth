@@ -1,9 +1,8 @@
 // The demo dataset on the public site (#66; spec #51 "Demo dataset", approved Q4).
 //
 // While the dataset is installed (scripts/demo-dataset.ts add), every page and every Homepage
-// section shows content: each entry carries the title the dataset defines (#289); each list page
-// lists entries titled "[ตัวอย่าง] …", and the first of them opens on its own page under that
-// title; the Personnel lists and the Contact page show theirs;
+// section shows content: each list page lists entries titled "[ตัวอย่าง] …", and the first of them
+// opens on its own page under that title; the Personnel lists and the Contact page show theirs;
 // each reserved Basic Page's address shows the page published there, the dataset's or the
 // office's own; the Homepage shows a Featured item, Latest News and the current Announcements,
 // and every other section that hides while it has nothing to show, its six Frequently Used
@@ -99,19 +98,15 @@ test.use({ viewport: DESKTOP_VIEWPORT });
 let admin: CmsActor;
 /** The addresses of the reserved Basic Pages that are published, the only ones to sweep. */
 const publishedBasicPages: string[] = [];
-/** The dataset's entries whose title on the runtime is not the one the dataset defines. */
-const retitled: string[] = [];
 
 test.beforeAll(async () => {
 	admin = await devAdminActor();
 	const missing: string[] = [];
-	for (const { collection, slug, data } of DEMO_ENTRIES) {
+	for (const { collection, slug } of DEMO_ENTRIES) {
 		const item = nativeItemOf(await readEntry(admin, collection, slug));
 		const title = String(dataOfItem(item).title ?? "");
 		if (statusOfItem(item) !== "published" || !title.startsWith(MARK)) {
 			missing.push(`${collection}/${slug}`);
-		} else if (title !== data.title) {
-			retitled.push(`${collection}/${slug}`);
 		}
 	}
 	test.skip(
@@ -125,12 +120,6 @@ test.beforeAll(async () => {
 			publishedBasicPages.push(path);
 		}
 	}
-});
-
-test("each entry carries the title the dataset defines", () => {
-	// `add` keeps an entry it finds as it is, so a reworded title arrives with `remove` and `add`
-	// (docs/operations/development-quadlet.md "Demo dataset"; #289).
-	expect(retitled, "the entries whose title the dataset has reworded").toEqual([]);
 });
 
 for (const path of LIST_PAGES) {

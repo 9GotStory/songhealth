@@ -7,8 +7,8 @@
 # build and the full node tests on every pull request (.github/workflows/checks.yml). The checks
 # read the working tree, not the staged snapshot: to commit part of the changes, set the rest aside
 # first (git stash push --keep-index). Where the Legacy site's export exists, the leak check
-# (#179 retro) reads the staged changes too, and every tracked file (#289); CI holds no export.
-# Enable once per clone:
+# (#179 retro) reads the staged changes too, and every tracked file's name and text (#289); CI
+# holds no export. Enable once per clone:
 #   git config core.hooksPath .githooks
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"

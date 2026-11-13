@@ -110,10 +110,11 @@
 // a pull request's body, and stops (exit 1) when one holds a file name, a title, a label, an alt
 // text or a caption of the export, naming the file and the item without repeating the string:
 // fixtures are made up (spec #174), and the repository and its pull requests are public. With
-// --tree it reads the staged changes and the whole of every tracked file, as the working tree
-// holds it: a text written before an export arrived is read against that export (#289, where nine
-// places in five files were). .githooks/pre-commit runs it that way wherever the export exists,
-// which CI's checkout does not hold.
+// --tree it reads the staged changes, every tracked file's name and the whole of every tracked
+// file, as the working tree holds it: a text written before an export arrived is read against that
+// export (#289; names on the Product Owner's decision, #289 comment 6849845788).
+// .githooks/pre-commit runs it that way wherever the export exists, which CI's checkout does not
+// hold.
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -435,38 +436,46 @@ const verifyCommand = (options: TargetOptions) =>
 		return result.failures.length === 0 ? 0 : 1;
 	});
 
-/** The lines the staged changes add, and the names of the files they add. */
-function stagedAdditions() {
-	const staged = (...options: string[]) =>
-		execFileSync("git", ["-c", "core.quotePath=false", "diff", "--cached", ...options], {
-			encoding: "utf8",
-			maxBuffer: 1024 ** 3,
-		});
+/** What git prints for `args`, run in `cwd` or in the current folder. */
+const git = (cwd: string | undefined, ...args: string[]) =>
+	execFileSync("git", ["-c", "core.quotePath=false", ...args], {
+		cwd,
+		encoding: "utf8",
+		maxBuffer: 1024 ** 3,
+	});
+
+/** The lines the staged changes add, by file. */
+const stagedLines = () =>
 	// Named prefixes, so that a clone's diff.noprefix or diff.mnemonicPrefix changes nothing here.
-	const lines = staged(
-		"--unified=0",
-		"--no-color",
-		"--no-ext-diff",
-		"--src-prefix=a/",
-		"--dst-prefix=b/",
+	addedLinesOf(
+		git(
+			undefined,
+			"diff",
+			"--cached",
+			"--unified=0",
+			"--no-color",
+			"--no-ext-diff",
+			"--src-prefix=a/",
+			"--dst-prefix=b/",
+		),
 	);
-	const names = staged("--name-only", "-z", "--diff-filter=ACR").split("\0").filter(Boolean);
-	return [
-		...addedLinesOf(lines),
-		...names.map((name) => ({ file: "a staged file's name", lines: [name] })),
-	];
-}
+
+/** The names of the files the staged changes add. */
+const stagedNames = () => ({
+	file: "a staged file's name",
+	lines: git(undefined, "diff", "--cached", "--name-only", "-z", "--diff-filter=ACR").split("\0"),
+});
 
 /**
- * Each tracked file's text as the working tree holds it, under its path from the root. A file the
- * working tree no longer holds has none.
+ * Every tracked file's name, the ones the staged changes add among them, and each one's text as
+ * the working tree holds it, under its path from the root. A file the working tree no longer holds
+ * has no text.
  */
 async function trackedFiles() {
-	const git = (cwd: string | undefined, ...args: string[]) =>
-		execFileSync("git", args, { cwd, encoding: "utf8", maxBuffer: 1024 ** 3 });
 	const root = git(undefined, "rev-parse", "--show-toplevel").trimEnd();
-	const tracked = [];
-	for (const file of git(root, "ls-files", "-z").split("\0").filter(Boolean)) {
+	const names = git(root, "ls-files", "-z").split("\0").filter(Boolean);
+	const tracked = [{ file: "a tracked file's name", lines: names }];
+	for (const file of names) {
 		try {
 			tracked.push({ file, lines: [await readFile(join(root, file), "utf8")] });
 		} catch (error) {
@@ -482,20 +491,19 @@ async function leakCheckCommand(
 	tree: boolean,
 ): Promise<number> {
 	let scanned;
-	if (tree) scanned = [...stagedAdditions(), ...(await trackedFiles())];
-	else if (files.length === 0) scanned = stagedAdditions();
+	if (tree) scanned = [...stagedLines(), ...(await trackedFiles())];
+	else if (files.length === 0) scanned = [...stagedLines(), stagedNames()];
 	else {
 		scanned = await Promise.all(
 			files.map(async (file) => ({ file, lines: [await readFile(file, "utf8")] })),
 		);
 	}
 	const site = await readLegacySite(await readFile(exportPath, "utf8"));
-	// With --tree, a staged line and its file's whole text both hold a string the commit adds.
-	const leaks = new Set(leaksIn(site, scanned).map(({ file, what }) => `${file}: ${what}`));
-	for (const leak of leaks) console.error(leak);
-	if (leaks.size > 0)
+	const leaks = leaksIn(site, scanned);
+	for (const { file, what } of leaks) console.error(`${file}: ${what}`);
+	if (leaks.length > 0)
 		console.error("leak-check: make these up or take them out: they are Legacy site content");
-	return leaks.size === 0 ? 0 : 1;
+	return leaks.length === 0 ? 0 : 1;
 }
 
 /** The command the arguments name, or none when they are wrong. */
