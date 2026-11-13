@@ -46,7 +46,12 @@ const listUrl = new URL("/news", Astro.url);
 	</ListHeading>
 	<ListBody>
 		{entries.length > 0 ? (
-			<ContentCardGrid entries={entries} labelTaxonomy="news_category" pathOf={newsPath} />
+			<ContentCardGrid
+				entries={entries}
+				labelTaxonomy="news_category"
+				icon="message-square"
+				pathOf={newsPath}
+			/>
 		) : page > 1 ? (
 			<EmptyState
 				message="ไม่พบข่าวในหน้านี้"

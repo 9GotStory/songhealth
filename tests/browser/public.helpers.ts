@@ -555,6 +555,44 @@ export function selfRunningEnds(scope: Locator): Promise<number[]> {
 }
 
 /**
+ * Move the pointer to just above the resting lower edge of `card`, whose `surface` then rises 6 px,
+ * and press there. The card rises only where motion is allowed.
+ */
+export async function expectRisesUnderPointer(
+	page: Page,
+	card: Locator,
+	surface: Locator,
+): Promise<void> {
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await card.scrollIntoViewIfNeeded();
+	// With motion the card's reveal is over a frame after the scroll.
+	await expect.poll(() => shownOpacity(card), { message: "the card has come in" }).toBe(1);
+	const place = await boxOf(card, "the card's place");
+	expect((await boxOf(surface, "the card's surface")).y, "the card at rest").toBeCloseTo(
+		place.y,
+		0,
+	);
+	const edge = { x: place.x + place.width / 2, y: place.y + place.height - 3 };
+	await page.mouse.move(edge.x, edge.y);
+	await expect
+		.poll(async () => (await boxOf(surface, "the card's surface")).y, {
+			message: "the card under the pointer has risen 6 px",
+		})
+		.toBeCloseTo(place.y - 6, 0);
+	await page.mouse.click(edge.x, edge.y);
+}
+
+/** How many lines a title shows, and whether more of it lies below them. */
+export function shownLines(title: Locator): Promise<{ lines: number; clamped: boolean }> {
+	return title.evaluate((heading) => ({
+		lines: Math.round(
+			heading.getBoundingClientRect().height / parseFloat(getComputedStyle(heading).lineHeight),
+		),
+		clamped: heading.scrollHeight > heading.clientHeight,
+	}));
+}
+
+/**
  * The deep field a page shows: the one the Homepage's hero and Frequently Used Services stand on,
  * or the one under a list's heading. A decoration with no role of its own.
  */
@@ -1080,20 +1118,34 @@ export async function expectEmptyStateUnderForm(
 	await expectStartsOverFieldEdge(page, form, "the filter form");
 }
 
+/** The cards of a list page that its motion case reads. */
+export interface MovingCards {
+	/** The list that holds the cards, whose place stands for theirs. */
+	grid: Locator;
+	/** Every card the page shows. */
+	cards: Locator;
+	/** A card with a picture, and one whose picture is missing. */
+	pictured: Locator;
+	plain: Locator;
+}
+
 /**
  * Fail unless the list page at `path` moves only when motion is allowed. With motion allowed its
  * heading block rises in as the page opens and its lead after it, while its breadcrumb and each of
- * `atOnce` show at once, and nothing runs by itself for more than five seconds (WCAG 2.2 SC
- * 2.2.2); the empty state that `empty.path` shows, reading `empty.message`, shows at once too. With
- * reduced motion preferred, and on paper, nothing moves. The page's height and each part's place
- * are the same either way, at the desktop width, 375 px and 320 px. The page ends on a screen with
- * motion allowed.
+ * `atOnce` show at once; each of its `cards` reveals as it comes into the window and shows whole
+ * while it holds the keyboard's focus; a picture's box shimmers as the page opens while a missing
+ * picture's visual does not; and nothing runs by itself for more than five seconds (WCAG 2.2 SC
+ * 2.2.2). The empty state that `empty.path` shows, reading `empty.message`, shows at once too.
+ * With reduced motion preferred, and on paper, nothing moves. The page's height and each part's
+ * place are the same either way, at the desktop width, 375 px and 320 px. The page ends on a screen
+ * with motion allowed.
  */
 export async function expectListMovesOnlyWhenAllowed(
 	page: Page,
 	path: string,
 	heading: ListHeadingParts,
 	atOnce: Array<[name: string, part: Locator]>,
+	{ grid, cards, pictured, plain }: MovingCards,
 	empty: { path: string; message: string },
 ): Promise<void> {
 	const main = page.getByRole("main");
@@ -1105,6 +1157,9 @@ export async function expectListMovesOnlyWhenAllowed(
 		["the H1", heading.title],
 		["the lead", heading.lead],
 		...atOnce,
+		// A card that waits for its reveal lies 28 px under its place; the list that holds the cards
+		// does not move.
+		["the cards", grid],
 	];
 	/** The page's height and each part's place at the desktop width, 375 px and 320 px. */
 	const layouts = async () => {
@@ -1141,22 +1196,15 @@ export async function expectListMovesOnlyWhenAllowed(
 		for (const [name, part] of [["the breadcrumb", heading.breadcrumb] as const, ...atOnce]) {
 			expect(await entersAfter(part), `${name} shows at once`).toBe(-1);
 		}
-		await expect
-			.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
-			.toEqual([]);
+		for (const [name, part] of [["the heading", heading.field] as const, ...atOnce]) {
+			await expect
+				.poll(() => heldBack(part), { message: `${name} shows whole after the entrance` })
+				.toEqual([]);
+		}
 	});
 
 	await test.step("The same layout with motion", async () => {
 		expect(await layouts(), "the page with motion, after its entrance").toEqual(still);
-	});
-
-	await test.step("Nothing moves by itself for long", async () => {
-		// Read as the page opens, while the entrance runs: it is over within five seconds (WCAG 2.2
-		// SC 2.2.2), and the field's decorations stand still.
-		await page.goto(path, { waitUntil: "commit" });
-		await expect(heading.title).toBeVisible();
-		const ends = await selfRunningEnds(page.locator("html"));
-		expect(Math.max(0, ...ends), "the last effect to end, in ms").toBeLessThanOrEqual(5_000);
 	});
 
 	await test.step("An empty state", async () => {
@@ -1176,6 +1224,45 @@ export async function expectListMovesOnlyWhenAllowed(
 		expect(await running(), "nothing is mid-animation").toBe(0);
 		expect(await heldBack(main), "nothing waits for an effect").toEqual([]);
 		await page.emulateMedia({ media: "screen" });
+	});
+
+	await test.step("Each card's reveal", async () => {
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+		await page.goto(path);
+		const last = cards.last();
+		expect(
+			(await boxOf(last, "the last card")).y,
+			"the last card lies below the window as the page opens",
+		).toBeGreaterThan(DESKTOP_VIEWPORT.height);
+		expect(await shownOpacity(last), "the last card, below the window, waits").toBe(0);
+		for (const card of await cards.all()) {
+			await card.scrollIntoViewIfNeeded();
+			await expect
+				.poll(() => shownOpacity(card), { message: "a card, in the window, shows" })
+				.toBe(1);
+		}
+		await page.goto(path);
+		await last.getByRole("link").focus();
+		await expect
+			.poll(() => shownOpacity(last), {
+				message: "the last card, focused, shows whole",
+				timeout: 3_000,
+			})
+			.toBe(1);
+	});
+
+	await test.step("Nothing moves by itself for long", async () => {
+		// Read as the page opens, while the entrance and a loading picture's shimmer run: each is
+		// over within five seconds (WCAG 2.2 SC 2.2.2), and the field's decorations stand still.
+		await page.goto(path, { waitUntil: "commit" });
+		await expect(heading.title).toBeVisible();
+		const ends = await selfRunningEnds(page.locator("html"));
+		expect(Math.max(0, ...ends), "the last effect to end, in ms").toBeLessThanOrEqual(5_000);
+		expect(
+			(await selfRunningEnds(pictured)).length,
+			"the box of a card's picture shimmers as the page opens",
+		).toBeGreaterThan(0);
+		expect(await selfRunningEnds(plain), "a missing picture's visual does not shimmer").toEqual([]);
 	});
 }
 
@@ -1220,8 +1307,13 @@ export interface FilteredListOnField {
 	filteredEmpty: FilteredEmptyState;
 	/** A new synthetic Health Topic. */
 	createTopic: (label: string) => Promise<SyntheticTerm>;
-	/** A new item of the list that carries `topic`, published now. */
-	publishItem: (label: string, topic: SyntheticTerm) => Promise<DraftFixture>;
+	/**
+	 * A new item of the list that carries `topic`, published now, with the picture of the media item
+	 * `picture` when one is given.
+	 */
+	publishItem: (label: string, topic: SyntheticTerm, picture?: string) => Promise<DraftFixture>;
+	/** A new synthetic picture in the media library: its media item's id. */
+	uploadPicture: () => Promise<string>;
 }
 
 /**
@@ -1371,26 +1463,32 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 		}
 	});
 
-	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, the filter form, the cards, the pager and an empty state show at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
+	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, the filter form, the pager and an empty state show at once; each card reveals as it comes into the window and shows whole while it holds the keyboard's focus, a picture's box shimmers as the page opens and a missing picture's visual does not, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
 		page,
 	}) => {
-		test.setTimeout(90_000);
-		// One more than a page, so the pager shows.
+		test.setTimeout(120_000);
+		// One more than a page, so the pager shows; the newest has a picture.
 		const topic = await list.createTopic("ออกกำลังกาย");
-		for (let index = 0; index <= list.pageSize; index += 1) {
-			await list.publishItem(`motion-${String(index).padStart(2, "0")}`, topic);
+		const items: DraftFixture[] = [];
+		for (let index = 0; index < list.pageSize; index += 1) {
+			items.push(await list.publishItem(`motion-${String(index).padStart(2, "0")}`, topic));
 		}
-		const { cards, pager } = cardList(page);
+		const pictured = await list.publishItem("motion-picture", topic, await list.uploadPicture());
+		const { cards, grid, pager } = cardList(page);
 		await expectListMovesOnlyWhenAllowed(
 			page,
 			`${path}?topic=${topic.slug}`,
 			listHeading(page, text),
 			[
 				["the filter form", formOf(page)],
-				["the first card", cards.first()],
-				["the last card", cards.last()],
 				["the pager", pager],
 			],
+			{
+				grid,
+				cards,
+				pictured: listedItem(page, pictured.title),
+				plain: listedItem(page, items.at(-1)!.title),
+			},
 			{ path: `${path}?page=10000`, message: list.pastLast },
 		);
 	});
@@ -1410,6 +1508,163 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 			await expect(formOf(page).getByRole("button", { name: "แสดงผล" })).toBeVisible();
 			await expect(listHeading(page, text).label, "the label above the H1").toBeVisible();
 		});
+	});
+}
+
+/** A list page whose cards are the small card of spec #280 "The cards" (Feature 009 #283). */
+export interface ListCards {
+	path: string;
+	/** The Lucide icon of the plain visual that stands in for a missing picture. */
+	icon: string;
+	/**
+	 * Whether an item of the list can have no label: every item on Health News has a Health Topic,
+	 * which labels its card.
+	 */
+	unlabelled: boolean;
+	/** A new synthetic term of the taxonomy that labels the list's cards. */
+	createLabel: (label: string) => Promise<SyntheticTerm>;
+	/** A new synthetic picture in the media library: its media item's id. */
+	uploadPicture: () => Promise<string>;
+	/**
+	 * A new item of the list, published now, labelled by `term`, with `summary` and the picture of
+	 * the media item `picture` where each is given. Returns it with its stored publication instant.
+	 */
+	publishItem: (
+		label: string,
+		parts: { term?: SyntheticTerm; summary?: string; picture?: string },
+	) => Promise<{ item: DraftFixture; at: string }>;
+}
+
+/**
+ * Declare the test of a list's cards (spec #280 "The cards"): from 640 px a card shows its picture
+ * above its text, and below 640 px it is a row with a 120 px picture at 4:3 beside its text, 130 px
+ * of it at 320 px; under the picture its date, a dot and its label on one line, its title as an H2,
+ * and from 640 px its summary. A card without a label writes the date alone, one without a
+ * summary shows none, and one without a picture shows the plain visual with the list's icon in a
+ * 48 px tile. The cards go three to a row from 1,024 px, two from 640 px and in rows below, 24 px
+ * apart from 640 px and 14 px below.
+ */
+export function testListCards(list: ListCards): void {
+	const SUMMARY = "สรุปข่าวสำหรับทดสอบการ์ดของรายการ ซึ่งแสดงใต้ชื่อเรื่องตั้งแต่ 640 พิกเซล";
+	test(`on ${list.path} a card shows its picture, then its date, a dot and its label on one line, its title as an H2 and from 640 px its summary; below 640 px it is a row with a 120 px picture at 4:3 beside its text and no summary; a card without ${list.unlabelled ? "a label writes its date alone, " : ""}a summary shows none, and one without a picture shows the plain visual with the ${list.icon} icon in a 48 px tile`, async ({
+		page,
+	}) => {
+		const term = await list.createLabel("สุขภาพชุมชน");
+		const picture = await list.uploadPicture();
+		const bare = await list.publishItem("card-bare", list.unlabelled ? {} : { term });
+		const full = await list.publishItem("card-full", { term, summary: SUMMARY, picture });
+		await page.goto(list.path);
+		const fullCard = listedItem(page, full.item.title);
+		const bareCard = listedItem(page, bare.item.title);
+		const lineOf = (card: Locator) => card.locator("p").filter({ has: page.locator("time") });
+		const fullDate = thaiDate(full.at);
+		const bareDate = thaiDate(bare.at);
+		await expect(
+			fullCard.getByRole("heading", { level: 2, name: full.item.title, exact: true }),
+		).toBeVisible();
+		await expect(lineOf(fullCard), "the date, a dot and the label").toHaveText(
+			new RegExp(`^\\s*${fullDate}\\s*·\\s*${term.label}\\s*$`),
+		);
+		await expect(lineOf(bareCard), "the date with its label, or alone").toHaveText(
+			list.unlabelled ? bareDate : new RegExp(`^\\s*${bareDate}\\s*·\\s*${term.label}\\s*$`),
+		);
+		await expect(bareCard, "a card without a summary: its line and its title").toHaveText(
+			new RegExp(
+				`^\\s*${bareDate}${list.unlabelled ? "" : `\\s*·\\s*${term.label}`}\\s*${RegExp.escape(bare.item.title)}\\s*$`,
+			),
+		);
+		await expect(bareCard.locator("img"), "no picture").toHaveCount(0);
+		const visual = bareCard.getByTestId("news-visual");
+		const tile = await boxOf(visual.locator("span"), "the visual's tile");
+		expect([tile.width, tile.height], "the visual's tile is 48 px").toEqual([48, 48]);
+		const icon = await boxOf(visual.locator(`svg.lucide-${list.icon}`), "the visual's icon");
+		expect([icon.width, icon.height], "the visual's icon is 24 px").toEqual([24, 24]);
+
+		for (const width of [1440, 640]) {
+			await page.setViewportSize({ width, height: 900 });
+			const image = fullCard.locator("img");
+			await expectImageLoaded(image, `the card's picture at ${width} px`);
+			const title = await boxOf(fullCard.getByRole("heading", { level: 2 }), "the title");
+			const shown = await boxOf(image, "the picture");
+			expect(
+				shown.y + shown.height,
+				`the picture is above the text at ${width} px`,
+			).toBeLessThanOrEqual((await boxOf(lineOf(fullCard), "the date's line")).y);
+			expect(shown.width / shown.height, `the picture is 16:9 at ${width} px`).toBeCloseTo(
+				16 / 9,
+				1,
+			);
+			await expect(
+				fullCard.getByText(SUMMARY, { exact: true }),
+				`the summary at ${width} px`,
+			).toBeVisible();
+			expect(
+				(await boxOf(fullCard.getByText(SUMMARY, { exact: true }), "the summary")).y,
+				`the summary is under the title at ${width} px`,
+			).toBeGreaterThanOrEqual(title.y + title.height);
+		}
+		for (const width of [639, 375, 320]) {
+			await page.setViewportSize({ width, height: 900 });
+			const shown = await boxOf(fullCard.locator("img"), "the picture");
+			const title = await boxOf(fullCard.getByRole("heading", { level: 2 }), "the title");
+			expect([shown.width, shown.height], `a 120 px picture at 4:3 at ${width} px`).toEqual([
+				120, 90,
+			]);
+			expect(
+				shown.x + shown.width,
+				`the title beside the picture at ${width} px`,
+			).toBeLessThanOrEqual(title.x);
+			if (width === 320) {
+				// As the Homepage's News row (docs/design/DESIGN.md §8.6).
+				expect(title.width, "the title's room at 320 px").toBeCloseTo(130, 0);
+			}
+			await expect(
+				fullCard.getByText(SUMMARY, { exact: true }),
+				`no summary at ${width} px`,
+			).toBeHidden();
+			await expectNoHorizontalScroll(page, `${list.path} at ${width} px`);
+		}
+	});
+
+	test(`on ${list.path} the cards go three to a row from 1,024 px, two from 640 px and in rows below, 24 px apart from 640 px and 14 px below`, async ({
+		page,
+	}) => {
+		const parts = list.unlabelled ? {} : { term: await list.createLabel("แถวการ์ด") };
+		for (const index of [1, 2, 3, 4]) await list.publishItem(`card-row-${index}`, parts);
+		// The cells' resting places, as the reveal's motion leaves them.
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await page.goto(list.path);
+		const cells = cardList(page).grid.getByRole("listitem");
+		for (const [width, perRow, gap] of [
+			[1440, 3, 24],
+			[1024, 3, 24],
+			[768, 2, 24],
+			[640, 2, 24],
+			[639, 1, 14],
+			[375, 1, 14],
+			[320, 1, 14],
+		] as const) {
+			await page.setViewportSize({ width, height: 900 });
+			const boxes = await Promise.all(
+				[0, 1, 2, 3].map((index) => boxOf(cells.nth(index), `card ${index + 1}`)),
+			);
+			const rows = boxes.map((box) => Math.round(box.y));
+			expect(
+				rows.filter((top) => top === rows[0]).length,
+				`${perRow} to a row at ${width} px`,
+			).toBe(perRow);
+			const next = boxes[perRow]!;
+			expect(next.y - (boxes[0]!.y + boxes[0]!.height), `the rows' gap at ${width} px`).toBeCloseTo(
+				gap,
+				0,
+			);
+			if (perRow > 1) {
+				expect(
+					boxes[1]!.x - (boxes[0]!.x + boxes[0]!.width),
+					`the cards' gap at ${width} px`,
+				).toBeCloseTo(gap, 0);
+			}
+		}
 	});
 }
 

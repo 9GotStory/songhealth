@@ -21,8 +21,8 @@ export interface MediaRuntime {
 }
 
 /**
- * A card picture's `sizes`: the card's width in the card grids it sits in (ContentCardGrid,
- * ActivityCardGrid), three to a row from `lg`, two from `sm`.
+ * A card picture's `sizes`: the card's width in the Activities list's grid (ActivityCardGrid),
+ * three to a row from `lg`, two from `sm`. The News lists' cards have their own (ContentCard).
  */
 export const CARD_PICTURE_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
 

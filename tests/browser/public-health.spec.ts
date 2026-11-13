@@ -88,6 +88,7 @@ import {
 	test,
 	testAccessibilityAndReflow,
 	testFilteredListOnField,
+	testListCards,
 	thaiDate,
 	whileNonePublished,
 } from "./public.helpers";
@@ -346,10 +347,32 @@ testFilteredListOnField({
 	pastLast: "ไม่พบความรู้สุขภาพในหน้านี้",
 	filteredEmpty: CONTENT_FILTERED_EMPTY,
 	createTopic: (label) => createTerm("topic", label),
-	publishItem: async (label, topic) => {
-		const content = await createContent(label, { taxonomies: { topic: [topic.slug] } });
+	publishItem: async (label, topic, picture) => {
+		const content = await createContent(label, {
+			...(picture ? { data: { featured_image: { id: picture } } } : {}),
+			taxonomies: { topic: [topic.slug] },
+		});
 		await publishContent(content);
 		return content;
+	},
+	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพความรู้สุขภาพสำหรับทดสอบ"),
+});
+
+testListCards({
+	path: "/health/content",
+	icon: "heart-pulse",
+	unlabelled: true,
+	createLabel: (label) => createTerm("topic", label),
+	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพความรู้สุขภาพสำหรับทดสอบการ์ด"),
+	publishItem: async (label, { term, summary, picture }) => {
+		const item = await createContent(label, {
+			data: {
+				...(summary ? { summary } : {}),
+				...(picture ? { featured_image: { id: picture } } : {}),
+			},
+			...(term ? { taxonomies: { topic: [term.slug] } } : {}),
+		});
+		return { item, at: await publishContent(item) };
 	},
 });
 

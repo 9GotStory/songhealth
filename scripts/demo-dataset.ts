@@ -155,10 +155,11 @@ const ONE_PAGE_DATE = new Intl.DateTimeFormat("th-TH", {
  * (src/styles/global.css), and its text keeps at least 4.5:1 against what is behind it, as WCAG
  * 2.2 SC 1.4.3 asks of an image of text. The photos fill the middle of the sheet, from 305 to 818
  * px, so a card shows the collage alone, as the office's own One Pages show theirs (spec #144
- * "Problem Statement"): an Activity card crops a picture to the middle 16:9 of its width and a
- * News card to the middle 16:10 (src/components/ActivityCard.astro,
- * src/components/ContentCard.astro), which on an A4 sheet run from 338 to 785 px and from 313 to
- * 810 px. The 8 px beyond the 16:10 band keep the header's green out of a scaled-down card's edge.
+ * "Problem Statement"): an Activity card, and a News card from 640 px, crops a picture to the
+ * middle 16:9 of its width (src/components/ActivityCard.astro, src/components/ContentCard.astro),
+ * which on an A4 sheet runs from 338 to 785 px. Below 640 px a News card's 120 px picture is the
+ * middle 4:3, from 264 to 859 px, and so also shows the sheet's header and footer at its edges
+ * (#283).
  */
 function onePageSheet({ title, heldAt, place, summary, photos }: OnePageContent): string {
 	return `<style>

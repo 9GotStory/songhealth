@@ -84,6 +84,7 @@ import {
 	expectImageLoaded,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
+	expectRisesUnderPointer,
 	expectVisibleFocusOnEveryStop,
 	expectVisuallyHidden,
 	heldBack,
@@ -93,6 +94,7 @@ import {
 	listedTitles,
 	ownTitles,
 	selfRunningEnds,
+	shownLines,
 	shownOpacity,
 	siteTitleParts,
 	test,
@@ -295,30 +297,6 @@ async function clipsNothing(part: Locator, within: Locator): Promise<boolean> {
 	);
 }
 
-/**
- * Move the pointer to just above the resting lower edge of `card`, whose `surface` then rises 6 px,
- * and press there. The card rises only where motion is allowed.
- */
-async function expectRisesUnderPointer(page: Page, card: Locator, surface: Locator): Promise<void> {
-	await page.emulateMedia({ reducedMotion: "no-preference" });
-	await card.scrollIntoViewIfNeeded();
-	// With motion the card's reveal is over a frame after the scroll.
-	await expect.poll(() => shownOpacity(card), { message: "the card has come in" }).toBe(1);
-	const place = await boxOf(card, "the card's place");
-	expect((await boxOf(surface, "the card's surface")).y, "the card at rest").toBeCloseTo(
-		place.y,
-		0,
-	);
-	const edge = { x: place.x + place.width / 2, y: place.y + place.height - 3 };
-	await page.mouse.move(edge.x, edge.y);
-	await expect
-		.poll(async () => (await boxOf(surface, "the card's surface")).y, {
-			message: "the card under the pointer has risen 6 px",
-		})
-		.toBeCloseTo(place.y - 6, 0);
-	await page.mouse.click(edge.x, edge.y);
-}
-
 /** The Announcements section's lead, beside its heading. */
 const ANNOUNCEMENTS_LEAD = "ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ";
 
@@ -327,16 +305,6 @@ const ANNOUNCEMENT_CATEGORIES = {
 	procurement: "จัดซื้อจัดจ้าง",
 	recruitment: "รับสมัครงาน",
 } as const;
-
-/** How many lines a title shows, and whether more of it lies below them. */
-function shownLines(title: Locator): Promise<{ lines: number; clamped: boolean }> {
-	return title.evaluate((heading) => ({
-		lines: Math.round(
-			heading.getBoundingClientRect().height / parseFloat(getComputedStyle(heading).lineHeight),
-		),
-		clamped: heading.scrollHeight > heading.clientHeight,
-	}));
-}
 
 /** The Latest News' cards, in order: the large card, then the small ones. */
 function newsCards(page: Page) {

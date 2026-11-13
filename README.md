@@ -300,7 +300,10 @@ Administrator, an Editor or an Author sees it, comes from
 Text on a gradient or over a decoration is read with
 `node scripts/measure-text-contrast.ts [--fixtures <module>] <path> <selector>...` before the
 suites run: axe leaves such text unmeasured. It prints the lowest contrast under the text's own
-pixels at five widths; its header says how.
+pixels at five widths; its header says how. A focus ring over two surfaces, such as a card over
+the deep field's edge, is read the same way with
+`node scripts/measure-focus-contrast.ts [--fixtures <module>] [--style <css>] <path> <selector>...`
+(CODING_STANDARDS "Public pages").
 
 The runtime holds the demo dataset: content marked `[ตัวอย่าง]` that fills every page for the
 Product Owner's review. `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` installs it

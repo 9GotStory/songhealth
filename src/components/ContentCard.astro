@@ -1,7 +1,32 @@
 ---
-// News, Health News and Health Content list cards (#193; #190 comment 6707205912).
-// One title-named native link covers the whole surface. Other card text stays outside the link
-// so it stays readable without becoming its visible label (WCAG 2.5.3). Pictures are decorative.
+// The News card of the Homepage's Latest News (Feature 008 #244; spec #239 "Latest News") and the
+// card of the News, Health News and Health Content lists (Feature 009 #283; spec #280 "The cards"),
+// one piece for both (spec #280 "Scope of the change"). `kind` says where it stands: "home" under a
+// Homepage section's H2, its title an H3; "list" on a list page, its title an H2 under the page's
+// H1. A list's card shows three lines of title where the Homepage's small card shows two, and adds
+// its label and its summary.
+//
+// The large card, the Homepage's newest News, is its picture with the date in an accent-warm pill
+// and the title over a brand-dark gradient (the date as the prototype shows it: Product Owner,
+// 2026-11-12, #244 comment 6809892992, item 1). The title is surface-base on the gradient, which is
+// brand-dark at 80 % or more under the title's three lines at most, so it reads over any picture
+// (measured with scripts/measure-text-contrast.ts over a white picture; docs/design/DESIGN.md
+// §8.6). Without a picture it shows the deep green visual (item 2) with an accent-warm tile near
+// its top, in front of the gradient, which holds a 24 px icon (Product Owner, 2026-11-12: #244
+// comment 6810203896; the icon sizes of docs/design/DESIGN.md §5). The visual takes no pointer
+// events (spec #239 "Accessibility"), so a press on the tile reaches the card's link.
+//
+// A small card is white: from `sm` a 16:9 picture above its text; below `sm` a compact row, a
+// 120 px picture at 4:3 with the text beside it (item 3), which leaves 130 px for the title at
+// 320 px, enough for "ความดันโลหิตสูง" (107 px). Its text is the date and, on a list, a dot and the
+// label on the same line; the title; and on a list from `sm` the summary in two lines at most.
+// Without a picture it shows the plain visual in the picture's place, with a green tile and its
+// 24 px icon, as the Featured card's does (HomeHero): the Homepage's heart, a list's own icon.
+//
+// One native link named by the title covers the whole card; the date, the label and the summary
+// stay readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190 comment 6707205912). The
+// picture is decorative, because the title names the link, and covers its box from its middle, or
+// around its focal point (docs/design/DESIGN.md §7.3).
 //
 // Images go through EmDash's Image component (emdash 1.1.0 src/components/EmDashImage.astro). It
 // gives a responsive srcset where Astro's image service may transform the media, which is the
@@ -11,64 +36,190 @@
 // card's CSS sets the picture's box, so a large or odd-shaped image never changes the card.
 // `sizes` tells the browser how wide the card is, so it picks a rendition near that width rather
 // than the full image (Astro keeps a given `sizes`: astro 7.3.5 dist/assets/internal.js), and a
-// `loading` attribute overrides the component's lazy default.
+// `loading` attribute overrides the component's lazy default. The Homepage's sizes are for the
+// grid of five; with fewer than five a card can be wider from `lg`, and only the development
+// runtime makes renditions (ADR 0003). A picture whose media item was deleted in Admin is left out
+// and the card shows its visual, so the card never shows a broken image (src/lib/media.ts).
 //
-// A picture whose media item was deleted in Admin is left out and the card shows its plain visual,
-// so the card never shows a broken image (src/lib/media.ts).
+// The picture's zoom and a small card's lift under the pointer move only under
+// `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading"; spec #280 "The cards",
+// in place of #193's ring and green title on the lists). The article keeps its place and its
+// surface lifts inside it, as HomeServiceCard's does; the link covers the article, so a press on
+// the strip the surface left still opens the item. As the page opens a picture's box shimmers, and
+// stands plain with reduced motion preferred (`picture-shimmer`, src/styles/global.css; Feature
+// 008 #249). A list's card lies over the deep field's lower edge in its first row on `/news`, so
+// its focus ring has a white band on both sides (`focus-ring-banded`; Product Owner, 2026-11-13:
+// #283 comment 6854670042).
+import Heart from "@lucide/astro/icons/heart";
+import HeartPulse from "@lucide/astro/icons/heart-pulse";
+import MessageSquare from "@lucide/astro/icons/message-square";
 import { Image } from "emdash/ui";
-import { CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
+import { availableMedia } from "../lib/media";
 import type { ImageFieldValue } from "../lib/news";
-import MetaLine from "./MetaLine.astro";
+import DateText from "./DateText.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
+/** The icons a visual can hold in place of a missing picture. */
+const ICONS = { heart: Heart, "heart-pulse": HeartPulse, "message-square": MessageSquare };
+
 interface Props {
+	kind: "home" | "list";
 	href: string;
 	title: string;
-	/** A short classification shown above the title, such as the News category. */
-	label?: string;
 	date?: Date | string | null;
-	summary?: string;
 	image?: ImageFieldValue;
+	/** A list's label after the date: the News category, or the first Health Topic. */
+	label?: string;
+	/** A list's summary, under the title from `sm`. */
+	summary?: string;
+	/** The icon of the visual that stands in for a missing picture. */
+	icon: keyof typeof ICONS;
+	/** The large card, for the Homepage's newest News. */
+	large?: boolean;
 	/** Load the picture at once, for a card in view when the page opens. */
 	eager?: boolean;
+	/** The article's own classes, such as the large card's least height in its grid. */
+	class?: string;
 }
 
-const { href, title, label, date, summary, eager = false } = Astro.props;
+/**
+ * The picture's width: the large card's column beside the four small cards from `lg`, the row
+ * below; a small card's column of the Homepage's grid of five, or of a list's three, from `lg`,
+ * half the row from `sm` and 120 px below.
+ */
+const PICTURE_SIZES = {
+	large: "(min-width: 64rem) 27rem, 100vw",
+	home: "(min-width: 64rem) 22rem, (min-width: 40rem) 50vw, 7.5rem",
+	list: "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 7.5rem",
+};
+
+const {
+	kind,
+	href,
+	title,
+	date,
+	label,
+	summary,
+	large = false,
+	eager = false,
+	class: className,
+} = Astro.props;
 const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
-const titleId = `contentcard-${crypto.randomUUID()}`;
+const Icon = ICONS[Astro.props.icon];
+const Heading = kind === "list" ? "h2" : "h3";
+const titleId = `content-card-${crypto.randomUUID()}`;
+const loading = eager ? "eager" : "lazy";
+const zoom =
+	"motion-safe:transition-transform motion-safe:duration-600 motion-safe:group-hover:scale-106";
 ---
 
-<article class="group relative h-full">
-	<div class="flex h-full flex-col overflow-hidden rounded-24 bg-surface-base shadow-card">
-		{image ? (
-			<Image
-				image={image}
-				alt=""
-				sizes={CARD_PICTURE_SIZES}
-				loading={eager ? "eager" : "lazy"}
-				class="aspect-16/10 w-full object-cover"
-			/>
-		) : (
-			<div
-				aria-hidden="true"
-				data-testid="card-visual"
-				class="aspect-16/10 w-full bg-surface-soft"
-			/>
-		)}
-		<div class="flex flex-1 flex-col gap-2 p-5">
-			<MetaLine facts={[label && { text: label }, date && { date }]} />
-			<h2
-				id={titleId}
-				class="text-body-large font-semibold wrap-anywhere text-brand-dark underline-offset-4 group-hover:text-brand-primary group-hover:underline"
-			>
-				<ThaiTitle text={title} />
-			</h2>
-			{summary && <p class="line-clamp-3 text-text-secondary">{summary}</p>}
+{large ? (
+	<article class:list={["group relative h-full", className]}>
+		<div
+			class:list={[
+				"absolute inset-0 overflow-hidden rounded-24 shadow-card",
+				image ? "picture-shimmer" : "bg-surface-soft",
+			]}
+		>
+			{image ? (
+				<Image
+					image={image}
+					alt=""
+					sizes={PICTURE_SIZES.large}
+					loading={loading}
+					class:list={["absolute inset-0 size-full object-cover", zoom]}
+				/>
+			) : (
+				<div
+					aria-hidden="true"
+					data-testid="news-visual"
+					class="deep-visual pointer-events-none absolute inset-0 flex justify-center pt-10"
+				>
+					<span class="relative z-10 flex size-18 items-center justify-center rounded-22 bg-accent-warm text-brand-dark">
+						<Icon class="shrink-0" size={24} />
+					</span>
+				</div>
+			)}
+			<div class="absolute inset-x-0 bottom-0 bg-linear-to-t from-brand-dark/96 via-brand-dark/80 via-60% to-transparent px-5 pt-24 pb-5 text-surface-base sm:px-6.5 sm:pb-6">
+				{date && (
+					<p class="mb-2.5 inline-block rounded-pill bg-accent-warm px-3 py-0.5 text-small font-semibold text-brand-dark">
+						<DateText value={date} />
+					</p>
+				)}
+				<Heading
+					id={titleId}
+					class="line-clamp-3 text-body-large font-semibold wrap-anywhere sm:text-h3"
+				>
+					<ThaiTitle text={title} />
+				</Heading>
+			</div>
 		</div>
-	</div>
-	<a
-		href={href}
-		aria-labelledby={titleId}
-		class="absolute inset-0 rounded-24 hover:ring-2 hover:ring-brand-primary"
-	/>
-</article>
+		<a href={href} aria-labelledby={titleId} class="absolute inset-0 rounded-24" />
+	</article>
+) : (
+	<article class:list={["group relative h-full", className]}>
+		<div
+			data-testid="news-surface"
+			class="flex h-full items-center overflow-hidden rounded-22 bg-surface-base shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:-translate-y-1.5 motion-safe:group-hover:shadow-deep sm:flex-col sm:items-stretch"
+		>
+			<div
+				class:list={[
+					"relative m-2.5 aspect-4/3 w-30 shrink-0 overflow-hidden rounded-14 sm:m-0 sm:aspect-video sm:w-auto sm:rounded-none",
+					image ? "picture-shimmer" : "bg-surface-soft",
+				]}
+			>
+				{image ? (
+					<Image
+						image={image}
+						alt=""
+						sizes={PICTURE_SIZES[kind]}
+						loading={loading}
+						class:list={["absolute inset-0 size-full object-cover", zoom]}
+					/>
+				) : (
+					<div
+						aria-hidden="true"
+						data-testid="news-visual"
+						class="plain-visual absolute inset-0 flex items-center justify-center"
+					>
+						<span class="flex size-12 items-center justify-center rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-accent-warm shadow-tile">
+							<Icon class="shrink-0" size={24} />
+						</span>
+					</div>
+				)}
+			</div>
+			<div class="min-w-0 py-2.5 pr-3.5 pl-1 sm:px-5 sm:pt-4 sm:pb-5">
+				{date && (
+					<p class="text-small font-semibold text-brand-primary">
+						<DateText value={date} />
+						{label && (
+							<>
+								<span aria-hidden="true" class="mx-1.5 text-text-secondary">
+									·
+								</span>
+								<span class="font-normal wrap-anywhere text-text-secondary">{label}</span>
+							</>
+						)}
+					</p>
+				)}
+				<Heading
+					id={titleId}
+					class:list={[
+						"mt-0.5 text-body font-semibold wrap-anywhere sm:text-body-large",
+						kind === "list" ? "line-clamp-3" : "line-clamp-2",
+					]}
+				>
+					<ThaiTitle text={title} />
+				</Heading>
+				{summary && (
+					<p class="mt-1.5 line-clamp-2 text-label text-text-secondary max-sm:hidden">{summary}</p>
+				)}
+			</div>
+		</div>
+		<a
+			href={href}
+			aria-labelledby={titleId}
+			class:list={["absolute inset-0 rounded-22", kind === "list" && "focus-ring-banded"]}
+		/>
+	</article>
+)}
