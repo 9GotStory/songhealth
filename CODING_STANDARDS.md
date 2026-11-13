@@ -169,6 +169,10 @@ and why, and `.jscpd-baseline.json` records them.
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage
   line stays beside these (#147 and #148 retros: in both, review found an edge untested).
+- A spec sentence that lists parts, such as "the filter form, the empty state and the pager show
+  at once", gets an assertion for each part, on a fixture that shows it: a pager needs more items
+  than a page holds, an empty state a page past the last (#282 retro: #281's motion case for
+  `/news` published too few News for a pager and opened no empty page, and its review passed it).
 - The migration script is temporary and reads one known export (ADR 0008). A shape the export does
   not hold needs no rule or edge test of its own: it reaches the report or stops the plan, so no
   content disappears unreported. Review lists any other edge that only such a shape reaches as

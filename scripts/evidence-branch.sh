@@ -3,8 +3,9 @@
 # root of a commit on the local branch evidence/<ticket>-screenshots, and print the push command,
 # the address to embed each image by, and a table row for each before-<name>.png with its
 # after-<name>.png (#196 retro). The branch keeps no code. A new capture for the same ticket
-# becomes a child commit, so earlier screenshots stay reachable. The push is left to you: it
-# publishes the images, and the repository is public.
+# becomes a child commit, so earlier screenshots stay reachable. The commit also holds <dir>'s
+# captures.txt, when scripts/capture-screenshots.mjs wrote one, so the branch keeps each image's
+# path (#282 retro). The push is left to you: it publishes the images, and the repository is public.
 #   scripts/evidence-branch.sh <ticket: 003-61, or 169 for a standalone one> <dir of PNGs>
 set -euo pipefail
 (($# == 2)) || { echo "usage: scripts/evidence-branch.sh <ticket> <dir of PNGs>" >&2; exit 2; }
@@ -15,8 +16,10 @@ images=("$dir"/*.png)
 ((${#images[@]})) || { echo "evidence-branch: no PNG in $dir" >&2; exit 1; }
 
 branch=evidence/$ticket-screenshots
-tree=$(for image in "${images[@]}"; do
-  printf '100644 blob %s\t%s\n' "$(git hash-object -w "$image")" "${image##*/}"
+files=("${images[@]}")
+if [[ -e $dir/captures.txt ]]; then files+=("$dir/captures.txt"); fi
+tree=$(for file in "${files[@]}"; do
+  printf '100644 blob %s\t%s\n' "$(git hash-object -w "$file")" "${file##*/}"
 done | git mktree)
 parent=()
 if git rev-parse --verify -q "refs/heads/$branch" >/dev/null; then parent=(-p "$branch"); fi
