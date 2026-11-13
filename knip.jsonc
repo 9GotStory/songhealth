@@ -22,8 +22,9 @@
 		"src/middleware/admin-change-log.ts",
 	],
 	"ignoreUnresolved": ["^/src/"],
-	// Accepted Feature 002 evidence drivers: records, not maintained code.
-	"ignore": ["specs/**"],
+	// Accepted Feature 002 evidence drivers: records, not maintained code. The News list and Post
+	// page prototype's builders on this throwaway branch: records too.
+	"ignore": ["specs/**", "docs/prototypes/**"],
 	// The host's own command, which scripts/dev-runtime-opened.ts runs to read the app's log.
 	"ignoreBinaries": ["podman"],
 }
