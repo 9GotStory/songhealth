@@ -70,6 +70,20 @@ When the pinned version changes, re-verify every line and rename this file:
   `Promise.allSettled` raced against a timer, as `./scripts/check-built-reveal.ts` does before a
   screenshot. Observed with a launched browser (#276).
 
+## The pointer
+
+- **`locator.hover()` waits until the element itself receives the pointer.** It runs the
+  actionability checks first (the types, `Locator.hover`: "Wait for actionability checks on the
+  element, unless `force` option is set"), and over a part that another element covers it retries
+  with "<element> intercepts pointer events" (the bundle) until the test's timeout. A whole-card
+  link covers its card's picture, so a test points at the picture with the mouse at its box's
+  centre, as `pointAtCardSurface` and `clickCardSurface` in
+  `./tests/browser/public-cards.spec.ts` do. Observed on the runtime (#283: 15 cases timed out at
+  30 s each).
+- **A link keeps its focus styles under the pointer.** After a keyboard check focuses a link, a
+  hover still shows `:focus-visible` styles, such as `focus-ring-banded`'s band. Blur the link
+  before reading what the pointer alone does. Observed on the runtime (#283).
+
 ## Timers
 
 - **`page.clock` moves a page's timers.** `await page.clock.install()` before `goto`, then

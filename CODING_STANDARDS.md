@@ -176,6 +176,11 @@ and why, and `.jscpd-baseline.json` records them.
   at once", gets an assertion for each part, on a fixture that shows it: a pager needs more items
   than a page holds, an empty state a page past the last (#282 retro: #281's motion case for
   `/news` published too few News for a pager and opened no empty page, and its review passed it).
+- A criterion that places parts, such as "on one line", "beside", "under" or "above", is asserted
+  by the parts' boxes, not by their text, at the narrowest width the rule covers and with the
+  longest content the runtime holds, such as its longest Health Topic (#283 retro: a card's "date,
+  a dot and its label on one line" was asserted by its text and passed while every labelled card at
+  320 px ran onto two lines).
 - The migration script is temporary and reads one known export (ADR 0008). A shape the export does
   not hold needs no rule or edge test of its own: it reaches the report or stops the plan, so no
   content disappears unreported. Review lists any other edge that only such a shape reaches as
