@@ -15,7 +15,8 @@ import { TOPIC_PARAM } from "./terms";
 
 /**
  * How the News list is headed, on /news and in the Homepage's Latest News: the label above the
- * heading, as the menu names the section, and the heading (spec #280 "Decisions", 3).
+ * heading, as the menu names the section, and the heading (spec #280 "Decisions", 3). Health News
+ * takes the same label over its own title.
  */
 export const NEWS_HEADING = { label: "ข่าวสาร", title: "ข่าวประชาสัมพันธ์" };
 

@@ -6,7 +6,7 @@
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
 > 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
 > implemented by #281–#287; its acceptance is still to come.
-> **Updated:** 2026-11-13 (Feature 009 #281); first drafted 2026-10-30
+> **Updated:** 2026-11-13 (Feature 009 #282); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -88,9 +88,10 @@ health-service network.
   too plain, "ตอนนี้ฉันอยากปรับปรุง design frontend ทั้งหมด เนื่องจากมันดูเรียบง่ายเกินไป" (2026-11-10),
   and asked for a new design: "รอบนี้ออกแบบใหม่เลย". The Homepage and the shell every page shares
   have it (§7.4, §8). Feature 009 brings it to the News, Health News and Health Content lists and
-  the Post pages (spec #280): so far `/news` has its heading on the deep field (§7.8), with the
-  cards of §7.3 under it. Every other page keeps the design of §7 and §9 under the new shell until
-  its own feature.
+  the Post pages (spec #280): so far the three lists have their heading on the deep field (§7.8),
+  with the cards of §7.3 under it, and on Health News and Health Content the filter form (§7.7)
+  before them. Every other page keeps the design of §7 and §9 under the new shell until its own
+  feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
   "มันยังดูธรรมดา เรียบง่ายเกินไป ไม่ได้ดูทันสมัย หรือ สมัยใหม่เลย", and naming two sites as the look
@@ -238,7 +239,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-primary` on `status-closed` (the dotted label's closed state, which no page shows yet) | 13.85:1 |
 | `text-secondary-on-soft` on `surface-base`, the lightest the Current Announcements' glow makes the band under its lead | 5.66:1 |
 | `surface-base` (the label, the lead and the counts' words) on the Health Service Discovery band's gradient: measured (§8.9) | 5.20:1 or more |
-| `surface-base` (the breadcrumb, the label, the H1 and the lead) on the field under the heading of `/news`: measured (§7.8) | 6.63:1 or more |
+| `surface-base` (the breadcrumb, the label, the H1 and the lead) on the field under a list's heading (`/news`, Health News, Health Content): measured (§7.8) | 6.45:1 or more |
 | `accent-warm` (the counts' numbers, large text) on the band's gradient, over its glow: measured (§8.9) | 3.22:1 or more |
 | `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
@@ -249,9 +250,8 @@ There is no alert colour: a status is stated in text, and colour supports it.
 - **Typeface:** Noto Sans Thai, self-hosted through Astro's Fonts API (`astro.config.mjs`,
   `src/assets/fonts/README.md`).
 - **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`; the H1
-  of a list page on the deep field, so far `/news`, is `section-title` instead, under its label
-  (§7.8). A
-  Homepage section's H2 is `section-title` (§3.1), under a label at label size between slashes. The
+  of a list page on the deep field (the News, Health News and Health Content lists) is
+  `section-title` instead, under its label (§7.8). A Homepage section's H2 is `section-title` (§3.1), under a label at label size between slashes. The
   Homepage's H1, the site title, is out of sight: the hero's headline shows in its place (§8.1).
   The Leadership strip's H2 is H3 size in bold, its compact heading (§8.5). Keep the `h1` → `h2`
   → `h3` order whatever the visual size.
@@ -549,6 +549,9 @@ Health Service Directory:
   the list from its first page.
 - Below 640 px the fields stack above the actions, each as wide as the form. From 640 px a field is
   288 px wide, and fields and actions wrap inside the form.
+- On Health News and Health Content the form is the first block over the deep field's lower edge,
+  under the list's heading, with the cards or the empty state 32 px under it (§7.8). It keeps its
+  look there: its white card carries its own text and the page's `brand-primary` focus ring.
 - The public-browser suite goes through all five lists, with Documents' three selects and the
   directory's Area and name fields. The applied and draft states, the first-page restart and the
   keyboard run at 320 px, and JavaScript-disabled pages at 320 and 1,440 px. Target height, look and
@@ -557,8 +560,8 @@ Health Service Directory:
 
 ### 7.8 List heading on the deep field
 
-`ListHeading` (Feature 009 #281; spec #280 "The field under a heading", "List heading") heads
-`/news`. Health News and Health Content keep `PageHeading`.
+`ListHeading` (Feature 009 #281, #282; spec #280 "The field under a heading", "List heading")
+heads `/news`, Health News (`/news/health`) and the Health Content list (`/health/content`).
 
 - **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
   `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
@@ -585,16 +588,21 @@ Health Service Directory:
   heading's right, level with the heading's top; below `sm` it follows the lead, 20 px under it.
   That is the prototype's place for it, where spec #280 says "on the lead's baseline" (Product
   Owner, 2026-11-13: #281 comment 6846855734).
+- **Health News** is labelled "ข่าวสาร", the News section's label (`NEWS_HEADING`), over its H1
+  "ข่าวสุขภาพ"; **Health Content** is labelled "สุขภาพ", the Homepage's Health Information label,
+  over its H1 "ความรู้สุขภาพ". Each has the `heart-pulse` icon and no link, and keeps its lead, its
+  title in the head and its breadcrumb (spec #280 "Decisions", 3).
 - **What follows the heading** lies over the field's lower edge: the field's content ends 128 px
   above the edge from `sm` and 96 px below, and the block that follows (`ListBody`) starts 88 px
-  above it from `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state, then the
-  pager (§7.6), 32 px apart; each keeps its content and behaviour. A card keeps the global
+  above it from `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state,
+  then the pager (§7.6); on Health News and Health Content the filter form (§7.7) comes first. They
+  are 32 px apart, and each keeps its content and behaviour. A card keeps the global
   `brand-primary` focus ring, which is faint along the part of the first row that lies over the
   field (1.89:1 on `brand-dark`) and clear on the page's colour; a card's ring over the field is
   decided with the cards, in #283 and #284 (Product Owner, 2026-11-13: #281 comment 6847783611,
   item 1).
 - **Motion** (§8.12): with motion allowed the heading block rises in as the page opens, and the
-  lead 0.1 s after it. The breadcrumb, the link and what follows show at once.
+  lead 0.1 s after it. The breadcrumb, the link and what follows, the filter form too, show at once.
 - **Measured** on the development runtime at `3fe6f6b`, the demo dataset's six News:
   - `scripts/measure-text-contrast.ts /news` at 1,440, 1,024, 768, 375 and 320 px, the lowest
     reading of each text: the lead 6.63:1 (375 px), the H1 6.99:1 (320 px), the label 8.97:1
@@ -603,10 +611,21 @@ Health Service Directory:
   - `scripts/capture-screenshots.mjs`: the page is 1,507, 1,500, 2,042, 3,509 and 3,511 px high at
     1,440, 1,024, 768, 375 and 320 px, where it was 1,501, 1,494, 2,030, 3,447 and 3,449 px at
     `668d3e5` (#281's before screenshots).
+- **Measured** on the development runtime at `fcbba51` (#282), the demo dataset:
+  `scripts/measure-text-contrast.ts` on `/news/health` and `/health/content` at the same five
+  widths, the lowest reading of each text over both: the lead 6.45:1 (both lists at 375 and 320 px,
+  and Health News at 768 px), the breadcrumb's current page 7.00:1 (Health Content, 320 px), the H1
+  7.39:1 (Health Content, 320 px), the label 8.72:1 (Health Content, 320 px) and the breadcrumb's
+  links 9.34:1 (Health Content, 320 px).
 - `tests/browser/public-news.spec.ts` reads the heading's parts, their order and colours, the
   head's title, the link's place and height on both sides of 640 px, the H1's size on both sides
-  of 640 and 1,024 px, what follows the heading with each empty state, the keyboard's order with the focus
-  ring, the motion and the page without JavaScript.
+  of 640 and 1,024 px, what follows the heading with each empty state, the keyboard's order with
+  the focus ring, the motion (the pager and an empty state show at once too) and the page without
+  JavaScript. Health News, there, and Health Content, in `public-health.spec.ts`, take the same
+  cases but the head's title and the link, which they lack, from `testFilteredListOnField`
+  (`tests/browser/public.helpers.ts`): it adds the heading's icon, the filter form first over the
+  edge with its ring on its white card, and a page past the last and a Health Topic that matches
+  nothing 32 px under the form. Each suite's own first test reads the list with no item at all.
 
 ## 8. Homepage
 
@@ -1096,9 +1115,10 @@ stays the submit state (§8.9).
   box behind it. A missing picture's visual has no shimmer, nor has the Featured picture, which
   has its blurred copy behind it (§8.1), or a Leadership portrait in its ring (§8.5) (Product
   Owner: the same comment, item 2).
-- **A list heading's entrance.** On `/news` the heading block rises in as the hero's parts do,
-  starting at 0 s, and the lead at 0.1 s; nothing else on the page enters or reveals (§7.8;
-  `public-news.spec.ts` "/news moves only when motion is allowed: …").
+- **A list heading's entrance.** On `/news`, Health News and Health Content the heading block
+  rises in as the hero's parts do, starting at 0 s, and the lead at 0.1 s; nothing else on the page
+  enters or reveals (§7.8; `public-news.spec.ts` "/news moves only when motion is allowed: …", and
+  `testFilteredListOnField`'s motion case for the other two).
 - **Hover** ships with each section (§8.1, §8.4, §8.6 to §8.10).
 - **Reduced motion and paper.** All of it runs only on a screen under
   `prefers-reduced-motion: no-preference`. With reduced motion preferred, and in print, nothing
@@ -1208,8 +1228,8 @@ not its prototype ("design หน้าแรก (ปัจจุบัน)"):
 
 The prototype's variant C, on the branch `prototype/news-post-redesign`, is the visual reference
 (`docs/prototypes/news-post-redesign.md` there). Each ticket's decisions are on #281 to #287 and in
-§13; of these picks the code holds the heading of `/news` (§7.8). The feature's acceptance is still
-to come.
+§13; of these picks the code holds the heading of the three lists (§7.8). The feature's acceptance
+is still to come.
 
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
@@ -1482,3 +1502,11 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   and comment 6847783611 (a card's ring over the field waits for the cards; no `surface-soft` glow).
   What the page lists, its order, its cards, its empty states' messages, its pager, its head and
   its addresses remain, and so does every other page.
+- **v1.3 list heading on Health News and Health Content (2026-11-13, Feature 009 #282):** Health
+  News and the Health Content list open on the deep field as `/news` does (§7.8), under the labels
+  "ข่าวสาร" and "สุขภาพ", each with the `heart-pulse` icon and no link, and their filter form is the
+  first block over the field's lower edge, before the cards or the empty state and the pager (§7.7).
+  They replace `PageHeading` on the page's colour under the shell's breadcrumb. Their H1s, leads,
+  heads, forms, cards, empty states' messages, pagers and addresses remain. §2, §3.2, §4, §7.7, §7.8,
+  §8.12 and §10 name the two lists. Authority: spec #280 "List heading" and "What follows a list's
+  heading".
