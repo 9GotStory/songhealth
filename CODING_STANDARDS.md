@@ -75,7 +75,11 @@ and why, and `.jscpd-baseline.json` records them.
   ends by itself within five seconds unless the visitor's scrolling drives it (WCAG 2.2 SC 2.2.2);
   a part that holds the keyboard's focus shows whole; and it changes no layout. A scroll-driven
   effect is written with longhands and sits inside its `@supports` query, which
-  `npm run build:check` reads in the built stylesheet (#249 retro).
+  `npm run build:check` reads in the built stylesheet (#249 retro). A change to a scroll-driven
+  effect's styles, or to a dependency that builds the stylesheet, shows in its pull request the
+  lines of `scripts/check-built-reveal.ts`, the one check that reads the built page in a browser
+  (`docs/operations/development-quadlet.md` "Production image check"; Product Owner, 2026-11-13:
+  #276 comments 6842672237 and 6842873602).
 - What moves under the pointer moves inside the element that takes the hover: that element keeps
   its place as a `group`, and a child moves on `group-hover:`, so the hover does not end at the
   element's edge (`tests/node/public-hover.test.ts`). A card that rises still opens from every part

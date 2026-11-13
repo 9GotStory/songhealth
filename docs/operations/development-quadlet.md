@@ -418,7 +418,8 @@ cannot. Run it when `deploy/Containerfile` or a dependency with a native binary 
 the ADR 0003 revisit of production images.
 
 - **Build.** It builds from a `git archive` of the commit, so untracked files never enter, with
-  `--layers=false`, which commits the final image alone.
+  `--layers=false`, which commits the final image alone. A build took 88 to 111 s on this host
+  (#276, three runs).
 - **Native pieces.** It checks that Tailwind's oxide binary and `sharp` load in the image, in a
   container with no network. `sharp` is optional (spec #51), so it is reported, not failed.
 - **One run.** It runs the image once against this runtime's data: the Product Owner's exception
