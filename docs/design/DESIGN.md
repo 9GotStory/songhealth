@@ -239,7 +239,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-primary` on `status-closed` (the dotted label's closed state, which no page shows yet) | 13.85:1 |
 | `text-secondary-on-soft` on `surface-base`, the lightest the Current Announcements' glow makes the band under its lead | 5.66:1 |
 | `surface-base` (the label, the lead and the counts' words) on the Health Service Discovery band's gradient: measured (§8.9) | 5.20:1 or more |
-| `surface-base` (the breadcrumb, the label, the H1 and the lead) on the field under the heading of `/news`: measured (§7.8) | 6.63:1 or more |
+| `surface-base` (the breadcrumb, the label, the H1 and the lead) on the field under a list's heading (`/news`, Health News, Health Content): measured (§7.8) | 6.45:1 or more |
 | `accent-warm` (the counts' numbers, large text) on the band's gradient, over its glow: measured (§8.9) | 3.22:1 or more |
 | `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
@@ -611,6 +611,12 @@ heads `/news`, Health News (`/news/health`) and the Health Content list (`/healt
   - `scripts/capture-screenshots.mjs`: the page is 1,507, 1,500, 2,042, 3,509 and 3,511 px high at
     1,440, 1,024, 768, 375 and 320 px, where it was 1,501, 1,494, 2,030, 3,447 and 3,449 px at
     `668d3e5` (#281's before screenshots).
+- **Measured** on the development runtime at `fcbba51` (#282), the demo dataset:
+  `scripts/measure-text-contrast.ts` on `/news/health` and `/health/content` at the same five
+  widths, the lowest reading of each text over both: the lead 6.45:1 (both lists at 375 and 320 px,
+  and Health News at 768 px), the breadcrumb's current page 7.00:1 (Health Content, 320 px), the H1
+  7.39:1 (Health Content, 320 px), the label 8.72:1 (Health Content, 320 px) and the breadcrumb's
+  links 9.34:1 (Health Content, 320 px).
 - `tests/browser/public-news.spec.ts` reads the heading's parts, their order and colours, the
   head's title, the link's place and height on both sides of 640 px, the H1's size on both sides
   of 640 and 1,024 px, what follows the heading with each empty state, the keyboard's order with
