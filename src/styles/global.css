@@ -467,6 +467,20 @@
 }
 
 /*
+ * Focus ring on a card that lies over two surfaces, such as a list's first row over the deep
+ * field's lower edge: the page's brand-primary ring with a surface-base band on both sides, so the
+ * ring reads against what lies beside it on either surface (Product Owner, 2026-11-13: #283
+ * comment 6854670042). The band is a shadow 7 px wide under the outline, which the global rule
+ * draws 2 to 5 px out, so 2 px of it show inside the ring and 2 px outside. On the page's colour it
+ * hardly shows. scripts/measure-focus-contrast.ts reads it.
+ */
+@utility focus-ring-banded {
+	&:focus-visible {
+		box-shadow: 0 0 0 7px var(--color-surface-base);
+	}
+}
+
+/*
  * Rich text (src/components/RichText.astro): the typography of Portable Text bodies, which
  * EmDash renders as plain HTML. Links are underlined, so colour is never their only cue
  * (WCAG 2.2 SC 1.4.1).

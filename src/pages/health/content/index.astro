@@ -64,7 +64,12 @@ const listUrl = new URL(healthContentListPath(topic), Astro.url);
 			]}
 		/>
 		{entries.length > 0 ? (
-			<ContentCardGrid entries={entries} labelTaxonomy="topic" pathOf={healthContentPath} />
+			<ContentCardGrid
+				entries={entries}
+				labelTaxonomy="topic"
+				icon="heart-pulse"
+				pathOf={healthContentPath}
+			/>
 		) : page > 1 ? (
 			<EmptyState
 				message="ไม่พบความรู้สุขภาพในหน้านี้"

@@ -1,8 +1,12 @@
 ---
-// A page of News or Health Content as a grid of content cards (Feature 003 #54, #59), shared by
-// the News, Health News and Health Content lists. Each card carries one term of `labelTaxonomy` as
-// its label and links to the address `pathOf` gives the entry's slug. The first row is in view
-// when the page opens, so its pictures load at once; the rest load lazily.
+// A page of News or Health Content as a grid of cards (Feature 003 #54, #59), shared by the News,
+// Health News and Health Content lists. Each card is the list's ContentCard (Feature 009 #283; spec
+// #280 "The cards"), carries one term of `labelTaxonomy` as its label, shows `icon` in place of a
+// missing picture and links to the address `pathOf` gives the entry's slug. The cards go three to
+// a row from `lg`, two from `sm` and in rows below, 24 px apart from `sm` and 14 px below; a last
+// row may hold fewer, and no cell is filled. The first row is in view when the page opens, so its
+// pictures load at once; the rest load lazily. Each card reveals as it comes into the window
+// (`scroll-reveal`, src/styles/global.css; spec #280 "Motion").
 import type { TaxonomyTerm } from "emdash";
 import type { ImageFieldValue } from "../lib/news";
 import { termsOf } from "../lib/terms";
@@ -24,25 +28,29 @@ interface CardEntry {
 interface Props {
 	entries: CardEntry[];
 	labelTaxonomy: string;
+	/** The list's icon: `message-square` on `/news`, `heart-pulse` on the two health lists. */
+	icon: "message-square" | "heart-pulse";
 	/** The entry's own address, from its slug. */
 	pathOf: (slug: string) => string;
 }
 
-const { entries, labelTaxonomy, pathOf } = Astro.props;
+const { entries, labelTaxonomy, icon, pathOf } = Astro.props;
 /** Cards per row at the widest layout (lg:grid-cols-3). */
 const FIRST_ROW = 3;
 ---
 
-<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+<ul class="grid gap-3.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
 	{entries.map((entry, index) => (
-		<li>
+		<li class="scroll-reveal min-w-0">
 			<ContentCard
+				kind="list"
 				href={pathOf(entry.id)}
 				title={entry.data.title}
 				label={termsOf(entry.data, labelTaxonomy)[0]?.label}
 				date={entry.data.publishedAt}
 				summary={entry.data.summary}
 				image={entry.data.featured_image}
+				icon={icon}
 				eager={index < FIRST_ROW}
 			/>
 		</li>

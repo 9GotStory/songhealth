@@ -17,7 +17,7 @@
 //   exist, in one white strip in the page colour, with a link to /about/leadership. It starts
 //   below the Services' cards, after the room the field leaves, and takes its space below from
 //   Latest News, or its own when Latest News is left out;
-// - Latest News (Feature 008 #244; spec #239 "Latest News"; HomeNewsCard): the five newest
+// - Latest News (Feature 008 #244; spec #239 "Latest News"; ContentCard): the five newest
 //   published News, the Featured one left out (`04` §7), the newest as a large card. With five,
 //   the large card stands beside the other four two by two from `lg` and spans the row above them
 //   from `sm`; below `sm` three compact rows follow it. With fewer, the grid has two columns from
@@ -108,6 +108,7 @@ import Hospital from "@lucide/astro/icons/hospital";
 import MessageSquare from "@lucide/astro/icons/message-square";
 import Search from "@lucide/astro/icons/search";
 import Users from "@lucide/astro/icons/users";
+import ContentCard from "../components/ContentCard.astro";
 import DeepField from "../components/DeepField.astro";
 import HomeActivityTile from "../components/HomeActivityTile.astro";
 import HomeAnnouncementRow from "../components/HomeAnnouncementRow.astro";
@@ -115,7 +116,6 @@ import HomeContactCard from "../components/HomeContactCard.astro";
 import HomeHealthCard from "../components/HomeHealthCard.astro";
 import HomeHero from "../components/HomeHero.astro";
 import HomeLeadershipStrip from "../components/HomeLeadershipStrip.astro";
-import HomeNewsCard from "../components/HomeNewsCard.astro";
 import HomeQuickLink from "../components/HomeQuickLink.astro";
 import HomeServiceCard from "../components/HomeServiceCard.astro";
 import SectionHeading from "../components/SectionHeading.astro";
@@ -135,7 +135,7 @@ import { directoryOverview } from "../lib/health-services";
 import { activitiesLayout, activityPictureSizes } from "../lib/homepage-activities";
 import { readHomepageCuration } from "../lib/homepage-curation";
 import { homepageSpacing, type HomepageSection } from "../lib/homepage-spacing";
-import { NEWS_HEADING, latestNews } from "../lib/news";
+import { NEWS_HEADING, latestNews, newsPath } from "../lib/news";
 import { readOfficeContact } from "../lib/office-contact";
 import { OFFICE_SUMMARY } from "../lib/office-summary";
 import { listHomepageLeadership } from "../lib/personnel";
@@ -316,9 +316,25 @@ const discoveryField =
 							]}
 						>
 							{index === 0 ? (
-								<HomeNewsCard news={item} large class={largeCardHeight} />
+								<ContentCard
+									kind="home"
+									large
+									href={newsPath(item.id)}
+									title={item.data.title}
+									date={item.data.publishedAt}
+									image={item.data.featured_image}
+									icon="heart"
+									class={largeCardHeight}
+								/>
 							) : (
-								<HomeNewsCard news={item} />
+								<ContentCard
+									kind="home"
+									href={newsPath(item.id)}
+									title={item.data.title}
+									date={item.data.publishedAt}
+									image={item.data.featured_image}
+									icon="heart"
+								/>
 							)}
 						</li>
 					))}

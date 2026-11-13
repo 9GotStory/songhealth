@@ -55,6 +55,7 @@ import {
 	unpublishEntry,
 	updateEntry,
 	uploadSyntheticMedia,
+	uploadSyntheticPicture,
 	type CmsActor,
 	type DraftFields,
 	type DraftFixture,
@@ -81,6 +82,7 @@ import {
 	expectSiteNotFound,
 	expectStartsOverFieldEdge,
 	listHeading,
+	listedItem,
 	listedTitles,
 	offeredLabels,
 	ownTitles,
@@ -88,6 +90,7 @@ import {
 	test,
 	testAccessibilityAndReflow,
 	testFilteredListOnField,
+	testListCards,
 	thaiDate,
 	tokenColor,
 	whileNonePublished,
@@ -408,7 +411,7 @@ test("a page past the last of /news shows ไม่พบข่าวในห�
 	await expectStartsOverFieldEdge(page, message.locator("xpath=.."), "the message's card");
 });
 
-test("on /news the keyboard goes from the breadcrumb to the link ข่าวสุขภาพ to the first card, the two on the field with its accent-warm focus ring, and under the pointer ข่าวสุขภาพ turns accent-warm with brand-dark words while a crumb stays as it is", async ({
+test("on /news the keyboard goes from the breadcrumb to the link ข่าวสุขภาพ to the first card, the two on the field with its accent-warm focus ring and the card with the page's ring banded in white, and under the pointer ข่าวสุขภาพ turns accent-warm with brand-dark words while a crumb stays as it is", async ({
 	page,
 }) => {
 	const news = await createNews("keyboard");
@@ -432,6 +435,12 @@ test("on /news the keyboard goes from the breadcrumb to the link ข่าวส
 		"outline-width",
 		"3px",
 	);
+	// The card lies over the field's edge, so its ring has a white band on both sides (Product
+	// Owner, 2026-11-13: #283 comment 6854670042).
+	await expect(cards.first().getByRole("link"), "the band beside a card's ring").toHaveCSS(
+		"box-shadow",
+		new RegExp(`${RegExp.escape(await tokenColor(page, "surface-base"))} 0px 0px 0px 7px`),
+	);
 
 	await heading.link.hover();
 	await expect(heading.link, "the link under the pointer").toHaveCSS(
@@ -454,28 +463,36 @@ test("on /news the keyboard goes from the breadcrumb to the link ข่าวส
 	);
 });
 
-test("/news moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, the link ข่าวสุขภาพ, the cards, the pager and an empty state show at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
+test("/news moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, the link ข่าวสุขภาพ, the pager and an empty state show at once; each card reveals as it comes into the window and shows whole while it holds the keyboard's focus, a picture's box shimmers as the page opens and a missing picture's visual does not, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
 	page,
 }) => {
-	test.setTimeout(90_000);
-	// One more than a page, so the pager shows (Product Owner, 2026-11-13: #282 comment 6851937209).
+	test.setTimeout(120_000);
+	// One more than a page, so the pager shows (Product Owner, 2026-11-13: #282 comment 6851937209);
+	// the newest has a picture.
 	const fixtures: DraftFixture[] = [];
-	for (let index = 0; index <= PAGE_SIZE; index += 1) {
+	for (let index = 0; index < PAGE_SIZE; index += 1) {
 		fixtures.push(await createNews(`motion-${String(index).padStart(2, "0")}`));
 	}
-	for (const news of fixtures) await publish(news);
+	const pictured = await createNews("motion-picture", {
+		data: { featured_image: { id: await uploadSyntheticPicture(admin, "ภาพข่าวสำหรับทดสอบ") } },
+	});
+	for (const news of [...fixtures, pictured]) await publish(news);
 	const heading = newsHeading(page);
-	const { cards, pager } = cardList(page);
+	const { cards, grid, pager } = cardList(page);
 	await expectListMovesOnlyWhenAllowed(
 		page,
 		"/news",
 		heading,
 		[
 			["the link to Health News", heading.link],
-			["the first card", cards.first()],
-			["the last card", cards.last()],
 			["the pager", pager],
 		],
+		{
+			grid,
+			cards,
+			pictured: listedItem(page, pictured.title),
+			plain: listedItem(page, fixtures.at(-1)!.title),
+		},
 		{ path: "/news?page=10000", message: "ไม่พบข่าวในหน้านี้" },
 	);
 });
@@ -579,11 +596,49 @@ testFilteredListOnField({
 	pastLast: "ไม่พบข่าวในหน้านี้",
 	filteredEmpty: HEALTH_FILTERED_EMPTY,
 	createTopic: (label) => createTerm("topic", label),
-	publishItem: async (label, topic) => {
-		const news = await createNews(label, { taxonomies: { topic: [topic.slug] } });
+	publishItem: async (label, topic, picture) => {
+		const news = await createNews(label, {
+			...(picture ? { data: { featured_image: { id: picture } } } : {}),
+			taxonomies: { topic: [topic.slug] },
+		});
 		await publish(news);
 		return news;
 	},
+	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพข่าวสุขภาพสำหรับทดสอบ"),
+});
+
+/** A News item with the parts a list's card shows, labelled by `taxonomy`. */
+async function publishCardNews(
+	taxonomy: string,
+	label: string,
+	{ term, summary, picture }: { term?: SyntheticTerm; summary?: string; picture?: string },
+) {
+	const item = await createNews(label, {
+		data: {
+			...(summary ? { summary } : {}),
+			...(picture ? { featured_image: { id: picture } } : {}),
+		},
+		...(term ? { taxonomies: { [taxonomy]: [term.slug] } } : {}),
+	});
+	return { item, at: await publish(item) };
+}
+
+testListCards({
+	path: "/news",
+	icon: "message-square",
+	unlabelled: true,
+	createLabel: (label) => createTerm("news_category", label),
+	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพข่าวสำหรับทดสอบการ์ด"),
+	publishItem: (label, parts) => publishCardNews("news_category", label, parts),
+});
+
+testListCards({
+	path: "/news/health",
+	icon: "heart-pulse",
+	unlabelled: false,
+	createLabel: (label) => createTerm("topic", label),
+	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพข่าวสุขภาพสำหรับทดสอบการ์ด"),
+	publishItem: (label, parts) => publishCardNews("topic", label, parts),
 });
 
 test("a News page shows its title, Thai date, category, topics, image with its alt text, body and breadcrumb", async ({
@@ -651,12 +706,18 @@ test("a News item whose featured image was deleted from the media library shows 
 	const removed = await deleteMedia(admin, media.mediaId!);
 	expect(removed.ok, `deleting the media item: ${nativeRefusalOf(removed)}`).toBe(true);
 
-	for (const list of ["/news", `/news/health?topic=${topic.slug}`]) {
+	for (const [list, icon] of [
+		["/news", "message-square"],
+		[`/news/health?topic=${topic.slug}`, "heart-pulse"],
+	]) {
 		await page.goto(list);
 		const card = page.getByRole("article").filter({ hasText: news.title });
 		await expect(card, `${list} still lists the News`).toHaveCount(1);
 		await expect(card.locator("img"), `${list} shows no picture for it`).toHaveCount(0);
-		await expect(card.getByTestId("card-visual"), `${list} shows the plain visual`).toHaveCount(1);
+		await expect(
+			card.getByTestId("news-visual").locator(`svg.lucide-${icon}`),
+			`${list} shows the plain visual with its icon`,
+		).toHaveCount(1);
 	}
 
 	const response = await page.goto(`/news/${news.slug}`);

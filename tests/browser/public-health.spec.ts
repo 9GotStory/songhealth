@@ -88,6 +88,7 @@ import {
 	test,
 	testAccessibilityAndReflow,
 	testFilteredListOnField,
+	testListCards,
 	thaiDate,
 	whileNonePublished,
 } from "./public.helpers";
@@ -346,10 +347,32 @@ testFilteredListOnField({
 	pastLast: "ไม่พบความรู้สุขภาพในหน้านี้",
 	filteredEmpty: CONTENT_FILTERED_EMPTY,
 	createTopic: (label) => createTerm("topic", label),
-	publishItem: async (label, topic) => {
-		const content = await createContent(label, { taxonomies: { topic: [topic.slug] } });
+	publishItem: async (label, topic, picture) => {
+		const content = await createContent(label, {
+			...(picture ? { data: { featured_image: { id: picture } } } : {}),
+			taxonomies: { topic: [topic.slug] },
+		});
 		await publishContent(content);
 		return content;
+	},
+	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพความรู้สุขภาพสำหรับทดสอบ"),
+});
+
+testListCards({
+	path: "/health/content",
+	icon: "heart-pulse",
+	unlabelled: true,
+	createLabel: (label) => createTerm("topic", label),
+	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพความรู้สุขภาพสำหรับทดสอบการ์ด"),
+	publishItem: async (label, { term, summary, picture }) => {
+		const item = await createContent(label, {
+			data: {
+				...(summary ? { summary } : {}),
+				...(picture ? { featured_image: { id: picture } } : {}),
+			},
+			...(term ? { taxonomies: { topic: [term.slug] } } : {}),
+		});
+		return { item, at: await publishContent(item) };
 	},
 });
 
@@ -406,6 +429,28 @@ test("a Health Content page shows its topics, source, last review date, picture 
 		page.getByRole("main").getByText(/ทบทวนล่าสุด/),
 		"no review date, no ทบทวนล่าสุด",
 	).toHaveCount(0);
+});
+
+test("a Health Content item whose featured image was deleted from the media library shows the plain visual with the heart-pulse icon on its list, and no broken image", async ({
+	page,
+}) => {
+	const media = await uploadSyntheticMedia(admin);
+	expect(media.mediaId, "the synthetic image must upload").toBeDefined();
+	const content = await createContent("image-gone", {
+		data: { featured_image: { id: media.mediaId } },
+	});
+	await publishContent(content);
+	const removed = await deleteMedia(admin, media.mediaId!);
+	expect(removed.ok, `deleting the media item: ${nativeRefusalOf(removed)}`).toBe(true);
+
+	await page.goto("/health/content");
+	const card = listedItem(page, content.title);
+	await expect(card, "the list still lists the item").toHaveCount(1);
+	await expect(card.locator("img"), "no picture for it").toHaveCount(0);
+	await expect(
+		card.getByTestId("news-visual").locator("svg.lucide-heart-pulse"),
+		"the plain visual with the list's icon",
+	).toHaveCount(1);
 });
 
 test("an image or gallery picture in a Health Content body whose media item was deleted is left out, and the rest of the body still shows", async ({
