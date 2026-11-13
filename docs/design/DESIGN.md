@@ -3,7 +3,8 @@
 > **Status:** v1.2, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
-> ticket by ticket from #240, and awaits the Product Owner's acceptance on #239.
+> implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
+> 6841960594).
 > **Updated:** 2026-11-13 (Feature 008 #250); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
@@ -1104,7 +1105,7 @@ EmDash's Edit mode shows the block as a placeholder (`05` §5.1).
 
 The prototype's variant H, on the branch `prototype/home-redesign`, is the visual reference
 (`docs/prototypes/home-redesign.md` there). Each ticket's decisions are on #240 to #249 and in
-§13. The Product Owner accepts the feature on #239,
+§13. The Product Owner accepted the feature on #239 (comment 6841960594),
 with the evidence round of #250 (`docs/evidence/250-homepage-redesign-evidence-round.md`), which
 names what the evidence does not cover.
 
