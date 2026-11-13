@@ -1,8 +1,9 @@
 // What the migration script's leak-check command looks for (#179 retro; spec #174 "What makes a
 // good test": no Legacy site content in the repository): the export's file names and texts in the
-// lines a commit adds, or in a file it is given. scripts/migration.ts reads the export and the
-// staged changes or the files; at run time this module imports only the planner, which imports
-// nothing, so node:test checks it directly (tests/node/migration-leak-check.test.ts).
+// lines a commit adds, in a file it is given, or in every tracked file (#289). scripts/migration.ts
+// reads the export and the staged changes or the files; at run time this module imports only the
+// planner, which imports nothing, so node:test checks it directly
+// (tests/node/migration-leak-check.test.ts).
 
 import type { LegacySite } from "./legacy-site.ts";
 import { filesOf, lastPartOf } from "./plan.ts";

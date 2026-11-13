@@ -7,7 +7,8 @@
 # build and the full node tests on every pull request (.github/workflows/checks.yml). The checks
 # read the working tree, not the staged snapshot: to commit part of the changes, set the rest aside
 # first (git stash push --keep-index). Where the Legacy site's export exists, the leak check
-# (#179 retro) reads the staged changes too; CI holds no export. Enable once per clone:
+# (#179 retro) reads the staged changes too, and every tracked file (#289); CI holds no export.
+# Enable once per clone:
 #   git config core.hooksPath .githooks
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
@@ -32,10 +33,11 @@ check node --test tests/node/invisible-characters.test.ts \
   tests/node/cited-source-paths.test.ts tests/node/package-facts.test.ts \
   tests/node/document-versions.test.ts tests/node/public-titles.test.ts
 # The export stays outside the repository (ADR 0008), so CI has none, and the script leaves with
-# WordPress. The newest export's dated name sorts last.
+# WordPress. The newest export's dated name sorts last. The whole tree is read, not only what the
+# commit adds: a file written before the newest export arrived may hold one of its texts (#289).
 exports=("$HOME"/.local/state/songhealth-migration/WordPress.*.xml)
 if [[ -e ${exports[-1]} && -f scripts/migration.ts ]]; then
-  check node scripts/migration.ts leak-check "${exports[-1]}"
+  check node scripts/migration.ts leak-check "${exports[-1]}" --tree
 fi
 if git diff --cached --name-only --diff-filter=ACMR | grep -q -e '\.sh$' -e '^\.githooks/'; then
   check npm run --silent lint:shell

@@ -49,7 +49,8 @@ const fixtures: Fixtures = async ({ admin, helpers, term, picture, block }) => {
 		}),
 	);
 
-	const activityTitle = "[ตัวอย่าง] ประชุมคณะกรรมการพัฒนาคุณภาพชีวิตระดับอำเภอสอง ครั้งที่ 4/2569";
+	const activityTitle =
+		"[ตัวอย่าง] คณะกรรมการ พชอ. สอง ประชุมติดตามงานสุขภาพของอำเภอ ครั้งที่ 4/2569";
 	const photos = [
 		{ caption: "ผู้เข้าร่วมลงทะเบียนก่อนเริ่มการประชุม", colours: ["#bae0cf", "#f2d17a"] },
 		{ caption: "นายอำเภอสองเปิดการประชุม", colours: ["#d1ebde", "#e8f0cc"] },

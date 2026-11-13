@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 
 import { addedLinesOf, leaksIn } from "../../scripts/migration/leak-check.ts";
@@ -314,5 +314,96 @@ describe("the leak-check command", () => {
 		const { status, stderr } = runMigration("leak-check");
 		assert.equal(status, 2);
 		assert.match(stderr, /usage/);
+	});
+
+	/**
+	 * Runs the command with --tree in a new repository whose one commit holds `files`, by path, after
+	 * `change` has changed the working tree, from the repository's folder `from`.
+	 */
+	async function tree(
+		files: Record<string, string>,
+		change: (repository: string) => Promise<void> = async () => {},
+		from = ".",
+	) {
+		const folder = await mkdtemp(join(tmpdir(), "songhealth-leak-check-test-"));
+		try {
+			const exportFile = join(folder, "export.xml");
+			await writeFile(exportFile, synthetic());
+			const repository = join(folder, "repository");
+			for (const [path, text] of Object.entries(files)) {
+				await mkdir(dirname(join(repository, path)), { recursive: true });
+				await writeFile(join(repository, path), text);
+			}
+			git(repository, "init", "--quiet");
+			git(repository, "add", ".");
+			const author = ["-c", "user.name=test", "-c", "user.email=test@songhealth.invalid"];
+			git(repository, ...author, "commit", "--quiet", "--no-verify", "--message", "the tree");
+			await change(repository);
+			return runMigrationIn(join(repository, from), "leak-check", exportFile, "--tree");
+		} finally {
+			await rm(folder, { recursive: true });
+		}
+	}
+
+	it("with --tree, stops on a file the tree already holds, from any folder of the repository", async () => {
+		const { status, stderr, stdout } = await tree(
+			{ "scripts/old.ts": `export const path = "${NAME}";\n`, "tests/x.ts": "// nothing\n" },
+			undefined,
+			"tests",
+		);
+		assert.equal(status, 1);
+		assert.match(stderr, /^scripts\/old\.ts: the file name of attachment 11$/m);
+		assert.equal(stderr.includes("tests/x.ts"), false);
+		assert.equal(`${stdout}${stderr}`.includes(NAME), false);
+	});
+
+	it("with --tree, still reads the staged changes, and names a file once for a string", async () => {
+		const { status, stderr } = await tree({ "tests/x.ts": "// nothing\n" }, async (repository) => {
+			await writeFile(join(repository, "tests/new.ts"), `export const path = "${NAME}";\n`);
+			await writeFile(join(repository, `tests/${NAME}`), "\0binary");
+			git(repository, "add", ".");
+		});
+		assert.equal(status, 1);
+		assert.equal(stderr.split("tests/new.ts: the file name of attachment 11").length - 1, 1);
+		assert.match(stderr, /a staged file's name: the file name of attachment 11/);
+	});
+
+	it("with --tree, passes a tree that holds none of its strings", async () => {
+		const { status, stderr } = await tree({
+			"scripts/old.ts": 'export const path = "notice.pdf";\n',
+			"docs/note.md": "Nothing here.\n",
+		});
+		assert.equal(status, 0, stderr);
+	});
+
+	it("with --tree, passes over a file the working tree no longer holds", async () => {
+		const { status, stderr } = await tree(
+			{ "scripts/old.ts": `export const path = "${NAME}";\n`, "tests/x.ts": "// nothing\n" },
+			(repository) => rm(join(repository, "scripts/old.ts")),
+		);
+		assert.equal(status, 0, stderr);
+	});
+
+	it("with --tree, lets a research note name a real item, as a staged one may", async () => {
+		const { status, stderr } = await tree({ "docs/research/legacy.md": `It names ${NAME}.\n` });
+		assert.equal(status, 0, stderr);
+	});
+
+	it("takes --tree alone: with a file, or on another command, it is a wrong use", async () => {
+		const folder = await mkdtemp(join(tmpdir(), "songhealth-leak-check-test-"));
+		try {
+			const exportFile = join(folder, "export.xml");
+			await writeFile(exportFile, synthetic());
+			for (const args of [
+				["leak-check", exportFile, "--tree", exportFile],
+				["plan", exportFile, join(folder, "wp-content.zip"), "--tree"],
+			]) {
+				const { status, stderr } = runMigrationIn(folder, ...args);
+				assert.equal(status, 2, args.join(" "));
+				assert.match(stderr, /usage/);
+			}
+		} finally {
+			await rm(folder, { recursive: true });
+		}
 	});
 });
