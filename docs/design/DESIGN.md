@@ -242,6 +242,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-secondary-on-soft` on `surface-base`, the lightest the Current Announcements' glow makes the band under its lead | 5.66:1 |
 | `surface-base` (the label, the lead and the counts' words) on the Health Service Discovery band's gradient: measured (§8.9) | 5.20:1 or more |
 | `surface-base` (the breadcrumb, the label, the H1 and the lead) on the field under a list's heading (`/news`, Health News, Health Content): measured (§7.8) | 6.45:1 or more |
+| `brand-primary` focus ring of a list's card against what lies beside it, its `surface-base` band, over the field's lower edge or the page (`focus-ring-banded`, §7.3): measured at `5fb6b4a` with `scripts/measure-focus-contrast.ts` on `/news` at the five widths (#283) | 5.09:1 or more; a few blended pixels at the cards' fractional edges at 1,024 and 768 px down to 2.77:1, under 0.5 % of the ring's neighbours |
 | `accent-warm` (the counts' numbers, large text) on the band's gradient, over its glow: measured (§8.9) | 3.22:1 or more |
 | `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
@@ -312,7 +313,7 @@ own module.
   2026-11-11: #241 comment 6791096480, item 1), and so does the link of a list's heading on the
   deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link, 20 px in the search's
   submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The hero's search field opens with a 20 px `search`
-  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's). A Service card shows
+  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's card `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3). A Service card shows
   the Service's icon (below).
 - **Service icons** (Product Owner, 2026-11-12: #248 comment 6826430670): a Service card's tile
   shows the icon staff chose for the Service in the Service editor, on the Homepage (§8.4) and in
@@ -429,7 +430,10 @@ this document names:
   below `sm` a row with a 120 px picture at 4:3, radius 14, 10 px inside the card, which leaves
   the title 130 px at 320 px. Under the picture one line with the date (13 / 20 semibold,
   `brand-primary`), a dot and the label (regular, `text-secondary`): the News category on `/news`
-  and the first Health Topic on Health News and Health Content, the date alone without one. Then
+  and the first Health Topic on Health News and Health Content, the date alone without one. Below
+  `sm`, where the row holds no label beside the date, the whole label goes on the next line
+  without the dot (Product Owner, 2026-11-13: #283 comment 6855983271); from `sm` a label longer
+  than its column runs onto the next line. Then
   the title, an H2, body size semibold below `sm` and body-large from `sm`, three lines at most;
   from `sm` the summary at label size in `text-secondary`, two lines at most, and none below `sm`.
   Without a picture, or when its media item was deleted, the `plain-visual` with the 48 px
@@ -437,17 +441,18 @@ this document names:
   two. The cards go three to a row from `lg`, two from `sm` and in rows below, 24 px apart from
   `sm` and 14 px below; a last row may hold fewer, and no cell is filled. Under the pointer, with
   motion allowed, the picture grows by 6 % inside its box and the card lifts 6 px with the `deep`
-  shadow, in place of the ring and the green underlined title; the link still covers the card's
+  shadow, with no ring and the title in its colour; the link still covers the card's
   resting place. Each card reveals as it comes into the window, and its picture's box shimmers as
   the page opens (§8.12). Keyboard focus is the global 3 px outline with a `surface-base` band
   2 px wide on both sides (`focus-ring-banded`): a card of `/news`'s first row lies over the deep
-  field's lower edge (§7.8), where the ring alone read 1.00:1 on half its length on the
-  prototype's page at 375 px, and with the band what lies beside the ring reads 5.40:1 or more
-  (Product Owner, 2026-11-13: #283 comment 6854670042). On the page's colour the band hardly
+  field's lower edge (§7.8), where the ring alone reads 1.00:1 on half its length at 375 px, and
+  with the band what lies beside the ring reads 5.09:1 or more (Product Owner, 2026-11-13: #283
+  comment 6854670042; measured at `5fb6b4a` with `scripts/measure-focus-contrast.ts`, §3.2). On
+  the page's colour the band hardly
   shows.
 - **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
-  Health Content card in a list to 16:9 from `sm` and 4:3 below (`ContentCard.astro`; 16:10
-  until Feature 009 #283), as the Homepage's small News card does; the Homepage's Health Content
+  Health Content card in a list to 16:9 from `sm` and 4:3 below (`ContentCard.astro`), as the
+  Homepage's small News card does; the Homepage's Health Content
   cards and its Activity tiles have their own boxes (§8.8, §8.10). Every crop centres on the middle, or around the focal point
   that the field's value carries. A One Page in a card therefore shows its middle, where its photo
   collage is (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144 names the 16:9 crop, exact
@@ -1541,7 +1546,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   heading".
 - **v1.3 the lists' card (2026-11-13, Feature 009 #283):** the cards of `/news`, Health News and
   Health Content are the Homepage's small News card (§7.3): a 16:9 picture from 640 px and a row
-  with a 120 px picture at 4:3 below, the date with a dot and the label on one line, the title in
+  with a 120 px picture at 4:3 below, the date with a dot and the label on one line from 640 px
+  and the label under the date below, the title in
   three lines at most and from 640 px the summary in two, the list's icon on a missing picture's
   visual, the Homepage's hover in place of #193's ring and green underlined title, a reveal and a
   shimmer (§8.12), and a focus ring with a white band, `focus-ring-banded` (§3). `ContentCard`
@@ -1549,4 +1555,5 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   as before. The crop was 16:10, the label came before the date, the summary showed three lines at
   every width and the visual was a plain `surface-soft` box. What each list reads, its order, its
   page size, its whole-card link and its addresses remain. Authority: spec #280 "The cards",
-  "Motion" and decisions 4, 10 and 15, and #283 comment 6854670042 (the ring's band).
+  "Motion" and decisions 4, 10 and 15, #283 comment 6854670042 (the ring's band) and #283 comment
+  6855983271 (the label under the date below 640 px).

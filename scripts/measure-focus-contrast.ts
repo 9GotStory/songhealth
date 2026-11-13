@@ -33,7 +33,7 @@
 
 import type { Page } from "@playwright/test";
 
-import { contrast, decode, measureAtEachWidth, pixelAt, rgbOf } from "./contrast-kit.ts";
+import { contrast, decode, distance, measureAtEachWidth, pixelAt, rgbOf } from "./contrast-kit.ts";
 
 const args = process.argv.slice(2);
 const options: { fixtures?: string; style?: string } = {};
@@ -96,15 +96,15 @@ async function ringContrast(page: Page, selector: string): Promise<string> {
 	const box = await element.boundingBox();
 	if (box === null) return "not shown";
 	// The element's box widened by the ring's reach and a pixel of its blended edge, in the window.
-	const window = page.viewportSize()!;
+	const viewport = page.viewportSize()!;
 	const margin = Math.ceil(ring.offset + ring.width) + 1;
 	const x = Math.max(0, Math.floor(box.x) - margin);
 	const y = Math.max(0, Math.floor(box.y) - margin);
 	const clip = {
 		x,
 		y,
-		width: Math.min(window.width, Math.ceil(box.x + box.width) + margin) - x,
-		height: Math.min(window.height, Math.ceil(box.y + box.height) + margin) - y,
+		width: Math.min(viewport.width, Math.ceil(box.x + box.width) + margin) - x,
+		height: Math.min(viewport.height, Math.ceil(box.y + box.height) + margin) - y,
 	};
 	const unfocused = await page.screenshot({ clip });
 	await element.focus();
@@ -133,7 +133,7 @@ async function ringContrast(page: Page, selector: string): Promise<string> {
 		const outer = outside(px, py, ring.offset + ring.width);
 		if (inner >= 0.5 && outer <= -0.5) {
 			const shown = pixelAt(after!, at);
-			if (shown.reduce((sum, channel, i) => sum + Math.abs(channel - color[i]!), 0) > 24) covered++;
+			if (distance(shown, color) > 24) covered++;
 			under.add(contrast(color, pixelAt(before!, at)));
 		} else if ((inner <= -0.5 && inner >= -1.5) || (outer >= 0.5 && outer <= 1.5)) {
 			// The pixel next to the ring on either side, as the page shows it with focus.

@@ -21,6 +21,11 @@ export function rgbOf(color: string): Rgb {
 	return [r, g, b];
 }
 
+/** How far apart two colours are: the sum of their channels' differences, 0 to 765. */
+export function distance(one: Rgb, other: Rgb): number {
+	return one.reduce((sum, channel, index) => sum + Math.abs(channel - other[index]!), 0);
+}
+
 /** WCAG 2.2's relative luminance of a colour. */
 function luminance([r, g, b]: Rgb): number {
 	const linear = (channel: number) => {

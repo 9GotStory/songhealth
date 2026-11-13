@@ -1,8 +1,8 @@
 // Shared single-destination cards (#193; spec #190, PO comment 6707205912), and the Homepage's own
 // Service card, News cards and Announcement rows, which open from their whole surface as they do
 // (Feature 008 #242, #244, #245). The News, Health News and Health Content lists' cards are the
-// Homepage's small News card since Feature 009 #283 (spec #280 "The cards"): they rise under the
-// pointer in place of #193's ring, and their focus ring has a white band on both sides.
+// Homepage's small News card (Feature 009 #283; spec #280 "The cards"): they rise under the pointer
+// with no ring, and their focus ring has a white band on both sides.
 // The public HTTP/browser seam checks native activation across each card's surface, independent
 // of its markup/classes. Fixtures belong to this suite; Homepage menus restore in finally.
 import type { Locator, Page } from "@playwright/test";
@@ -483,12 +483,22 @@ for (const width of [375, 1440]) {
 			await page.goto(list);
 			await card.scrollIntoViewIfNeeded();
 			const resting = await boxOf(picture, "the picture at rest");
+			const heading = card.getByRole("heading", { level: 2 });
+			const color = await heading.evaluate((el) => getComputedStyle(el).color);
 			await pointAtCardSurface(page, picture);
 			await expect
 				.poll(async () => (await boxOf(picture, "the picture")).width / resting.width, {
 					message: "the picture grows by 6 % under the pointer",
 				})
 				.toBeCloseTo(1.06, 2);
+			await expect(
+				card.getByRole("link"),
+				"no ring under the pointer, with motion allowed",
+			).toHaveCSS("box-shadow", "none");
+			await expect(heading, "the title keeps its colour, with motion allowed").toHaveCSS(
+				"color",
+				color,
+			);
 		});
 
 		test(`a ${name} card's title shows three lines at most and its summary two, at ${width} px${width < 640 ? ", where the summary does not show" : ""}`, async ({

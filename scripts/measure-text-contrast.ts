@@ -28,7 +28,7 @@
 
 import type { Page } from "@playwright/test";
 
-import { contrast, decode, measureAtEachWidth, pixelAt, rgbOf } from "./contrast-kit.ts";
+import { contrast, decode, distance, measureAtEachWidth, pixelAt, rgbOf } from "./contrast-kit.ts";
 
 const args = process.argv.slice(2);
 const fixturesPath = args[0] === "--fixtures" ? args[1] : undefined;
@@ -62,8 +62,7 @@ async function lowestContrast(page: Page, selector: string): Promise<string> {
 	let covered = 0;
 	for (let at = 0; at < behind!.data.length; at += 4) {
 		const [shown, field] = [pixelAt(seen!, at), pixelAt(behind!, at)];
-		const moved = shown.reduce((sum, channel, index) => sum + Math.abs(channel - field[index]!), 0);
-		if (moved < 60) continue;
+		if (distance(shown, field) < 60) continue;
 		covered++;
 		lowest = Math.min(lowest, contrast(text, field));
 	}

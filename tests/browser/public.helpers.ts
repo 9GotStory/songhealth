@@ -1515,7 +1515,7 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 export interface ListCards {
 	path: string;
 	/** The Lucide icon of the plain visual that stands in for a missing picture. */
-	icon: string;
+	icon: "message-square" | "heart-pulse";
 	/**
 	 * Whether an item of the list can have no label: every item on Health News has a Health Topic,
 	 * which labels its card.
@@ -1538,15 +1538,16 @@ export interface ListCards {
 /**
  * Declare the test of a list's cards (spec #280 "The cards"): from 640 px a card shows its picture
  * above its text, and below 640 px it is a row with a 120 px picture at 4:3 beside its text, 130 px
- * of it at 320 px; under the picture its date, a dot and its label on one line, its title as an H2,
- * and from 640 px its summary. A card without a label writes the date alone, one without a
+ * of it at 320 px; under the picture its date, a dot and its label on one line, and below 640 px
+ * the label on the line under the date without the dot; its title as an H2, and from 640 px its
+ * summary. A card without a label writes the date alone, one without a
  * summary shows none, and one without a picture shows the plain visual with the list's icon in a
  * 48 px tile. The cards go three to a row from 1,024 px, two from 640 px and in rows below, 24 px
- * apart from 640 px and 14 px below.
+ * apart from 640 px and 14 px below, each in one column.
  */
 export function testListCards(list: ListCards): void {
 	const SUMMARY = "สรุปข่าวสำหรับทดสอบการ์ดของรายการ ซึ่งแสดงใต้ชื่อเรื่องตั้งแต่ 640 พิกเซล";
-	test(`on ${list.path} a card shows its picture, then its date, a dot and its label on one line, its title as an H2 and from 640 px its summary; below 640 px it is a row with a 120 px picture at 4:3 beside its text and no summary; a card without ${list.unlabelled ? "a label writes its date alone, " : ""}a summary shows none, and one without a picture shows the plain visual with the ${list.icon} icon in a 48 px tile`, async ({
+	test(`on ${list.path} a card shows its picture, then its date, a dot and its label on one line, its title as an H2 and from 640 px its summary; below 640 px it is a row with a 120 px picture at 4:3 beside its text, its label on the line under its date with no dot, and no summary; a card without ${list.unlabelled ? "a label writes its date alone, " : ""}a summary shows none, and one without a picture shows the plain visual with the ${list.icon} icon in a 48 px tile`, async ({
 		page,
 	}) => {
 		const term = await list.createLabel("สุขภาพชุมชน");
@@ -1557,6 +1558,14 @@ export function testListCards(list: ListCards): void {
 		const fullCard = listedItem(page, full.item.title);
 		const bareCard = listedItem(page, bare.item.title);
 		const lineOf = (card: Locator) => card.locator("p").filter({ has: page.locator("time") });
+		const dot = lineOf(fullCard).locator('span[aria-hidden="true"]');
+		const label = lineOf(fullCard).getByText(term.label, { exact: true });
+		// The date's and the label's places on the card (Product Owner, 2026-11-13: #283 comment
+		// 6855983271).
+		const dateAndLabel = async () => ({
+			date: await boxOf(lineOf(fullCard).locator("time"), "the date"),
+			label: await boxOf(label, "the label"),
+		});
 		const fullDate = thaiDate(full.at);
 		const bareDate = thaiDate(bare.at);
 		await expect(
@@ -1602,6 +1611,9 @@ export function testListCards(list: ListCards): void {
 				(await boxOf(fullCard.getByText(SUMMARY, { exact: true }), "the summary")).y,
 				`the summary is under the title at ${width} px`,
 			).toBeGreaterThanOrEqual(title.y + title.height);
+			const line = await dateAndLabel();
+			expect(line.label.y, `the label beside the date at ${width} px`).toBeCloseTo(line.date.y, 0);
+			await expect(dot, `the dot between them at ${width} px`).toBeVisible();
 		}
 		for (const width of [639, 375, 320]) {
 			await page.setViewportSize({ width, height: 900 });
@@ -1614,6 +1626,15 @@ export function testListCards(list: ListCards): void {
 				shown.x + shown.width,
 				`the title beside the picture at ${width} px`,
 			).toBeLessThanOrEqual(title.x);
+			const line = await dateAndLabel();
+			expect(line.label.y, `the label under the date at ${width} px`).toBeGreaterThanOrEqual(
+				line.date.y + line.date.height - 1,
+			);
+			expect(line.label.x, `the label starts where the date does at ${width} px`).toBeCloseTo(
+				line.date.x,
+				0,
+			);
+			await expect(dot, `no dot at ${width} px`).toBeHidden();
 			if (width === 320) {
 				// As the Homepage's News row (docs/design/DESIGN.md §8.6).
 				expect(title.width, "the title's room at 320 px").toBeCloseTo(130, 0);
@@ -1626,18 +1647,22 @@ export function testListCards(list: ListCards): void {
 		}
 	});
 
-	test(`on ${list.path} the cards go three to a row from 1,024 px, two from 640 px and in rows below, 24 px apart from 640 px and 14 px below`, async ({
+	test(`on ${list.path} the cards go three to a row from 1,024 px, two from 640 px and in rows below, 24 px apart from 640 px and 14 px below, each in one column, a last row's too`, async ({
 		page,
 	}) => {
 		const parts = list.unlabelled ? {} : { term: await list.createLabel("แถวการ์ด") };
 		for (const index of [1, 2, 3, 4]) await list.publishItem(`card-row-${index}`, parts);
-		// The cells' resting places, as the reveal's motion leaves them.
-		await page.emulateMedia({ reducedMotion: "reduce" });
+		// The suite's reduced motion leaves each cell at its resting place.
 		await page.goto(list.path);
-		const cells = cardList(page).grid.getByRole("listitem");
+		const { grid, cards } = cardList(page);
+		const cells = grid.getByRole("listitem");
+		await expect(cells, "a cell holds each card, and no cell stands empty").toHaveCount(
+			await cards.count(),
+		);
 		for (const [width, perRow, gap] of [
 			[1440, 3, 24],
 			[1024, 3, 24],
+			[1023, 2, 24],
 			[768, 2, 24],
 			[640, 2, 24],
 			[639, 1, 14],
@@ -1649,6 +1674,13 @@ export function testListCards(list: ListCards): void {
 				[0, 1, 2, 3].map((index) => boxOf(cells.nth(index), `card ${index + 1}`)),
 			);
 			const rows = boxes.map((box) => Math.round(box.y));
+			const widths = await cells.evaluateAll((items) =>
+				items.map((item) => Math.round(item.getBoundingClientRect().width)),
+			);
+			expect(
+				widths.filter((cellWidth) => cellWidth !== Math.round(boxes[0]!.width)),
+				`every card, a last row's too, takes one column at ${width} px`,
+			).toEqual([]);
 			expect(
 				rows.filter((top) => top === rows[0]).length,
 				`${perRow} to a row at ${width} px`,

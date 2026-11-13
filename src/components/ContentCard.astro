@@ -18,8 +18,11 @@
 //
 // A small card is white: from `sm` a 16:9 picture above its text; below `sm` a compact row, a
 // 120 px picture at 4:3 with the text beside it (item 3), which leaves 130 px for the title at
-// 320 px, enough for "ความดันโลหิตสูง" (107 px). Its text is the date and, on a list, a dot and the
-// label on the same line; the title; and on a list from `sm` the summary in two lines at most.
+// 320 px, enough for "ความดันโลหิตสูง" (107 px). Its text is the date and, on a list, its label:
+// from `sm` a dot and the label on the date's line, and below `sm`, where the row's 130 px hold no
+// label beside the date, the whole label on the next line without the dot (Product Owner,
+// 2026-11-13: #283 comment 6855983271); the title; and on a list from `sm` the summary in two lines
+// at most.
 // Without a picture it shows the plain visual in the picture's place, with a green tile and its
 // 24 px icon, as the Featured card's does (HomeHero): the Homepage's heart, a list's own icon.
 //
@@ -42,8 +45,8 @@
 // and the card shows its visual, so the card never shows a broken image (src/lib/media.ts).
 //
 // The picture's zoom and a small card's lift under the pointer move only under
-// `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading"; spec #280 "The cards",
-// in place of #193's ring and green title on the lists). The article keeps its place and its
+// `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading"; spec #280 "The cards").
+// The article keeps its place and its
 // surface lifts inside it, as HomeServiceCard's does; the link covers the article, so a press on
 // the strip the surface left still opens the item. As the page opens a picture's box shimmers, and
 // stands plain with reduced motion preferred (`picture-shimmer`, src/styles/global.css; Feature
@@ -82,16 +85,28 @@ interface Props {
 	class?: string;
 }
 
+/** The large card's picture: its column beside the four small cards from `lg`, the row below. */
+const LARGE_SIZES = "(min-width: 64rem) 27rem, 100vw";
+
 /**
- * The picture's width: the large card's column beside the four small cards from `lg`, the row
- * below; a small card's column of the Homepage's grid of five, or of a list's three, from `lg`,
- * half the row from `sm` and 120 px below.
+ * What differs between the Homepage's small card and a list's: the title's level and its lines, the
+ * picture's width (a column of the Homepage's grid of five, or of a list's three, from `lg`, half
+ * the row from `sm` and 120 px below), and the link's focus ring.
  */
-const PICTURE_SIZES = {
-	large: "(min-width: 64rem) 27rem, 100vw",
-	home: "(min-width: 64rem) 22rem, (min-width: 40rem) 50vw, 7.5rem",
-	list: "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 7.5rem",
-};
+const KINDS = {
+	home: {
+		heading: "h3",
+		clamp: "line-clamp-2",
+		sizes: "(min-width: 64rem) 22rem, (min-width: 40rem) 50vw, 7.5rem",
+		ring: undefined,
+	},
+	list: {
+		heading: "h2",
+		clamp: "line-clamp-3",
+		sizes: "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 7.5rem",
+		ring: "focus-ring-banded",
+	},
+} as const;
 
 const {
 	kind,
@@ -106,7 +121,7 @@ const {
 } = Astro.props;
 const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
 const Icon = ICONS[Astro.props.icon];
-const Heading = kind === "list" ? "h2" : "h3";
+const { heading: Heading, clamp, sizes, ring } = KINDS[kind];
 const titleId = `content-card-${crypto.randomUUID()}`;
 const loading = eager ? "eager" : "lazy";
 const zoom =
@@ -125,7 +140,7 @@ const zoom =
 				<Image
 					image={image}
 					alt=""
-					sizes={PICTURE_SIZES.large}
+					sizes={LARGE_SIZES}
 					loading={loading}
 					class:list={["absolute inset-0 size-full object-cover", zoom]}
 				/>
@@ -172,7 +187,7 @@ const zoom =
 					<Image
 						image={image}
 						alt=""
-						sizes={PICTURE_SIZES[kind]}
+						sizes={sizes}
 						loading={loading}
 						class:list={["absolute inset-0 size-full object-cover", zoom]}
 					/>
@@ -194,20 +209,19 @@ const zoom =
 						<DateText value={date} />
 						{label && (
 							<>
-								<span aria-hidden="true" class="mx-1.5 text-text-secondary">
+								<span aria-hidden="true" class="mx-1.5 text-text-secondary max-sm:hidden">
 									·
 								</span>
-								<span class="font-normal wrap-anywhere text-text-secondary">{label}</span>
+								<span class="font-normal wrap-anywhere text-text-secondary max-sm:block">
+									{label}
+								</span>
 							</>
 						)}
 					</p>
 				)}
 				<Heading
 					id={titleId}
-					class:list={[
-						"mt-0.5 text-body font-semibold wrap-anywhere sm:text-body-large",
-						kind === "list" ? "line-clamp-3" : "line-clamp-2",
-					]}
+					class:list={["mt-0.5 text-body font-semibold wrap-anywhere sm:text-body-large", clamp]}
 				>
 					<ThaiTitle text={title} />
 				</Heading>
@@ -216,10 +230,6 @@ const zoom =
 				)}
 			</div>
 		</div>
-		<a
-			href={href}
-			aria-labelledby={titleId}
-			class:list={["absolute inset-0 rounded-22", kind === "list" && "focus-ring-banded"]}
-		/>
+		<a href={href} aria-labelledby={titleId} class:list={["absolute inset-0 rounded-22", ring]} />
 	</article>
 )}

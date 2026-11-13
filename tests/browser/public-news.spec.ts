@@ -706,12 +706,18 @@ test("a News item whose featured image was deleted from the media library shows 
 	const removed = await deleteMedia(admin, media.mediaId!);
 	expect(removed.ok, `deleting the media item: ${nativeRefusalOf(removed)}`).toBe(true);
 
-	for (const list of ["/news", `/news/health?topic=${topic.slug}`]) {
+	for (const [list, icon] of [
+		["/news", "message-square"],
+		[`/news/health?topic=${topic.slug}`, "heart-pulse"],
+	]) {
 		await page.goto(list);
 		const card = page.getByRole("article").filter({ hasText: news.title });
 		await expect(card, `${list} still lists the News`).toHaveCount(1);
 		await expect(card.locator("img"), `${list} shows no picture for it`).toHaveCount(0);
-		await expect(card.getByTestId("news-visual"), `${list} shows the plain visual`).toHaveCount(1);
+		await expect(
+			card.getByTestId("news-visual").locator(`svg.lucide-${icon}`),
+			`${list} shows the plain visual with its icon`,
+		).toHaveCount(1);
 	}
 
 	const response = await page.goto(`/news/${news.slug}`);

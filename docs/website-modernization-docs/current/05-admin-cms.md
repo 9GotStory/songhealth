@@ -3,7 +3,7 @@
 > **Document ID:** 05-admin-cms
 > **Status:** CLEAN REBASELINE v2.9 — CURRENT native-only publication
 > **Version:** 2.9
-> **Last Updated:** 13 พฤศจิกายน 2569 (2026-11-13): #283, the lists' card crop
+> **Last Updated:** 13 พฤศจิกายน 2569 (2026-11-13): Feature 009 #283, the lists' card crop
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`, `04-homepage.md`
 > **Purpose:** กำหนดความต้องการของ Admin CMS ที่จำเป็นต่อการดูแล Songhealth โดยใช้ความสามารถมาตรฐานของ CMS ก่อน และสร้างส่วนขยายเฉพาะเมื่อมี gap ที่พิสูจน์แล้ว
 
@@ -50,6 +50,10 @@
 > from the model (§2). An Editor creates a term only after checking the existing ones and when
 > several items will share it, and reviews the terms each fiscal year (§3.1). Migrated items and
 > files follow §5.2.
+
+> **Feature 009 decision (Product Owner, 2026-11-13; spec #280, #283 comment 6855158989):** a News
+> or Health Content card in a list shows the middle 16:9 of its picture from 640 px and the middle
+> 4:3 of a 120 px picture below, around the focal point where one is set (§5.1).
 
 ---
 
