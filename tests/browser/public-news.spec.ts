@@ -494,7 +494,7 @@ test("what follows the heading of /news starts over the field's lower edge, 64 p
 	}
 });
 
-test("on /news the keyboard goes from the breadcrumb to the link ข่าวสุขภาพ to the first card, the two on the field with its accent-warm focus ring, and under the pointer ข่าวสุขภาพ turns accent-warm with brand-dark words", async ({
+test("on /news the keyboard goes from the breadcrumb to the link ข่าวสุขภาพ to the first card, the two on the field with its accent-warm focus ring, and under the pointer ข่าวสุขภาพ turns accent-warm with brand-dark words while a crumb stays as it is", async ({
 	page,
 }) => {
 	const news = await createNews("keyboard");
@@ -528,9 +528,19 @@ test("on /news the keyboard goes from the breadcrumb to the link ข่าวส
 		"color",
 		await tokenColor(page, "brand-dark"),
 	);
+	// accent-warm is no small text on the field, so a crumb keeps its colour and its underline.
+	await home.hover();
+	await expect(home, "the breadcrumb's link under the pointer").toHaveCSS(
+		"color",
+		await tokenColor(page, "surface-base"),
+	);
+	await expect(home, "the breadcrumb's link under the pointer").toHaveCSS(
+		"text-decoration-line",
+		"underline",
+	);
 });
 
-test("/news moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, the link ข่าวสุขภาพ, the cards and the pager show at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
+test("/news moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, the link ข่าวสุขภาพ and the cards show at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
 	page,
 }) => {
 	test.setTimeout(60_000);
