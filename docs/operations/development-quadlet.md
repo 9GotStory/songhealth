@@ -464,9 +464,13 @@ the demo dataset and goes through review before the window opens, since a wrong 
 the restore costs another window (#183 retro):
 
 1. Check that no suite is running, which the lock cannot see: `pgrep -f '^node .*playwright'` prints
-   nothing. Then `scripts/dev-runtime-window.sh open "<why>"` writes the lock.
+   nothing. Agree with the Product Owner when the window closes, then
+   `scripts/dev-runtime-window.sh open "<why, with the ticket>" <until, UTC, such as 2026-11-11T12:00Z>`
+   writes the lock. A window held while a person reviews its data closes at that time too: one held
+   for a review with no end stayed open 19 hours while another session's suite waited (#238 retro).
    `scripts/dev-runtime-update.sh` and `scripts/dev-runtime-env.sh` refuse from now on, naming the
-   window, for every session. Its holder runs `scripts/dev-runtime-env.sh --in-window <command>`.
+   window and its close time, for every session. Its holder runs
+   `scripts/dev-runtime-env.sh --in-window <command>`.
 2. `scripts/dev-runtime-verify.sh`, `scripts/dev-runtime-residue.sh`, then make a folder under
    `~/.local/state/songhealth-qdev/backups/` and run `scripts/dev-runtime-backup.sh <that folder>`.
 3. The work. When a person walks through the result, read what they opened before step 4, while
@@ -484,7 +488,11 @@ the restore costs another window (#183 retro):
    three times, so type `yes` three times), `systemctl --user start songhealth-dev-app.service`, and
    verify.
 5. `scripts/dev-runtime-window.sh close`. `scripts/dev-runtime-window.sh status` says whether one is
-   open, and prints why it opened, when, and the directory it was opened from.
+   open, prints why it opened, when, the directory it was opened from and its close time, warns
+   once that time has passed, and prints the newest line of
+   `~/.local/state/songhealth-qdev/runtime-events.log`. Each window's open and close, and each UAT
+   node's start and stop, adds a line there with its time and script, so a session reads what
+   another one did to the runtime.
 
 **A window another session left open** is closed on the Product Owner's word, by steps 4 and 5
 (#240 retro; #238 comment 6787146310 is the worked record). Its backup is the folder under
@@ -494,6 +502,86 @@ the window opened. Before the restore, stop what the window started (its issue a
 window leaves it, so the restore can be undone. Record what was done on the window's issue.
 `scripts/capture-screenshots.mjs` stops while a window is open, since its pages then show the
 window's content.
+
+## Thai search UAT through a Tailscale Funnel
+
+Staff test Thai search on the migrated content from their own devices, before the production track
+(ADR 0002's trigger; #238). For that window only, the runtime is public through a Tailscale Funnel
+(the Product Owner's decisions, #238 comment 6762442208). `scripts/dev-runtime-uat.sh`, run from a
+checkout that holds it, starts and stops two containers on the host network, labeled
+`io.songhealth.runtime=uat`:
+
+- **`songhealth-uat-proxy`**: `scripts/uat-proxy.ts` on the app unit's Node image, listening on
+  `127.0.0.1:4325` only. It answers GET and HEAD alone. It refuses every `/_emdash` path but a
+  media file, every `/_image` whose `href` is not a media file, a path with a percent-encoded ASCII
+  character or a dot segment, and the paths only the dev server answers: `/media` and the
+  `/@fs/` paths, which serve the media store outside EmDash's media route, every other `/@` path
+  but `/@vite/client`, and every `/__` path, `/__open-in-editor` among them. It sends `Host: 127.0.0.1:4324` with
+  no cookie, credential or forwarding header (`scripts/uat-proxy/policy.ts`), and logs one line
+  per request: its time, status, method and target.
+- **`songhealth-uat-tailscale`**: `tailscale/tailscale:v1.104.4` pinned by digest, an ephemeral node
+  named `songhealth-uat` that funnels `https://songhealth-uat.<tailnet>.ts.net` on 443 to the proxy.
+  Its state lives in memory, so it never outlives the container. This host's own Serve and Funnel
+  configuration, which holds 443, 8443 and 10000, stays untouched.
+
+**Joining the tailnet.** The node takes no auth key. It prints a login link, and the Product Owner
+opens it in a browser signed in to the tailnet's Tailscale account and approves the node (#238
+comment 6763361252, item 1). The tailnet's Funnel attribute must cover that account. Every start
+makes a new node, so every start needs the approval again.
+
+**Commands:**
+
+- `scripts/dev-runtime-uat.sh start` saves `tailscale serve status --json`, starts the proxy, and
+  runs `check` against it on loopback. Only when that passes does it start the node. It prints
+  "approve the node in Tailscale: <link>", waits up to ten minutes for the approval, then prints
+  the URL. Any failure, or no approval, removes what it started.
+- `scripts/dev-runtime-uat.sh check <URL>` asks the URL for `/`, `/search?q=วัคซีน`, a topic filter
+  of `/news/health`, a picture's `/_image` and its media file. Each must answer 200 with the body that
+  loopback gives, random ids aside. It also asks for `/_emdash/admin`, both dev-bypass routes,
+  `/_image` of `setup/dev-bypass`, the picture's file under `/media` and under `/@fs/src/media`,
+  and `/__open-in-editor`, each refused with 403, `/_%65mdash/api/setup/dev-bypass`, refused with 400, and `POST /`, refused
+  with 405. Then it checks that the page's own picture addresses name `127.0.0.1:4324`. It ends
+  `UAT CHECK: PASS` or `FAIL`. A new Funnel name can take some minutes to resolve.
+- `scripts/dev-runtime-uat.sh stop` logs the node out, which deletes an ephemeral node from the
+  tailnet at once. It saves the proxy's log under `~/.local/state/songhealth-qdev/uat/` and prints
+  its path, removes both containers, and compares this host's Serve status with the
+  one `start` saved.
+- `scripts/dev-runtime-uat.sh status` lists the containers, the URL and the newest runtime event.
+
+**On the UAT date** (`09` §13, inside "A window" above):
+
+1. Open the window and back up (its steps 1–2).
+2. Remove the demo dataset and import the trial, then verify it:
+
+   ```bash
+   M=~/.local/state/songhealth-migration
+   scripts/dev-runtime-env.sh --in-window node scripts/demo-dataset.ts remove
+   node scripts/migration.ts import "$M/WordPress.2026-11-06.xml" "$M/wp-content.zip" \
+     --origin http://127.0.0.1:4324 --token-file ~/.local/state/songhealth-qdev/dev-pat
+   node scripts/migration.ts verify "$M/WordPress.2026-11-06.xml" "$M/wp-content.zip" \
+     --origin http://127.0.0.1:4324 --token-file ~/.local/state/songhealth-qdev/dev-pat
+   ```
+
+   ADR 0002's search latency at this volume is already measured on the same import
+   (`docs/evidence/184-trial-import.md`), so the UAT adds how fast the search feels to the staff.
+
+3. Note the UTC time as epoch seconds (`date -u +%s`), then `start` and `check <URL>`. Give the
+   staff the URL and `docs/operations/thai-search-uat-checklist.md`.
+4. After the staff finish, `stop`. Then confirm that no Admin change came in while the node was up:
+   the first command prints nothing when none did. The second, on the log `stop` printed, prints
+   nothing when every request the proxy passed on was a GET or a HEAD; it answered every other
+   method itself, with 405:
+
+   ```bash
+   journalctl --user -u songhealth-dev-app.service -o cat --grep songhealth-admin-change --since @<epoch>
+   awk '/^[0-9]{4}-/ && $3 != "GET" && $3 != "HEAD" && $2 !~ /^4/' <the proxy's log>
+   ```
+
+5. Put it back and close the window (its steps 4–5). The restore brings the demo dataset back:
+   `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` then writes nothing and prints
+   "the demo dataset is installed: …". Then verify reads `VERIFY: PASS` and residue
+   `RESIDUE: NONE`.
+6. Record the staff's results on #238 with the commit verify printed.
 
 ## Uninstall
 
@@ -530,5 +618,7 @@ account's storage also holds the accepted Feature 001 production image
 - Production definitions (`deploy/quadlet/`, `deploy/Containerfile`,
   `docs/operations/production-foundation.md`) are unchanged.
 - This runtime must not grow into a parallel production stack. T022/T028 remain pending.
+- The runtime publishes on loopback only. The one exception is the Thai search UAT's Funnel
+  above, through its read-only proxy, and only while the UAT lasts.
 - The T021 fixture route exists only in this runtime's `astro dev`. `astro build` and
   `deploy/Containerfile` never load the dev configuration or `tests/browser/`.
