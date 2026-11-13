@@ -128,6 +128,15 @@ Use `npm run format` to fix formatting: it includes the comment wrapper that Pre
 Record the prototype's question, verdict and source context with its ticket; publishing the
 prototype follows that ticket's scope.
 
+A prototype is published on a `prototype/<name>` branch outside `main`: its builders under
+`docs/prototypes/<name>/` and its record, `docs/prototypes/<name>.md`, in an ordinary commit that
+passes the pre-commit hook once the branch adds `docs/prototypes/**` to `knip.jsonc`'s `ignore`.
+This repository is public, so only what `scripts/migration.ts leak-check` passes goes there. Build
+a prototype on the demo dataset's content, or run the check on its data the day it is built: a
+prototype built on Legacy site content publishes its builders and record alone, and its spec says
+so (#250 retro: #239 promised the whole prototype as a primary source, and its data, pages and
+screenshots had to stay on the machine).
+
 ## The development runtime
 
 The single development runtime (Product Owner decision 2026-10-28; Feature 002 T036). Full

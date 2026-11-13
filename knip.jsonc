@@ -24,4 +24,6 @@
 	"ignoreUnresolved": ["^/src/"],
 	// Accepted Feature 002 evidence drivers: records, not maintained code.
 	"ignore": ["specs/**"],
+	// The host's own command, which scripts/dev-runtime-opened.ts runs to read the app's log.
+	"ignoreBinaries": ["podman"],
 }
