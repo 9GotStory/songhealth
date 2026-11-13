@@ -86,6 +86,11 @@ and why, and `.jscpd-baseline.json` records them.
   element's edge (`tests/node/public-hover.test.ts`). A card that rises still opens from every part
   of its resting place: its link reaches over the strip its surface left, as
   `src/components/HomeServiceCard.astro` does (#242 retro).
+- A piece that takes the keyboard's focus and lies over two surfaces, such as a card over the deep
+  field's edge, has its focus ring's contrast read against each (3:1, WCAG 2.2 SC 1.4.11), and
+  its pull request states the readings. The suites check that a ring shows and is whole, and axe
+  does not measure it against what lies behind: in #281 a card's `brand-primary` ring passed every
+  suite at 1.89:1 on the field (#281 retro; Product Owner, 2026-11-13: #281 comment 6848893055).
 - `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
   the Homepage's and the one under a page's heading (spec #280 "The field under a heading"), it is
   4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product
