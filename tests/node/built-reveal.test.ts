@@ -14,7 +14,7 @@ const WORKING: RevealReadings = {
 	windowHeight: 900,
 	waiting: { top: 5_200, timeline: "view()", opacity: 0 },
 	shown: 1,
-	still: { top: 5_200, opacity: 1 },
+	reducedMotion: { top: 5_200, opacity: 1 },
 };
 
 describe("the built page's reveal check", () => {
@@ -36,7 +36,7 @@ describe("the built page's reveal check", () => {
 		const startsAt = (top: number): RevealReadings => ({
 			...WORKING,
 			waiting: { ...WORKING.waiting, top },
-			still: { ...WORKING.still, top },
+			reducedMotion: { ...WORKING.reducedMotion, top },
 		});
 		assert.deepEqual(revealFailures(startsAt(900)), []);
 		assert.deepEqual(revealFailures(startsAt(899)), [
@@ -52,7 +52,7 @@ describe("the built page's reveal check", () => {
 	});
 
 	it("names a part that waits although reduced motion is preferred", () => {
-		assert.deepEqual(revealFailures({ ...WORKING, still: { top: 5_200, opacity: 0 } }), [
+		assert.deepEqual(revealFailures({ ...WORKING, reducedMotion: { top: 5_200, opacity: 0 } }), [
 			"reduced motion, at the page's top: opacity is 0, not 1",
 		]);
 	});

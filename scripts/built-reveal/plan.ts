@@ -7,7 +7,10 @@
 
 /** One part as the page shows it at its top. */
 interface PartAtTop {
-	/** Its top edge, in px below the window's top. */
+	/**
+	 * Its top edge as it shows, in px below the window's top. A part that waits shows 28 px below its
+	 * place, the reveal's rise.
+	 */
 	top: number;
 	/** How opaque it shows through everything that holds it: 0 to 1. */
 	opacity: number;
@@ -21,16 +24,28 @@ export interface RevealReadings {
 	/** How opaque it shows with motion allowed once it is in the window. */
 	shown: number;
 	/** With reduced motion preferred, at the page's top. */
-	still: PartAtTop;
+	reducedMotion: PartAtTop;
 }
 
+/** The three states, as the check's lines and its failures name them. */
+export const REVEAL_STATES = {
+	waiting: "motion allowed, at the page's top",
+	shown: "motion allowed, scrolled to",
+	reducedMotion: "reduced motion, at the page's top",
+} as const;
+
 /** What is wrong with the readings, one line each: none for a reveal that works. */
-export function revealFailures({ windowHeight, waiting, shown, still }: RevealReadings): string[] {
+export function revealFailures({
+	windowHeight,
+	waiting,
+	shown,
+	reducedMotion,
+}: RevealReadings): string[] {
 	const failures: string[] = [];
 	const expect = (state: string, holds: boolean, failure: string) => {
 		if (!holds) failures.push(`${state}: ${failure}`);
 	};
-	// A part whose top edge is at the window's bottom edge has not begun to come in.
+	// A part that shows from the window's bottom edge down lies below the window.
 	const expectBelow = (state: string, { top }: PartAtTop) =>
 		expect(
 			state,
@@ -38,17 +53,19 @@ export function revealFailures({ windowHeight, waiting, shown, still }: RevealRe
 			`the part is not below the window (${top} px down, the window is ${windowHeight} px)`,
 		);
 
-	const waits = "motion allowed, at the page's top";
-	expectBelow(waits, waiting);
+	expectBelow(REVEAL_STATES.waiting, waiting);
 	expect(
-		waits,
+		REVEAL_STATES.waiting,
 		waiting.timeline === "view()",
 		`animation-timeline is ${waiting.timeline}, not view()`,
 	);
-	expect(waits, waiting.opacity === 0, `opacity is ${waiting.opacity}, not 0`);
-	expect("motion allowed, scrolled to", shown === 1, `opacity is ${shown}, not 1`);
-	const stands = "reduced motion, at the page's top";
-	expectBelow(stands, still);
-	expect(stands, still.opacity === 1, `opacity is ${still.opacity}, not 1`);
+	expect(REVEAL_STATES.waiting, waiting.opacity === 0, `opacity is ${waiting.opacity}, not 0`);
+	expect(REVEAL_STATES.shown, shown === 1, `opacity is ${shown}, not 1`);
+	expectBelow(REVEAL_STATES.reducedMotion, reducedMotion);
+	expect(
+		REVEAL_STATES.reducedMotion,
+		reducedMotion.opacity === 1,
+		`opacity is ${reducedMotion.opacity}, not 1`,
+	);
 	return failures;
 }
