@@ -214,7 +214,9 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   feature's direction and the decisions that amend the document's rules, such as a model change in
   `02`. In `docs/design/DESIGN.md` a ticket's own decisions go into §13's change history, one
   entry per ticket with its authority, and the banner stays as it is (#248 retro: #242 to #248
-  each added an entry and none touched the banner).
+  each added an entry and none touched the banner). The feature's hand-off ticket alone rewrites
+  the banner's sentence on which tickets build what, so it names every ticket and no page the
+  feature has since built as still to come (#250 retro, #250 comment 6841500044).
 - **Model changes.** A field or collection added to `seed/seed.json` is listed in its resource's
   section of `02-content-model.md`, under the feature's banner (#248 retro: `02` §12 lacked the
   Service's icon until review).

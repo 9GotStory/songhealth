@@ -473,12 +473,13 @@ the restore costs another window (#183 retro):
    it can still be walked again (#184 retro):
 
    ```bash
-   podman logs --timestamps --since <UTC time> songhealth-qdev-app 2>&1 \
-     | sed 's/\x1b\[[0-9;]*m//g' | grep -E '\[[0-9]{3}\] '
+   node scripts/dev-runtime-opened.ts <UTC time, such as 2026-11-13T01:42:00Z>
    ```
 
-   `/` every 15 seconds is the container's health check, and the log drops query strings, so a
-   filter's address reads as its list's.
+   It prints each page a request named and each stretch where `/` was asked for more often than
+   the container's health check asks, every 15 seconds (#250 retro). The log starts at the app's
+   last start, drops query strings, so a filter's address reads as its list's, and holds no window
+   width. A walkthrough outside a window is read the same way, before the next promotion.
 4. Put it back: `systemctl --user stop songhealth-dev-app.service`, then the restore above (it asks
    three times, so type `yes` three times), `systemctl --user start songhealth-dev-app.service`, and
    verify.
