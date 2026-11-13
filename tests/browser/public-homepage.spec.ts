@@ -77,6 +77,7 @@ import {
 	VIEWPORTS,
 	boxOf,
 	detailOf,
+	entersAfter,
 	expect,
 	expectAccessibleAtEachWidth,
 	expectFocusRingWhole,
@@ -85,11 +86,13 @@ import {
 	expectNoHorizontalScroll,
 	expectVisibleFocusOnEveryStop,
 	expectVisuallyHidden,
+	heldBack,
 	homepageSection,
 	itemsPerRow,
 	listedItem,
 	listedTitles,
 	ownTitles,
+	selfRunningEnds,
 	shownOpacity,
 	siteTitleParts,
 	test,
@@ -2062,36 +2065,6 @@ test("with every section showing, the sections follow the Figma order on a deskt
 });
 
 /**
- * The parts of `scope` an effect holds back as the page is now: any that is not fully opaque or
- * lies away from its place. Decorations, hidden from assistive technology, are left out.
- */
-function heldBack(scope: Locator): Promise<string[]> {
-	return scope.evaluate((root) =>
-		[root, ...root.querySelectorAll("*")]
-			.filter((part) => part.closest('[aria-hidden="true"]') === null)
-			.filter((part) => {
-				const style = getComputedStyle(part);
-				return style.opacity !== "1" || style.translate !== "none";
-			})
-			.map((part) => `<${part.localName}> ${part.textContent?.trim().slice(0, 40)}`),
-	);
-}
-
-/**
- * After how many seconds `part` starts to enter when the page opens: the delay of the entrance
- * that it, or what holds it, has. -1 with no entrance.
- */
-function entersAfter(part: Locator): Promise<number> {
-	return part.evaluate((element) => {
-		for (let node: Element | null = element; node; node = node.parentElement) {
-			const style = getComputedStyle(node);
-			if (style.animationName !== "none") return parseFloat(style.animationDelay);
-		}
-		return -1;
-	});
-}
-
-/**
  * The page's height and each section's place and size at the desktop width, 375 px and 320 px, at
  * the page's top. The viewport ends at the desktop width.
  */
@@ -2112,20 +2085,6 @@ async function pageLayouts(page: Page) {
 		);
 	}
 	return layouts;
-}
-
-/**
- * When each effect that runs by itself, on the page's clock, is over, in milliseconds after it
- * began; Infinity for one that never ends. A reveal runs on the visitor's scrolling and is left
- * out. `scope` is the part of the page to read.
- */
-function selfRunningEnds(scope: Locator): Promise<number[]> {
-	return scope.evaluate((root) =>
-		root
-			.getAnimations({ subtree: true })
-			.filter((animation) => animation.timeline instanceof DocumentTimeline)
-			.map((animation) => Number(animation.effect?.getComputedTiming().endTime)),
-	);
 }
 
 /** Scroll to each of the Homepage's sections in turn and fail on any part of it held back. */

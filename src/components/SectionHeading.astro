@@ -5,6 +5,9 @@
 // section that shows a lead builds it, and its link, beside the heading, as the Current
 // Announcements do (src/pages/index.astro).
 //
+// A list page's heading on the deep field is this block with the page's H1, `level={1}`, in the
+// section title's type (Feature 009 #281; spec #280 "List heading"; ListHeading.astro).
+//
 // The icon comes through the `icon` slot, a Lucide icon at 24 px, and is decorative: the tile is
 // hidden from assistive technology. On a dark surface the tile is accent-warm, the H2 is
 // surface-base. The label is accent-warm on brand-dark (7.75:1) and surface-base on the
@@ -17,19 +20,22 @@ import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	/** The H2's id, unique on the page, which the section names itself by. */
-	id: string;
-	/** The small label above the H2. */
+	id?: string;
+	/** The small label above the heading. */
 	label: string;
 	title: string;
+	/** The heading's level: a section's H2, or a page's H1. */
+	level?: 1 | 2;
 	/** The address of the section's own list. */
 	href?: string;
-	/** The dark surface the section is on: brand-dark, or the Homepage's deep field. */
+	/** The dark surface the heading is on: brand-dark, or the deep field. */
 	surface?: "dark" | "field";
 	/** The heading's own classes, such as its reveal as it comes into the window. */
 	class?: string;
 }
 
-const { id, label, title, href, surface, class: className } = Astro.props;
+const { id, label, title, level = 2, href, surface, class: className } = Astro.props;
+const Heading = level === 1 ? "h1" : "h2";
 const onDark = surface !== undefined;
 /** The label's colour, which keeps 4.5:1 on its surface. */
 const labelColor = {
@@ -62,7 +68,7 @@ const labelColor = {
 			>
 				{label}
 			</p>
-			<h2
+			<Heading
 				id={id}
 				class:list={[
 					"section-title wrap-anywhere",
@@ -70,7 +76,7 @@ const labelColor = {
 				]}
 			>
 				<ThaiTitle text={title} />
-			</h2>
+			</Heading>
 		</div>
 	</div>
 	{href && <SectionListLink href={href} title={title} tone={onDark ? "dark" : "outline"} />}

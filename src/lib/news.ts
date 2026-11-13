@@ -13,6 +13,15 @@ import {
 } from "emdash";
 import { TOPIC_PARAM } from "./terms";
 
+/**
+ * How the News list is headed, on /news and in the Homepage's Latest News: the label above the
+ * heading, as the menu names the section, and the heading (spec #280 "Decisions", 3).
+ */
+export const NEWS_HEADING = { label: "ข่าวสาร", title: "ข่าวประชาสัมพันธ์" };
+
+/** The title of Health News, /news/health, which /news links to by it. */
+export const HEALTH_NEWS_TITLE = "ข่าวสุขภาพ";
+
 /** The fixed number of News a list page shows. */
 const NEWS_PAGE_SIZE = 12;
 

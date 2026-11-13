@@ -8,7 +8,7 @@
 //   (src/lib/homepage-curation.ts). With none, the headline and the search alone;
 // - the Frequently Used Services (Feature 008 #242; spec #239 "Frequently Used Services";
 //   HomeServiceCard): up to 6 Services from their menu, in menu order, as white cards on the
-//   hero's deep field (HomeDeepField), three to a row from `lg`, two from `sm` and one below. Four
+//   hero's deep field (DeepField), three to a row from `lg`, two from `sm` and one below. Four
 //   Services go two to a row, so no cell is empty. From `sm` the grid's lower 110 px
 //   (--field-overhang) lie below the field, which leaves that room under it. With no Service the
 //   field ends under the hero;
@@ -108,10 +108,10 @@ import Hospital from "@lucide/astro/icons/hospital";
 import MessageSquare from "@lucide/astro/icons/message-square";
 import Search from "@lucide/astro/icons/search";
 import Users from "@lucide/astro/icons/users";
+import DeepField from "../components/DeepField.astro";
 import HomeActivityTile from "../components/HomeActivityTile.astro";
 import HomeAnnouncementRow from "../components/HomeAnnouncementRow.astro";
 import HomeContactCard from "../components/HomeContactCard.astro";
-import HomeDeepField from "../components/HomeDeepField.astro";
 import HomeHealthCard from "../components/HomeHealthCard.astro";
 import HomeHero from "../components/HomeHero.astro";
 import HomeLeadershipStrip from "../components/HomeLeadershipStrip.astro";
@@ -135,7 +135,7 @@ import { directoryOverview } from "../lib/health-services";
 import { activitiesLayout, activityPictureSizes } from "../lib/homepage-activities";
 import { readHomepageCuration } from "../lib/homepage-curation";
 import { homepageSpacing, type HomepageSection } from "../lib/homepage-spacing";
-import { latestNews } from "../lib/news";
+import { NEWS_HEADING, latestNews } from "../lib/news";
 import { readOfficeContact } from "../lib/office-contact";
 import { OFFICE_SUMMARY } from "../lib/office-summary";
 import { listHomepageLeadership } from "../lib/personnel";
@@ -245,7 +245,7 @@ const discoveryField =
 <SiteLayout section="home" description={OFFICE_SUMMARY} canonical="/">
 	<meta slot="head" name="songhealth-foundation" content="public-runtime" />
 
-	<HomeDeepField extended={services.length > 0}>
+	<DeepField extended={services.length > 0}>
 		<HomeHero siteTitle={identity.title} featured={featured} />
 		{services.length > 0 && (
 			<section aria-labelledby="home-services" class="relative pt-2 max-sm:pb-10">
@@ -275,7 +275,7 @@ const discoveryField =
 				</div>
 			</section>
 		)}
-	</HomeDeepField>
+	</DeepField>
 
 	{leaders.length > 0 && (
 		<section
@@ -293,8 +293,8 @@ const discoveryField =
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-news"
-					label="ข่าวสาร"
-					title="ข่าวประชาสัมพันธ์"
+					label={NEWS_HEADING.label}
+					title={NEWS_HEADING.title}
 					href="/news"
 					class="scroll-reveal"
 				>

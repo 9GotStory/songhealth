@@ -22,7 +22,8 @@
 //   whether an image loads, shows its whole picture and fills its box; a colour
 //   token as the browser computes it; where parts of a page sit, one under
 //   another or side by side in rows; and how a word of a title lies in its
-//   lines and its box.
+//   lines and its box; the deep field, and what an entrance or a reveal holds
+//   back, when a part enters and when what runs by itself ends.
 // - `expectPreviewRenders`: a draft's signed preview link (cms.helpers.ts
 //   mintPreviewLink) at the draft's address, rendering it out of search engines.
 // - `sitemapLocations`: the addresses a sitemap document lists.
@@ -504,6 +505,58 @@ export function shownOpacity(part: Locator): Promise<number> {
 		}
 		return opacity;
 	});
+}
+
+/**
+ * The parts of `scope` an effect holds back as the page is now: any that is not fully opaque or
+ * lies away from its place. Decorations, hidden from assistive technology, are left out.
+ */
+export function heldBack(scope: Locator): Promise<string[]> {
+	return scope.evaluate((root) =>
+		[root, ...root.querySelectorAll("*")]
+			.filter((part) => part.closest('[aria-hidden="true"]') === null)
+			.filter((part) => {
+				const style = getComputedStyle(part);
+				return style.opacity !== "1" || style.translate !== "none";
+			})
+			.map((part) => `<${part.localName}> ${part.textContent?.trim().slice(0, 40)}`),
+	);
+}
+
+/**
+ * After how many seconds `part` starts to enter when the page opens: the delay of the entrance
+ * that it, or what holds it, has. -1 with no entrance.
+ */
+export function entersAfter(part: Locator): Promise<number> {
+	return part.evaluate((element) => {
+		for (let node: Element | null = element; node; node = node.parentElement) {
+			const style = getComputedStyle(node);
+			if (style.animationName !== "none") return parseFloat(style.animationDelay);
+		}
+		return -1;
+	});
+}
+
+/**
+ * When each effect that runs by itself, on the page's clock, is over, in milliseconds after it
+ * began; Infinity for one that never ends. A reveal runs on the visitor's scrolling and is left
+ * out. `scope` is the part of the page to read.
+ */
+export function selfRunningEnds(scope: Locator): Promise<number[]> {
+	return scope.evaluate((root) =>
+		root
+			.getAnimations({ subtree: true })
+			.filter((animation) => animation.timeline instanceof DocumentTimeline)
+			.map((animation) => Number(animation.effect?.getComputedTiming().endTime)),
+	);
+}
+
+/**
+ * The deep field a page shows: the one the Homepage's hero and Frequently Used Services stand on,
+ * or the one under a list's heading. A decoration with no role of its own.
+ */
+export function deepField(page: Page) {
+	return page.getByTestId("deep-field");
 }
 
 /**

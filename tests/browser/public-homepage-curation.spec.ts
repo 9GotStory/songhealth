@@ -69,6 +69,7 @@ import {
 	HOMEPAGE_HEADLINE,
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
+	deepField,
 	expect,
 	expectAccessibleAtEachWidth,
 	expectArrowBesideLabel,
@@ -124,14 +125,6 @@ function featuredCard(page: Page, fixture: DraftFixture) {
 /** The Featured picture in `card`: its image that is no decoration, as the blurred copy is. */
 function featuredPicture(card: Locator) {
 	return card.locator('img:not([aria-hidden="true"] img)');
-}
-
-/**
- * The deep field the hero and the Frequently Used Services stand on, a decoration with no role of
- * its own.
- */
-function deepField(page: Page) {
-	return page.getByTestId("deep-field");
 }
 
 /** The hero's headline, the office summary sentence. */
