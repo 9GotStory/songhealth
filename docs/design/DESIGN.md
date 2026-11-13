@@ -4,7 +4,7 @@
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > ticket by ticket from #240, and awaits the Product Owner's acceptance on #239.
-> **Updated:** 2026-11-12 (Feature 008 #249); first drafted 2026-10-30
+> **Updated:** 2026-11-13 (Feature 008 #250); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -37,10 +37,11 @@
 > look the Product Owner chose from a prototype, the Homepage first, on the existing colours, radii
 > and Noto Sans Thai. Every page takes the new shell at once (§7.4): one sticky header row with a
 > round search link and no utility bar, no header link to `/contact`, and the deep green footer with
-> the official channels as pills. Five colours join the tokens (§3.1). #240 implements the shell,
-> and #241 the Homepage's hero on the deep green field and the Homepage section heading (§8, §8.1);
-> the sections of this document they do not name still describe the pages as they are until their
-> own tickets.
+> the official channels as pills. Five colours join the tokens (§3.1). The direction is §2's, in
+> place of "Evolve Concept v1; add no new style" and "Neutral surfaces first". #240 to #249
+> implement the shell and the Homepage (§7.4, §8), each with its own decisions in §13's change
+> history, and #250 the direction, the measures and the limits (§2, §6, §8.2, §10). Every other
+> page keeps its content's design under the new shell until its own feature.
 
 ## 1. Scope, authority and status
 
@@ -67,17 +68,36 @@ custom CMS or page builder.
 
 ## 2. Design direction
 
-**Modern Local Health Civic:** citizen-first, useful, credible, accessible, calm, editorial, and
-recognizably connected to the local health-service network.
+**Bold modern, on the site's own colours:** citizen-first, useful, credible and accessible, in a
+layered look that reads as a current official site and stays recognizably connected to the local
+health-service network.
 
-- **Evolve Concept v1; add no new style.** Its palette, Noto Sans Thai and its composition are the
-  base. Feature 006 put the legacy site's real content on the built design and changed only what
-  that content showed wrong (spec #144). New palettes, typefaces and an agency look were turned
-  down: "เราควรต่อยอดจาก Concept v1 ไม่ใช่การสร้างรูปแบบใหม่แบบนี้".
-- **Prioritize tasks and content**, not decorative dashboard statistics or giant portal menus.
-- **Neutral surfaces first**; health green is a meaningful accent, not an all-green interface.
-- **Clear reading hierarchy:** prominent Featured content, useful search, visible service choices,
-  recent News, health knowledge and contact details.
+- **A redesign, page by page, the Homepage first** (spec #239). The Product Owner found the site
+  too plain, "ตอนนี้ฉันอยากปรับปรุง design frontend ทั้งหมด เนื่องจากมันดูเรียบง่ายเกินไป", and asked
+  for a new design: "รอบนี้ออกแบบใหม่เลย" (2026-11-10). The Homepage and the shell every page shares
+  have it (§7.4, §8). Every other page keeps the design of §7 and §9 under the new shell until its
+  own feature.
+- **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
+  picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
+  "มันยังดูธรรมดา เรียบง่ายเกินไป ไม่ได้ดูทันสมัย หรือ สมัยใหม่เลย", and naming two sites as the look
+  to aim for, <https://spss.up.ac.th/default> and <https://www.up.ac.th/>. The prototype is a
+  throwaway on the branch `prototype/home-redesign` (`docs/prototypes/home-redesign.md` there): it
+  shows the look, and each rule is in this document and the code.
+- **The identity stays:** the tokens' colours and radii and Noto Sans Thai ("สีควรใช้สีเดิมของระบบ
+  design token ของเราดีอยู่แล้ว", "ใช้ Noto Sans Thai และมุมโค้งตาม token เดิม"). A colour or a type
+  size the look needs beyond them is a named token or utility with its source (§3 rule 6, §3.1).
+- **Brand-colour fields and layered cards.** Green is a surface as well as an accent: the deep
+  green field under the hero and the Services, the green bands and the footer. White cards with
+  soft shadows lie on them and over a section's edge, and a section opens with an icon tile and a
+  large heading (§8). Buttons, badges and chips are pills.
+- **The page moves, and never to say something:** an entrance, a reveal, a hover and a loading
+  state, all off under the visitor's reduced-motion setting, and nothing that moves without end
+  (§8.12).
+- **Prioritize tasks and content**, not decorative dashboard statistics or giant portal menus. A
+  number on a page is read from content, as the Health Service directory's counts are (§8.9).
+- **Clear reading hierarchy:** the office's summary and a useful search first, prominent Featured
+  content, visible service choices, who leads the office, recent News and Announcements, health
+  knowledge and contact details.
 - **Imagery:** genuine, permitted local imagery. Most of the office's pictures are One Pages
   (GLOSSARY): a page shows one whole, and a card shows its middle (§7.3, §8.1, §9). A gradient
   visual stands in where an item has no picture; it never replaces an editorial image.
@@ -214,7 +234,12 @@ There is no alert colour: a status is stated in text, and colour supports it.
 - **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`. A
   Homepage section's H2 is `section-title` (§3.1), under a label at label size between slashes. The
   Homepage's H1, the site title, is out of sight: the hero's headline shows in its place (§8.1).
-  Keep the `h1` → `h2` → `h3` order whatever the visual size.
+  The Leadership strip's H2 is H3 size in bold, its compact heading (§8.5). Keep the `h1` → `h2`
+  → `h3` order whatever the visual size.
+- **Sizes beyond the scale** are the Homepage's alone (§3.1): `hero-headline` and
+  `hero-headline-alone` for the hero's headline, up to 44 px beside a Featured card and 52 px
+  without one; `section-title`, up to 42 / 54; and `telephone`, 40 / 52, on the contact card. The
+  header's title and navigation items scale with the window from 1,024 px (§7.4).
 - **Copy:** concise, natural Thai. Dates and categories sit below the title in emphasis, and colour
   is never the only cue. No hard-coded dates, opening hours, news, phone numbers or service status.
 
@@ -309,17 +334,23 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
   compactly (`04` §15, §8.2).
 - **Breakpoints:** Tailwind's own, with no custom one.
   - below `sm` (640 px): phones;
-  - `sm`, from 640 px: wider phones and tablets, where the Homepage's hero takes two columns;
-  - `lg`, from 1,024 px: desktop, with the two-column layouts (the post pages, the MOIT page's
-    table of contents) and the Homepage's large News card beside its four small ones (§8.6).
+  - `sm`, from 640 px: wider phones and tablets. On the Homepage the Featured card sits beside
+    the hero's headline (§8.1), the Services, the small News cards and the Health Content cards
+    go two to a row, and the Services' grid overlaps the deep field's edge (§8.4);
+  - `lg`, from 1,024 px: desktop, with the main navigation in the header (§7.4), the two-column
+    layouts (the post pages, the MOIT page's table of contents) and, on the Homepage, three
+    Services and four Health Content cards to a row, the Leadership strip in one row, the large
+    News card and the large Activity tile beside their small ones, and the Current Announcements'
+    heading beside their rows (§8.4 to §8.11).
   - `md` and `xl` are not used.
-- **Widths checked:** 1,440 px (desktop, Concept v1's frame), 375 px (a common phone, where the
-  phone Homepage is measured) and 320 px (reflow, WCAG 2.2 SC 1.4.10). A rule from `lg` is checked
-  at 1,023 and 1,024 px (CODING_STANDARDS "Tests").
+- **Widths checked:** 1,440 px (desktop), 375 px (a common phone) and 320 px (reflow, WCAG 2.2
+  SC 1.4.10). A rule from a breakpoint is checked on both sides of it, as at 1,023 and 1,024 px
+  (CODING_STANDARDS "Tests"). The Homepage and the shell are also measured and captured at
+  1,024 and 768 px, the five widths of Feature 008 (spec #239 "Testing Decisions"; §8.2).
 - **Container:** the 1,200 px content column, centred (`page-container`), with a gutter of 16 px
   below `sm` and 24 px from `sm`, so a 1,440 px window has 120 px either side.
-- **Spacing:** the 4/8/12/16/24/32/48/64/80 px rhythm. A Homepage section has 32 px above and below
-  it below `sm`, 64 px from `sm` and, for most, 80 px from `lg`.
+- **Spacing:** the 4/8/12/16/24/32/48/64/80 px rhythm. Between two Homepage sections there is one
+  space of 32 px below `sm`, 64 px from `sm` and 80 px from `lg` (§8).
 - No horizontal carousel for primary content and no fixed-height text container: Thai text, 200 %
   zoom and changed text spacing reflow.
 
@@ -497,7 +528,7 @@ Health Service Directory:
 
 ## 8. Homepage
 
-Source: `current/04-homepage.md` v2.7 and `current/03-sitemap.md` v2.6. The sections, in `04` §3's
+Source: `current/04-homepage.md` v2.7 and `current/03-sitemap.md` v2.7. The sections, in `04` §3's
 order:
 
 1. Header / navigation / reachable search.
@@ -584,17 +615,21 @@ Below 640 px every section keeps its order (Product Owner: "โอเค เฉ�
 - Latest News shows the large card and three compact rows (§8.6).
 - The Current Announcements show three rows (§8.7).
 
-The Homepage's height with the demo dataset, measured on 2026-11-12 at the application code of
-`feat/008-247-activities-contact` `1faa861` with `scripts/capture-screenshots.mjs`: 5,541 px at
+The Homepage's height with the demo dataset, measured on 2026-11-13 on the development runtime at
+`94b8621`, the head of `008-homepage-redesign`, with `scripts/capture-screenshots.mjs`: 5,541 px at
 1,440 px, 5,704 px at 1,024 px, 7,557 px at 768 px, 6,344 px at 375 px and 6,866 px at 320 px, with
 the dataset's two Leadership in the strip (§8.5), five News (§8.6), four Current Announcements
 (§8.7), five Health Topic chips and four Health Content items without pictures (§8.8), four
 Health Services in three Areas (§8.9), five Activities and no Quick Access shortcut (§8.10,
 §8.11).
 
-The Product Owner accepted the phone Homepage at 5,771 px at 375 px with the prototype's data, in
-place of the grill's target of about 5,000 px (spec #144). The height moves with the titles and the
-number of items.
+The Product Owner accepted a longer phone and tablet Homepage with the prototype: 6,319 px at
+390 px and 7,390 px at 768 px (spec #239 "Measured in the prototype"). The built page is 6,344 px
+at 375 px and 7,557 px at 768 px, 167 px above the tablet figure. The height moves with the titles
+and the number of items: without a current Announcement it is 4,747 px at 1,440 px and 5,694 px at
+375 px, and with three Quick Access shortcuts 5,819 and 6,646 px, measured at the same commit with
+`scripts/capture-with-fixtures.ts` and `scripts/screenshot-fixtures/homepage-no-announcements.ts`
+and `homepage-quick-access.ts`.
 
 ### 8.3 ITA in V1; Dashboard deferred
 
@@ -1049,12 +1084,34 @@ EmDash's Edit mode shows the block as a placeholder (`05` §5.1).
 
 ## 10. Acceptance and known limits
 
-**What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real content
-(spec #144 Further Notes):
+**What the Product Owner picked for the Homepage and the shell** on the Feature 008 prototype
+(spec #239 "Decisions the Product Owner made"):
 
-- the current design over three new variants: "ฉันคิดว่าแบบเดิมที่เราทำมันยังดีกว่าที่คุณเสนอมาอีกนะ";
-- the Featured picture whole and a smaller Featured title, titles that keep Thai words whole, and
-  a shorter phone Homepage ("โอเค เฉพาะหน้าแรก");
+- a new design, page by page, in variant H's look, on the tokens' colours and radii and Noto Sans
+  Thai (§2);
+- the Leadership strip before Latest News, compact ("เห็นด้วยกับแบบที่ 2"), with the first three
+  Leadership;
+- a header without "ติดต่อเรา" ("เอาปุ่ม ติดต่อเรา ใน header ออกด้วย"), with a search link and no
+  utility bar (#239 comment 6786536858);
+- Quick Access out of view, by an empty menu ("ฉันคิดว่าทางลัดสามารถตัดออกได้เลย");
+- the Announcements' category badges in separate colours ("bage ของประกาศควรแยกสีนะ"), and five
+  Activities;
+- the new colours and type sizes, the tablet range from 640 px, the new copy, no map stand-in, the
+  Service's icon and the prototype's motion (#239 comments 6786536858 and 6786631899), then
+  decorations that stand still (#249 comment 6838503280).
+
+The prototype's variant H, on the branch `prototype/home-redesign`, is the visual reference
+(`docs/prototypes/home-redesign.md` there). Each ticket's decisions are on #240 to #249 and in
+§13, and its screenshots are in its pull request. The Product Owner accepts the feature on #239,
+with the evidence round of #250 (`docs/evidence/250-homepage-redesign-evidence-round.md`), which
+names what the evidence does not cover.
+
+**What the Product Owner picked for the other pages** on the Feature 006 prototype, with the
+legacy site's real content (spec #144 Further Notes):
+
+- the design of the time over three new variants: "ฉันคิดว่าแบบเดิมที่เราทำมันยังดีกว่าที่คุณเสนอมาอีกนะ";
+- the Featured picture whole, titles that keep Thai words whole, and the same sections in the
+  same order on a phone ("โอเค เฉพาะหน้าแรก");
 - cards that keep the centre crop ("คงครอปกลางภาพแบบเดิม (แนะนำ)");
 - posts in two columns ("สองคอลัมน์"), with a picture that stays in view ("ลอยตาม (แนะนำ)");
 - an Activity's photos as folding thumbnails ("รูปย่อ + พับส่วนเกิน (แนะนำ)").
@@ -1077,7 +1134,12 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
     header (Product Owner, #240 comment 6788678539).
 - **A compact Quick Link card's height** grows with its label (§7.3), the taller proportions
   accepted with Quick Access B (#190 comment 6707205912).
-- **The phone Homepage's height** moves with the titles and the number of items (§8.2).
+- **The Homepage's height** moves with the titles and the number of items (§8.2).
+- **The Homepage's motion** (#249 comment 6838503280):
+  - a section's reveal runs only in a browser with scroll-driven animation; elsewhere the page
+    shows whole from the start (§8.12);
+  - a loading picture's shimmer runs on the page's clock, so a picture that loads later has the
+    resting box behind it.
 - **Post pages** (#147 comment 6634124888 item 2):
   - the picture follows only while the left column is the longer;
   - a picture taller than the window shows its lower part as the block ends.
@@ -1095,7 +1157,10 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - Pages work without client JavaScript. The mobile menu, the MOIT page's Requirements and an
   Activity's folded photos are native disclosures that name their state. The one script, the
   Homepage's submit state, adds to forms that submit without it (§8.9).
-- Touch targets of about 44×44 CSS px, with room between them.
+- Touch targets of about 44×44 CSS px, with room between them. On the Homepage every link and control
+  is 24 px high or more (spec #239 "Accessibility"; read on the runtime at `94b8621` at 1,440,
+  1,024, 768, 375 and 320 px, `docs/evidence/250-homepage-redesign-evidence-round.md`), and the
+  header's search link and menu button are 48 px (§7.4).
 - Contrast: WCAG 2.2 AA (§3.2).
 - An informative image has alt text, a decorative one empty alt. A card's or the Featured picture
   is decorative, as its title names the link. An icon-only button has a name, and the search input
@@ -1106,7 +1171,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - The public suites check each template at 1,440 and 320 px with axe (WCAG 2.2 AA tags), focus on
   every stop and no sideways scrolling at 320 px, and at 375 px where a spec names it
   (CODING_STANDARDS "Tests"). There are no pixel tests: the look is the Product Owner's review of
-  each pull request's screenshots at 1,440, 375 and 320 px.
+  each pull request's screenshots at 1,440, 375 and 320 px, and for the Homepage and the shell at
+  1,024 and 768 px too (§6).
 
 ## 12. Developer and agent handoff rules
 
@@ -1129,8 +1195,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 
 ## 13. References and change history
 
-- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.7, 2026-11-12);
-  `03-sitemap.md` (v2.6, 2026-11-08); staff guidance in `05` §5.1.
+- Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.7, 2026-11-13);
+  `03-sitemap.md` (v2.7, 2026-11-13); staff guidance in `05` §5.1.
 - Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.9,
   2026-11-09); `README.md`; `CLAUDE.md`.
 - Decisions: ADR 0001 (Tailwind CSS v4), ADR 0003 (CMS images in production), ADR 0007 (the
@@ -1284,3 +1350,15 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   page stands still and whole (§8.12). Authority: spec #239 "Motion and loading", #239 comment
   6786631899 (the prototype's motion), the notes on #249 and #249 comment 6838503280 (no
   decoration that moves without end, which pictures shimmer, the suites' reduced motion). The page's content, layout and heights remain.
+- **v1.2 direction, measures and limits (2026-11-13, Feature 008 #250):** §2 states the redesign's
+  direction and its sources. It had read "Modern Local Health Civic", with "Evolve Concept v1; add
+  no new style", after the Product Owner's "เราควรต่อยอดจาก Concept v1 ไม่ใช่การสร้างรูปแบบใหม่แบบนี้"
+  (spec #144), and "Neutral surfaces first; health green is a meaningful accent, not an all-green
+  interface". §4 names the sizes beyond the scale, §6 what each breakpoint changes on the Homepage
+  and the two further widths it is measured at, and §10 what the Product Owner picked for Feature
+  008 and the motion's limits. §8.2's heights are measured at the integration head `94b8621` and
+  equal #247's at `1faa861`; the phone Homepage the Product Owner had accepted for Feature 006 was
+  5,771 px at 375 px with that prototype's data (spec #144). The Feature 008 banner names the
+  tickets. `04` v2.7 and `03` v2.7 now place "ค้นหา" in the header and "ติดต่อเรา" in the footer
+  (`04` §4, `03` §2). Authority: spec #239 "Documents" and "Decisions the Product Owner made",
+  #239 comments 6786536858 and 6786631899, and the notes on #250. No page changed.

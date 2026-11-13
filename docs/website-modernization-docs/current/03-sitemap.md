@@ -1,9 +1,9 @@
 # Sitemap — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 03-sitemap
-> **Status:** CLEAN REBASELINE v2.6 — CURRENT native-first V1
-> **Version:** 2.6
-> **Last Updated:** 8 พฤศจิกายน 2569 (2026-11-08): Feature 007, phone breadcrumb presentation
+> **Status:** CLEAN REBASELINE v2.7 — CURRENT native-first V1
+> **Version:** 2.7
+> **Last Updated:** 13 พฤศจิกายน 2569 (2026-11-13): Feature 008, the utility links' places
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`
 > **Purpose:** กำหนด public navigation, canonical routes, URL rules, redirects และ public error behavior โดยใช้ slug-based URLs ที่เรียบง่าย
 
@@ -28,6 +28,11 @@
 > **Feature 007 decision (Product Owner, 2026-11-07; #190 comment 6707205912):** Breadcrumb B
 > below 640 px limits only the current-page label to one line with ellipsis when necessary
 > (#192, §14). The public hierarchy, ancestor destinations and complete H1 remain.
+
+> **Feature 008 decision (Product Owner, 2026-11-11; spec #239 "Header (every page)", #239 comment
+> 6786536858):** the header has no utility bar. "ค้นหา" is a link in the header on every page, and
+> "ติดต่อเรา" is in the footer on every page, not in the header (§2; #240). The main navigation,
+> its order and every route remain.
 
 ---
 
@@ -58,9 +63,11 @@ Main Navigation
 └── ITA
 
 Utility
-├── ค้นหา
-└── ติดต่อเรา
+├── ค้นหา       (header ทุกหน้า)
+└── ติดต่อเรา    (footer ทุกหน้า)
 ```
+
+Utility items ไม่มีแถบของตนเอง: "ค้นหา" เป็น link ใน header ไป `/search` ทุกความกว้าง และ "ติดต่อเรา" อยู่ใน footer ไป `/contact`; header ไม่มี link ไป `/contact`.
 
 Logo และหน้าแรกชี้ `/`. Footer/Quick Links reuse canonical destinations ไม่สร้าง sitemap อีกชุด.
 
