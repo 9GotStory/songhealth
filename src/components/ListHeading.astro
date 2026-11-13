@@ -6,10 +6,9 @@
 // The page passes no `crumbs` to the shell, which then shows no breadcrumb above the page
 // (src/layouts/SiteLayout.astro), and gives them here with its section.
 //
-// What follows the heading goes in the default slot: the filter form, the cards or the empty
-// state, and the pager, 32 px apart (spec #280 "What follows a list's heading"). The field's
-// content ends 96 px above the field's lower edge below `sm` and 128 px from `sm`, and what
-// follows starts 64 px and 88 px above that edge, so it lies over it.
+// The field's content ends 96 px above the field's lower edge below `sm` and 128 px from `sm`:
+// the room what follows the heading lies over (ListBody.astro), which starts 64 px and 88 px above
+// that edge.
 //
 // The link is a white pill with brand-primary words, 6.45:1, and a 16 px arrow-right, the
 // Homepage's arrow for a heading's link (CODING_STANDARDS "Public pages"); an outlined pill's words
@@ -42,7 +41,7 @@ interface Props {
 const { section, crumbs, label, title, lead, link } = Astro.props;
 ---
 
-<DeepField under="list">
+<DeepField kind="list">
 	<div class="page-container relative flex flex-col gap-6 pt-6 pb-24 sm:gap-8 sm:pb-32">
 		<Breadcrumb onField items={breadcrumbTrail(section, crumbs)} />
 		<div class="flex flex-col gap-5 sm:flex-row sm:justify-between sm:gap-6">
@@ -64,6 +63,3 @@ const { section, crumbs, label, title, lead, link } = Astro.props;
 		</div>
 	</div>
 </DeepField>
-<div class="page-container relative -mt-16 flex flex-col gap-8 pb-16 sm:-mt-22 lg:pb-20">
-	<slot />
-</div>

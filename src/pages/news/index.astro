@@ -8,11 +8,12 @@
 // The page opens on the deep field (Feature 009 #281; spec #280 "List heading"; ListHeading): it
 // is headed as the Homepage's Latest News, the label "ข่าวสาร" and the H1 "ข่าวประชาสัมพันธ์", with
 // a pill link to Health News, and the cards, the empty state and the pager lie over the field's
-// lower edge. Its title in the head, the menu and the breadcrumb stay "ข่าวสาร" (spec #280
-// "Decisions", 3).
+// lower edge (ListBody). Its title in the head, the menu and the breadcrumb stay "ข่าวสาร" (spec
+// #280 "Decisions", 3).
 import MessageSquare from "@lucide/astro/icons/message-square";
 import ContentCardGrid from "../../components/ContentCardGrid.astro";
 import EmptyState from "../../components/EmptyState.astro";
+import ListBody from "../../components/ListBody.astro";
 import ListHeading from "../../components/ListHeading.astro";
 import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
@@ -42,6 +43,8 @@ const listUrl = new URL("/news", Astro.url);
 		link={{ href: healthNewsPath(), label: HEALTH_NEWS_TITLE }}
 	>
 		<MessageSquare slot="icon" class="shrink-0" size={24} />
+	</ListHeading>
+	<ListBody>
 		{entries.length > 0 ? (
 			<ContentCardGrid entries={entries} labelTaxonomy="news_category" pathOf={newsPath} />
 		) : page > 1 ? (
@@ -53,5 +56,5 @@ const listUrl = new URL("/news", Astro.url);
 			<EmptyState message="ยังไม่มีข่าว" />
 		)}
 		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
-	</ListHeading>
+	</ListBody>
 </SiteLayout>

@@ -2,12 +2,12 @@
 // The deep green field (src/styles/global.css deep-field), which ends with rounded lower corners.
 // Its text is surface-base, and its focus ring is the one for dark surfaces, accent-warm.
 //
-// - The Homepage's (Feature 008 #242; spec #239 "Solution", "Frequently Used Services"): one field
-//   under the hero and the Frequently Used Services.
-// - The field under a list's heading (Feature 009 #281; spec #280 "The field under a heading"),
-//   `under="list"`. Its heading is short and its text small, so from `sm` its glow is small and in
-//   the upper right corner, and it has the large ring alone, from `lg`: with the Homepage's glows
-//   and rings a lead read 3.42:1 and an outlined link's words 2.47:1 (spec #280 "Measured in the
+// - `home`, the Homepage's (Feature 008 #242; spec #239 "Solution", "Frequently Used Services"):
+//   one field under the hero and the Frequently Used Services.
+// - `list`, the field under a list's heading (Feature 009 #281; spec #280 "The field under a
+//   heading"). Its heading is short and its text small, so from `sm` its glow is small and in the
+//   upper right corner, and it has the large ring alone, from `lg`: with the Homepage's glows and
+//   rings a lead read 3.42:1 and an outlined link's words 2.47:1 (spec #280 "Measured in the
 //   prototype").
 //
 // The decorations lie in a layer of their own, which clips them to the field and its corners. They
@@ -22,20 +22,40 @@
 // below it, --field-overhang (src/styles/global.css), so what follows the field is not covered.
 
 interface Props {
-	/** What the field lies under, when not the Homepage's hero and Services: a list's heading. */
-	under?: "list";
+	/** What the field lies under: the Homepage's hero and Services, or a list's heading. */
+	kind?: keyof typeof FIELDS;
 	/** The field's last section extends --field-overhang below it from `sm`. */
 	extended?: boolean;
 }
 
-const { under, extended = false } = Astro.props;
+/** Each field's own glow, where it differs from the utility's, and its decorations' classes. */
+const FIELDS = {
+	home: {
+		glow: undefined,
+		decorations: [
+			"-top-30 -right-20 size-105 bg-accent-warm/38 blur-3xl max-lg:hidden",
+			"top-75 -left-35 size-90 bg-surface-soft/16 blur-3xl",
+			"top-15 -right-42.5 size-130 border-[1.5px] border-surface-base/18 max-sm:hidden",
+			"top-13.5 left-[46%] size-40 border-[1.5px] border-accent-warm/50 max-lg:hidden",
+		],
+	},
+	list: {
+		glow: "sm:[--deep-field-glow:28%_12rem_at_100%_0%]",
+		decorations: [
+			"top-15 -right-42.5 size-130 border-[1.5px] border-surface-base/18 max-lg:hidden",
+		],
+	},
+};
+
+const { kind = "home", extended = false } = Astro.props;
+const { glow, decorations } = FIELDS[kind];
 ---
 
 <div
 	data-testid="deep-field"
 	class:list={[
 		"deep-field focus-ring-on-dark relative overflow-x-clip rounded-b-24 text-surface-base sm:rounded-b-32",
-		under === "list" && "sm:[--deep-field-glow:28%_12rem_at_100%_0%]",
+		glow,
 		extended && "sm:mb-(--field-overhang)",
 	]}
 >
@@ -43,16 +63,9 @@ const { under, extended = false } = Astro.props;
 		aria-hidden="true"
 		class="pointer-events-none absolute inset-0 overflow-clip rounded-b-[inherit]"
 	>
-		{under === "list" ? (
-			<span class="absolute top-15 -right-42.5 size-130 rounded-pill border-[1.5px] border-surface-base/18 max-lg:hidden" />
-		) : (
-			<>
-				<span class="absolute -top-30 -right-20 size-105 rounded-pill bg-accent-warm/38 blur-3xl max-lg:hidden" />
-				<span class="absolute top-75 -left-35 size-90 rounded-pill bg-surface-soft/16 blur-3xl" />
-				<span class="absolute top-15 -right-42.5 size-130 rounded-pill border-[1.5px] border-surface-base/18 max-sm:hidden" />
-				<span class="absolute top-13.5 left-[46%] size-40 rounded-pill border-[1.5px] border-accent-warm/50 max-lg:hidden" />
-			</>
-		)}
+		{decorations.map((decoration) => (
+			<span class:list={["absolute rounded-pill", decoration]} />
+		))}
 	</div>
 	<slot />
 </div>

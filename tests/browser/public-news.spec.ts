@@ -17,7 +17,8 @@
 // The runtime may hold other News (the demo dataset, the Product Owner's own), so assertions
 // look only at this suite's uniquely titled fixtures, and tests about "newest first" publish
 // their fixtures last. A synthetic Health Content item stands for another list that carries a
-// topic.
+// topic. One test needs a list with no News at all: it returns every published News to draft and
+// publishes each again at its own date (public.helpers.ts BorrowedEntries).
 //
 // Platform behaviour relied on (emdash 1.1.0):
 // - POST …/publish accepts `publishedAt` to backdate a publication; the development PAT's
@@ -178,10 +179,24 @@ function newsList(page: Page) {
 	};
 }
 
-/** How far above the field's lower edge `part` starts, as the page is laid out now. */
-async function startsAboveFieldEdge(page: Page, part: Locator, label: string): Promise<number> {
-	const field = await boxOf(deepField(page), "the deep field");
-	return field.y + field.height - (await boxOf(part, label)).y;
+/**
+ * Fail unless the empty state that reads `message` starts over the field's lower edge, by the
+ * measure of each width, at the desktop width and 375 px. The viewport ends at 375 px.
+ */
+async function expectEmptyStateOverFieldEdge(page: Page, message: Locator): Promise<void> {
+	// The message's white card is the block that follows the heading.
+	const card = message.locator("xpath=..");
+	for (const [viewport, { overlap }] of [
+		[DESKTOP_VIEWPORT, FIELD_EDGE.fromSm],
+		[PHONE_VIEWPORT, FIELD_EDGE.phone],
+	] as const) {
+		await page.setViewportSize(viewport);
+		const field = await boxOf(deepField(page), "the deep field");
+		expect(
+			field.y + field.height - (await boxOf(card, "the message's card")).y,
+			`the message's card starts ${overlap} px above the field's edge at ${viewport.width} px`,
+		).toBeCloseTo(overlap, 0);
+	}
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -211,18 +226,7 @@ test("with no published News, /news shows ยังไม่มีข่าว o
 		await expect(pager).toHaveCount(0);
 		const message = page.getByRole("main").getByText("ยังไม่มีข่าว", { exact: true });
 		await expect(message).toBeVisible();
-		// The message's white card is the block that follows the heading.
-		const card = message.locator("xpath=..");
-		for (const [viewport, { overlap }] of [
-			[DESKTOP_VIEWPORT, FIELD_EDGE.fromSm],
-			[PHONE_VIEWPORT, FIELD_EDGE.phone],
-		] as const) {
-			await page.setViewportSize(viewport);
-			expect(
-				await startsAboveFieldEdge(page, card, "the message's card"),
-				`the message's card starts ${overlap} px above the field's edge at ${viewport.width} px`,
-			).toBeCloseTo(overlap, 0);
-		}
+		await expectEmptyStateOverFieldEdge(page, message);
 	} finally {
 		await borrowed.giveBack(admin);
 	}
@@ -374,21 +378,23 @@ test("/news opens on the deep field with its breadcrumb, the label ข่าว�
 		"color",
 		await tokenColor(page, "brand-primary"),
 	);
+	const arrow = await boxOf(heading.link.locator("svg"), "the link's arrow");
+	expect([arrow.width, arrow.height], "the link's arrow is 16 px").toEqual([16, 16]);
 });
 
-test("from 640 px the link ข่าวสุขภาพ sits at the heading's right, level with its top, and below 640 px it follows the lead; the H1 is 26 px below 640 px, 36 px from 640 px and 42 px from 1,024 px, the field's lower corners 24 px and from 640 px 32 px, and nothing is past the window at any of these widths", async ({
+test("from 640 px the link ข่าวสุขภาพ sits at the heading's right, level with its top, and below 640 px it follows the lead; the H1 is 26 px below 640 px, 36 px from 640 px and 42 px from 1,024 px, the field's lower corners 24 px and from 640 px 32 px, the link 44 px high and from 640 px 52 px, the heading 24 px under the breadcrumb and from 640 px 32 px, and nothing is past the window at any of these widths", async ({
 	page,
 }) => {
 	await page.goto("/news");
 	const heading = newsHeading(page);
-	for (const [width, titleSize, corner] of [
-		[320, "26px", "24px"],
-		[375, "26px", "24px"],
-		[639, "26px", "24px"],
-		[640, "36px", "32px"],
-		[1023, "36px", "32px"],
-		[1024, "42px", "32px"],
-		[1440, "42px", "32px"],
+	for (const [width, titleSize, corner, linkHeight, gap] of [
+		[320, "26px", "24px", 44, 24],
+		[375, "26px", "24px", 44, 24],
+		[639, "26px", "24px", 44, 24],
+		[640, "36px", "32px", 52, 32],
+		[1023, "36px", "32px", 52, 32],
+		[1024, "42px", "32px", 52, 32],
+		[1440, "42px", "32px", 52, 32],
 	] as const) {
 		await page.setViewportSize({ width, height: 900 });
 		await expectNoHorizontalScroll(page, `/news at ${width} px`);
@@ -409,6 +415,15 @@ test("from 640 px the link ข่าวสุขภาพ sits at the heading's 
 			// The breadcrumb spans the page's column.
 			boxOf(heading.breadcrumb, "the breadcrumb"),
 		]);
+		expect(link.height, `the link is ${linkHeight} px high at ${width} px`).toBeCloseTo(
+			linkHeight,
+			0,
+		);
+		// The heading block starts where its label does.
+		expect(
+			label.y - (row.y + row.height),
+			`the heading is ${gap} px under the breadcrumb at ${width} px`,
+		).toBeCloseTo(gap, 0);
 		if (width < 640) {
 			expect(link.y, `the link follows the lead at ${width} px`).toBeGreaterThanOrEqual(
 				lead.y + lead.height,
@@ -432,7 +447,7 @@ test("from 640 px the link ข่าวสุขภาพ sits at the heading's 
 	}
 });
 
-test("what follows the heading of /news starts over the field's lower edge, 64 px above it below 640 px and 88 px from 640 px, where the field's own content ends 96 px and 128 px above it: the cards with the pager 32 px under them, and the message of a page past the last", async ({
+test("what follows the heading of /news starts over the field's lower edge, 64 px above it below 640 px and 88 px from 640 px, where the field's own content ends 96 px and 128 px above it: the cards, with the pager 32 px under them", async ({
 	page,
 }) => {
 	const fixtures: DraftFixture[] = [];
@@ -475,23 +490,21 @@ test("what follows the heading of /news starts over the field's lower edge, 64 p
 			`the field's content ends ${room} px above its edge at ${width} px`,
 		).toBeCloseTo(room, 0);
 	}
+});
 
+test("a page past the last of /news shows ไม่พบข่าวในหน้านี้ with its way back over the field's lower edge, and no pager", async ({
+	page,
+}) => {
 	await page.goto("/news?page=10000");
-	const message = page.getByRole("main").getByText("ไม่พบข่าวในหน้านี้", { exact: true });
+	const main = page.getByRole("main");
+	const message = main.getByText("ไม่พบข่าวในหน้านี้", { exact: true });
 	await expect(message).toBeVisible();
-	await expect(pager).toHaveCount(0);
-	// The message's white card is the block that follows the heading.
-	const card = message.locator("xpath=..");
-	for (const [width, { overlap }] of [
-		[1440, FIELD_EDGE.fromSm],
-		[375, FIELD_EDGE.phone],
-	] as const) {
-		await page.setViewportSize({ width, height: 900 });
-		expect(
-			await startsAboveFieldEdge(page, card, "the message's card"),
-			`the message's card starts ${overlap} px above the field's edge at ${width} px`,
-		).toBeCloseTo(overlap, 0);
-	}
+	await expect(main.getByRole("link", { name: "กลับไปหน้าแรกของรายการ" })).toHaveAttribute(
+		"href",
+		"/news",
+	);
+	await expect(newsList(page).pager).toHaveCount(0);
+	await expectEmptyStateOverFieldEdge(page, message);
 });
 
 test("on /news the keyboard goes from the breadcrumb to the link ข่าวสุขภาพ to the first card, the two on the field with its accent-warm focus ring, and under the pointer ข่าวสุขภาพ turns accent-warm with brand-dark words while a crumb stays as it is", async ({
