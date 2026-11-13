@@ -3,7 +3,7 @@
 > **Document ID:** 04-homepage
 > **Status:** CLEAN REBASELINE v2.7 — CURRENT
 > **Version:** 2.7
-> **Last Updated:** 12 พฤศจิกายน 2569 (2026-11-12): Feature 008, Leadership section, five Activities and the Contact Summary without a map stand-in
+> **Last Updated:** 13 พฤศจิกายน 2569 (2026-11-13): Feature 008, Leadership section, five Activities, the Contact Summary without a map stand-in, and the header without a utility bar
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`
 > **Purpose:** กำหนด homepage information priority, sections, curation, responsive/accessibility behavior โดยไม่กำหนด component implementation หรือสร้าง homepage CMS subsystem
 
@@ -28,7 +28,9 @@
 > assignment, with one link to `/about/leadership`. The Homepage shows the latest five Activities
 > at every width (§10, §15), and the Contact Summary shows no stand-in for a map, only the link
 > that opens one (§11; spec #239 "Activities", "Contact Summary", #239 comment 6786631899; #247).
-> Quick Access (§10.1) is unchanged.
+> Quick Access (§10.1) is unchanged. The header has no utility bar: it carries the search link on
+> every page, and "ติดต่อเรา" is in the footer on every page and in the Contact Summary (§4, §11;
+> spec #239 "Header (every page)", #239 comment 6786536858; #240, #250).
 
 ---
 
@@ -91,8 +93,9 @@ Header ใช้ navigation จาก `03-sitemap.md`.
 Requirements:
 
 - logo links to `/`
-- Main/Utility navigationชัดเจน
-- Searchเข้าถึงง่ายทั้ง desktop/mobile
+- Main navigationชัดเจน; ไม่มี utility bar
+- Searchเข้าถึงง่ายทั้ง desktop/mobile: header มี link ไป `/search` ทุกหน้าทุกความกว้าง (`03` §2)
+- `/contact` เข้าถึงจาก footer ทุกหน้า และจาก Contact Summary (§11); header ไม่มี link ไป `/contact`
 - ไม่สร้าง mobile content/navigationอีกชุด
 - keyboard/focus behaviorต้องเหมาะสม
 
