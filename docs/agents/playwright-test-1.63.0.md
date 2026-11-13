@@ -58,6 +58,17 @@ When the pinned version changes, re-verify every line and rename this file:
   tests failed in a full run, and a measuring script read 19 focused links as transparent).
 - **A full-page screenshot does not scroll**, so a view timeline holds back what lies below the
   window; `./scripts/capture-screenshots.mjs` opens its pages with reduced motion preferred (#249).
+  `page.screenshot({ path })` creates the path's folder before it writes (the bundle, `screenshot`:
+  `mkdirIfNeeded`), so a script takes a folder that does not exist yet (#276).
+- **Reading a box does not scroll the page.** `locator.boundingBox()` gives the box in the window
+  as the page is scrolled now: "Scrolling affects the returned bounding box, similarly to
+  Element.getBoundingClientRect" (the types, `Locator.boundingBox`). A part below the window is
+  read where it waits, and a waiting part's box includes the 28 px its reveal has yet to rise
+  (#276: `./scripts/check-built-reveal.ts` read 4974 px against 4946 px with reduced motion).
+- **A wait for the page's own effects takes a limit.** An effect's `finished` promise rejects with
+  an `AbortError` when the effect is cancelled, and never settles for an endless one, so wait with
+  `Promise.allSettled` raced against a timer, as `./scripts/check-built-reveal.ts` does before a
+  screenshot. Observed with a launched browser (#276).
 
 ## Timers
 
