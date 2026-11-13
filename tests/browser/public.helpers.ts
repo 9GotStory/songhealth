@@ -1009,13 +1009,14 @@ export async function expectStartsOverFieldEdge(
 /**
  * Fail unless, on both sides of 640 px, `blocks`, what follows a list's heading, lie 32 px one
  * under another and the first of them starts over the lower edge of `field` by that width's
- * measure, where the field's own content, which the lowest of `last` ends, stops that width's room
+ * measure, where the field's own content, which the lowest of `fieldContent` ends, stops that
+ * width's room
  * above the edge. The viewport ends at the desktop width.
  */
 export async function expectBlocksOverFieldEdge(
 	page: Page,
 	field: Locator,
-	last: Locator[],
+	fieldContent: Locator[],
 	blocks: Array<[name: string, block: Locator]>,
 ): Promise<void> {
 	for (const [width, { room, overlap }] of [
@@ -1042,7 +1043,7 @@ export async function expectBlocksOverFieldEdge(
 			`${blocks[0]![0]} starts ${overlap} px above the field's edge at ${width} px`,
 		).toBeCloseTo(overlap, 0);
 		const ends = [];
-		for (const part of last) {
+		for (const part of fieldContent) {
 			const box = await boxOf(part, "the field's content");
 			ends.push(box.y + box.height);
 		}
@@ -1328,20 +1329,25 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 				brandPrimary,
 			);
 			await expect(control, `${name}: its focus ring`).toHaveCSS("outline-width", "3px");
-			// The ring reaches 5 px around the control: 3 px wide, 2 px away.
+			// How far the ring reaches around the control: its offset and its width.
+			const reach = await control.evaluate((element) => {
+				const style = getComputedStyle(element);
+				return Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth);
+			});
 			const box = await boxOf(control, name);
 			expect(
-				box.x - 5 >= formBox.x &&
-					box.y - 5 >= formBox.y &&
-					box.x + box.width + 5 <= formBox.x + formBox.width &&
-					box.y + box.height + 5 <= formBox.y + formBox.height,
-				`${name}: its ring lies on the form's white card`,
+				box.x - reach >= formBox.x &&
+					box.y - reach >= formBox.y &&
+					box.x + box.width + reach <= formBox.x + formBox.width &&
+					box.y + box.height + reach <= formBox.y + formBox.height,
+				`${name}: its ring, ${reach} px around it, lies on the form's white card`,
 			).toBe(true);
 			await page.keyboard.press("Tab");
 		}
 		await expect(firstCard, "the first card follows the form").toBeFocused();
 
-		// Last, since the page's ring holds off the field too: the crumbs lie on the field.
+		// The crumbs' ring is read after the order and the form's ring, which today's page already
+		// holds, so a red run reaches them before it fails here (CODING_STANDARDS "Tests").
 		const accentWarm = await tokenColor(page, "accent-warm");
 		for (const [index, [label]] of list.crumbs.entries()) {
 			const crumb = listHeading(page, text).breadcrumb.getByRole("link").nth(index);
@@ -1353,17 +1359,35 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 		}
 	});
 
-	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, the filter form and the cards show at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
+	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, the filter form, the cards, the pager and an empty state show at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
 		page,
 	}) => {
-		test.setTimeout(60_000);
-		await list.publishItem("motion", await list.createTopic("ออกกำลังกาย"));
-		const { cards } = cardList(page);
-		await expectListMovesOnlyWhenAllowed(page, path, listHeading(page, text), [
-			["the filter form", formOf(page)],
-			["the first card", cards.first()],
-			["the last card", cards.last()],
-		]);
+		test.setTimeout(90_000);
+		// One more than a page, so the pager shows.
+		const topic = await list.createTopic("ออกกำลังกาย");
+		for (let index = 0; index <= list.pageSize; index += 1) {
+			await list.publishItem(`motion-${String(index).padStart(2, "0")}`, topic);
+		}
+		const { cards, pager } = cardList(page);
+		await expectListMovesOnlyWhenAllowed(
+			page,
+			`${path}?topic=${topic.slug}`,
+			listHeading(page, text),
+			[
+				["the filter form", formOf(page)],
+				["the first card", cards.first()],
+				["the last card", cards.last()],
+				["the pager", pager],
+			],
+		);
+
+		// The page is still on a screen with motion allowed.
+		await page.goto(`${path}?page=10000`);
+		const empty = page.getByRole("main").getByText(list.pastLast, { exact: true });
+		expect(await entersAfter(empty), "the empty state shows at once").toBe(-1);
+		await expect
+			.poll(() => heldBack(page.getByRole("main")), { message: "the page shows whole" })
+			.toEqual([]);
 	});
 
 	test.describe(`${path} without JavaScript`, () => {

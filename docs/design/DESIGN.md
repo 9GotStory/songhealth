@@ -620,10 +620,13 @@ heads `/news`, Health News (`/news/health`) and the Health Content list (`/healt
 - `tests/browser/public-news.spec.ts` reads the heading's parts, their order and colours, the
   head's title, the link's place and height on both sides of 640 px, the H1's size on both sides
   of 640 and 1,024 px, what follows the heading with each empty state, the keyboard's order with
-  the focus ring, the motion and the page without JavaScript. The same cases of Health News, there,
-  and of Health Content, in `public-health.spec.ts`, come from `testFilteredListOnField`
-  (`tests/browser/public.helpers.ts`), which adds the heading's icon, the filter form first over the
-  edge with its ring on its white card, and each empty state 32 px under the form.
+  the focus ring, the motion and the page without JavaScript. Health News, there, and Health
+  Content, in `public-health.spec.ts`, take the same cases but the head's title and the link, which
+  they lack, from `testFilteredListOnField` (`tests/browser/public.helpers.ts`): it adds the
+  heading's icon, the filter form first over the edge with its ring on its white card, a page past
+  the last and a Health Topic that matches nothing 32 px under the form, and the pager and an empty
+  state that show at once with motion allowed. Each suite's own first test reads the list with no
+  item at all.
 
 ## 8. Homepage
 
