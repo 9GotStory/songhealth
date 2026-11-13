@@ -25,7 +25,10 @@ const SHORTEST_NAME = 10;
  */
 const PUBLIC_NAMES = new Set(["กระทรวงสาธารณสุข"]);
 
-/** The lines a commit adds to one file, or the whole of a file the command is given. */
+/**
+ * What is read under one name: the lines a commit adds to a file, the whole of a file, or the names
+ * of files under a label such as "a tracked file's name".
+ */
 interface AddedLines {
 	file: string;
 	lines: string[];

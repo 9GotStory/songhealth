@@ -387,13 +387,18 @@ describe("the leak-check command", () => {
 
 	it("with --tree, still reads the staged changes, and names a file once for a string", async () => {
 		const { status, stderr } = await tree({ "tests/x.ts": "// nothing\n" }, async (repository) => {
-			await writeFile(join(repository, "tests/new.ts"), `export const path = "${NAME}";\n`);
+			for (const name of ["new.ts", "gone.ts"]) {
+				await writeFile(join(repository, "tests", name), `export const path = "${NAME}";\n`);
+			}
 			await writeFile(join(repository, `tests/${NAME}`), "\0binary");
 			git(repository, "add", ".");
+			// Only the staged changes still hold this one.
+			await rm(join(repository, "tests/gone.ts"));
 		});
 		assert.equal(status, 1);
-		assert.equal(stderr.split("tests/new.ts: the file name of attachment 11").length - 1, 1);
-		assert.equal(stderr.split("file's name: the file name of attachment 11").length - 1, 1);
+		for (const place of ["tests/new.ts", "tests/gone.ts", "file's name"]) {
+			assert.equal(stderr.split(`${place}: the file name of attachment 11`).length - 1, 1, place);
+		}
 	});
 
 	it("with --tree, stops on a tracked file named after the export's file, even a binary one", async () => {
