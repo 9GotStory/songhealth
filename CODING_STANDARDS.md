@@ -70,6 +70,12 @@ and why, and `.jscpd-baseline.json` records them.
   text, summaries and labels render as they are.
   `tests/node/public-titles.test.ts` checks the headings, and review checks the titles that are no
   heading, such as a Quick Link card's label.
+- An effect that holds a part back or moves it, such as an entrance or a reveal, follows
+  `docs/design/DESIGN.md` §8.12: it runs only on a screen without a reduced-motion preference; it
+  ends by itself within five seconds unless the visitor's scrolling drives it (WCAG 2.2 SC 2.2.2);
+  a part that holds the keyboard's focus shows whole; and it changes no layout. A scroll-driven
+  effect is written with longhands and sits inside its `@supports` query, which
+  `npm run build:check` reads in the built stylesheet (#249 retro).
 - What moves under the pointer moves inside the element that takes the hover: that element keeps
   its place as a `group`, and a child moves on `group-hover:`, so the hover does not end at the
   element's edge (`tests/node/public-hover.test.ts`). A card that rises still opens from every part
@@ -123,7 +129,9 @@ and why, and `.jscpd-baseline.json` records them.
 - Every page of a suite prefers reduced motion (`playwright.config.ts`), so a test reads a page
   that stands still. A test of something that moves only where motion is allowed, such as a card
   that rises under the pointer, allows it for its page with
-  `page.emulateMedia({ reducedMotion: "no-preference" })` (`docs/design/DESIGN.md` §8.12).
+  `page.emulateMedia({ reducedMotion: "no-preference" })` (`docs/design/DESIGN.md` §8.12). With
+  motion allowed, what a scroll brings in is read after its reveal has ended: poll for it
+  (`docs/agents/playwright-test-1.63.0.md` "Media and motion").
 - Tests assert what people see and use: text, links, status and focus. A link or button is
   checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
   out decorative `aria-hidden` icons. A `data-testid` marks only an element with no accessible

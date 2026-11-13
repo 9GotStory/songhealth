@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "build:check": "node scripts/with-build-inputs.mjs astro build",
+    "build:check": "node scripts/with-build-inputs.mjs astro build && node scripts/check-built-styles.ts",
     "preview": "astro preview",
     "dev-db:start": "./scripts/dev-db.sh start",
     "dev-db:stop": "./scripts/dev-db.sh stop",
