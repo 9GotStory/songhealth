@@ -1,6 +1,6 @@
 // Pull-request screenshots of public pages, taken from the development runtime.
 //
-//   node scripts/capture-screenshots.mjs <out-dir> <target> [<target>...]
+//   node scripts/capture-screenshots.mjs [--in-window] <out-dir> <target> [<target>...]
 //
 // A target `[name=]path` is captured full-page at 1440 px (desktop), 375 px and 320 px (mobile),
 // into <name>-<width>.png. Without a name, the path gives it ("/news/x" is "news-x"), so name a
@@ -18,6 +18,11 @@
 // (#146 retro). A close-up also prints its element's layout size, the one to quote: its PNG covers
 // every pixel the element touches, so it can come out a pixel larger (#194 retro).
 //
+// While a window holds the runtime (docs/operations/development-quadlet.md "A window") its pages
+// show the window's content in place of the demo dataset, so the script stops and names the
+// window. The window's holder passes --in-window, as to scripts/dev-runtime-env.sh (#240 retro:
+// a ticket's before screenshots were taken on another ticket's trial import).
+//
 // A pull request shows its pages before and after. Take the before screenshots while the runtime
 // still serves the base, before the ticket's first scripts/dev-runtime-update.sh: afterwards they
 // need the base promoted again.
@@ -26,7 +31,9 @@
 // image-only branch with scripts/evidence-branch.sh <ticket> <out-dir>, which prints how to push
 // and embed them.
 
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
 
@@ -36,9 +43,22 @@ const WIDTHS = [
 	{ name: "320", viewport: { width: 320, height: 640 } },
 ];
 
-const [outDir, ...targets] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const inWindow = args[0] === "--in-window";
+/** scripts/dev-runtime-common.sh's WINDOW_LOCK. */
+const windowLock = join(homedir(), ".local/state/songhealth-qdev/window");
+if (!inWindow && existsSync(windowLock)) {
+	console.error(
+		`capture-screenshots: a window holds the runtime: ${readFileSync(windowLock, "utf8").trim()}`,
+	);
+	console.error("wait until it closes (scripts/dev-runtime-window.sh status)");
+	process.exit(1);
+}
+const [outDir, ...targets] = inWindow ? args.slice(1) : args;
 if (outDir === undefined || targets.length === 0) {
-	console.error("usage: node scripts/capture-screenshots.mjs <out-dir> <target> [<target>...]");
+	console.error(
+		"usage: node scripts/capture-screenshots.mjs [--in-window] <out-dir> <target> [<target>...]",
+	);
 	process.exit(2);
 }
 const origin = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4324";
@@ -88,7 +108,9 @@ async function pngSize(file) {
  * whose whole text is `click`, when given.
  */
 async function openPage(path, viewport, click) {
-	const page = await browser.newPage({ viewport });
+	// With reduced motion preferred a page stands still and whole: the Homepage's reveal holds back
+	// what lies below the window, where a full-page screenshot never scrolls (#249).
+	const page = await browser.newPage({ viewport, reducedMotion: "reduce" });
 	await page.goto(new URL(path, origin).href);
 	// A full-page screenshot does not scroll, so lazy pictures below the fold would never load.
 	// Load and decode every picture first, as a reader scrolling down would see it, including those

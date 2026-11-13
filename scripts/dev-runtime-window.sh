@@ -7,6 +7,9 @@
 # with the Product Owner to close it, and status says when that time has passed (#238 retro: one
 # stayed open 19 hours while a person reviewed, and another session's suite waited on it). Each
 # open and close is a line in RUNTIME_EVENTS.
+# The lock holds why the window opened, when, the directory it was opened from, where the
+# holder's checkout and its scripts are (#240 retro), and its close time, last, where status reads
+# it.
 #   scripts/dev-runtime-window.sh open "<why>" <until, UTC, such as 2026-11-11T12:00Z>
 #   scripts/dev-runtime-window.sh close
 #   scripts/dev-runtime-window.sh status   # exit 0 with no window open, 1 with one
@@ -24,8 +27,8 @@ case ${1-} in
     # A Thai-locale `date` writes the Buddhist year, 543 years ahead (#238 retro).
     (( until_s <= $(date -u +%s) + 7 * 86400 )) || die "the close time is more than a week away: $3"
     [[ ! -e $WINDOW_LOCK ]] || die "a window already holds the runtime: $(<"$WINDOW_LOCK")"
-    ( set -C; printf '%s (opened %s, until %s)\n' "$2" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      "$(date -u -d "@$until_s" +%Y-%m-%dT%H:%M:%SZ)" > "$WINDOW_LOCK" ) \
+    ( set -C; printf '%s (opened %s, from %s, until %s)\n' "$2" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      "$PWD" "$(date -u -d "@$until_s" +%Y-%m-%dT%H:%M:%SZ)" > "$WINDOW_LOCK" ) \
       || die "could not open the window: $WINDOW_LOCK was not written"
     log_event "opened a window: $(<"$WINDOW_LOCK")"
     note "the window is open: scripts/dev-runtime-env.sh --in-window runs commands inside it"

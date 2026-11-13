@@ -1,0 +1,115 @@
+---
+// The Homepage's Contact Summary (Feature 008 #247; spec #239 "Contact Summary"): one green card
+// across the container with the section heading and the office's telephone number, large and in
+// accent-warm, at the left, and the address with the "เปิดแผนที่" link, the opening hours and the
+// button "ข้อมูลติดต่อทั้งหมด" to /contact at the right; one column below `lg`. It reads Office
+// Contact, each detail only when it is set; the email stays on /contact. No map is shown or
+// embedded, and no stand-in for one.
+//
+// The heading reads "ติดต่อสำนักงาน" (Product Owner, 2026-11-12: #247 comment 6820125241, item 1)
+// under the label "ติดต่อ", accent-warm on the card's brand-dark end, where it sits. The telephone
+// number is a link while it is one number (src/lib/contact-links.ts), and plain text otherwise.
+// "เปิดแผนที่" is surface-base and underlined: the card's other end is brand-primary, where
+// accent-warm small text is 4.10:1 (#242 comment 6797113372, item 1).
+//
+// Each detail is a pair of a <dl> whose name only assistive technology reads; its icon, 20 px in
+// accent-warm, stands for the name in sight and is decorative. The ring at the card's lower right
+// shows from `lg` only, where it is clear of the text, and takes no pointer events. Where motion
+// is allowed the card reveals as it comes into the window (Feature 008 #249; spec #239 "Motion and
+// loading"; src/styles/global.css).
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+import Clock from "@lucide/astro/icons/clock";
+import Headset from "@lucide/astro/icons/headset";
+import MapPin from "@lucide/astro/icons/map-pin";
+import Phone from "@lucide/astro/icons/phone";
+import { telephoneHref } from "../lib/contact-links";
+import { mapHref } from "../lib/map-link";
+import type { OfficeContact } from "../lib/office-contact-settings";
+import MapLink from "./MapLink.astro";
+import SectionHeading from "./SectionHeading.astro";
+
+interface Props {
+	/** The H2's id, which the section names itself by. */
+	id: string;
+	contact: OfficeContact;
+}
+
+const { id, contact } = Astro.props;
+const hasMap = mapHref(contact.latitude, contact.longitude) !== undefined;
+const hasPlace = !!contact.address || hasMap;
+const telephoneLink = contact.telephone && telephoneHref(contact.telephone);
+const telephoneClass =
+	"inline-flex min-h-11 items-center gap-3 text-h2 font-bold wrap-anywhere text-accent-warm sm:text-telephone";
+---
+
+<div
+	data-testid="contact-card"
+	class="scroll-reveal focus-ring-on-dark relative grid items-center gap-6 overflow-clip rounded-24 bg-linear-140 from-brand-dark to-brand-primary p-6 text-surface-base shadow-deep sm:p-10 lg:grid-cols-2 lg:gap-x-14 lg:px-14 lg:py-12"
+>
+	<span
+		aria-hidden="true"
+		class="pointer-events-none absolute -right-20 -bottom-27.5 size-65 rounded-pill border-[1.5px] border-accent-warm/45 max-lg:hidden"
+	></span>
+	<div class="relative">
+		<SectionHeading surface="dark" id={id} label="ติดต่อ" title="ติดต่อสำนักงาน">
+			<Headset slot="icon" class="shrink-0" size={24} />
+		</SectionHeading>
+		{contact.telephone && (
+			<dl class="mt-3">
+				<div>
+					<dt class="sr-only">โทรศัพท์</dt>
+					<dd>
+						{telephoneLink ? (
+							<a class={telephoneClass} href={telephoneLink}>
+								<Phone class="shrink-0" size={24} />
+								{contact.telephone}
+							</a>
+						) : (
+							<p class={telephoneClass}>
+								<Phone class="shrink-0" size={24} />
+								{contact.telephone}
+							</p>
+						)}
+					</dd>
+				</div>
+			</dl>
+		)}
+	</div>
+	<div class="relative">
+		{(hasPlace || contact.openingHours) && (
+			<dl class="flex flex-col gap-2">
+				{hasPlace && (
+					<div>
+						<dt class="sr-only">ที่ตั้ง</dt>
+						<dd class="flex gap-2.5">
+							<MapPin class="mt-1 shrink-0 text-accent-warm" size={20} />
+							<div class="flex min-w-0 flex-col items-start wrap-anywhere">
+								{contact.address && <p class="whitespace-pre-line">{contact.address}</p>}
+								<MapLink latitude={contact.latitude} longitude={contact.longitude} onDark />
+							</div>
+						</dd>
+					</div>
+				)}
+				{contact.openingHours && (
+					<div>
+						<dt class="sr-only">เวลาทำการ</dt>
+						<dd class="flex gap-2.5">
+							<Clock class="mt-1 shrink-0 text-accent-warm" size={20} />
+							<p class="min-w-0 whitespace-pre-line wrap-anywhere">{contact.openingHours}</p>
+						</dd>
+					</div>
+				)}
+			</dl>
+		)}
+		<a
+			href="/contact"
+			class:list={[
+				(hasPlace || contact.openingHours) && "mt-4.5",
+				"inline-flex h-13 items-center gap-2 rounded-pill bg-accent-warm px-7 text-body font-semibold text-brand-dark hover:shadow-card motion-safe:transition-shadow",
+			]}
+		>
+			ข้อมูลติดต่อทั้งหมด
+			<ArrowRight class="shrink-0" size={20} />
+		</a>
+	</div>
+</div>

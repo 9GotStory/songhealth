@@ -2,11 +2,10 @@
 // The Activity card (Feature 003 #64; spec #51 "Shared building blocks"; Figma Card/Activity 4:48,
 // docs/design/homepage-concept-v1.md §9): the Activity's picture, or the design's visual when it
 // has none, then "กิจกรรม • date" by when it was held, else its publication (`04` §10), and its
-// title. Its whole surface links to its page (#193; #190 comment 6707205912). The Homepage
-// shows its latest Activities with it, and the Activities
+// title. Its whole surface links to its page (#193; #190 comment 6707205912). The Activities
 // list shows every Activity with it, adding the summary (Product Owner, 2026-10-30: #64 comment
-// 6526131459). The title is a heading one level below its list's own: H2 on the Activities list,
-// H3 under a Homepage section.
+// 6526131459); the Homepage has its own tile (HomeActivityTile, Feature 008 #247). The title is
+// an H2, one level below the list's H1.
 //
 // The picture goes through EmDash's Image with a `sizes` for the card's box, as ContentCard's does
 // (src/components/ContentCard.astro says why). A `loading` attribute overrides the component's lazy
@@ -15,37 +14,23 @@
 // deleted in Admin is left out for the visual (src/lib/media.ts). The visual's caption is
 // decoration too: the line under it says กิจกรรม.
 //
-// On the Homepage, where the Activities go two to a row below 640 px, the card takes its compact
-// form there: less padding and the title at body size (Feature 006 #146; spec #144 "Homepage
-// (`04`)"), with 112 px for the title at 320 px, enough for "ความดันโลหิตสูง" (107 px). The
-// Activities list keeps the full card.
 // A title-named native link covers the whole surface. Metadata and summaries remain readable
 // outside its label (WCAG 2.5.3; #193; #190 comment 6707205912).
 import { Image } from "emdash/ui";
 import { activityDate, activityPath, type ActivityEntry } from "../lib/activities";
-import { CARD_PICTURE_SIZES, HALF_WIDTH_CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
+import { CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
 import MetaLine from "./MetaLine.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	activity: ActivityEntry;
-	headingLevel?: 2 | 3;
 	/** Show the Activity's summary under its title, as the Activities list does. */
 	showSummary?: boolean;
 	/** Load the picture at once, for a card in view when the page opens. */
 	eager?: boolean;
-	/** The Homepage's compact form below 640 px. */
-	compact?: boolean;
 }
 
-const {
-	activity,
-	headingLevel = 2,
-	showSummary = false,
-	eager = false,
-	compact = false,
-} = Astro.props;
-const Heading = headingLevel === 3 ? "h3" : "h2";
+const { activity, showSummary = false, eager = false } = Astro.props;
 const image = await availableMedia(activity.data.featured_image, Astro.locals.emdash);
 const date = activityDate(activity.data);
 const summary = showSummary ? activity.data.summary : undefined;
@@ -58,7 +43,7 @@ const titleId = `activitycard-${crypto.randomUUID()}`;
 			<Image
 				image={image}
 				alt=""
-				sizes={compact ? HALF_WIDTH_CARD_PICTURE_SIZES : CARD_PICTURE_SIZES}
+				sizes={CARD_PICTURE_SIZES}
 				loading={eager ? "eager" : "lazy"}
 				class="aspect-16/9 w-full object-cover"
 			/>
@@ -71,19 +56,14 @@ const titleId = `activitycard-${crypto.randomUUID()}`;
 				กิจกรรมในชุมชน
 			</div>
 		)}
-		<div
-			class:list={["flex flex-1 flex-col gap-2 px-5 py-4.5", compact && "max-sm:px-3 max-sm:py-3"]}
-		>
+		<div class="flex flex-1 flex-col gap-2 px-5 py-4.5">
 			<MetaLine facts={[{ text: "กิจกรรม" }, date && { date }]} />
-			<Heading
+			<h2
 				id={titleId}
-				class:list={[
-					"text-h3 wrap-anywhere text-text-primary underline-offset-4 group-hover:text-brand-primary group-hover:underline",
-					compact && "max-sm:text-body max-sm:font-semibold",
-				]}
+				class="text-h3 wrap-anywhere text-text-primary underline-offset-4 group-hover:text-brand-primary group-hover:underline"
 			>
 				<ThaiTitle text={activity.data.title} />
-			</Heading>
+			</h2>
 			{summary && <p class="line-clamp-3 text-text-secondary">{summary}</p>}
 		</div>
 	</div>

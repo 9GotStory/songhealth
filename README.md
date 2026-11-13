@@ -38,6 +38,16 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   Health Content posts without an empty trailing row (spec #190, tickets #191–#198).
   `docs/design/DESIGN.md` v1.1 records it with the code. The Product Owner gave it Final Acceptance
   on 2026-11-10 (#190 comment 6759434955), and it was merged into `main`.
+- **Feature 008 `homepage-redesign`:** complete: the Homepage and the header and footer of every
+  page redesigned in the "bold modern" look the Product Owner chose from a prototype, on the
+  existing colours, radii and Noto Sans Thai: a deep green field with the hero and the Services, a
+  Leadership strip, Latest News, the Current Announcements with date tiles, Health Topic chips, the
+  Health Service Discovery band, five Activities, the contact card, a Service's icon, and motion
+  that stops with the visitor's reduced-motion setting (spec #239, tickets #240–#250).
+  `docs/design/DESIGN.md` v1.2 records it with the code, and
+  `docs/evidence/250-homepage-redesign-evidence-round.md` its evidence and what that does not
+  cover. The Product Owner gave it Final Acceptance on 2026-11-13 (#239 comment 6841960594), and it
+  was merged into `main`. Every other page keeps its design until its own feature.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
@@ -128,6 +138,15 @@ Use `npm run format` to fix formatting: it includes the comment wrapper that Pre
 Record the prototype's question, verdict and source context with its ticket; publishing the
 prototype follows that ticket's scope.
 
+A prototype is published on a `prototype/<name>` branch outside `main`: its builders under
+`docs/prototypes/<name>/` and its record, `docs/prototypes/<name>.md`, in an ordinary commit that
+passes the pre-commit hook once the branch adds `docs/prototypes/**` to `knip.jsonc`'s `ignore`.
+This repository is public, so only what `scripts/migration.ts leak-check` passes goes there. Build
+a prototype on the demo dataset's content, or run the check on its data the day it is built: a
+prototype built on Legacy site content publishes its builders and record alone, and its spec says
+so (#250 retro: #239 promised the whole prototype as a primary source, and its data, pages and
+screenshots had to stay on the machine).
+
 ## The development runtime
 
 The single development runtime (Product Owner decision 2026-10-28; Feature 002 T036). Full
@@ -163,8 +182,12 @@ Tests target the runtime with its own credentials, which are never printed or co
 
 ```bash
 # ordinary suites (the role fixture enables the T019/T020 role cases; the dev Admin session
-# enables the Admin UI journeys of cms-lifecycle-ui, cms-editor and cms-menus-ui; one worker at a time)
-scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
+# enables the Admin UI journeys of cms-lifecycle-ui, cms-editor and cms-menus-ui); without a suite,
+# every suite. playwright.config.ts runs them one worker at a time
+scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts
+# every suite that reads a Homepage section or opens the Homepage, before the review of a change
+# to the Homepage
+scripts/dev-runtime-env.sh npm run test:browser:homepage
 # T021 public reads, only through the coordinator, from a checkout at the promoted commit
 scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 ```
@@ -268,9 +291,16 @@ below is installed, it fills every page, so the script alone captures a page wit
 the dataset does not hold, such as a Document whose file was deleted, takes its content from
 `scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>`. The
 runner makes the module's synthetic content, captures the paths the module returns, and removes
-everything it made. `scripts/screenshot-fixtures/news.ts` is the example. The Admin's sidebar, as an
+everything it made. A selector as a third argument, such as
+`'section[aria-labelledby=home-leadership]'`, captures that element alone on each page, to look at
+one part of a long page. `scripts/screenshot-fixtures/news.ts` is the example. The Admin's sidebar, as an
 Administrator, an Editor or an Author sees it, comes from
 `scripts/dev-runtime-env.sh node scripts/capture-admin.ts <out-dir> [<role>]`.
+
+Text on a gradient or over a decoration is read with
+`node scripts/measure-text-contrast.ts [--fixtures <module>] <path> <selector>...` before the
+suites run: axe leaves such text unmeasured. It prints the lowest contrast under the text's own
+pixels at five widths; its header says how.
 
 The runtime holds the demo dataset: content marked `[ตัวอย่าง]` that fills every page for the
 Product Owner's review. `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` installs it

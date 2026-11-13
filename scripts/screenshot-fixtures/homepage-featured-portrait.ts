@@ -1,8 +1,8 @@
-// Screenshot content for the Featured hero with a portrait picture (#146): a News whose picture is
-// a portrait A4 stand-in for a One Page, shown whole at the frame's height, narrower and centred on
-// the band (spec #144 "Homepage (`04`)"). Its title holds "ความดันโลหิตสูง", the longest word a
-// title keeps whole. Captures / as home-featured-portrait, and the hero at 1024 px, where lg's text
-// column is narrowest, as hero-1024.
+// Screenshot content for the Featured card with a portrait picture (#146; Feature 008 #241): a
+// News whose picture is a portrait A4 stand-in for a One Page, shown whole in the card's frame on
+// its blurred copy (spec #144 "Homepage (`04`)"; spec #239 "Hero and Featured"). Its title holds
+// "ความดันโลหิตสูง", the longest word a title keeps whole. Captures / as home-featured-portrait,
+// and the hero at 1024 px, where the card beside the headline is narrowest, as hero-1024.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
 
@@ -27,7 +27,7 @@ const fixtures: Fixtures = async ({ admin, helpers, picture, homepageMenus }) =>
 	});
 	return [
 		{ name: "home-featured-portrait", path: "/" },
-		{ name: "hero-1024", path: "/@1024>section[aria-labelledby=home-featured]" },
+		{ name: "hero-1024", path: "/@1024>main > section" },
 	];
 };
 

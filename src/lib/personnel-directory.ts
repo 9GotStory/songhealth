@@ -63,6 +63,16 @@ export function leadership<E extends { id: string; data: DirectoryData }>(
 }
 
 /**
+ * The Leadership the Homepage's strip shows: the first three, in Leadership order with its tie
+ * rule, and fewer when fewer exist (Feature 008 #243; spec #239 "Leadership strip").
+ */
+export function homepageLeadership<E extends { id: string; data: DirectoryData }>(
+	entries: readonly E[],
+): E[] {
+	return leadership(entries).slice(0, 3);
+}
+
+/**
  * The visible Personnel by organizational unit, the units in Thai order and each unit's people by
  * name. A unit is matched with the spaces around it trimmed. The Personnel without a unit come
  * last.

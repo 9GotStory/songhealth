@@ -239,10 +239,18 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   wins (`src/components/EmDashImage.astro`). `./src/components/ContentCard.astro` and
   `./src/components/ActivityCard.astro` load a list's first row that way.
 - `Image` writes the value's dimensions as the `width` and `height` attributes, so its box takes
-  the picture's shape before the file loads, and shows the value's placeholder (a blurhash, else
+  the picture's shape before the file loads, and writes the value's placeholder (a blurhash, else
   the dominant colour) as the image's inline background, unless given `placeholder={false}`
-  (`src/components/EmDashImage.astro` `resolveImage`). `./src/components/FeaturedHero.astro` relies
-  on both.
+  (`src/components/EmDashImage.astro` `resolveImage`). `./src/components/PostColumns.astro` relies
+  on the dimensions.
+- The blurhash placeholder does not show. `Image` writes it as a `background` declaration that
+  ends in `cover` after the image's address (`@unpic/placeholder/dist/index.js`
+  `blurhashToImageCssString`, version 0.1.2), and a `background` shorthand takes a size only after a position and
+  a slash, so the browser drops the declaration: on the development runtime at `8d04198`, Chromium
+  computed `background-image: none` for the Homepage's Featured picture, whose `style` held that
+  text. A dominant colour alone, written as `background-color`, is valid. So
+  `./src/components/HomeHero.astro` draws its own blurred copy of the Featured picture with a
+  second `Image`, both with `placeholder={false}`.
 - The Admin's media library sets a picture's focal point ("Focal point. Use arrow keys to move
   it."). The Admin's image field copies the media item's focal point into the field's value as
   `focalX` and `focalY` when staff pick the picture, or edit it from the field
@@ -321,6 +329,23 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - A datetime field is a UTC instant. The Admin edits it as `<input type="datetime-local">` in the
   site's `timezone` setting and saves canonical UTC ISO (`@emdash-cms/admin/dist/index.js`
   1.1.0, the region bundled from its src/lib/datetime-local.ts).
+- A collection's `select` field holds one of its `validation.options`, plain strings.
+  - The Admin's editor lists them in their order, each labelled with its value, the first letter in
+    upper case: no separate label and no picture (`src/api/handlers/manifest.ts`, the
+    `field.validation?.options` branch; `@emdash-cms/admin/dist/index.js` `FieldRenderer`,
+    `case "select"`). The Service editor on the development runtime listed "บทบาทของหน่วยงาน" as
+    `Direct`, `Coordinated`, `Related_health_service`, `External_digital` (2026-11-12, #248). A
+    Thai value shows as written.
+  - The editor's list has no empty choice, so staff cannot clear a chosen value there (same
+    `case "select"`). A field that needs a way back therefore has it as one of its options, as
+    the Service `icon` field's standard icon is (#248). A block's `select` field has none either
+    (below, the blocks field in the Admin).
+  - A content save refuses a value outside the options, and takes `null` or no value for a field
+    that is not required (`src/schema/zod-generator.ts`, `case "select"` and the `.nullish()` of a
+    non-required field). `PUT …/collections/{slug}/fields/{field}` with a `validation` stores it
+    as given and changes no stored value (`src/schema/registry.ts` `updateField`), so an entry can
+    keep a value its field no longer offers; `./src/lib/service-icon.ts` shows the standard icon
+    for one.
 - A repeater sub-field is a string, text, url, number, integer, boolean, datetime, select or image.
   A repeater holds no file, no reference and no nested repeater (`src/schema/types.ts`
   `REPEATER_SUB_FIELD_TYPES`).

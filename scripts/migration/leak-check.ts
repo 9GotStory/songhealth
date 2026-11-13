@@ -16,6 +16,14 @@ const SHORTEST_TEXT = 16;
 /** The shortest file name taken to name something, as the Legacy site's shortest is. */
 const SHORTEST_NAME = 10;
 
+/**
+ * Public institutions the site's own interface text names, such as the footer's ministry (spec
+ * #239 "Footer (every page)"). A name is no Legacy site content, though one of the export's texts
+ * may equal it; a longer text that holds the name still counts (Product Owner, #240 comment
+ * 6787006436).
+ */
+const PUBLIC_NAMES = new Set(["กระทรวงสาธารณสุข"]);
+
 /** The lines a commit adds to one file, or the whole of a file the command is given. */
 interface AddedLines {
 	file: string;
@@ -33,7 +41,7 @@ function stringsOf(site: LegacySite): Map<string, string> {
 	const strings = new Map<string, string>();
 	const addText = (text: string, what: string) => {
 		const trimmed = text.trim();
-		if (trimmed.length >= SHORTEST_TEXT) strings.set(trimmed, what);
+		if (trimmed.length >= SHORTEST_TEXT && !PUBLIC_NAMES.has(trimmed)) strings.set(trimmed, what);
 	};
 	for (const { slug, title, files } of site.items) {
 		addText(title, `the title of ${slug}`);

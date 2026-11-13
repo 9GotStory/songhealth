@@ -1,7 +1,8 @@
 // Shared formatting for public pages (#54; spec #51, "Dates" and "Lists and filters").
 //
 // - Dates read in Thai with the Buddhist Era year, in Bangkok time, from the UTC instants
-//   EmDash stores (#51 user story 12, for example "24 ก.ย. 2569").
+//   EmDash stores (#51 user story 12, for example "24 ก.ย. 2569"). The Homepage's Announcement
+//   rows show the day apart from the month and year (Feature 008 #245).
 // - A list's page number travels in the `page` query parameter. A value that is not a page
 //   number is ignored and the first page is shown.
 // - A page without a summary describes itself with the start of its text, cut between words
@@ -12,7 +13,7 @@ import { describe, it } from "node:test";
 
 import { excerpt } from "../../src/lib/excerpt.ts";
 import { pageHref, parsePageNumber } from "../../src/lib/pagination.ts";
-import { formatThaiDate } from "../../src/lib/thai-date.ts";
+import { formatThaiDate, thaiDateParts } from "../../src/lib/thai-date.ts";
 
 describe("formatThaiDate", () => {
 	it("reads a date as day, abbreviated Thai month and Buddhist Era year", () => {
@@ -31,6 +32,30 @@ describe("formatThaiDate", () => {
 
 	it("refuses a value that is not a date", () => {
 		assert.throws(() => formatThaiDate("not a date"), RangeError);
+	});
+});
+
+describe("thaiDateParts", () => {
+	it("gives the day apart from the abbreviated Thai month and Buddhist Era year", () => {
+		assert.deepEqual(thaiDateParts("2026-07-16T03:00:00.000Z"), {
+			day: "16",
+			monthAndYear: "ก.ค. 2569",
+		});
+	});
+
+	it("takes the day, the month and the year in Bangkok time", () => {
+		assert.deepEqual(thaiDateParts("2026-12-31T16:59:59.000Z"), {
+			day: "31",
+			monthAndYear: "ธ.ค. 2569",
+		});
+		assert.deepEqual(thaiDateParts(new Date("2026-12-31T17:00:00.000Z")), {
+			day: "1",
+			monthAndYear: "ม.ค. 2570",
+		});
+	});
+
+	it("refuses a value that is not a date", () => {
+		assert.throws(() => thaiDateParts("not a date"), RangeError);
 	});
 });
 

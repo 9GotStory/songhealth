@@ -21,7 +21,10 @@
 	/*
 	 * A status that needs attention (StatusLabel), the skip link, the focus ring on dark surfaces,
 	 * and the eyebrow on the brand-dark Health Service Discovery section (Figma frame §8) and on the
-	 * MOIT page's brand-dark header band, with the MOIT's number (#123, ITA prototype variant C)
+	 * MOIT page's brand-dark header band, with the MOIT's number (#123, ITA prototype variant C). On
+	 * the Homepage's deep field (spec #239): the words the hero's headline marks, the search's submit
+	 * button, the sheet behind the Featured card, a section heading's icon tile, a Service card's
+	 * tile under the pointer, and the ring of the first person in the Leadership strip.
 	 */
 	--color-accent-warm: #f3c95f;
 	--color-text-primary: #16211d;
@@ -32,16 +35,14 @@
 	--color-border-default: #dce7e2;
 
 	/* Colours the Figma frame uses without a variable */
-	--color-topic-green: #ebf7f0; /* Health Information cards */
-	--color-topic-blue: #f0f5fc;
-	--color-divider: #dbe8e3; /* Announcement list separators */
-	--color-hero-visual-from: #bae0cf; /* Featured hero visual */
-	--color-hero-visual-to: #f2d17a;
+	--color-topic-blue: #f0f5fc; /* The procurement Announcement badge's fill */
+	--color-divider: #dbe8e3; /* Separators inside a white box */
 	--color-activity-visual-from: #bfdcce; /* Activity card without an image */
 	--color-activity-visual-to: #e8f0d9;
-	--color-contact-visual-from: #d1ebde; /* Contact Summary map stand-in */
-	--color-contact-visual-to: #e8f0cc;
-	/* The Featured hero's eyebrow chip, and its secondary link's fill and border (Figma frame §3) */
+	/*
+	 * The hero's chip (spec #239 "Hero and Featured"), and the fill and border of a secondary link
+	 * on a dark surface (Figma frame §3)
+	 */
 	--color-hero-chip: rgb(255 255 255 / 0.12);
 	--color-hero-secondary-fill: rgb(255 255 255 / 0.06);
 	--color-hero-secondary-border: rgb(255 255 255 / 0.28);
@@ -53,6 +54,16 @@
 	 */
 	--color-text-secondary-on-soft: #5d6a64; /* 5.07:1 on surface-soft, more on the other light fills */
 	--color-border-input: #7a8a83; /* 3.63:1 on surface-base, 3.42:1 on bg-page, 3.25:1 on surface-soft */
+
+	/*
+	 * Feature 008's colours, from the prototype the Product Owner chose (spec #239 "Tokens"; the blue
+	 * accepted in the session, the others on #239 comment 6786536858).
+	 */
+	--color-procurement-text: #1d4f91; /* The procurement Announcement badge's text, on topic-blue */
+	--color-procurement-border: #c9dbf3; /* and its border */
+	--color-status-closed: #e7ecea; /* A closed Announcement status label's fill */
+	--color-deep-highlight: #0f8a70; /* The highlight in the deep green field's gradient */
+	--color-plain-visual-to: #d6ece2; /* The plain visual's second stop, after surface-soft */
 
 	/* Figma type styles (Noto Sans Thai): size / line height / weight in px */
 	--text-*: initial;
@@ -77,6 +88,10 @@
 	--text-label--font-weight: 500;
 	--text-small: 0.8125rem; /* 13 / 20 / 400 */
 	--text-small--line-height: 1.25rem;
+	/* The office's telephone number on the Homepage's contact card (spec #239 "Tokens") */
+	--text-telephone: 2.5rem; /* 40 / 52 / 700 */
+	--text-telephone--line-height: 3.25rem;
+	--text-telephone--font-weight: 700;
 
 	/* Figma corner radii, named by their size in px */
 	--radius-*: initial;
@@ -92,6 +107,15 @@
 
 	--shadow-*: initial;
 	--shadow-card: 0 10px 15px rgb(13 46 36 / 0.08);
+	/*
+	 * A card on the deep green field, such as the hero's search and Featured card (spec #239
+	 * "Tokens")
+	 */
+	--shadow-deep: 0 30px 60px -20px rgb(13 46 36 / 0.35);
+	/* A section heading's icon tile on a light surface (spec #239 "Section headings") */
+	--shadow-tile: 0 14px 26px -12px rgb(11 107 87 / 0.7);
+	/* The sticky header's lower edge: a hairline and a short soft shadow (spec #239 "Header") */
+	--shadow-header: 0 1px 0 var(--color-border-default), 0 8px 24px -16px rgb(13 46 36 / 0.25);
 
 	/* The 1200 px content container of the 1440 px desktop frame */
 	--container-content: 75rem;
@@ -107,14 +131,38 @@
 }
 
 @layer base {
-	/* Side gutter of the page container: 16 px on phones, 24 px from `sm` up. */
+	/*
+	 * Side gutter of the page container: 16 px on phones, 24 px from `sm` up. The room the sticky
+	 * header takes at the top of the window: 88 px below `sm`, where the site title can wrap to three
+	 * lines (86 px at 320 px), and its 84 px row from `sm` (spec #239 "Header (every page)"). How
+	 * far the Homepage's Frequently Used Services extend below the deep field from `sm`, which is
+	 * also the room the field leaves under it: 110 px (spec #239 "Frequently Used Services").
+	 */
 	:root {
 		--page-gutter: 1rem;
+		--header-offset: 5.5rem;
+		--field-overhang: 6.875rem;
 	}
 
 	@media (width >= 40rem) {
 		:root {
 			--page-gutter: 1.5rem;
+			--header-offset: 5.25rem;
+		}
+	}
+
+	/*
+	 * What focus or a link to an anchor scrolls to stops below the sticky header, never under it
+	 * (WCAG 2.2 SC 2.4.11). Below `lg` the open menu makes the header taller by --menu-height, which
+	 * the shell sets from its number of items (src/layouts/SiteLayout.astro).
+	 */
+	html {
+		scroll-padding-top: calc(var(--header-offset) + 1rem);
+	}
+
+	@media (width < 64rem) {
+		html:has(#site-menu[open]) {
+			scroll-padding-top: calc(var(--header-offset) + var(--menu-height, 0rem) + 1rem);
 		}
 	}
 
@@ -146,11 +194,271 @@
 }
 
 /*
+ * The header's text from `lg`: the site title and the navigation items scale with the window, so
+ * the header's one row fits at 1,024 px without a third breakpoint (spec #239 "Breakpoints and
+ * container"). The title runs from body to body-large and an item from 15 px to body.
+ */
+@utility header-title {
+	font-size: clamp(var(--text-body), 1.3vw, var(--text-body-large));
+	line-height: 1.5rem;
+}
+
+@utility header-nav-item {
+	padding-inline: clamp(0.5rem, 0.9vw, 0.75rem);
+	font-size: clamp(0.9375rem, 1.15vw, var(--text-body));
+	line-height: var(--text-body--line-height);
+}
+
+/*
+ * The Homepage's deep green field (spec #239 "Solution"): brand-dark to brand-primary and back,
+ * with the deep-highlight glow from its upper right, 62 % of the field wide, and below `sm` a
+ * smaller one in the corner, so on a phone it stays clear of the text at the left. White text on
+ * its lightest part, deep-highlight, is 4.30:1, so the field carries large text, and smaller text
+ * at its darker left. brand-dark lies under the gradients, so the field's white text stays readable
+ * where a browser draws neither.
+ */
+@utility deep-field {
+	background-color: var(--color-brand-dark);
+	background-image:
+		radial-gradient(
+			var(--deep-field-glow, 62% 37.5rem at 85% 0%),
+			var(--color-deep-highlight) 0%,
+			transparent 60%
+		),
+		linear-gradient(
+			140deg,
+			var(--color-brand-dark) 0%,
+			var(--color-brand-primary) 70%,
+			var(--color-brand-dark) 130%
+		);
+
+	@media (width < 40rem) {
+		--deep-field-glow: 45% 18rem at 100% 0%;
+	}
+}
+
+/*
+ * The plain visual that stands in for a missing picture (spec #239 "Tokens"): surface-soft to
+ * plain-visual-to, with a white glow from its upper right.
+ */
+@utility plain-visual {
+	background:
+		radial-gradient(circle at 80% 10%, var(--color-surface-base) 0, transparent 55%),
+		linear-gradient(140deg, var(--color-surface-soft), var(--color-plain-visual-to));
+}
+
+/*
+ * The deep green visual that stands in for a missing picture under surface-base text, as the large
+ * Latest News card's (spec #239 "Latest News"; Product Owner, 2026-11-12: #244 comment 6809892992,
+ * item 2): brand-primary to brand-dark, with the deep-highlight glow from its upper right.
+ * brand-dark lies under the gradients, so the text stays readable where a browser draws neither.
+ */
+@utility deep-visual {
+	background-color: var(--color-brand-dark);
+	background-image:
+		radial-gradient(26.25rem 18.75rem at 85% 0%, var(--color-deep-highlight), transparent 65%),
+		linear-gradient(140deg, var(--color-brand-primary), var(--color-brand-dark));
+}
+
+/*
+ * The Homepage's Health Service Discovery band (spec #239 "Health Service Discovery"):
+ * brand-primary to brand-dark, with the deep-highlight glow from its lower left corner, away from
+ * the heading's small label. brand-dark lies under the gradients, so the band's white text stays
+ * readable where a browser draws neither.
+ */
+@utility deep-band {
+	background-color: var(--color-brand-dark);
+	background-image:
+		radial-gradient(37.5rem 25rem at 0% 100%, var(--color-deep-highlight), transparent 65%),
+		linear-gradient(120deg, var(--color-brand-primary), var(--color-brand-dark));
+}
+
+/*
+ * The hero's headline (spec #239 "Hero and Featured", "Tokens"), sizes beyond the type scale: 29 /
+ * 42 below `sm`, 34 / 48 from `sm`, and from `lg` 34 to 44 px with the window, so its three lines
+ * fit beside the Featured card at 1,024 px without a third breakpoint. With nothing Featured it is
+ * larger: 38 / 54 from `sm` and 52 / 74 from `lg`.
+ */
+@utility hero-headline {
+	font-size: 1.8125rem;
+	line-height: 2.625rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+
+	@media (width >= 40rem) {
+		font-size: 2.125rem;
+		line-height: 3rem;
+	}
+
+	@media (width >= 64rem) {
+		font-size: clamp(2.125rem, 3.3vw, 2.75rem);
+		line-height: 1.42;
+	}
+}
+
+@utility hero-headline-alone {
+	font-size: 1.8125rem;
+	line-height: 2.625rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+
+	@media (width >= 40rem) {
+		font-size: 2.375rem;
+		line-height: 3.375rem;
+	}
+
+	@media (width >= 64rem) {
+		font-size: 3.25rem;
+		line-height: 4.625rem;
+	}
+}
+
+/*
+ * A Homepage section's H2 (spec #239 "Tokens"), sizes beyond the type scale: 26 / 38 below `sm`,
+ * 36 / 48 from `sm` and 42 / 54 from `lg`.
+ */
+@utility section-title {
+	font-size: 1.625rem;
+	line-height: 2.375rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+
+	@media (width >= 40rem) {
+		font-size: 2.25rem;
+		line-height: 3rem;
+	}
+
+	@media (width >= 64rem) {
+		font-size: 2.625rem;
+		line-height: 3.375rem;
+	}
+}
+
+/*
+ * The Homepage's motion (Feature 008 #249; spec #239 "Motion and loading"), all of it only on a
+ * screen under `prefers-reduced-motion: no-preference`, so with reduced motion preferred, and on
+ * paper, the page stands still and whole. An entrance or a reveal only holds a part back before it
+ * runs (`backwards`): once over, it leaves the part to its own styles, such as a card's hover. No
+ * effect moves layout: a part changes its opacity, `translate`, `rotate` and `scale`, and a
+ * loading picture's box its background. Nothing moves by itself for longer than five seconds
+ * (WCAG 2.2 SC 2.2.2): the decorations stand still (Product Owner, 2026-11-13: #249 comment
+ * 6838503280).
+ */
+@keyframes rise-in {
+	from {
+		opacity: 0;
+		translate: 0 1.75rem;
+	}
+}
+
+@keyframes featured-card-in {
+	from {
+		opacity: 0;
+		translate: 0 2.5rem;
+		rotate: -10deg;
+		scale: 0.92;
+	}
+}
+
+@keyframes featured-sheet-in {
+	from {
+		opacity: 0;
+		translate: 0 0;
+		rotate: 0deg;
+	}
+}
+
+@keyframes picture-shimmer {
+	to {
+		background-position: 0 0;
+	}
+}
+
+/*
+ * The entrance of a part of the hero as the page opens: it rises 28 px into its place while it
+ * fades in, after --hero-enter-delay. The Featured card and the sheet behind it turn into their
+ * tilt instead, the card after the hero's text and the sheet after the card.
+ */
+@utility hero-enter {
+	@media screen and (prefers-reduced-motion: no-preference) {
+		animation: rise-in 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) var(--hero-enter-delay, 0s) backwards;
+	}
+}
+
+@utility featured-card-enter {
+	@media screen and (prefers-reduced-motion: no-preference) {
+		animation: featured-card-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s backwards;
+	}
+}
+
+@utility featured-sheet-enter {
+	@media screen and (prefers-reduced-motion: no-preference) {
+		animation: featured-sheet-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.45s backwards;
+	}
+}
+
+/*
+ * The reveal of a part of a section as it comes into the window: it rises and fades in over the
+ * first 60 % of its way in, or --reveal-end. Only where the browser has scroll-driven animation,
+ * so elsewhere nothing is ever hidden. A part that holds the keyboard's focus shows whole at once:
+ * focus scrolls a link only just into the window, where a tall part has barely begun. Longhands,
+ * not the `animation` shorthand: the build's minifier, lightningcss 1.33.0, folds
+ * `animation-timeline` into a shorthand, which Chromium 153 then drops whole (#249;
+ * docs/design/DESIGN.md §8.12).
+ */
+@utility scroll-reveal {
+	@media screen and (prefers-reduced-motion: no-preference) {
+		@supports (animation-timeline: view()) {
+			animation-name: rise-in;
+			animation-timing-function: linear;
+			animation-fill-mode: backwards;
+			animation-timeline: view();
+			animation-range: entry 0% entry var(--reveal-end, 60%);
+
+			&:focus-within {
+				animation-name: none;
+			}
+		}
+	}
+}
+
+/*
+ * The box of a picture that is loading: surface-soft with a lighter band of bg-page that crosses
+ * it three times in 4.8 s, which the loaded picture covers. The band is the middle fifth of a
+ * background three boxes wide, so before and after its passes the box shows surface-soft alone,
+ * as it does with reduced motion preferred.
+ */
+@utility picture-shimmer {
+	background-color: var(--color-surface-soft);
+
+	@media screen and (prefers-reduced-motion: no-preference) {
+		background-image: linear-gradient(
+			100deg,
+			var(--color-surface-soft) 40%,
+			var(--color-bg-page) 50%,
+			var(--color-surface-soft) 60%
+		);
+		background-size: 300% 100%;
+		background-position: 100% 0;
+		animation: picture-shimmer 1.6s linear 3;
+	}
+}
+
+/*
  * Focus ring on dark surfaces: accent-warm, 7.75:1 against brand-dark and 4.10:1 against
  * brand-primary, above the 3:1 a focus indicator needs.
  */
 @utility focus-ring-on-dark {
 	--focus-ring-color: var(--color-accent-warm);
+}
+
+/*
+ * Focus ring on a light surface inside a dark one, such as the white search field on the deep
+ * field: brand-primary again, since accent-warm does not show on white (spec #239
+ * "Accessibility").
+ */
+@utility focus-ring-on-light {
+	--focus-ring-color: var(--color-brand-primary);
 }
 
 /*

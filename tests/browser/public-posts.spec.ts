@@ -302,7 +302,8 @@ async function scrolledBoxes(
 }
 
 /**
- * Scroll the page through at 1440 px and fail unless `picture` stays in view while the left column
+ * Scroll the page through at 1440 px and fail unless `picture` stays in view, below the sticky
+ * header, while the left column
  * scrolls (its `title` above the window and its last part, `end`, below it), as it does at some
  * offsets, and its link never passes the bottom of `end`, where the two columns end, and stops
  * there. Gives the boxes at each offset of the picture, its link and each of `more`.
@@ -315,6 +316,8 @@ async function expectPictureFollows(
 	more: Locator[] = [],
 ): Promise<Array<{ at: number; picture: Box; link: Box; more: Box[] }>> {
 	const windowHeight = DESKTOP_VIEWPORT.height;
+	// The sticky header covers the top of the window (#240).
+	const headerHeight = (await page.getByRole("banner").boundingBox())!.height;
 	const link = page.getByRole("main").getByRole("link", { name: FULL_SIZE });
 	const offsets = await scrolledBoxes(page, [picture, link, title, end, ...more]);
 	const outOfView: string[] = [];
@@ -332,7 +335,7 @@ async function expectPictureFollows(
 		if (Math.abs(linkBottom - endBottom) <= 0.5) stopped += 1;
 		if (titleBox!.y + titleBox!.height < 0 && endBottom > windowHeight) {
 			following += 1;
-			if (shown!.y < 0 || shown!.y + shown!.height > windowHeight) {
+			if (shown!.y < headerHeight || shown!.y + shown!.height > windowHeight) {
 				outOfView.push(`at ${at} px: from ${shown!.y} to ${shown!.y + shown!.height}`);
 			}
 		}

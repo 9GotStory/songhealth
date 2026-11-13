@@ -3,16 +3,24 @@
 //
 // Staff curate three native menus, and a citizen opening / sees:
 //
-// - the Featured hero: the first item of the Featured menu that is published content of a kind
-//   that can be Featured, with its title, its summary (an Announcement: the start of its
-//   details), its picture or the brand visual, a link to it and ค้นหาบริการ to /services. A closed
-//   Announcement is not Featured. With no such item, the compact band with the site title stays.
-//   The Featured item is not repeated as the News card or among the current Announcements. The
-//   picture shows whole, a landscape banner and a portrait One Page alike, at most 408 px tall on
-//   a desktop, and from 1024 px a title that keeps a long word whole stays inside its column
-//   (Feature 006 #146; spec #144 "Homepage (`04`)");
-// - the Frequently Used Services: the published Services of their menu, in menu order, at most 6,
-//   each with its name, summary and the uniform icon, and ดูบริการทั้งหมด to /services;
+// - the Featured card in the hero (Feature 008 #241; spec #239 "Hero and Featured"): the first
+//   item of the Featured menu that is published content of a kind that can be Featured, as a card
+//   with its whole picture or the plain visual, "เรื่องเด่น" with the date its list shows it by,
+//   and its title, the whole card a link to it. A closed Announcement is not Featured. With no
+//   such item the hero shows no card, and its headline is larger. The Featured item is not
+//   repeated in Latest News or among the current Announcements. The picture shows whole, a
+//   landscape banner and a portrait One Page alike (Feature 006 #146; spec #144 "Homepage
+//   (`04`)"), and a title that keeps a long word whole stays inside the card. From 640 px the
+//   card sits beside the headline without touching it, and below that under the search (Product
+//   Owner, 2026-11-11: #241 comment 6791096480, item 2);
+// - the Frequently Used Services (Feature 008 #242; spec #239 "Frequently Used Services"): the
+//   published Services of their menu, in menu order, at most 6, each a white card on the hero's
+//   deep field with its name, summary and its icon, the one staff chose or the standard one
+//   (Feature 008 #248), and ทั้งหมด to /services. They go
+//   three to a row from 1,024 px, two from 640 px and one below, where the summary is hidden; four
+//   go two to a row. From 640 px their lower part lies below the field, clear of the next
+//   section's content. A card under the pointer turns brand green. With no Service the field ends
+//   under the hero;
 // - Quick Access: up to 4 items of its menu, in menu order, each to a page of the site or a
 //   published entry, each a label and an arrow. Below 640 px, two to a row, the label lies across
 //   the top of its card and the arrow on a row of its own at the lower right, and the card grows
@@ -37,6 +45,7 @@ import {
 	createSyntheticDraft,
 	createSyntheticHealthReport,
 	createSyntheticHealthService,
+	createSyntheticPerson,
 	createSyntheticService,
 	devAdminActor,
 	gradientPng,
@@ -49,6 +58,7 @@ import {
 	unpublishEntry,
 	uploadSyntheticPicture,
 	withHomepageMenus,
+	withOfficeContact,
 	type CmsActor,
 	type DraftFields,
 	type DraftFixture,
@@ -56,6 +66,7 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOMEPAGE_HEADINGS,
+	HOMEPAGE_HEADLINE,
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
 	expect,
@@ -65,21 +76,23 @@ import {
 	expectLabelAboveArrow,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
-	expectPictureFillsBox,
+	boxOf,
+	expectPictureWhole,
+	expectServiceIcon,
+	expectStacked,
 	expectVisibleFocusOnEveryStop,
+	expectVisuallyHidden,
 	homepageSection,
 	itemsPerRow,
 	occurrencesOf,
 	siteTitleParts,
 	test,
+	thaiDate,
+	tokenColor,
 } from "./public.helpers";
 
-/**
- * The Featured hero's eyebrow, the design's interface text (docs/design/homepage-concept-v1.md §3).
- */
-const FEATURED_EYEBROW = "เรื่องเด่นจากอำเภอสอง";
-/** The tallest the Featured picture shows on a desktop (spec #144 "Homepage (`04`)"). */
-const FEATURED_PICTURE_HEIGHT = 408;
+/** The Featured card's label, which its date follows (spec #239 "Hero and Featured"). */
+const FEATURED_LABEL = "เรื่องเด่น";
 /** A close date long past, on any calendar. */
 const CLOSED_AT = "2026-01-31T10:00:00.000Z";
 
@@ -103,9 +116,27 @@ async function publish(collection: string, ...fixtures: DraftFixture[]): Promise
 	for (const fixture of fixtures) await publishEntryAt(admin, collection, fixture.id);
 }
 
-/** The Featured hero, named by the Featured item's title. */
-function hero(page: Page, fixture: DraftFixture) {
+/** The Featured card, named by the Featured item's title. */
+function featuredCard(page: Page, fixture: DraftFixture) {
 	return homepageSection(page, fixture.title);
+}
+
+/** The Featured picture in `card`: its image that is no decoration, as the blurred copy is. */
+function featuredPicture(card: Locator) {
+	return card.locator('img:not([aria-hidden="true"] img)');
+}
+
+/**
+ * The deep field the hero and the Frequently Used Services stand on, a decoration with no role of
+ * its own.
+ */
+function deepField(page: Page) {
+	return page.getByTestId("deep-field");
+}
+
+/** The hero's headline, the office summary sentence. */
+function headline(page: Page) {
+	return homepageSection(page, HOMEPAGE_HEADLINE).getByText(HOMEPAGE_HEADLINE, { exact: true });
 }
 
 test.use({ viewport: DESKTOP_VIEWPORT });
@@ -117,7 +148,7 @@ test.beforeAll(async () => {
 
 test.afterAll(() => removeSuiteFixtures(admin));
 
-test("Featured shows the first menu item that is published content of a Featured kind: its title, summary, picture, a link to it and ค้นหาบริการ", async ({
+test("Featured shows the first menu item that is published content of a Featured kind as a card: เรื่องเด่น with its date, its title and its picture, the whole card a link to it", async ({
 	page,
 }) => {
 	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปเรื่องเด่น ${crypto.randomUUID().slice(0, 6)}`;
@@ -132,7 +163,8 @@ test("Featured shows the first menu item that is published content of a Featured
 			},
 		},
 	});
-	await publish("news", trashed, featured);
+	await publish("news", trashed);
+	const publishedAt = await publishEntryAt(admin, "news", featured.id);
 	await publish("documents", document);
 	expect((await trashEntry(admin, "news", trashed.id)).ok, "trash").toBe(true);
 
@@ -149,27 +181,30 @@ test("Featured shows the first menu item that is published content of a Featured
 		async () => {
 			await page.goto("/");
 			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-			const shown = hero(page, featured);
+			const shown = featuredCard(page, featured);
 			await expect(shown.getByRole("heading", { level: 2 })).toHaveText(featured.title);
-			await expect(shown.getByText(FEATURED_EYEBROW, { exact: true })).toBeVisible();
-			await expect(shown.getByText(summary, { exact: true })).toBeVisible();
-			await expect(
-				shown.getByRole("link", { name: `ดูเรื่องเด่น ${featured.title}` }),
-			).toHaveAttribute("href", `/news/${featured.slug}`);
-			await expect(shown.getByRole("link", { name: "ค้นหาบริการ" })).toHaveAttribute(
-				"href",
-				"/services",
-			);
-			await expectImageLoaded(shown.locator("img"), "the Featured picture");
+			await expectImageLoaded(featuredPicture(shown), "the Featured picture");
 			await expect(shown.getByTestId("featured-visual")).toHaveCount(0);
 			for (const hidden of [draft, trashed, document]) {
 				await expect(page.getByRole("main"), hidden.title).not.toContainText(hidden.title);
 			}
+			await expectVisuallyHidden(page.getByRole("heading", { level: 1 }), "the site title");
+			await expect(headline(page)).toBeVisible();
+			await expect(
+				shown.getByText(`${FEATURED_LABEL} · ${thaiDate(publishedAt)}`, { exact: true }),
+			).toBeVisible();
+			await expect(shown.getByRole("link")).toHaveAccessibleName(
+				`${FEATURED_LABEL} · ${thaiDate(publishedAt)} ${featured.title}`,
+			);
+			await expect(shown.getByRole("link")).toHaveAttribute("href", `/news/${featured.slug}`);
+			await expect(shown, "the card leaves the summary to the item's page").not.toContainText(
+				summary,
+			);
 		},
 	);
 });
 
-test("the Featured picture shows whole, a landscape banner and a portrait One Page alike, at 375 and 1440 px, at most 408 px tall on a desktop, and the title names the item", async ({
+test("the Featured picture shows whole inside the card, a landscape banner and a portrait One Page alike, at 375 and 1440 px, and the title names the item", async ({
 	page,
 }) => {
 	const pictures = {
@@ -187,25 +222,33 @@ test("the Featured picture shows whole, a landscape banner and a portrait One Pa
 				const label = `the ${shape} Featured picture at ${viewport.width} px`;
 				await page.setViewportSize(viewport);
 				await page.goto("/");
-				const shown = hero(page, featured);
+				const shown = featuredCard(page, featured);
 				await expect(shown.getByRole("heading", { level: 2 }), label).toHaveText(featured.title);
-				// The picture fills its own box, so the band, not the box, shows beside a narrower one.
-				const { height } = await expectPictureFillsBox(shown.locator("img"), label);
-				if (viewport === DESKTOP_VIEWPORT) {
-					expect(height, `${label}: its height`).toBeLessThanOrEqual(FEATURED_PICTURE_HEIGHT + 0.5);
-				}
+				await expectPictureWhole(featuredPicture(shown), label);
+				// The card holds the picture: neither a banner nor a One Page reaches past its edges.
+				const card = await boxOf(shown.getByRole("link"), `${label}: the card`);
+				const picture = await boxOf(featuredPicture(shown), label);
+				expect(picture.x, `${label}: inside the card's left edge`).toBeGreaterThanOrEqual(card.x);
+				expect(
+					picture.x + picture.width,
+					`${label}: inside the card's right edge`,
+				).toBeLessThanOrEqual(card.x + card.width);
 			}
 		});
 	}
 });
 
-test("from 1024 to 1088 px a Featured title keeps ความดันโลหิตสูง whole, inside its column beside the picture", async ({
+/**
+ * Where the card beside the headline is narrowest: from 640 px, where it first sits beside it, and
+ * from 1,024 px, where its column narrows again (#241 comment 6791096480, item 2).
+ */
+const NARROW_CARD_WIDTHS = [640, 648, 656, 664, 672, 1024, 1032, 1040, 1048, 1056];
+
+test("where the card is narrowest beside the headline, from 640 and from 1,024 px, a Featured title keeps ความดันโลหิตสูง whole, inside its card", async ({
 	page,
 }) => {
-	// The longest listed word, which a line keeps whole (src/lib/thai-title.ts), at its largest size
-	// in the hero's narrowest text column: lg's two columns at their minimum width (#146 comment
-	// 6625101174). The column holds the eyebrow, the title and the links, and ends before the
-	// picture's.
+	// The longest listed word, which a line keeps whole (src/lib/thai-title.ts), in the card at its
+	// narrowest beside the headline (#146 comment 6625101174).
 	const alt = `${SYNTHETIC_FIXTURE_MARK} ภาพเรื่องเด่น`;
 	const featured = await create("news", "ความดันโลหิตสูง", {
 		data: {
@@ -217,10 +260,10 @@ test("from 1024 to 1088 px a Featured title keeps ความดันโลห
 	await publish("news", featured);
 	await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
 		await page.goto("/");
-		const title = hero(page, featured).getByRole("heading", { level: 2 });
+		const title = featuredCard(page, featured).getByRole("heading", { level: 2 });
 		await expect(title).toHaveText(featured.title);
 		const misplaced: string[] = [];
-		for (let width = 1024; width <= 1088; width += 8) {
+		for (const width of NARROW_CARD_WIDTHS) {
 			await page.setViewportSize({ width, height: 900 });
 			const { found, split, outside } = await occurrencesOf(title, "ความดันโลหิตสูง");
 			if (found !== 1 || split > 0 || outside > 0) {
@@ -231,15 +274,15 @@ test("from 1024 to 1088 px a Featured title keeps ความดันโลห
 	});
 });
 
-test("an Announcement without a picture is Featured with the start of its details and the brand visual, is not repeated among the current Announcements, and its Thai address opens it", async ({
+test("an Announcement without a picture is Featured with the plain visual and its announcement date, is not repeated among the current Announcements, and its Thai address opens it", async ({
 	page,
 }) => {
-	const opening = `${SYNTHETIC_FIXTURE_MARK} เปิดรับสมัครอาสาสมัครสาธารณสุขประจำหมู่บ้าน`;
+	const ending = "ท้ายรายละเอียด";
+	const announcedAt = "2026-09-24T03:00:00.000Z";
 	const announcement = await create("announcements", "เรื่องเด่น", {
 		data: {
-			details: [
-				portableTextBlock(`${opening} ${"ผู้สนใจสมัครได้ที่สำนักงาน ".repeat(12)}ท้ายรายละเอียด`),
-			],
+			announcement_at: announcedAt,
+			details: [portableTextBlock(`${SYNTHETIC_FIXTURE_MARK} เปิดรับสมัคร ${ending}`)],
 		},
 	});
 	await publish("announcements", announcement);
@@ -249,24 +292,26 @@ test("an Announcement without a picture is Featured with the start of its detail
 		{ featured: [pickedMenuItem("announcements", announcement)] },
 		async () => {
 			await page.goto("/");
-			const shown = hero(page, announcement);
-			const lead = shown.getByText(opening);
-			await expect(lead).toBeVisible();
-			await expect(lead).toHaveText(/…$/);
-			await expect(shown, "the lead is the start of the details").not.toContainText(
-				"ท้ายรายละเอียด",
-			);
+			const shown = featuredCard(page, announcement);
+			await expect(shown.getByRole("heading", { level: 2 })).toHaveText(announcement.title);
 			await expect(shown.locator("img")).toHaveCount(0);
 			await expect(shown.getByTestId("featured-visual")).toHaveCount(1);
-			// The newest current Announcement, so the list beside the News card would lead with it.
+			// The newest current Announcement, so the Announcements section would lead with it.
 			await expect(
-				page.getByRole("main").getByRole("link", { name: `ดูรายละเอียด ${announcement.title}` }),
+				homepageSection(page, HOMEPAGE_HEADINGS.announcements).getByRole("link", {
+					name: announcement.title,
+				}),
 			).toHaveCount(0);
+			await expect(
+				shown.getByText(`${FEATURED_LABEL} · ${thaiDate(announcedAt)}`, { exact: true }),
+				"the date the Announcements list shows it by, not its publication",
+			).toBeVisible();
+			await expect(shown, "the card leaves the details out").not.toContainText(ending);
 			await expectAccessibleAtEachWidth(page, "/ with the Featured visual");
 			await page.setViewportSize(MOBILE_VIEWPORT);
 			await expectNoHorizontalScroll(page, "/ with the Featured visual");
 			await page.setViewportSize(DESKTOP_VIEWPORT);
-			const link = shown.getByRole("link", { name: `ดูเรื่องเด่น ${announcement.title}` });
+			const link = shown.getByRole("link", { name: announcement.title });
 			await expect(link).toHaveAttribute(
 				"href",
 				`/announcements/${encodeURIComponent(announcement.slug)}`,
@@ -277,12 +322,41 @@ test("an Announcement without a picture is Featured with the start of its detail
 	);
 });
 
-test("with nothing in the Featured menu to show, the compact band with the site title stays", async ({
+test("a Featured Service shows เรื่องเด่น without a date", async ({ page }) => {
+	const service = await createSyntheticService(admin, "featured-undated");
+	await publish("services", service);
+	await withHomepageMenus(admin, { featured: [pickedMenuItem("services", service)] }, async () => {
+		await page.goto("/");
+		const shown = featuredCard(page, service);
+		await expect(shown.getByRole("heading", { level: 2 })).toHaveText(service.title);
+		await expect(shown.getByText(FEATURED_LABEL, { exact: true })).toBeVisible();
+		await expect(shown.getByRole("time")).toHaveCount(0);
+	});
+});
+
+test("with nothing in the Featured menu to show, the hero shows its headline alone, larger, with no card", async ({
 	page,
 }) => {
 	const draft = await create("news", "band-draft");
 	const facility = await createSyntheticHealthService(admin, "band-wrong-kind");
 	await publish("health_services", facility);
+	const featured = await create("news", "headline-with-card");
+	await publish("news", featured);
+
+	/** Widths from `sm`, where the headline alone is larger, on both sides of `lg`. */
+	const LARGER_ALONE = [1440, 1024, 1023, 640];
+	/** The headline's font size in px at `width`, as the page is now. */
+	const headlineSize = async (width: number) => {
+		await page.setViewportSize({ width, height: 900 });
+		await page.goto("/");
+		return headline(page).evaluate((element) =>
+			Number.parseFloat(getComputedStyle(element).fontSize),
+		);
+	};
+	const beside: Record<number, number> = {};
+	await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
+		for (const width of LARGER_ALONE) beside[width] = await headlineSize(width);
+	});
 
 	await withHomepageMenus(
 		admin,
@@ -296,9 +370,19 @@ test("with nothing in the Featured menu to show, the compact band with the site 
 		async () => {
 			await page.goto("/");
 			await expect(page.getByRole("heading", { level: 1 })).toHaveText(siteTitle);
-			await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-			await expect(page.getByText(FEATURED_EYEBROW)).toHaveCount(0);
-			await expect(page.getByRole("link", { name: /^ดูเรื่องเด่น/ })).toHaveCount(0);
+			await expect(page.getByRole("main").getByTestId("featured-visual")).toHaveCount(0);
+			const shown = homepageSection(page, HOMEPAGE_HEADLINE);
+			await expectVisuallyHidden(page.getByRole("heading", { level: 1 }), "the site title");
+			await expect(headline(page)).toBeVisible();
+			await expect(shown.getByText(FEATURED_LABEL)).toHaveCount(0);
+			await expect(shown.getByRole("link")).toHaveCount(0);
+			await expect(shown.getByRole("heading", { level: 2 })).toHaveCount(0);
+			for (const width of LARGER_ALONE) {
+				expect(
+					await headlineSize(width),
+					`the headline alone at ${width} px against ${beside[width]} px beside a card`,
+				).toBeGreaterThan(beside[width]!);
+			}
 		},
 	);
 });
@@ -320,7 +404,7 @@ test("a closed Announcement is not Featured, and the next item in the menu is", 
 		},
 		async () => {
 			await page.goto("/");
-			await expect(hero(page, service).getByRole("heading", { level: 2 })).toHaveText(
+			await expect(featuredCard(page, service).getByRole("heading", { level: 2 })).toHaveText(
 				service.title,
 			);
 			await expect(page.getByRole("main")).not.toContainText(closed.title);
@@ -328,7 +412,7 @@ test("a closed Announcement is not Featured, and the next item in the menu is", 
 	);
 });
 
-test("unpublishing the Featured entry takes it off the Homepage without a menu edit, and the band comes back", async ({
+test("unpublishing the Featured entry takes it off the Homepage without a menu edit, and the hero shows its headline alone", async ({
 	page,
 }) => {
 	const report = await createSyntheticHealthReport(admin, "featured-then-unpublished", {
@@ -341,33 +425,225 @@ test("unpublishing the Featured entry takes it off the Homepage without a menu e
 		{ featured: [pickedMenuItem("health_reports", report)] },
 		async () => {
 			await page.goto("/");
-			await expect(hero(page, report).getByRole("heading", { level: 2 })).toHaveText(report.title);
+			await expect(featuredCard(page, report).getByRole("heading", { level: 2 })).toHaveText(
+				report.title,
+			);
 
 			expect((await unpublishEntry(admin, "health_reports", report.id)).ok, "unpublish").toBe(true);
 			await page.goto("/");
 			await expect(page.getByRole("main")).not.toContainText(report.title);
-			await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+			await expect(headline(page)).toBeVisible();
 		},
 	);
 });
 
-test("the Featured News is not repeated as the News card, which shows the next newest News", async ({
+test("the Featured News is not repeated in Latest News, which still shows five: the next five newest News", async ({
 	page,
 }) => {
+	const older: DraftFixture[] = [];
+	for (const label of ["sixth-newest", "fifth-newest", "fourth-newest", "third-newest"]) {
+		older.unshift(await create("news", label));
+		await publish("news", older[0]!);
+	}
 	const next = await create("news", "next-newest");
 	const featured = await create("news", "featured-newest");
 	await publish("news", next, featured);
 
 	await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
 		await page.goto("/");
-		await expect(hero(page, featured).getByRole("heading", { level: 2 })).toHaveText(
+		await expect(featuredCard(page, featured).getByRole("heading", { level: 2 })).toHaveText(
 			featured.title,
 		);
 		const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
 		await expect(news.getByRole("article").getByRole("heading", { level: 3 })).toHaveText(
-			next.title,
+			[next, ...older].map(({ title }) => title),
 		);
 		await expect(news).not.toContainText(featured.title);
+	});
+});
+
+/** The widths on both sides of `lg` and of `sm`, and the two phone widths (#241). */
+const FIT_WIDTHS = [1024, 1023, 640, 639, 375, 320];
+
+test("the headline reads the office summary with ด้านสุขภาพ in accent-warm, on three lines from 1,024 px, clear of the Featured card beside it from 640 px and above the card below 640 px, and the hero fits each width", async ({
+	page,
+}) => {
+	const featured = await create("news", "ความดันโลหิตสูง-beside-headline", {
+		data: {
+			featured_image: {
+				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพเรื่องเด่น`),
+			},
+		},
+	});
+	await publish("news", featured);
+	/** How many lines the headline takes: its height over its line height. */
+	const lines = () =>
+		headline(page).evaluate((element) =>
+			Math.round(
+				element.getBoundingClientRect().height /
+					Number.parseFloat(getComputedStyle(element).lineHeight),
+			),
+		);
+	await withHomepageMenus(admin, { featured: [pickedMenuItem("news", featured)] }, async () => {
+		await page.goto("/");
+		const card = featuredCard(page, featured);
+		await expect(headline(page)).toBeVisible();
+		// A gradient the browser rejects draws nothing, and the headline is white (#241 retro).
+		await expect(deepField(page), "the deep field is drawn behind the hero's text").not.toHaveCSS(
+			"background-image",
+			"none",
+		);
+		await expect(headline(page).getByText("ด้านสุขภาพ", { exact: true })).toHaveCSS(
+			"color",
+			await tokenColor(page, "accent-warm"),
+		);
+		for (const width of [1440, 1024]) {
+			await page.setViewportSize({ width, height: 900 });
+			expect(await lines(), `the headline's lines at ${width} px`).toBe(3);
+		}
+		for (const width of [1440, 1024, 1023, 640]) {
+			await page.setViewportSize({ width, height: 900 });
+			const text = await boxOf(headline(page), `the headline at ${width} px`);
+			expect(
+				await headline(page).evaluate((element) => element.scrollWidth - element.clientWidth),
+				`no line of the headline runs past its column at ${width} px`,
+			).toBeLessThanOrEqual(0);
+			const beside = await boxOf(card, `the Featured card at ${width} px`);
+			expect(
+				text.x + text.width,
+				`the headline ends before the Featured card at ${width} px`,
+			).toBeLessThanOrEqual(beside.x);
+		}
+		await page.setViewportSize({ width: 639, height: 900 });
+		await expectStacked("at 639 px", [
+			["the headline", headline(page)],
+			["the search", page.getByRole("main").getByRole("search")],
+			["the Featured card", card],
+		]);
+		for (const width of FIT_WIDTHS) {
+			await page.setViewportSize({ width, height: 900 });
+			await expectNoHorizontalScroll(page, `/ with a Featured card at ${width} px`);
+			for (const [name, part] of [
+				["the headline", headline(page)],
+				["the search", page.getByRole("main").getByRole("search")],
+				["the Featured card", card.getByRole("link")],
+			] as const) {
+				const box = await boxOf(part, `${name} at ${width} px`);
+				expect(box.x, `${name} starts inside the window at ${width} px`).toBeGreaterThanOrEqual(0);
+				expect(
+					box.x + box.width,
+					`${name} ends inside the window at ${width} px`,
+				).toBeLessThanOrEqual(width);
+			}
+		}
+	});
+	await withHomepageMenus(admin, { featured: [] }, async () => {
+		await page.goto("/");
+		for (const width of FIT_WIDTHS) {
+			await page.setViewportSize({ width, height: 900 });
+			await expectNoHorizontalScroll(page, `/ with nothing Featured at ${width} px`);
+		}
+		await page.setViewportSize({ width: 1024, height: 900 });
+		expect(await lines(), "the headline's lines alone at 1024 px").toBe(3);
+	});
+});
+
+test("the skip link shows over the hero's deep field when it takes focus", async ({ page }) => {
+	await page.goto("/");
+	await page.keyboard.press("Tab");
+	const skipLink = page.getByRole("link", { name: "ข้ามไปยังเนื้อหาหลัก" });
+	await expect(skipLink).toBeFocused();
+	await expect(skipLink).toBeInViewport();
+	const shown = await boxOf(skipLink, "the skip link");
+	const field = await boxOf(homepageSection(page, HOMEPAGE_HEADLINE), "the hero");
+	expect(shown.y, "the skip link lies on the hero's field").toBeGreaterThanOrEqual(field.y);
+	expect(shown.y + shown.height, "the skip link ends inside the hero").toBeLessThanOrEqual(
+		field.y + field.height,
+	);
+	await expect(skipLink).toHaveCSS("background-color", await tokenColor(page, "accent-warm"));
+});
+
+test("the hero's search has an accessible name and a 44 px submit button at each width, and submits its query to the site search", async ({
+	page,
+}) => {
+	await page.goto("/");
+	const search = homepageSection(page, HOMEPAGE_HEADLINE).getByRole("search");
+	const field = search.getByRole("searchbox", { name: "ค้นหาในเว็บไซต์" });
+	const submit = search.getByRole("button", { name: "ค้นหา" });
+	for (const width of [1440, 640, 639, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		const box = await boxOf(submit, `the submit button at ${width} px`);
+		expect(
+			Math.min(box.width, box.height),
+			`the submit button's smaller side at ${width} px`,
+		).toBeGreaterThanOrEqual(44);
+	}
+	await field.fill("วัคซีน");
+	await submit.click();
+	await expect(page).toHaveURL(`/search?q=${encodeURIComponent("วัคซีน")}`);
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText("ค้นหา");
+});
+
+test("the hero shows no telephone number and no hours, with or without a Featured card", async ({
+	page,
+}) => {
+	const telephone = "054 591 234";
+	const hours = "จันทร์–ศุกร์ 08:30–16:30 น.";
+	const featured = await create("news", "hero-without-contact");
+	await publish("news", featured);
+	await withOfficeContact(admin, { telephone, opening_hours: hours }, {}, async () => {
+		for (const menu of [[pickedMenuItem("news", featured)], []]) {
+			await withHomepageMenus(admin, { featured: menu }, async () => {
+				await page.goto("/");
+				await expect(page.getByRole("main"), "the Contact Summary").toContainText(telephone);
+				const shown = homepageSection(page, HOMEPAGE_HEADLINE);
+				await expect(shown).toBeVisible();
+				await expect(shown).not.toContainText(telephone);
+				await expect(shown).not.toContainText(hours);
+			});
+		}
+	});
+});
+
+test("a section heading's link reads ทั้งหมด, is named with its section and opens the section's list, and below 640 px is a round arrow button with the same name", async ({
+	page,
+}) => {
+	const service = await createSyntheticService(admin, "heading-link");
+	const health = await create("health_content", "heading-link");
+	await publish("services", service);
+	await publish("health_content", health);
+	const lists = [
+		[HOMEPAGE_HEADINGS.services, "/services"],
+		[HOMEPAGE_HEADINGS.health, "/health/content"],
+	] as const;
+	await withHomepageMenus(admin, { services: [pickedMenuItem("services", service)] }, async () => {
+		await page.goto("/");
+		for (const [heading, href] of lists) {
+			const section = homepageSection(page, heading);
+			const link = section.getByRole("link", { name: `ดู${heading}ทั้งหมด`, exact: true });
+			await expect(section.getByRole("heading", { level: 2 })).toHaveText(heading);
+			await page.setViewportSize({ width: 640, height: 900 });
+			await expect(link).toHaveAttribute("href", href);
+			await expect(link.getByText("ทั้งหมด", { exact: true })).toBeVisible();
+			const pill = await boxOf(link, `the ${heading} link at 640 px`);
+			expect(pill.width, `the ${heading} link shows its text at 640 px`).toBeGreaterThan(
+				pill.height,
+			);
+			await page.setViewportSize({ width: 639, height: 900 });
+			await expect(link, `the ${heading} link at 639 px`).toHaveAccessibleName(
+				`ดู${heading}ทั้งหมด`,
+			);
+			const round = await boxOf(link, `the ${heading} link at 639 px`);
+			expect(round.width, `the ${heading} link is as wide as it is high at 639 px`).toBeCloseTo(
+				round.height,
+				0,
+			);
+			expect(round.width, `the ${heading} link's target at 639 px`).toBeGreaterThanOrEqual(44);
+			await expect(
+				link.getByText("ทั้งหมด", { exact: true }),
+				`the ${heading} link's text at 639 px`,
+			).toBeHidden();
+		}
 	});
 });
 
@@ -430,12 +706,297 @@ test("the Frequently Used Services are the menu's published Services, in menu or
 			await expect(
 				frequent.getByRole("article").filter({ hasText: first.title }).getByText(summary),
 			).toBeVisible();
-			await expect(frequent.getByRole("link", { name: "ดูบริการทั้งหมด" })).toHaveAttribute(
-				"href",
-				"/services",
-			);
+			await expect(
+				frequent.getByRole("link", { name: `ดู${HOMEPAGE_HEADINGS.services}ทั้งหมด` }),
+			).toHaveAttribute("href", "/services");
 			for (const hidden of [seventh, draft, trashed, news]) {
 				await expect(frequent, hidden.title).not.toContainText(hidden.title);
+			}
+		},
+	);
+});
+
+/**
+ * How many Service cards sit in each row from 1,024 px and from 640 px, by how many Services show
+ * (spec #239 "Frequently Used Services"). Four comes last: it is the count that goes two to a row
+ * where the others go three.
+ */
+const SERVICE_ROWS = [
+	[6, [3, 3], [2, 2, 2]],
+	[5, [3, 2], [2, 2, 1]],
+	[3, [3], [2, 1]],
+	[4, [2, 2], [2, 2]],
+] as const;
+
+test("the Frequently Used Services go three to a row from 1,024 px, two from 640 px and one below, where the summary is hidden, and four go two to a row from 640 px with no empty cell", async ({
+	page,
+}) => {
+	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปบริการในแถว`;
+	const services: DraftFixture[] = [];
+	for (let index = 1; index <= 6; index++) {
+		services.push(await createSyntheticService(admin, `rows-${index}`, { data: { summary } }));
+	}
+	await publish("services", ...services);
+	for (const [count, fromDesktop, fromTablet] of SERVICE_ROWS) {
+		const menu = services.slice(0, count).map((service) => pickedMenuItem("services", service));
+		await withHomepageMenus(admin, { services: menu }, async () => {
+			await page.goto("/");
+			const frequent = homepageSection(page, HOMEPAGE_HEADINGS.services);
+			const cards = frequent.getByRole("listitem");
+			await expect(cards).toHaveCount(count);
+			for (const [width, rows] of [
+				[1440, fromDesktop],
+				[1024, fromDesktop],
+				[1023, fromTablet],
+				[640, fromTablet],
+			] as const) {
+				await page.setViewportSize({ width, height: 900 });
+				expect(await itemsPerRow(cards), `${count} Services at ${width} px`).toEqual([...rows]);
+				const list = await boxOf(frequent.getByRole("list"), `the Services at ${width} px`);
+				const ending = await boxOf(
+					cards.nth(rows[0] - 1),
+					`the first row's last card of ${count} at ${width} px`,
+				);
+				expect(
+					ending.x + ending.width,
+					`the first row of ${count} Services fills the grid at ${width} px`,
+				).toBeCloseTo(list.x + list.width, 0);
+				await expect(
+					frequent.getByText(summary).first(),
+					`a Service's summary at ${width} px`,
+				).toBeVisible();
+				// The last row straddles the field's lower edge, with one row as with two.
+				const field = await boxOf(deepField(page), `the deep field at ${width} px`);
+				const last = await boxOf(cards.last(), `the last of ${count} Services at ${width} px`);
+				expect(
+					last.y,
+					`the last row of ${count} Services starts on the field at ${width} px`,
+				).toBeLessThan(field.y + field.height);
+				expect(
+					last.y + last.height,
+					`the last row of ${count} Services ends below the field at ${width} px`,
+				).toBeGreaterThan(field.y + field.height);
+			}
+			for (const width of [639, 320]) {
+				await page.setViewportSize({ width, height: 900 });
+				expect(await itemsPerRow(cards), `${count} Services at ${width} px`).toEqual(
+					services.slice(0, count).map(() => 1),
+				);
+				await expect(
+					frequent.getByText(summary).first(),
+					`a Service's summary at ${width} px`,
+				).toBeHidden();
+			}
+		});
+	}
+});
+
+test("from 640 px the Services' lower part lies below the deep field and clear of the next section's content, below 640 px they end inside the field, and with no Service the field ends under the hero", async ({
+	page,
+}) => {
+	const services: DraftFixture[] = [];
+	for (let index = 1; index <= 6; index++) {
+		services.push(await createSyntheticService(admin, `overlap-${index}`));
+	}
+	await publish("services", ...services);
+	// A published Leadership, so the Leadership strip follows the Services whatever the runtime
+	// holds (Feature 008 #243).
+	await publish(
+		"personnel",
+		await createSyntheticPerson(admin, "ถัดจากบริการ", { leadership_order: 1 }),
+	);
+	const frequent = homepageSection(page, HOMEPAGE_HEADINGS.services);
+	const cards = frequent.getByRole("article");
+	const nextSection = homepageSection(page, HOMEPAGE_HEADINGS.leadership);
+	const nextHeading = nextSection.getByRole("heading", { level: 2 });
+	/**
+	 * Where the field ends, where the next section starts, and where that section's heading starts,
+	 * at `width`.
+	 */
+	const edges = async (width: number) => {
+		await page.setViewportSize({ width, height: 900 });
+		const field = await boxOf(deepField(page), `the deep field at ${width} px`);
+		const section = await boxOf(nextSection, `the next section at ${width} px`);
+		const next = await boxOf(nextHeading, `the next section's heading at ${width} px`);
+		return { fieldEnd: field.y + field.height, sectionStart: section.y, nextStart: next.y };
+	};
+	await withHomepageMenus(
+		admin,
+		{ services: services.map((service) => pickedMenuItem("services", service)) },
+		async () => {
+			await page.goto("/");
+			await expect(cards).toHaveCount(6);
+			for (const width of [1440, 1024, 640]) {
+				const { fieldEnd, sectionStart, nextStart } = await edges(width);
+				const first = await boxOf(cards.first(), `the first Service at ${width} px`);
+				const last = await boxOf(cards.last(), `the last Service at ${width} px`);
+				expect(first.y, `the Services start on the field at ${width} px`).toBeLessThan(fieldEnd);
+				// These Services have no summary, so their cards are as short as a card gets.
+				expect(last.y, `the last row starts on the field at ${width} px`).toBeLessThan(fieldEnd);
+				expect(
+					last.y + last.height,
+					`the Services end below the field at ${width} px`,
+				).toBeGreaterThan(fieldEnd);
+				expect(
+					nextStart,
+					`the next section's heading starts below the Services at ${width} px`,
+				).toBeGreaterThanOrEqual(last.y + last.height);
+				expect(
+					sectionStart,
+					`the next section starts where the Services end at ${width} px`,
+				).toBeGreaterThanOrEqual(last.y + last.height - 0.5);
+			}
+			for (const width of [639, 320]) {
+				const { fieldEnd, sectionStart } = await edges(width);
+				const last = await boxOf(cards.last(), `the last Service at ${width} px`);
+				expect(
+					last.y + last.height,
+					`the Services end inside the field at ${width} px`,
+				).toBeLessThanOrEqual(fieldEnd);
+				expect(
+					sectionStart,
+					`the next section starts where the field ends at ${width} px`,
+				).toBeCloseTo(fieldEnd, 0);
+			}
+		},
+	);
+	await withHomepageMenus(admin, { services: [] }, async () => {
+		await page.goto("/");
+		await expect(frequent).toHaveCount(0);
+		for (const width of [1440, 640, 639]) {
+			const { fieldEnd, sectionStart } = await edges(width);
+			const hero = await boxOf(homepageSection(page, HOMEPAGE_HEADLINE), `the hero at ${width} px`);
+			expect(fieldEnd, `the field ends under the hero at ${width} px`).toBeCloseTo(
+				hero.y + hero.height,
+				0,
+			);
+			// No room is left under the field for Services that do not show.
+			expect(
+				sectionStart,
+				`the next section starts where the field ends at ${width} px`,
+			).toBeCloseTo(fieldEnd, 0);
+		}
+	});
+});
+
+test("a Frequently Used Service shows the icon staff chose, or the standard icon without a choice, and its name still names the card", async ({
+	page,
+}) => {
+	// Staff choose an icon by the Thai name of its picture (#248 comment 6826430670).
+	const unchosen = await createSyntheticService(admin, "icon-unchosen");
+	const chosen = await createSyntheticService(admin, "icon-chosen", { data: { icon: "หลอดไฟ" } });
+	await publish("services", unchosen, chosen);
+	const menu = [unchosen, chosen].map((service) => pickedMenuItem("services", service));
+	await withHomepageMenus(admin, { services: menu }, async () => {
+		await page.goto("/");
+		const cards = homepageSection(page, HOMEPAGE_HEADINGS.services).getByRole("article");
+		await expectServiceIcon(
+			cards.filter({ hasText: unchosen.title }),
+			"hand-heart",
+			unchosen.title,
+		);
+		await expectServiceIcon(cards.filter({ hasText: chosen.title }), "lightbulb", chosen.title);
+	});
+});
+
+test("on hover a Service card turns brand green with white text, and its icon tile accent-warm, its focus ring is brand green at rest and accent-warm under the pointer, and it opens from its lower edge while it is raised", async ({
+	page,
+}) => {
+	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปบริการที่ชี้อยู่`;
+	const service = await createSyntheticService(admin, "hover", { data: { summary } });
+	await publish("services", service);
+	await withHomepageMenus(admin, { services: [pickedMenuItem("services", service)] }, async () => {
+		// The card rises only where motion is allowed.
+		await page.emulateMedia({ reducedMotion: "no-preference" });
+		await page.goto("/");
+		const card = homepageSection(page, HOMEPAGE_HEADINGS.services).getByRole("article");
+		// The card's white surface, a box with no role of its own.
+		const surface = card.getByTestId("service-surface");
+		const link = card.getByRole("link", { name: service.title });
+		const white = await tokenColor(page, "surface-base");
+		const green = await tokenColor(page, "brand-primary");
+		await expect(card.getByRole("heading", { level: 3 })).toHaveText(service.title);
+		await expect(surface, "the card at rest").toHaveCSS("background-color", white);
+		// The heading's link comes just before the card in the keyboard's order.
+		await page
+			.getByRole("link", { name: `ดู${HOMEPAGE_HEADINGS.services}ทั้งหมด`, exact: true })
+			.focus();
+		await page.keyboard.press("Tab");
+		await expect(link).toBeFocused();
+		await expect(link, "the focus ring at rest").toHaveCSS("outline-color", green);
+		await link.hover();
+		await expect(surface, "the card under the pointer").toHaveCSS("background-color", green);
+		await expect(link, "the focus ring under the pointer").toHaveCSS(
+			"outline-color",
+			await tokenColor(page, "accent-warm"),
+		);
+		await expect(card.getByRole("heading", { level: 3 })).toHaveCSS("color", white);
+		await expect(card.getByText(summary)).toHaveCSS("color", white);
+		const tile = card.getByTestId("service-icon");
+		await expect(tile).toHaveCSS("background-color", await tokenColor(page, "accent-warm"));
+		await expect(tile).toHaveCSS("color", await tokenColor(page, "brand-dark"));
+		// The card rises 8 px under the pointer, and a press on the part it left, just above the
+		// card's resting lower edge, still opens the Service.
+		const place = await boxOf(card, "the card's place");
+		const edge = { x: place.x + place.width / 2, y: place.y + place.height - 3 };
+		await page.mouse.move(edge.x, edge.y);
+		await expect
+			.poll(async () => (await boxOf(surface, "the card's surface")).y, {
+				message: "the card under the pointer has risen 8 px",
+			})
+			.toBeCloseTo(place.y - 8, 0);
+		await page.mouse.click(edge.x, edge.y);
+		await expect(page).toHaveURL(`/services/${service.slug}`);
+	});
+});
+
+/** The demo dataset's longest Service name (scripts/demo-dataset/content.ts), without its mark. */
+const LONGEST_SERVICE_NAME = "ร้องเรียนการปฏิบัติงานหรือการให้บริการ";
+
+test("at 1,024, 640 and 320 px the demo dataset's longest Service name and ความดันโลหิตสูง stay inside their cards, after the icon tile, with the word whole", async ({
+	page,
+}) => {
+	const services = [
+		await createSyntheticService(admin, "fit", { name: LONGEST_SERVICE_NAME }),
+		await createSyntheticService(admin, "ความดันโลหิตสูง"),
+		await createSyntheticService(admin, "fit-third"),
+	];
+	await publish("services", ...services);
+	await withHomepageMenus(
+		admin,
+		{ services: services.map((service) => pickedMenuItem("services", service)) },
+		async () => {
+			await page.goto("/");
+			const frequent = homepageSection(page, HOMEPAGE_HEADINGS.services);
+			for (const width of [1024, 640, 320]) {
+				await page.setViewportSize({ width, height: 900 });
+				await expectNoHorizontalScroll(page, `/ with long Service names at ${width} px`);
+				for (const { title } of services) {
+					const card = frequent.getByRole("article").filter({ hasText: title });
+					const name = card.getByRole("heading", { level: 3 });
+					const surface = await boxOf(card, `the card of ${title} at ${width} px`);
+					const text = await boxOf(name, `the name ${title} at ${width} px`);
+					const tile = await boxOf(card.getByTestId("service-icon"), `its icon at ${width} px`);
+					expect(
+						await name.evaluate((element) => element.scrollWidth - element.clientWidth),
+						`${title} stays inside its column at ${width} px`,
+					).toBeLessThanOrEqual(0);
+					expect(
+						text.x + text.width,
+						`${title} ends inside its card at ${width} px`,
+					).toBeLessThanOrEqual(surface.x + surface.width);
+					expect(
+						text.x,
+						`${title} starts after the icon tile at ${width} px`,
+					).toBeGreaterThanOrEqual(tile.x + tile.width);
+				}
+				expect(
+					await occurrencesOf(
+						frequent.getByRole("heading", { level: 3 }).nth(1),
+						"ความดันโลหิตสูง",
+					),
+					`ความดันโลหิตสูง in a Service name at ${width} px`,
+				).toEqual({ found: 1, split: 0, outside: 0 });
 			}
 		},
 	);
@@ -525,7 +1086,8 @@ for (const width of [320, 375, 639]) {
 				await expect(card).toHaveAccessibleName(label);
 				await expect(card).toHaveAttribute("href", url);
 				await expect(card).toHaveCSS("font-size", "16px");
-				await expect(card).toHaveCSS("border-top-width", "1px");
+				// The Homepage's card surface: the shadow, without a border (Feature 008 #247).
+				await expect(card).toHaveCSS("border-top-width", "0px");
 				await expect(card).toHaveCSS("border-top-left-radius", "18px");
 				await expect(card).not.toHaveCSS("box-shadow", "none");
 				await expectLabelAboveArrow(card, `${label} at ${width} px`);

@@ -1,9 +1,9 @@
 # Homepage — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 04-homepage
-> **Status:** CLEAN REBASELINE v2.6 — CURRENT
-> **Version:** 2.6
-> **Last Updated:** 9 พฤศจิกายน 2569 (2026-11-09): Feature 007, phone Quick Access presentation
+> **Status:** CLEAN REBASELINE v2.7 — CURRENT
+> **Version:** 2.7
+> **Last Updated:** 13 พฤศจิกายน 2569 (2026-11-13): Feature 008, Leadership section, five Activities, the Contact Summary without a map stand-in, and the header without a utility bar
 > **Depends On:** `00-website-foundation.md`, `01-information-architecture.md`, `02-content-model.md`, `03-sitemap.md`
 > **Purpose:** กำหนด homepage information priority, sections, curation, responsive/accessibility behavior โดยไม่กำหนด component implementation หรือสร้าง homepage CMS subsystem
 
@@ -21,6 +21,16 @@
 > **Feature 007 decision (Product Owner, 2026-11-07; #190 comment 6707205912):** Quick Access B
 > below 640 px keeps two cards to a row, with the label above and the arrow on a separate
 > lower-right row (#194, §15). The taller phone cards are accepted; wider layouts are unchanged.
+
+> **Feature 008 decision (Product Owner, 2026-11-11; spec #239 "Leadership strip"):** the Homepage
+> gains a Leadership section between Frequently Used Services and Latest News (§3, §6.1, #243):
+> the first three Leadership by the Leadership order staff already keep, each by name and current
+> assignment, with one link to `/about/leadership`. The Homepage shows the latest five Activities
+> at every width (§10, §15), and the Contact Summary shows no stand-in for a map, only the link
+> that opens one (§11; spec #239 "Activities", "Contact Summary", #239 comment 6786631899; #247).
+> Quick Access (§10.1) is unchanged. The header has no utility bar: it carries the search link on
+> every page, and "ติดต่อเรา" is in the footer on every page and in the Contact Summary (§4, §11;
+> spec #239 "Header (every page)", #239 comment 6786536858; #240, #250).
 
 ---
 
@@ -60,6 +70,7 @@ Baseline order:
 Header / Navigation / Search
 Featured / Priority
 Frequently Used Services
+Leadership
 Latest News + Current Announcements
 Health Information
 Health Service Discovery
@@ -82,8 +93,9 @@ Header ใช้ navigation จาก `03-sitemap.md`.
 Requirements:
 
 - logo links to `/`
-- Main/Utility navigationชัดเจน
-- Searchเข้าถึงง่ายทั้ง desktop/mobile
+- Main navigationชัดเจน; ไม่มี utility bar
+- Searchเข้าถึงง่ายทั้ง desktop/mobile: header มี link ไป `/search` ทุกหน้าทุกความกว้าง (`03` §2)
+- `/contact` เข้าถึงจาก footer ทุกหน้า และจาก Contact Summary (§11); header ไม่มี link ไป `/contact`
 - ไม่สร้าง mobile content/navigationอีกชุด
 - keyboard/focus behaviorต้องเหมาะสม
 
@@ -120,6 +132,16 @@ Card แสดงเฉพาะข้อมูลที่ช่วยเลื
 Link ไป canonical Service route หรือ approved external journeyผ่าน Service record.
 
 ไม่มี popularity analytics/AI ranking/forced replacement.
+
+---
+
+## 6.1 Leadership
+
+- แสดง Leadership 3 คนแรกตาม Leadership order จากน้อยไปมาก ลำดับเท่ากันเรียงตามชื่อ เหมือน `/about/leadership`; มีน้อยกว่า 3 คนแสดงเท่าที่มี
+- แต่ละคนแสดงรูป ชื่อที่แสดง และ current assignment; ไม่แสดง organizational unit และ public contact
+- Personnel ไม่มีหน้าของตนเอง (`03` §5) จึงไม่มี link รายคน; มี link เดียวไป `/about/leadership`
+- staff ดูแลผ่าน Personnel และ Leadership order ชุดเดียวกับ About; ไม่มี Homepage curation เพิ่ม
+- section ซ่อนเมื่อไม่มี Leadership (§17)
 
 ---
 
@@ -175,7 +197,7 @@ Query/filter stateที่เริ่มจาก homepageสามารถ�
 
 # 10. Activities
 
-แสดงกิจกรรมล่าสุดจำนวนเล็กน้อยโดย Activity Date เป็น primary ordering และ Published Date fallbackเมื่อไม่มี Activity Date.
+แสดงกิจกรรมล่าสุด 5 รายการที่ทุกความกว้าง (น้อยกว่านั้นเมื่อมีน้อยกว่า) โดย Activity Date เป็น primary ordering และ Published Date fallbackเมื่อไม่มี Activity Date.
 
 ใช้ Featured Image หรือ simple visual fallback; ไม่บังคับ staffสร้าง artworkเพื่อเติม layout.
 
@@ -198,15 +220,15 @@ Link ไป canonical Activity route.
 
 Homepage แสดงเฉพาะข้อมูลที่สร้าง confidenceและช่วยติดต่อเร็ว:
 
-- office name/address summary
+- office address summary
 - main phone/contact
 - office hoursเมื่อมี
-- simple map/location affordance
+- link ที่เปิดตำแหน่งสำนักงานใน map app เมื่อมีพิกัด; ไม่แสดง map หรือภาพแทน map บน homepage
 - link to `/contact`
 
 ใช้ sourceเดียวกับ Contact/office data; ห้าม duplicate fieldsเฉพาะ homepage.
 
-Map เป็น enhancement; essential address/contact textต้องอยู่ได้แม้ mapไม่โหลด.
+Map link เป็น enhancement; essential address/contact textต้องอยู่ได้โดยไม่มีมัน.
 
 ไม่แสดง personal contactของเจ้าหน้าที่โดย default.
 
@@ -237,6 +259,7 @@ Cookie consent/bannerเกิดเมื่อ actual technology/privacy requi
 Homepage section        Source owner
 Featured                relation/config → existing content
 Services                Service
+Leadership              Personnel (Leadership order)
 Latest News             News
 Announcements           Announcement
 Health Information      Health Content
@@ -269,7 +292,7 @@ Homepage edit/publish accessใช้ ordinary CMS roles/permissions; ไม่�
 
 # 15. Responsive Behavior
 
-- same sections, in the same order, from the same sources at every width; phones show them more compactly (spec #144): below 640 px the section leads (the Contact Summary's included), the map stand-in and the Service and Health Content cards' summaries are left out, and phones and tablets show the latest 4 Activities where a desktop row shows 3
+- same sections, in the same order, from the same sources at every width; phones show them more compactly (spec #144): below 640 px the Service and Health Content cards' summaries are left out. The latest five Activities show at every width (§10)
 - ที่ความกว้างต่ำกว่า 640 px Quick Access คงการ์ดสองใบต่อแถว: label อยู่ด้านบนเต็มความกว้าง และลูกศรอยู่แถวของตัวเองที่มุมขวาล่าง การ์ดสูงขึ้นตาม label ได้โดยไม่กำหนดความสูงตายตัว; ตั้งแต่ 640 px คงรูปแบบเดิม (`docs/design/DESIGN.md` §7.3)
 - mobile order preserves information priority
 - no separate mobile CMS configuration

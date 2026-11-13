@@ -13,6 +13,12 @@
 //   address, a path that is no page, another website, another scheme or only a fragment. Every
 //   page of the site counts, even one at an address shaped like an entry's, such as /news/health.
 //
+// The Featured card states the date its item's own list shows it by, as a search result does
+// (Feature 008 #241; spec #239 "Hero and Featured"): an Announcement's announcement date, an
+// Activity's date held and a Health Report's report date, each falling back to the publication
+// date; a News or Health Content item's publication date; and none for a Service, which its
+// catalog shows undated.
+//
 // A menu gives each content item an address with its slug encoded, as EmDash builds it (emdash
 // 1.1.0 src/i18n/resolve.ts interpolateUrlPattern), and EmDash stores the slug decoded. A link
 // staff type may be a full address on this site.
@@ -23,6 +29,7 @@ import { describe, it } from "node:test";
 
 import {
 	SITE_PAGES,
+	featuredDate,
 	featuredItem,
 	frequentServices,
 	quickAccessLinks,
@@ -274,3 +281,46 @@ function sitePages(): string[] {
 		.map((file) => `/${file.replace(/\.astro$/, "").replace(/(^|\/)index$/, "")}`)
 		.map((route) => (route.length > 1 ? route.replace(/\/$/, "") : route));
 }
+
+describe("the Featured item's date", () => {
+	const PUBLISHED = "2026-11-02T03:00:00.000Z";
+	const OWN = "2026-10-20T03:00:00.000Z";
+
+	it("is the publication date of a News or Health Content item", () => {
+		for (const collection of ["news", "health_content"] as const) {
+			assert.equal(featuredDate(collection, { publishedAt: PUBLISHED }), PUBLISHED, collection);
+		}
+	});
+
+	it("is the date of its own an Announcement, an Activity or a Health Report is listed by", () => {
+		assert.equal(
+			featuredDate("announcements", { publishedAt: PUBLISHED, announcement_at: OWN }),
+			OWN,
+		);
+		assert.equal(featuredDate("activities", { publishedAt: PUBLISHED, activity_at: OWN }), OWN);
+		assert.equal(featuredDate("health_reports", { publishedAt: PUBLISHED, report_at: OWN }), OWN);
+	});
+
+	it("falls back to the publication date while that date is not set", () => {
+		assert.equal(featuredDate("announcements", { publishedAt: PUBLISHED }), PUBLISHED);
+		assert.equal(
+			featuredDate("activities", { publishedAt: PUBLISHED, activity_at: null }),
+			PUBLISHED,
+		);
+		assert.equal(
+			featuredDate("health_reports", { publishedAt: PUBLISHED, report_at: "" }),
+			PUBLISHED,
+		);
+	});
+
+	it("reads only the date of the item's own kind", () => {
+		assert.equal(
+			featuredDate("news", { publishedAt: PUBLISHED, announcement_at: OWN, activity_at: OWN }),
+			PUBLISHED,
+		);
+	});
+
+	it("is none for a Service, even a published one", () => {
+		assert.equal(featuredDate("services", { publishedAt: PUBLISHED }), undefined);
+	});
+});

@@ -21,6 +21,7 @@
 // shows while its path is one of the site's own pages (SITE_PAGES) or resolves to a published
 // entry.
 
+import { listDate, type Instant } from "./dated-lists.ts";
 import { isExternalHref } from "./links.ts";
 
 /**
@@ -170,6 +171,32 @@ export async function featuredItem<E>(
 	);
 	if (!found || !isFeaturedCollection(found.collection)) return undefined;
 	return { collection: found.collection, entry: found.entry };
+}
+
+/** The date fields the Featured card reads of an entry, whichever kind it is. */
+export interface FeaturedDates {
+	publishedAt?: Instant;
+	announcement_at?: Instant;
+	activity_at?: Instant;
+	report_at?: Instant;
+}
+
+/** Each Featured kind's own date, where its list goes by one before the publication date. */
+const OWN_DATES: Partial<Record<FeaturedCollection, keyof FeaturedDates>> = {
+	announcements: "announcement_at",
+	activities: "activity_at",
+	health_reports: "report_at",
+};
+
+/**
+ * The date the Featured card states (Feature 008 #241; spec #239 "Hero and Featured"): the one the
+ * item's own list shows it by, as a search result does (src/lib/search.ts `shownDate`). A Service
+ * has none, since the Service catalog shows no date.
+ */
+export function featuredDate(collection: FeaturedCollection, data: FeaturedDates): Instant {
+	if (collection === "services") return undefined;
+	const own = OWN_DATES[collection];
+	return listDate(own && data[own], data.publishedAt);
 }
 
 /**

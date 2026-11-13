@@ -1,0 +1,49 @@
+---
+// A Homepage section's link to its own list (Feature 008 #241; spec #239 "Section headings"), in
+// the section's heading (SectionHeading) or beside it.
+//
+// The link reads "ทั้งหมด", and assistive technology reads it with the section's name, such as
+// "ดูข่าวประชาสัมพันธ์ทั้งหมด" (WCAG 2.2 SC 2.4.4, and SC 2.5.3: the name holds the text in
+// sight). Below `sm` it is a round 44 px arrow button with the same name. It ends in arrow-right,
+// the Homepage's arrow for round buttons, heading links and cards (Product Owner, 2026-11-11: #241
+// comment 6791096480, item 1); a text link keeps chevron-right (ArrowLink.astro).
+//
+// It is an outlined pill on a light surface and, on a dark one, a translucent pill with the focus
+// ring for dark surfaces (src/styles/global.css focus-ring-on-dark). The Current Announcements'
+// is solid brand-primary with surface-base text, 6.45:1 (Product Owner, 2026-11-12: #245 comment
+// 6812117246, item 2).
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+
+interface Props {
+	/** The address of the section's list. */
+	href: string;
+	/** The section's name, which the link's name holds. */
+	title: string;
+	tone?: "outline" | "solid" | "dark";
+	class?: string;
+}
+
+const { href, title, tone = "outline", class: className } = Astro.props;
+const colors = {
+	outline:
+		"border-border-default bg-surface-base text-brand-primary hover:border-brand-primary hover:bg-brand-primary hover:text-surface-base",
+	solid:
+		"border-brand-primary bg-brand-primary text-surface-base shadow-tile hover:border-brand-dark hover:bg-brand-dark",
+	dark: "focus-ring-on-dark border-hero-secondary-border bg-hero-secondary-fill text-surface-base hover:border-accent-warm hover:bg-accent-warm hover:text-brand-dark",
+}[tone];
+---
+
+<a
+	href={href}
+	class:list={[
+		"inline-flex size-11 shrink-0 items-center justify-center gap-2 rounded-pill border-[1.5px] text-body font-semibold motion-safe:transition-colors sm:h-13 sm:w-auto sm:px-7",
+		colors,
+		className,
+	]}
+>
+	<span class="sr-only">ดู{title}ทั้งหมด</span>
+	<span aria-hidden="true" class="max-sm:hidden">
+		ทั้งหมด
+	</span>
+	<ArrowRight class="shrink-0" size={16} />
+</a>

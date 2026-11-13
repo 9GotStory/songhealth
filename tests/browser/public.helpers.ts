@@ -147,6 +147,12 @@ export async function expectVisibleFocusOnEveryStop(page: Page, label: string): 
 		if (stop === null) break;
 		expect(stop.indicator, `${label}: ${stop.name} must show a focus indicator`).toBe(true);
 		expect(stop.unobscured, `${label}: ${stop.name} must not be covered while focused`).toBe(true);
+		// The ring is whole: an ancestor that clips its content must not cut into it (#247 retro: a
+		// tile that clipped itself cut the ring of the link inside it, and this walk passed).
+		expect(
+			await focusRingClippers(page.locator(":focus")),
+			`${label}: what cuts into the focus ring of ${stop.name}`,
+		).toEqual([]);
 		stops.push(stop.name);
 	}
 	expect(stops.length, `${label}: the page must have focusable elements`).toBeGreaterThan(0);
@@ -161,7 +167,8 @@ export async function expectNoHorizontalScroll(page: Page, label: string): Promi
 }
 
 /**
- * Run axe with the WCAG 2.2 AA tag set and the page-structure rules on the page as it is now, and
+ * Run axe with the WCAG 2.2 AA tag set and the page-structure rules on the page as it is now,
+ * scrolled back to its top, and
  * fail with a readable summary (rule, impact and the offending nodes) on any violation. Fail too on
  * an icon that assistive technology can reach: every icon on a public page is decorative, an
  * `<svg>` that is aria-hidden or inside an aria-hidden element (docs/design/DESIGN.md §5; #105).
@@ -172,6 +179,10 @@ export async function expectNoAxeViolations(page: Page, label: string): Promise<
 			`${label}: axe requires a JavaScript-enabled context; audit accessibility with JavaScript enabled and test no-script navigation separately.`,
 		);
 	}
+	// From the top of the page, where the sticky header covers nothing: scrolled, it can lie over
+	// part of a control, and axe's target-size then measures the largest part of the control left
+	// uncovered (axe-core 4.14.0 axe.js targetSizeEvaluate, getLargestUnobscuredArea; #240).
+	await page.evaluate(() => window.scrollTo(0, 0));
 	// A rule enabled by name runs beside a tag selection (axe-core 4.14.0 axe.js ruleShouldRun).
 	const results = await new AxeBuilder({ page })
 		.options({
@@ -332,10 +343,12 @@ export async function expectAboutSubpage(page: Page, path: string, current: stri
 
 /**
  * Fail unless `image` is visible and its file has loaded. A lazy image starts loading only as it
- * nears the viewport, which can be after the page's load event, so the check waits for it.
+ * nears the viewport, which can be after the page's load event, so the check scrolls to it and
+ * waits for it: on a long page it would otherwise never load (#244 retro).
  */
 export async function expectImageLoaded(image: Locator, label: string): Promise<void> {
 	await expect(image, label).toBeVisible();
+	await image.scrollIntoViewIfNeeded();
 	await expect
 		.poll(
 			() =>
@@ -343,6 +356,39 @@ export async function expectImageLoaded(image: Locator, label: string): Promise<
 			{ message: `${label} loads` },
 		)
 		.toBe(true);
+	// The picture asks for about the width of its box (CODING_STANDARDS "Public pages": "a `sizes`
+	// that matches their box"; #247 retro: a tile asked for a third of its row's width).
+	const asked = await image.evaluate((element: HTMLImageElement) => {
+		const sizes = element.getAttribute("sizes");
+		if (!sizes) return undefined;
+		const px = (length: string) => {
+			const value = Number.parseFloat(length);
+			if (length.endsWith("vw")) return (value * window.innerWidth) / 100;
+			if (length.endsWith("rem")) {
+				return value * Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+			}
+			return value;
+		};
+		for (const entry of sizes.split(",").map((part) => part.trim())) {
+			const conditional = /^(\(.*\))\s+(\S+)$/.exec(entry);
+			if (!conditional) return { asked: px(entry), box: element.getBoundingClientRect().width };
+			if (window.matchMedia(conditional[1]!).matches) {
+				return { asked: px(conditional[2]!), box: element.getBoundingClientRect().width };
+			}
+		}
+		return undefined;
+	});
+	if (asked) {
+		const share = asked.asked / asked.box;
+		expect(
+			share,
+			`${label}: its sizes asks for ${Math.round(asked.asked)} px in a ${Math.round(asked.box)} px box`,
+		).toBeGreaterThanOrEqual(0.75);
+		expect(
+			share,
+			`${label}: its sizes asks for ${Math.round(asked.asked)} px in a ${Math.round(asked.box)} px box`,
+		).toBeLessThanOrEqual(1.5);
+	}
 }
 
 /**
@@ -352,7 +398,7 @@ export async function expectImageLoaded(image: Locator, label: string): Promise<
  * part follows from the image's content box and its `object-fit`, which scales the picture in the
  * box and crops what overflows it. Returns the size the picture shows at, in CSS px.
  */
-async function expectPictureWhole(
+export async function expectPictureWhole(
 	image: Locator,
 	label: string,
 ): Promise<{ width: number; height: number }> {
@@ -390,8 +436,9 @@ async function expectPictureWhole(
 /**
  * Fail unless `image` shows its whole picture undistorted (expectPictureWhole) and fills its own
  * box with it, so nothing of the box shows beside the picture: neither what is behind the box nor
- * the placeholder EmDash's Image paints as the image's background (docs/agents/emdash-1.1.0.md
- * "Media"). Returns the size the picture shows at, in CSS px.
+ * a dominant colour EmDash's Image paints as the image's background (docs/agents/emdash-1.1.0.md
+ * "Media", which also says its blurhash placeholder does not show). Returns the size the picture
+ * shows at, in CSS px.
  */
 export async function expectPictureFillsBox(
 	image: Locator,
@@ -404,6 +451,42 @@ export async function expectPictureFillsBox(
 		`${label}: the picture fills its box`,
 	).toBeLessThan(1);
 	return shown;
+}
+
+/**
+ * The ancestors of `target` that cut into its focus ring: each one that clips its content where
+ * the outline lies, the element's box widened by the outline's offset and width.
+ */
+function focusRingClippers(target: Locator): Promise<string[]> {
+	return target.evaluate((element) => {
+		const style = getComputedStyle(element);
+		const reach = Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth);
+		const ring = element.getBoundingClientRect();
+		const clippers: string[] = [];
+		for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+			const { overflowX, overflowY } = getComputedStyle(parent);
+			if (overflowX === "visible" && overflowY === "visible") continue;
+			const box = parent.getBoundingClientRect();
+			const cut =
+				(overflowX !== "visible" &&
+					(ring.left - reach < box.left || ring.right + reach > box.right)) ||
+				(overflowY !== "visible" &&
+					(ring.top - reach < box.top || ring.bottom + reach > box.bottom));
+			if (cut) clippers.push(`<${parent.tagName.toLowerCase()} class="${parent.className}">`);
+		}
+		return clippers;
+	});
+}
+
+/**
+ * Fail unless `target` shows a focus ring once it has focus and the ring is drawn whole: no
+ * ancestor that clips its content cuts into the outline.
+ */
+export async function expectFocusRingWhole(target: Locator, label: string): Promise<void> {
+	await target.focus();
+	await expect(target, `${label}: a focus ring`).not.toHaveCSS("outline-style", "none");
+	await expect(target, `${label}: a focus ring`).toHaveCSS("outline-width", "3px");
+	expect(await focusRingClippers(target), `${label}: what cuts into the focus ring`).toEqual([]);
 }
 
 /** `part`'s box in the window as the page is laid out and scrolled now, once it shows. */
@@ -699,27 +782,74 @@ export async function expectFilteredEmpty(
 }
 
 /**
- * The Homepage sections' headings, the design's interface text
- * (docs/design/homepage-concept-v1.md).
+ * The Homepage hero's headline, the office summary sentence, which names the hero (spec #239 "Hero
+ * and Featured"). It is also the page's description and the Contact Summary's lead.
+ */
+export const HOMEPAGE_HEADLINE =
+	"ศูนย์กลางข้อมูล บริการ และการประสานงานด้านสุขภาพของประชาชนในอำเภอสอง จังหวัดแพร่";
+
+/**
+ * The Homepage sections' headings, the design's interface text. The Services, Leadership, Health
+ * Information and Activities sections are named as the prototype of spec #239 names them, so the
+ * link to each one's list reads "ดู…ทั้งหมด" with that name; the others keep the text of
+ * docs/design/homepage-concept-v1.md until their own tickets.
  */
 export const HOMEPAGE_HEADINGS = {
-	search: "คุณกำลังมองหาอะไร?",
-	services: "วันนี้คุณต้องการทำอะไร?",
-	news: "เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง",
-	health: "ความรู้ที่ใช้ได้ในชีวิตประจำวัน",
-	discovery: "ค้นหาหน่วยบริการสุขภาพในอำเภอสอง",
-	activities: "สุขภาพเกิดขึ้นในชุมชน",
+	services: "บริการประชาชน",
+	leadership: "ผู้บริหาร",
+	news: "ข่าวประชาสัมพันธ์",
+	announcements: "ประกาศ",
+	health: "ความรู้สุขภาพ",
+	discovery: "หน่วยบริการสุขภาพในอำเภอสอง",
+	activities: "กิจกรรม",
 	quickAccess: "ข้อมูลและเอกสารสำคัญ",
+	contact: "ติดต่อสำนักงาน",
 } as const;
 
-/** A Homepage section, the region its heading names. */
+/**
+ * A Homepage section, the region whose whole name is its heading: a Featured item's card is a
+ * region named by its title, which can hold a section's name, as an Announcement's holds "ประกาศ"
+ * (#245 retro).
+ */
 export function homepageSection(page: Page, heading: string) {
-	return page.getByRole("region", { name: heading });
+	return page.getByRole("region", { name: heading, exact: true });
+}
+
+/** The header's identity, the logo and the site title: its first link to the Homepage. */
+export function siteIdentityLink(page: Page) {
+	return page.getByRole("banner").locator('a[href="/"]').first();
+}
+
+/**
+ * Fail unless `part` is on the page for assistive technology and out of sight: it takes no more
+ * than a pixel of the page, as Tailwind's `sr-only` leaves it.
+ */
+export async function expectVisuallyHidden(part: Locator, label: string): Promise<void> {
+	const box = await boxOf(part, label);
+	expect(Math.max(box.width, box.height), `${label} takes no room in sight`).toBeLessThanOrEqual(1);
 }
 
 /** The card or row a list page shows for the item titled `title`. */
 export function listedItem(page: Page, title: string) {
 	return page.getByRole("main").getByRole("article").filter({ hasText: title });
+}
+
+/**
+ * Fail unless the card of the Service titled `title` shows the Lucide icon `icon` in its icon tile,
+ * out of assistive technology's reach, with the card's link named by the title alone. Lucide marks
+ * each icon's `<svg>` with the class `lucide-<name>` (docs/agents/lucide-astro-1.59.0.md), the one
+ * thing on the page that tells two icons apart, so the suites read it here, where they otherwise
+ * leave a decoration's classes alone (Product Owner, 2026-11-12: #248 comment 6827280781, item 1).
+ */
+export async function expectServiceIcon(card: Locator, icon: string, title: string): Promise<void> {
+	await expect(card.getByRole("link"), "the Service's name names the card").toHaveAccessibleName(
+		title,
+	);
+	const tile = card.getByTestId("service-icon");
+	await expect(tile, "the icon tile is decorative").toHaveAttribute("aria-hidden", "true");
+	await expect(tile.locator("svg"), `the ${icon} icon`).toHaveClass(
+		new RegExp(`(?:^| )lucide-${icon}(?: |$)`),
+	);
 }
 
 /** The value a record page states for one of its details, by the detail's Thai name. */

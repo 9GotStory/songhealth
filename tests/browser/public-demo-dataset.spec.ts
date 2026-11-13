@@ -4,8 +4,9 @@
 // section shows content: each list page lists entries titled "[ตัวอย่าง] …", and the first of them
 // opens on its own page under that title; the Personnel lists and the Contact page show theirs;
 // each reserved Basic Page's address shows the page published there, the dataset's or the
-// office's own; the Homepage shows a Featured item, both its News card and its Announcements,
-// and every other section that hides while it has nothing to show; and the ITA landing leads to the
+// office's own; the Homepage shows a Featured item, Latest News and the current Announcements,
+// and every other section that hides while it has nothing to show, its six Frequently Used
+// Services each under an icon of its own (#248); and the ITA landing leads to the
 // dataset's fiscal year, whose page lists its MOITs, one of them with a file removed from the
 // library (#126). Every public template but the 404 page, as the dataset fills it, passes the axe
 // and focus checks at both widths and does not scroll sideways at 320 px (#67). The suite only
@@ -25,11 +26,11 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOMEPAGE_HEADINGS,
+	HOMEPAGE_HEADLINE,
 	expect,
 	homepageSection,
 	listedItem,
 	listedTitles,
-	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
 } from "./public.helpers";
@@ -95,14 +96,11 @@ const ENTRY_PAGES = Object.entries(CANONICAL_URL_PATTERNS).flatMap(([collection,
 test.use({ viewport: DESKTOP_VIEWPORT });
 
 let admin: CmsActor;
-/** The site title, which heads the Homepage's Contact Summary. */
-let siteTitle: string;
 /** The addresses of the reserved Basic Pages that are published, the only ones to sweep. */
 const publishedBasicPages: string[] = [];
 
 test.beforeAll(async () => {
 	admin = await devAdminActor();
-	({ siteTitle } = await siteTitleParts(admin));
 	const missing: string[] = [];
 	for (const { collection, slug } of DEMO_ENTRIES) {
 		const item = nativeItemOf(await readEntry(admin, collection, slug));
@@ -155,28 +153,46 @@ for (const [slug, path] of Object.entries(BASIC_PAGES)) {
 
 test("the Homepage shows a Featured item and every section", async ({ page }) => {
 	await page.goto("/");
-	// Without a Featured item, the Search heading comes first (src/pages/index.astro).
+	// The Featured card is the hero's only link (src/components/HomeHero.astro).
 	await expect(
-		page.getByRole("main").getByRole("heading", { level: 2 }).first(),
+		homepageSection(page, HOMEPAGE_HEADLINE).getByRole("link"),
 		"a Featured item heads the page",
-	).not.toHaveText(HOMEPAGE_HEADINGS.search);
+	).toHaveCount(1);
+	// Every section but Quick Access, whose menu the dataset leaves empty (spec #239 "Quick
+	// Access"; #247).
 	for (const [section, heading] of Object.entries(HOMEPAGE_HEADINGS)) {
-		await expect(homepageSection(page, heading), `the ${section} section`).toBeVisible();
+		const shown = homepageSection(page, heading);
+		if (section === "quickAccess") await expect(shown, "Quick Access").toHaveCount(0);
+		else await expect(shown, `the ${section} section`).toBeVisible();
 	}
-	// The News and Announcements section shows while either half has some (src/pages/index.astro).
 	const news = homepageSection(page, HOMEPAGE_HEADINGS.news);
-	await expect(news.getByRole("article"), "the News card").toContainText(MARK);
+	await expect(news.getByRole("article").first(), "the newest News").toContainText(MARK);
 	await expect(
-		news.getByRole("list", { name: "ประกาศ" }).getByRole("listitem").first(),
+		homepageSection(page, HOMEPAGE_HEADINGS.announcements).getByRole("listitem").first(),
 		"the current Announcements",
 	).toContainText(MARK);
 	await expect(
-		homepageSection(page, siteTitle).getByRole("link", { name: "เปิดแผนที่" }),
+		homepageSection(page, HOMEPAGE_HEADINGS.contact).getByRole("link", { name: "เปิดแผนที่" }),
 		"the Contact Summary shows Office Contact",
 	).toBeVisible();
 	for (const name of ["นโยบายความเป็นส่วนตัว", "การเข้าถึงเว็บไซต์"]) {
 		await expect(page.getByRole("contentinfo").getByRole("link", { name })).toBeVisible();
 	}
+});
+
+test("the Homepage's six Frequently Used Services each show an icon of their own", async ({
+	page,
+}) => {
+	await page.goto("/");
+	const icons = homepageSection(page, HOMEPAGE_HEADINGS.services)
+		.getByTestId("service-icon")
+		.locator("svg");
+	await expect(icons).toHaveCount(6);
+	// Lucide names each icon in its class, `lucide-<name>` (docs/agents/lucide-astro-1.59.0.md).
+	const names = await icons.evaluateAll((svgs) =>
+		svgs.map((svg) => [...svg.classList].find((name) => name.startsWith("lucide-"))),
+	);
+	expect(new Set(names).size, `six different icons among ${names.join(", ")}`).toBe(6);
 });
 
 test("/ita leads to the dataset's fiscal year, whose page lists its MOITs, each opening on its own page", async ({

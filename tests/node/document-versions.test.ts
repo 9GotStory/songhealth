@@ -59,6 +59,43 @@ async function versionOf(document: string): Promise<string | undefined> {
 	}
 }
 
+describe("DESIGN.md's own version", () => {
+	it("is the version of its newest change-history entry", async () => {
+		const design = await readFile(new URL("docs/design/DESIGN.md", ROOT), "utf8");
+		const status = /^> \*\*Status:\*\* v(\d+\.\d+)/m.exec(design)?.[1];
+		assert.ok(status, "DESIGN.md states its version in its Status line");
+		// The history's entries open with "- **v1.2 …", oldest first (#244 retro: a v1.3 entry under
+		// a v1.2 Status line).
+		const entries = [...design.matchAll(/^- \*\*v(\d+\.\d+)\b/gm)].map(([, version]) => version);
+		assert.equal(entries.at(-1), status);
+	});
+});
+
+describe("a feature's decision banner", () => {
+	it("stands once in each current document and in DESIGN.md", async () => {
+		// A feature amends a document under one banner and one version bump; a later ticket of the
+		// feature keeps that banner (CODING_STANDARDS "Documents", Amendments; #247 retro: a second
+		// "Feature 008 decision" banner and a second bump reached review).
+		const documents = repositoryFiles().filter(
+			(file) =>
+				file === "docs/design/DESIGN.md" ||
+				(file.startsWith("docs/website-modernization-docs/current/") && file.endsWith(".md")),
+		);
+		assert.ok(documents.length > 1, "the current documents are found");
+		const repeated: string[] = [];
+		for (const file of documents) {
+			const text = await readFile(new URL(file, ROOT), "utf8");
+			const features = [...text.matchAll(/^> \*\*Feature (\d+) decision/gm)].map(([, n]) => n);
+			for (const feature of new Set(features)) {
+				if (features.filter((n) => n === feature).length > 1) {
+					repeated.push(`${file}: Feature ${feature}`);
+				}
+			}
+		}
+		assert.deepEqual(repeated, []);
+	});
+});
+
 describe("versions cited for the current documents", () => {
 	it("finds the versions DESIGN.md cites", async () => {
 		assert.ok((await citations()).some(({ at }) => at.startsWith("docs/design/DESIGN.md:")));

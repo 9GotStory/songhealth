@@ -5,7 +5,7 @@
 # printed. A variable already set in the environment, even to empty, wins. The command runs only on
 # the Node package.json engines pins (scripts/check-node.sh, #65 retro). It refuses while a window
 # holds the runtime (scripts/dev-runtime-window.sh), unless given --in-window by the window's holder.
-#   scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
+#   scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts
 #   scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 #   scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>
 set -euo pipefail

@@ -13,10 +13,18 @@
 # so those are counted without failing (docs/operations/development-quadlet.md). A miss without the
 # synthetic marks, such as one a person met while browsing, is counted, 0 included, so an evidence
 # record can quote an empty log, and listed by its path and time (#151 retro).
+# The demo dataset's entries (slugs that start with demo-, scripts/demo-dataset/plan.ts) are all
+# published while it is installed. One that is not, such as an entry a browser suite returned to
+# draft and failed to give back, is listed and the exit status is 1:
+# `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` publishes it again (#244 retro).
 # --clear-404-log first clears that log through the native API, just before the Product Owner's
 # review (#67 retro), and only while every miss in it is synthetic: otherwise it lists the others,
 # clears nothing and exits 3 (#123 retro). --clear-404-log-including-others clears them too, once
 # someone has looked at them. Exit status 2: the count or the clear failed, or a wrong argument.
+# Its last line counts the database connection errors in the app's journal over the last hour,
+# the span of a full suite: a run that failed on a timeout or a 500 while the database dropped its
+# connections is the host's, not the change's (#246 retro: two cases of the last suite failed while
+# another project's containers loaded the host). The line never changes the exit status.
 set -uo pipefail
 # shellcheck source=scripts/dev-runtime-common.sh
 . "$(dirname "${BASH_SOURCE[0]}")/dev-runtime-common.sh"
@@ -37,6 +45,7 @@ AUTH = {"Authorization": "Bearer " + open(sys.argv[1]).read().strip()}
 origin = sys.argv[2]
 clear = sys.argv[3]
 FIXTURE = "songhealth-f002-synthetic"
+DEMO = "demo-"
 MISSES = (FIXTURE, "songhealth-unknown-")
 
 
@@ -91,9 +100,17 @@ try:
         with urllib.request.urlopen(request, timeout=30) as response:
             print(f"404 log cleared: {json.load(response)['data']['deleted']} entries")
     left = {}
+    demo = 0
+    demo_unpublished = []
     for collection in get("/_emdash/api/schema/collections")["items"]:
         slug = collection["slug"]
-        left[f"{slug} entries"] = marked(every(f"/_emdash/api/content/{slug}"))
+        entries = list(every(f"/_emdash/api/content/{slug}"))
+        left[f"{slug} entries"] = marked(entries)
+        for entry in entries:
+            if str(entry.get("slug") or "").startswith(DEMO):
+                demo += 1
+                if entry.get("status") != "published":
+                    demo_unpublished.append(f"{slug}/{entry['slug']}")
         left[f"{slug} entries in trash"] = marked(every(f"/_emdash/api/content/{slug}/trash"))
     left["media"] = marked(every("/_emdash/api/media"))
     for taxonomy in get("/_emdash/api/taxonomies")["taxonomies"]:
@@ -118,7 +135,22 @@ print(f"404 log: {misses} synthetic misses, cleared as a whole before the Produc
 print(f"404 log: {len(others)} misses without the synthetic marks")
 for miss in others:
     print(f"404 log, not synthetic: {miss}")
+print(f"demo dataset: {demo} entries, {len(demo_unpublished)} not published")
+for entry in demo_unpublished:
+    print(f"demo dataset, not published: {entry}")
+if demo_unpublished:
+    print("DEMO DATASET: INCOMPLETE (scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add)")
 found = any(left.values())
 print("RESIDUE: FOUND" if found else "RESIDUE: NONE")
-sys.exit(1 if found else 0)
+sys.exit(1 if found or demo_unpublished else 0)
 PY
+status=$?
+# LC_ALL=C: the host's Thai locale gives journalctl dates it then cannot select by.
+errors=$(LC_ALL=C journalctl --user -u "$APP" --since "-1h" --no-pager 2>/dev/null \
+  | grep -E 'Connection terminated unexpectedly|not yet accepting connections' || true)
+if [[ -n $errors ]]; then
+  echo "database: $(wc -l <<<"$errors") connection errors in the app's journal in the last hour, the first at $(head -1 <<<"$errors" | cut -c1-15)"
+else
+  echo "database: 0 connection errors in the app's journal in the last hour"
+fi
+exit "$status"

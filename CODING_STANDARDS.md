@@ -51,22 +51,46 @@ and why, and `.jscpd-baseline.json` records them.
   6515274921).
 - Status is stated in text; colour supports it.
 - Icons are Lucide's (Product Owner, 2026-10-31: #51 comments 6536026977, 6536052180). An onward
-  link on this site ends in `chevron-right` and a link that leaves it in `arrow-up-right`. An icon
+  link on this site ends in `chevron-right` and a link that leaves it in `arrow-up-right`; on the
+  Homepage a round button, a section heading's link and a card take `arrow-right` (Product Owner,
+  2026-11-11: #241 comment 6791096480). An icon
   is decorative: Lucide hides it from assistive technology, and the text names the link or button
   (`docs/agents/lucide-astro-1.59.0.md`). Its size follows its role (Product Owner, 2026-10-31:
   #105 comment 6536890963): 16 px for a direction icon beside label or small text, 20 px for an
   icon that shows the action itself at the start of its button, such as the menu's or the
-  download's, and 24 px on a card. Its colour is a token, through `currentColor`.
+  download's, and 24 px on a shared card's corner; a Homepage card's `arrow-right` is 20 px, 16 px
+  beside a card's "อ่านต่อ" and 24 px on a Quick Access card, and the contact card's details open
+  with 20 px icons and its telephone number with a 24 px one, as `docs/design/DESIGN.md` §5
+  lists. Its colour is a token, through `currentColor`.
   `tests/node/public-icons.test.ts` checks the mechanics: no typed mark or hand-drawn `<svg>`, and
   each icon from its own module, sized 16, 20 or 24 px, with `shrink-0`.
 - A title renders through `src/components/ThaiTitle.astro`, which keeps the Thai compound words of
   `src/lib/thai-title.ts` on one line (spec #144): every page's H1, every section heading, every
-  card and row title, the Featured title, and the site title in the header, the footer and the
-  Contact Summary. Body text, summaries and labels render as they are.
+  card and row title, the Featured title, and the site title in the header and the footer. Body
+  text, summaries and labels render as they are.
   `tests/node/public-titles.test.ts` checks the headings, and review checks the titles that are no
   heading, such as a Quick Link card's label.
+- An effect that holds a part back or moves it, such as an entrance or a reveal, follows
+  `docs/design/DESIGN.md` §8.12: it runs only on a screen without a reduced-motion preference; it
+  ends by itself within five seconds unless the visitor's scrolling drives it (WCAG 2.2 SC 2.2.2);
+  a part that holds the keyboard's focus shows whole; and it changes no layout. A scroll-driven
+  effect is written with longhands and sits inside its `@supports` query, which
+  `npm run build:check` reads in the built stylesheet (#249 retro).
+- What moves under the pointer moves inside the element that takes the hover: that element keeps
+  its place as a `group`, and a child moves on `group-hover:`, so the hover does not end at the
+  element's edge (`tests/node/public-hover.test.ts`). A card that rises still opens from every part
+  of its resting place: its link reaches over the strip its surface left, as
+  `src/components/HomeServiceCard.astro` does (#242 retro).
+- `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the Homepage's deep
+  field it is 4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2;
+  Product Owner, 2026-11-11: #242 comment 6797113372, item 1). One measured exception: the month
+  and year on a Current Announcement's date tile, 5.45:1 or more where they sit on its gradient
+  (`docs/design/DESIGN.md` §8.7; Product Owner, 2026-11-12: #245 comment 6812837231). A change
+  to the tile's size or gradient needs a new measure.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
-  mobile menu, opens in the flow of the page.
+  mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
+  state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`
+  §8.9).
 - A list or detail page reuses the shared pieces in `src/components/` and follows the shape of
   `src/pages/news/`. That shape covers reads through EmDash's query functions, `?page=` and GET
   filters, `Astro.rewrite("/404")` for anything not visible, and the SiteLayout head props. A
@@ -85,6 +109,9 @@ and why, and `.jscpd-baseline.json` records them.
 
 ## Tests
 
+- Playwright's behaviour the suites rely on (a page that is leaving, route globs, page timers)
+  is in `docs/agents/playwright-test-1.63.0.md`: read it before a test that watches a navigation,
+  holds a request or waits on a timer.
 - Public-page suites take `test` and `expect` from `tests/browser/public.helpers.ts`, so the
   third-party request guard runs. Each template's pages are checked at both `VIEWPORTS` with
   `expectNoAxeViolations` and `expectVisibleFocusOnEveryStop`, and at 320 px with
@@ -95,6 +122,16 @@ and why, and `.jscpd-baseline.json` records them.
   (entries, media, terms) and refusal checks (`expectValidationRefusal`) to
   `tests/browser/cms.helpers.ts`, and a node test's builders to `tests/node/<area>.helpers.ts`,
   named as the browser suites name theirs (`tests/node/ita.helpers.ts` `fileBlock`).
+- A card whose whole surface is one link joins the Homepage or list table of
+  `tests/browser/public-cards.spec.ts`: one link named by its title, a press on the part a citizen
+  points at (its picture, or the tile of the visual in its place), a press on its lower corner, and
+  Enter (#244 retro: a tile lay in front of the large News card's link, and no test pressed it).
+- Every page of a suite prefers reduced motion (`playwright.config.ts`), so a test reads a page
+  that stands still. A test of something that moves only where motion is allowed, such as a card
+  that rises under the pointer, allows it for its page with
+  `page.emulateMedia({ reducedMotion: "no-preference" })` (`docs/design/DESIGN.md` §8.12). With
+  motion allowed, what a scroll brings in is read after its reveal has ended: poll for it
+  (`docs/agents/playwright-test-1.63.0.md` "Media and motion").
 - Tests assert what people see and use: text, links, status and focus. A link or button is
   checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
   out decorative `aria-hidden` icons. A `data-testid` marks only an element with no accessible
@@ -183,7 +220,16 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   after the earlier ones: "Feature N decision (Product Owner, date)", as Feature 003 (`c2ac189`)
   and Feature 004 (#127) did, or "<subject> decision (Product Owner, date; #<ticket> comment
   <id>)", as #169 did. It bumps the version once: a later change in the same feature, before the
-  feature reaches `main`, keeps that version and adds its decision to the feature's banner (#128).
+  feature reaches `main`, keeps that version and that one banner (#128). The banner states the
+  feature's direction and the decisions that amend the document's rules, such as a model change in
+  `02`. In `docs/design/DESIGN.md` a ticket's own decisions go into §13's change history, one
+  entry per ticket with its authority, and the banner stays as it is (#248 retro: #242 to #248
+  each added an entry and none touched the banner). The feature's hand-off ticket alone rewrites
+  the banner's sentence on which tickets build what, so it names every ticket and no page the
+  feature has since built as still to come (#250 retro, #250 comment 6841500044).
+- **Model changes.** A field or collection added to `seed/seed.json` is listed in its resource's
+  section of `02-content-model.md`, under the feature's banner (#248 retro: `02` §12 lacked the
+  Service's icon until review).
 
 A record in `docs/evidence/` says what its evidence log shows, and no more. Each claim traces to a
 line of the log or a run's output. Each cell of a coverage table names the check it rests on and

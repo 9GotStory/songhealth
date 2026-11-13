@@ -3,6 +3,8 @@
 // Authority: ticket #52 and spec #51 (Presentation; Testing Decisions, Seam A);
 // `03` §2 (global navigation), `04` §4 and §16 (header, accessibility), ADR 0001.
 // Compact Header B: #191; spec #190 and PO comment 6707205912.
+// The new shell: #240; spec #239 "Header (every page)", "Footer (every page)" and "Accessibility";
+// PO, #239 comment 6786536858 (the search link, no utility bar).
 //
 // The suite drives the single development runtime over public HTTP, the way a
 // citizen does, through the shared public-page harness (third-party request
@@ -24,20 +26,33 @@ import {
 	type CmsActor,
 } from "./cms.helpers";
 import {
+	boxOf,
 	DEFAULT_SITE_TITLE,
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
 	NOT_FOUND_HEADING,
+	PHONE_VIEWPORT,
 	VIEWPORTS,
 	expect,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectVisibleFocusOnEveryStop,
+	siteIdentityLink,
 	test,
+	tokenColor,
 } from "./public.helpers";
 
-/** The office's official name, fixed interface text in the utility bar. */
+/** The office's official name, which no part of the shell shows. */
 const OFFICE_NAME = "สำนักงานสาธารณสุขอำเภอสอง จังหวัดแพร่";
+
+/** The footer's line under the site title (spec #239 "Footer (every page)"). */
+const FOOTER_AFFILIATION = "จังหวัดแพร่ · กระทรวงสาธารณสุข";
+
+/** The page container's side gutter from 640 px, the wider of its two, in px. */
+const WIDEST_GUTTER = 24;
+
+/** An inner page, which carries the same shell as the Homepage. */
+const INNER_PAGE = "/news";
 
 /** `03` §2 main navigation, in order, with ITA last (#124; spec #121 "Public routes"). */
 const MAIN_NAVIGATION = [
@@ -62,49 +77,98 @@ async function openMenu(page: Page): Promise<void> {
 
 test.use({ viewport: DESKTOP_VIEWPORT });
 
-test("the Homepage carries the site shell: utility bar, main navigation and footer", async ({
+test("the Homepage and an inner page carry the shell: the search link, the main navigation and the footer, with no utility bar", async ({
 	page,
 }) => {
-	const response = await page.goto("/");
-	expect(response?.status(), "GET / must succeed").toBe(200);
-	await expect(page.locator("html")).toHaveAttribute("lang", "th");
+	for (const [path, current] of [
+		["/", "หน้าแรก"],
+		[INNER_PAGE, "ข่าวสาร"],
+	]) {
+		const response = await page.goto(path);
+		expect(response?.status(), `GET ${path} must succeed`).toBe(200);
+		await expect(page.locator("html")).toHaveAttribute("lang", "th");
 
-	const banner = page.getByRole("banner");
-	await expect(banner.getByText(OFFICE_NAME)).toBeVisible();
-	await expect(banner.getByRole("link", { name: "ค้นหา", exact: true })).toHaveAttribute(
-		"href",
-		"/search",
-	);
-	await expect(banner.getByRole("link", { name: "ติดต่อเรา", exact: true })).toHaveAttribute(
-		"href",
-		"/contact",
-	);
+		const banner = page.getByRole("banner");
+		await expect(banner.getByRole("link", { name: "ค้นหา", exact: true })).toHaveAttribute(
+			"href",
+			"/search",
+		);
 
-	const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
-	const links = navigation.getByRole("link");
-	await expect(links).toHaveText(MAIN_NAVIGATION.map((item) => item.name));
-	expect(await links.evaluateAll((anchors) => anchors.map((a) => a.getAttribute("href")))).toEqual(
-		MAIN_NAVIGATION.map((item) => item.href),
-	);
-	await expect(navigation.getByRole("link", { name: "หน้าแรก" })).toHaveAttribute(
-		"aria-current",
-		"page",
-	);
-	await expect(
-		navigation.locator("[aria-current]"),
-		"only the current section is marked",
-	).toHaveCount(1);
+		const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
+		const links = navigation.getByRole("link");
+		await expect(links).toHaveText(MAIN_NAVIGATION.map((item) => item.name));
+		expect(
+			await links.evaluateAll((anchors) => anchors.map((a) => a.getAttribute("href"))),
+		).toEqual(MAIN_NAVIGATION.map((item) => item.href));
+		await expect(navigation.getByRole("link", { name: current })).toHaveAttribute(
+			"aria-current",
+			"page",
+		);
+		await expect(
+			navigation.locator("[aria-current]"),
+			"only the current section is marked",
+		).toHaveCount(1);
+
+		const footer = page.getByRole("contentinfo");
+		await expect(footer.getByRole("link", { name: "ติดต่อเรา", exact: true })).toHaveAttribute(
+			"href",
+			"/contact",
+		);
+
+		await expect(banner.getByText(OFFICE_NAME), `${path} shows no utility bar`).toHaveCount(0);
+		await expect(
+			banner.locator('a[href="/contact"]'),
+			`no header link on ${path} goes to /contact`,
+		).toHaveCount(0);
+	}
+	await page.goto("/");
 	await expect(
 		page.getByRole("navigation", { name: "เส้นทางนำทาง" }),
 		"the Homepage has no breadcrumb",
 	).toHaveCount(0);
-
-	const footer = page.getByRole("contentinfo");
-	await expect(footer.getByRole("link", { name: "ติดต่อเรา", exact: true })).toHaveAttribute(
-		"href",
-		"/contact",
-	);
 });
+
+test("the footer shows the site title, the official channels and its page links, ending in the contact link", async ({
+	page,
+}) => {
+	for (const path of ["/", INNER_PAGE]) {
+		await page.goto(path);
+		const footer = page.getByRole("contentinfo");
+		const title = await siteIdentityLink(page).innerText();
+		await expect(footer).toContainText(title.split("\n")[0]);
+		const channels = footer.getByRole("list", { name: "ช่องทางทางการ" }).getByRole("link");
+		expect(await channels.count(), "the runtime's Office Contact sets channels").toBeGreaterThan(0);
+		for (const channel of await channels.all()) {
+			await expect(channel).toHaveAttribute("target", "_blank");
+			await expect(channel).toHaveAccessibleName(/\(เว็บไซต์ภายนอก\) \(เปิดในแท็บใหม่\)$/);
+		}
+		const pageLinks = footer.getByRole("navigation", { name: "ลิงก์ท้ายหน้า" }).getByRole("link");
+		await expect(pageLinks.last()).toHaveText("ติดต่อเรา");
+		await expect(pageLinks.last()).toHaveAttribute("href", "/contact");
+		await expect(footer.getByText(FOOTER_AFFILIATION, { exact: true })).toBeVisible();
+		await expect(footer.getByText(OFFICE_NAME, { exact: true })).toHaveCount(0);
+	}
+});
+
+for (const width of [375, 1440]) {
+	test(`the header stays at the top of the window while the page scrolls, at ${width} px`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width, height: 900 });
+		for (const path of ["/", INNER_PAGE]) {
+			await page.goto(path);
+			const banner = page.getByRole("banner");
+			expect((await banner.boundingBox())?.y, `${path} before scrolling`).toBe(0);
+			await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+			expect(
+				await page.evaluate(() => window.scrollY),
+				`${path} scrolls further than the header is tall`,
+			).toBeGreaterThan(200);
+			expect((await banner.boundingBox())?.y, `${path} scrolled to its end`).toBe(0);
+			await expect(banner.getByRole("link", { name: "ค้นหา", exact: true })).toBeInViewport();
+		}
+	});
+}
 
 test("an unknown address answers 404 with the site-designed page inside the shell", async ({
 	page,
@@ -132,7 +196,7 @@ test("an unknown address answers 404 with the site-designed page inside the shel
 	await expect(page.getByRole("contentinfo")).toBeVisible();
 });
 
-test("below 1024 px the icon-only menu has a 44 px target and native named states", async ({
+test("below 1024 px one 48 px icon-only menu button opens the same items as full-width rows", async ({
 	page,
 }) => {
 	for (const width of [320, 375, 768, 1023]) {
@@ -141,8 +205,6 @@ test("below 1024 px the icon-only menu has a 44 px target and native named state
 		const control = page.locator("summary").filter({ hasText: "เปิดเมนู" });
 		await expect(control).toBeVisible();
 		const box = await control.boundingBox();
-		expect(box?.width).toBe(44);
-		expect(box?.height).toBe(44);
 		const label = control.getByText("เปิดเมนู", { exact: true });
 		const labelBox = await label.boundingBox();
 		expect(labelBox?.width, "the accessible label is visually clipped").toBe(1);
@@ -151,6 +213,8 @@ test("below 1024 px the icon-only menu has a 44 px target and native named state
 		await expect(control.locator("svg").nth(0)).toBeVisible();
 		await expect(control.locator("svg").nth(1)).toBeHidden();
 		await expect(control.locator("..")).not.toHaveAttribute("open");
+		expect(box?.width, `the menu button at ${width} px`).toBe(48);
+		expect(box?.height).toBe(48);
 		await control.focus();
 		await page.keyboard.press("Enter");
 		const close = page.locator("summary").filter({ hasText: "ปิดเมนู" });
@@ -158,34 +222,40 @@ test("below 1024 px the icon-only menu has a 44 px target and native named state
 		await expect(close.locator("svg").nth(0)).toBeHidden();
 		await expect(close.locator("svg").nth(1)).toBeVisible();
 		await expect(close.locator("..")).toHaveAttribute("open", "");
-		await expect(page.getByRole("navigation", { name: "เมนูหลัก" })).toBeVisible();
+		const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
+		await expect(navigation).toBeVisible();
+		await expect(navigation.getByRole("link")).toHaveText(MAIN_NAVIGATION.map((item) => item.name));
+		const panel = await boxOf(navigation, `the open panel at ${width} px`);
+		let above = panel.y;
+		for (const link of await navigation.getByRole("link").all()) {
+			const row = await boxOf(link, `a menu row at ${width} px`);
+			expect(row.y, "each row sits below the one before it").toBeGreaterThanOrEqual(above);
+			expect(row.width, `a row spans the panel at ${width} px`).toBeGreaterThanOrEqual(
+				panel.width - 2 * WIDEST_GUTTER,
+			);
+			above = row.y + row.height;
+		}
 		await page.keyboard.press("Space");
 		await expect(control).toBeFocused();
 		await expect(page.getByRole("navigation", { name: "เมนูหลัก" })).toBeHidden();
 	}
 });
 
-test("the utility bar is compact below 1024 px and full from 1024 px, with working destinations", async ({
+test("the search link is a 44 px target inside the window at every width, and the header changes at 1024 px", async ({
 	page,
 }) => {
-	for (const width of [320, 375, 768, 1023, 1024, 1440]) {
+	for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 		await page.setViewportSize({ width, height: 900 });
 		await page.goto("/");
 		const banner = page.getByRole("banner");
-		const office = banner.getByText(OFFICE_NAME, { exact: true });
 		const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
+		const search = banner.getByRole("link", { name: "ค้นหา", exact: true });
+		const searchBox = await boxOf(search, `the search link at ${width} px`);
+		expect(searchBox.height, `search target at ${width} px`).toBeGreaterThanOrEqual(44);
 		if (width < 1024) {
-			await expect(office).toBeHidden();
 			await expect(navigation).toBeHidden();
-			for (const name of ["ค้นหา", "ติดต่อเรา"]) {
-				const link = banner.getByRole("link", { name, exact: true });
-				expect(
-					(await link.boundingBox())?.height,
-					`${name} target at ${width} px`,
-				).toBeGreaterThanOrEqual(44);
-			}
+			await expect(banner.locator("summary")).toBeVisible();
 		} else {
-			await expect(office).toBeVisible();
 			await expect(banner.locator("summary")).toBeHidden();
 			await expect(navigation.getByRole("link")).toHaveText(
 				MAIN_NAVIGATION.map((item) => item.name),
@@ -196,11 +266,82 @@ test("the utility bar is compact below 1024 px and full from 1024 px, with worki
 			);
 		}
 		await expectNoHorizontalScroll(page, `header at ${width} px`);
-		await banner.getByRole("link", { name: "ค้นหา", exact: true }).click();
+		expect(searchBox.width, `search target at ${width} px`).toBeGreaterThanOrEqual(44);
+		expect(searchBox.x + searchBox.width, `search link at ${width} px`).toBeLessThanOrEqual(width);
+		await search.click();
 		await expect(page).toHaveURL(/\/search$/);
-		await banner.getByRole("link", { name: "ติดต่อเรา", exact: true }).click();
-		await expect(page).toHaveURL(/\/contact$/);
 	}
+});
+
+test("from 1024 px the header is one row, and the current item is a soft green pill", async ({
+	page,
+}) => {
+	for (const width of [1024, 1440]) {
+		await page.setViewportSize({ width, height: 900 });
+		await page.goto(INNER_PAGE);
+		const banner = page.getByRole("banner");
+		const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
+		const rows = await navigation
+			.getByRole("link")
+			.evaluateAll((anchors) => [...new Set(anchors.map((a) => a.getBoundingClientRect().y))]);
+		expect(rows, `the navigation is one line at ${width} px`).toHaveLength(1);
+		await expectNoHorizontalScroll(page, `header at ${width} px`);
+
+		const header = await boxOf(banner, `the header at ${width} px`);
+		const middle = header.y + header.height / 2;
+		for (const [name, part] of [
+			["the identity", siteIdentityLink(page)],
+			["the navigation", navigation],
+			["the search link", banner.getByRole("link", { name: "ค้นหา", exact: true })],
+		] as const) {
+			const box = await boxOf(part, `${name} at ${width} px`);
+			expect(box.y, `${name} crosses the row's middle at ${width} px`).toBeLessThan(middle);
+			expect(box.y + box.height, `${name} crosses the row's middle`).toBeGreaterThan(middle);
+			expect(box.x + box.width, `${name} stays inside the window`).toBeLessThanOrEqual(width);
+		}
+
+		const current = navigation.getByRole("link", { name: "ข่าวสาร" });
+		await expect(current).toHaveAttribute("aria-current", "page");
+		const other = navigation.getByRole("link", { name: "เอกสารเผยแพร่" });
+		await expect(other).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+		await expect(current).toHaveCSS("color", await tokenColor(page, "brand-primary"));
+		await expect(current).toHaveCSS("background-color", await tokenColor(page, "surface-soft"));
+		const pill = await boxOf(current, "the current item");
+		const radius = await current.evaluate((a) =>
+			Number.parseFloat(getComputedStyle(a).borderRadius),
+		);
+		expect(radius, "the current item's ends are round").toBeGreaterThanOrEqual(pill.height / 2);
+	}
+});
+
+test("at 320 px the identity, the search link and the menu button share the row inside the window", async ({
+	page,
+}) => {
+	await page.setViewportSize(MOBILE_VIEWPORT);
+	await page.goto("/");
+	const banner = page.getByRole("banner");
+	const identity = await boxOf(siteIdentityLink(page), "the identity");
+	const menu = await boxOf(banner.locator("summary"), "the menu button");
+	expect(identity.x).toBeGreaterThanOrEqual(0);
+	expect(identity.x + identity.width, "the identity ends before the menu").toBeLessThanOrEqual(
+		menu.x,
+	);
+	expect(menu.x + menu.width, "the menu button stays inside the window").toBeLessThanOrEqual(320);
+	const search = await boxOf(
+		banner.getByRole("link", { name: "ค้นหา", exact: true }),
+		"the search link",
+	);
+	expect(
+		identity.x + identity.width,
+		"the identity ends before the search link",
+	).toBeLessThanOrEqual(search.x);
+	expect(search.x + search.width, "the search link ends before the menu").toBeLessThanOrEqual(
+		menu.x,
+	);
+	expect(
+		Math.abs(search.y + search.height / 2 - (menu.y + menu.height / 2)),
+		"the two buttons sit on one line",
+	).toBeLessThanOrEqual(1);
 });
 
 test.describe("at the 320 px mobile width without JavaScript", () => {
@@ -280,8 +421,85 @@ test.describe("keyboard", () => {
 		const skipLink = page.getByRole("link", { name: "ข้ามไปยังเนื้อหาหลัก" });
 		await expect(skipLink).toBeFocused();
 		await expect(skipLink).toBeInViewport();
+		const header = await boxOf(page.getByRole("banner"), "the header");
+		const shown = await boxOf(skipLink, "the skip link");
 		await page.keyboard.press("Enter");
 		await expect(page.getByRole("main")).toBeFocused();
+		expect(shown.y, "the skip link shows below the header").toBeGreaterThanOrEqual(
+			header.y + header.height,
+		);
+	});
+
+	test("the Tab order follows the header's visual order, then the page", async ({ page }) => {
+		const banner = page.getByRole("banner");
+		const search = banner.getByRole("link", { name: "ค้นหา", exact: true });
+		const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
+
+		await page.goto("/");
+		await page.keyboard.press("Tab");
+		await page.keyboard.press("Tab");
+		await expect(siteIdentityLink(page)).toBeFocused();
+		for (const item of MAIN_NAVIGATION) {
+			await page.keyboard.press("Tab");
+			await expect(navigation.getByRole("link", { name: item.name, exact: true })).toBeFocused();
+		}
+		await page.keyboard.press("Tab");
+		await expect(search).toBeFocused();
+
+		await page.setViewportSize(PHONE_VIEWPORT);
+		await page.goto("/");
+		await page.keyboard.press("Tab");
+		await page.keyboard.press("Tab");
+		await expect(siteIdentityLink(page)).toBeFocused();
+		await page.keyboard.press("Tab");
+		await expect(search).toBeFocused();
+		await page.keyboard.press("Tab");
+		await expect(banner.locator("summary")).toBeFocused();
+		await page.keyboard.press("Tab");
+		expect(
+			await page.evaluate(() => document.querySelector("main")?.contains(document.activeElement)),
+			"with the menu closed, the next stop is in the page",
+		).toBe(true);
+	});
+
+	test("the focus ring is brand green on the light header and accent-warm on the deep footer", async ({
+		page,
+	}) => {
+		await page.goto(INNER_PAGE);
+		const contact = page
+			.getByRole("contentinfo")
+			.getByRole("link", { name: "ติดต่อเรา", exact: true });
+		await contact.focus();
+		await expect(contact).toHaveCSS("outline-color", await tokenColor(page, "accent-warm"));
+		await expect(contact).toHaveCSS("outline-style", "solid");
+		const search = page.getByRole("banner").getByRole("link", { name: "ค้นหา", exact: true });
+		await search.focus();
+		await expect(search).toHaveCSS("outline-style", "solid");
+		await expect(search).toHaveCSS("outline-color", await tokenColor(page, "brand-primary"));
+	});
+
+	test("a stop reached backwards is not left under the header", async ({ page }) => {
+		for (const viewport of [DESKTOP_VIEWPORT, PHONE_VIEWPORT]) {
+			await page.setViewportSize(viewport);
+			await page.goto(INNER_PAGE);
+			await page.getByRole("contentinfo").getByRole("link").last().focus();
+			const header = page.getByRole("banner");
+			for (let step = 0; step < 12; step += 1) {
+				await page.keyboard.press("Shift+Tab");
+				const covered = await page.evaluate(() => {
+					const element = document.activeElement!;
+					if (document.querySelector("header")!.contains(element)) return false;
+					const rect = element.getClientRects()[0] ?? element.getBoundingClientRect();
+					const hit = document.elementFromPoint(
+						rect.left + rect.width / 2,
+						rect.top + rect.height / 2,
+					);
+					return hit === null || !element.contains(hit);
+				});
+				expect(covered, `stop ${step} back from the footer at ${viewport.width} px`).toBe(false);
+			}
+			await expect(header).toBeInViewport();
+		}
 	});
 
 	for (const [width, viewport] of Object.entries(VIEWPORTS)) {
@@ -368,21 +586,29 @@ test("Noto Sans Thai comes from the site's own origin, in four weights, with fon
  */
 const DEV_SERVER_SCRIPT_SRC = /^\/@vite\/client$|\.css(\?url)?$/;
 
-test("the shell adds no client JavaScript", async ({ page }) => {
-	for (const path of ["/", unknownPath()]) {
-		const response = await page.goto(path);
-		const html = (await response?.text()) ?? "";
-		const pageScripts = [...html.matchAll(/<script\b[^>]*>/gi)]
-			.map((match) => match[0])
-			.filter((tag) => {
-				const type = /\btype="([^"]*)"/i.exec(tag)?.[1] ?? "";
-				// Scripts of a non-JavaScript type, such as JSON-LD, are data.
-				if (type !== "" && type !== "module" && !/javascript/i.test(type)) return false;
-				const src = /\bsrc="([^"]*)"/i.exec(tag)?.[1];
-				return src === undefined || !DEV_SERVER_SCRIPT_SRC.test(src);
-			});
-		expect(pageScripts, `${path} must not run page JavaScript`).toEqual([]);
+/** The script tags of the page at `path` that run JavaScript, the development server's aside. */
+async function pageScripts(page: Page, path: string): Promise<string[]> {
+	const response = await page.goto(path);
+	const html = (await response?.text()) ?? "";
+	return [...html.matchAll(/<script\b[^>]*>/gi)]
+		.map((match) => match[0])
+		.filter((tag) => {
+			const type = /\btype="([^"]*)"/i.exec(tag)?.[1] ?? "";
+			// Scripts of a non-JavaScript type, such as JSON-LD, are data.
+			if (type !== "" && type !== "module" && !/javascript/i.test(type)) return false;
+			const src = /\bsrc="([^"]*)"/i.exec(tag)?.[1];
+			return src === undefined || !DEV_SERVER_SCRIPT_SRC.test(src);
+		});
+}
+
+test("the shell adds no client JavaScript, and the Homepage carries its one inline script, the submit state", async ({
+	page,
+}) => {
+	for (const path of ["/contact", unknownPath()]) {
+		expect(await pageScripts(page, path), `${path} must not run page JavaScript`).toEqual([]);
 	}
+	// The Homepage's own script (Feature 008 #246; spec #239 "Motion and loading").
+	expect(await pageScripts(page, "/"), "/ runs one inline script").toEqual(["<script>"]);
 });
 
 test.describe("site identity from the native site settings", () => {
@@ -433,7 +659,7 @@ test.describe("site identity from the native site settings", () => {
 			await expect(identity.getByTestId("placeholder-mark")).toHaveCount(0);
 			await expect(page.getByRole("contentinfo")).toContainText(title);
 			await expect(page).toHaveTitle(title);
-			for (const width of [320, 375, 1023, 1024]) {
+			for (const width of [320, 375, 639, 640, 1023, 1024]) {
 				await page.setViewportSize({ width, height: 900 });
 				await page.goto("/");
 				await expect(identity).toHaveAccessibleName(`${title} ${tagline}`);
@@ -444,10 +670,22 @@ test.describe("site identity from the native site settings", () => {
 					const name = identity.getByText(title, { exact: true });
 					await expect(name).toHaveCSS("font-size", width < 640 ? "16px" : "18px");
 					const box = await identity.boundingBox();
-					const menu = await page.locator("summary").boundingBox();
-					expect(box!.x + box!.width, "identity leaves room for the menu").toBeLessThanOrEqual(
-						menu!.x,
-					);
+					const search = await page
+						.getByRole("banner")
+						.getByRole("link", { name: "ค้นหา", exact: true })
+						.boundingBox();
+					expect(
+						box!.x + box!.width,
+						"identity leaves room for the search link and the menu",
+					).toBeLessThanOrEqual(search!.x);
+					if (width === 320) {
+						const lineHeight = await name.evaluate((span) =>
+							Number.parseFloat(getComputedStyle(span).lineHeight),
+						);
+						expect((await name.boundingBox())!.height, "the title wraps at 320 px").toBeGreaterThan(
+							lineHeight,
+						);
+					}
 				}
 			}
 
@@ -467,10 +705,20 @@ test.describe("site identity from the native site settings", () => {
 			await expect(fallback.getByTestId("placeholder-mark")).toBeVisible();
 			await expect(fallback.locator("img")).toHaveCount(0);
 			await expect(page.getByRole("banner")).not.toContainText(tagline);
-			for (const width of [320, 375, 1023, 1024]) {
+			for (const width of [320, 375, 639, 640, 1023, 1024]) {
 				await page.setViewportSize({ width, height: 900 });
 				await page.goto("/");
 				await expect(fallback).toBeVisible();
+				if (width === 320) {
+					const name = fallback.getByText(DEFAULT_SITE_TITLE, { exact: true });
+					const lineHeight = await name.evaluate((span) =>
+						Number.parseFloat(getComputedStyle(span).lineHeight),
+					);
+					expect(
+						(await name.boundingBox())!.height,
+						"the office's own name wraps at 320 px",
+					).toBeGreaterThan(lineHeight);
+				}
 				await expectNoHorizontalScroll(page, `fallback identity at ${width} px`);
 			}
 

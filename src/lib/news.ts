@@ -40,7 +40,7 @@ export interface NewsData {
 	seo?: { title?: string | null; description?: string | null };
 }
 
-type NewsEntry = ContentEntry<NewsData>;
+export type NewsEntry = ContentEntry<NewsData>;
 
 /** A News item's canonical address, `/news/{slug}` (`03` §15), encoded as EmDash encodes it. */
 export function newsPath(slug: string): string {
@@ -73,8 +73,8 @@ export async function listNews(page: number, topics?: string[]): Promise<NewsPag
 }
 
 /**
- * The newest `count` published News, newest first. The Homepage's News section leads with the
- * first that is not the Featured item (#64, #65).
+ * The newest `count` published News, newest first. The Homepage's Latest News shows the first five
+ * that are not the Featured item (#64, #65; Feature 008 #244).
  */
 export async function latestNews(count: number): Promise<NewsEntry[]> {
 	const { entries, error } = await getEmDashCollection<"news", NewsData>("news", {

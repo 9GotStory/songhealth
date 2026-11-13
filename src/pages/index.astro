@@ -2,112 +2,170 @@
 // The Songhealth Homepage, / (Feature 003 #64, #65; spec #51 "Homepage (`04`, Figma order)", `04`;
 // docs/design/homepage-concept-v1.md). A view of published content, in the Figma order:
 //
-// - the Featured hero: the first item of the Featured menu that resolves to published content
-//   (src/lib/homepage-curation.ts, FeaturedHero). With none, a compact band, a brand-dark card in
-//   its place with the site title and tagline from the native site settings;
-// - Search, a GET form to /search;
-// - the Frequently Used Services: up to 6 Services from their menu, in menu order, and a link to
-//   the Service catalog;
-// - the newest published News that is not the Featured item, as one card, beside up to 3 current
-//   Announcements, newest first by announcement date, the Featured one left out (`04` §7), each
-//   with its status and dates as the Announcements list shows them (src/lib/announcements.ts), each
-//   box followed by a link to its own list;
-// - Health Information: the latest 4 Health Content items, each labelled with its first Health
-//   Topic, the `topic` term EmDash hydrates first (src/lib/terms.ts), and a link to their list;
-// - Health Service Discovery: an Area select and a name field, a GET form to the Health Service
-//   Directory with the directory's own parameters (src/lib/health-service-directory.ts);
-// - the latest Activities by when they were held (ADR 0004), 3 on a desktop and 4 on phones and
-//   tablets, and a link to /activities;
-// - Quick Access: up to 4 shortcuts from their menu, in menu order, each a label and an arrow;
-// - the Contact Summary: the site title, then Office Contact's address with the "เปิดแผนที่" link,
-//   main telephone and opening hours (OfficeContactDetails), each only when set, and a link to
-//   /contact. A static visual stands in for the map; no map is embedded.
+// - the hero (Feature 008 #241; spec #239 "Hero and Featured"; HomeHero): the office summary as
+//   the headline, the site search, a GET form to /search, and the Featured item as a card, the
+//   first item of the Featured menu that resolves to published content
+//   (src/lib/homepage-curation.ts). With none, the headline and the search alone;
+// - the Frequently Used Services (Feature 008 #242; spec #239 "Frequently Used Services";
+//   HomeServiceCard): up to 6 Services from their menu, in menu order, as white cards on the
+//   hero's deep field (HomeDeepField), three to a row from `lg`, two from `sm` and one below. Four
+//   Services go two to a row, so no cell is empty. From `sm` the grid's lower 110 px
+//   (--field-overhang) lie below the field, which leaves that room under it. With no Service the
+//   field ends under the hero;
+// - the Leadership strip (Feature 008 #243; spec #239 "Leadership strip"; HomeLeadershipStrip): the
+//   first three Leadership by Leadership order (src/lib/personnel-directory.ts), fewer when fewer
+//   exist, in one white strip in the page colour, with a link to /about/leadership. It starts
+//   below the Services' cards, after the room the field leaves, and takes its space below from
+//   Latest News, or its own when Latest News is left out;
+// - Latest News (Feature 008 #244; spec #239 "Latest News"; HomeNewsCard): the five newest
+//   published News, the Featured one left out (`04` §7), the newest as a large card. With five,
+//   the large card stands beside the other four two by two from `lg` and spans the row above them
+//   from `sm`; below `sm` three compact rows follow it. With fewer, the grid has two columns from
+//   `sm` and the large card spans the row when the others are an even number, so no cell is empty;
+// - the Current Announcements (Feature 008 #245; spec #239 "Current Announcements";
+//   HomeAnnouncementRow): the four newest current Announcements by announcement date, the Featured
+//   one left out (`04` §7), three below `sm`, as rows with a date tile, the category, the title and
+//   the status and dates the Announcements list shows (src/lib/announcements.ts). The section is a
+//   surface-soft band with a white glow at its upper left corner, and from `lg` its heading, lead
+//   and solid link to the list stay in view at the left, below the sticky header, while the rows
+//   scroll (Product Owner, 2026-11-12: #245 comment 6812117246);
+// - Health Information (Feature 008 #246; spec #239 "Health Information"; HomeHealthCard): a row
+//   of chips, one for each Health Topic the Health Content list's filter offers
+//   (src/lib/terms.ts offeredTerms), each a link to that list narrowed to the topic; then the
+//   latest 4 Health Content items, each with its first Health Topic, the `topic` term EmDash
+//   hydrates first, as a badge, four to a row from `lg`, two from `sm` and compact rows below;
+// - Health Service Discovery (Feature 008 #246; spec #239 "Health Service Discovery"): a rounded
+//   green band on the page's colour with the section heading, a lead, the number of published
+//   Health Services and of the Areas the directory's filter offers, the second only when there is
+//   one, and in a white card an Area select and a name field, a GET form to the Health Service
+//   Directory with the directory's own parameters and labels
+//   (src/lib/health-service-directory.ts; Product Owner, 2026-11-12: #246 comment 6816725778);
+// - the Activities (Feature 008 #247; spec #239 "Activities"; HomeActivityTile): the latest five
+//   by when they were held (ADR 0004), at every width, each its picture with the date and the
+//   title over a gradient. Five are one large tile, two rows high, beside the other four two by
+//   two: at the right from `lg`, across the row above them below. Fewer are equal tiles in one
+//   row from `lg`; below `lg` they go two to a row, the first across the row when the others are
+//   an even number, so no cell is empty (src/lib/homepage-activities.ts);
+// - Quick Access (spec #239 "Quick Access"; HomeQuickLink): up to 4 shortcuts from their menu, in
+//   menu order, each a label and an arrow on the Homepage's card surface;
+// - the Contact Summary (spec #239 "Contact Summary"; HomeContactCard): one green card with the
+//   heading "ติดต่อสำนักงาน", Office Contact's main telephone, its address with the "เปิดแผนที่"
+//   link and its opening hours, each only when set, and a button to /contact. No map is embedded
+//   or stood in for.
 //
-// Below 640 px the page is shorter, with every section kept in its order (Feature 006 #146; spec
-// #144 "Homepage (`04`)"; the Product Owner's "โอเค เฉพาะหน้าแรก" on the prototype): the
-// Frequently Used Services, Health Information, Activities and Quick Access go two to a row in
-// their compact cards, the Service and Health Content cards without their summary; the sections'
-// leads, the Contact Summary's too, and the map's stand-in are left out; each section has 32 px
-// of space above and below it; and the News card's summary, like the Featured lead, is clamped to
-// three lines. The 4th Activity fills the second row of two; a desktop row holds three.
+// Each section after the hero, the Leadership strip aside, opens with the Homepage section
+// heading (spec #239 "Section headings"; SectionHeading): an icon tile, a label and the H2, so the
+// page has one heading style (Product Owner, 2026-11-11: #241 comment 6791096480, item 4). The
+// Frequently Used Services, the Announcements, Health Information and Activities are named as
+// their lists are, Latest News is "ข่าวประชาสัมพันธ์", and each of these headings links to the
+// section's list. A heading has no lead. The Current Announcements
+// show their lead and their link beside the heading, and the Health Service Discovery band its
+// lead under it.
 //
-// A section with nothing to show is left out (`04` §17): the Frequently Used Services, News and
-// Announcements together, Health Information, Health Service Discovery while no Health Service is
-// published, Activities and Quick Access. The hero or the band, Search and the Contact Summary
-// always render, so the page answers with no content at all. The site title is the page's H1 either
-// way: the band shows it (Product Owner, 2026-10-30: #64 comment 6526131459), and beside the hero,
-// whose title is its section's H2, it is hidden from sight (Product Owner, 2026-10-31: #65 comment
-// 6538358352).
+// Between two neighbours after the deep field there is exactly one space, and
+// src/lib/homepage-spacing.ts decides which of them has it: a section on the page's colour has
+// it below, and above only after the deep field or the Current Announcements' band (Product
+// Owner, 2026-11-12: #247 comment 6820010972).
+//
+// The hero's site search and the discovery form show their submit state (spec #239 "Motion and
+// loading"; SubmitStateIcon): the page's one inline script, at its end, marks a submitted form,
+// which then shows a spinner on its button and ignores a further submit, and takes the mark off
+// when the page is shown again from history, as after the browser's back button, or after ten
+// seconds, so a result that never opens here (a stopped load, one opened in another tab) does
+// not leave the form shut.
+//
+// Where motion is allowed (Feature 008 #249; spec #239 "Motion and loading";
+// docs/design/DESIGN.md §8.12), a section's heading and each of its cards, rows or tiles reveal as
+// they come into the window (`scroll-reveal`, src/styles/global.css), where the browser has
+// scroll-driven animation: on the `li`, never on the article that takes a card's hover. The
+// Leadership strip, the Health Topic chips, the discovery band and the contact card reveal as one
+// piece each. The decorations stand still. Motion adds no script.
+//
+// Below 640 px every section keeps its order (Feature 006 #146; spec #144 "Homepage (`04`)"):
+// Quick Access goes two to a row in its compact cards, and the space between two sections is
+// 32 px.
+//
+// A section with nothing to show is left out (`04` §17): the Frequently Used Services, Latest News,
+// the Announcements, the Leadership strip, Health Information, Health Service Discovery while
+// no Health Service is published, Activities and Quick Access. The hero and the Contact Summary
+// always render, so the page answers with no content at all. The site title is the page's H1,
+// hidden from sight in the hero, whose headline shows in its place (spec #239 "Hero and Featured").
 //
 // Beyond the Figma frame, on the Product Owner's decision (2026-10-30: #64 comment 6526131459):
 // the links to the News, Announcements and Health Content lists, since the Announcements list is in
-// no navigation; each Announcement's status; and the Contact Summary's lead as the page's
-// description, since a tagline is a slogan and EmDash's site settings hold no description (emdash
-// 1.1.0 src/api/schemas/settings.ts).
+// no navigation (each in its section's heading); each Announcement's status; and the office
+// summary as the page's description, since a tagline is a slogan and EmDash's site settings hold
+// no description (emdash 1.1.0 src/api/schemas/settings.ts).
 //
 // The meta element named "songhealth-foundation" with content "public-runtime" is the Feature 001
 // public-runtime marker (T011): tests/browser/foundation.spec.ts, the development runtime's verify
 // script and container health check, and the T016/T022 production verification all read it from
 // the server-rendered HTML of `/`. Keep it exactly as written.
-import ActivityCard from "../components/ActivityCard.astro";
-import AnnouncementStatusLine from "../components/AnnouncementStatusLine.astro";
-import ArrowLink from "../components/ArrowLink.astro";
-import FeaturedHero from "../components/FeaturedHero.astro";
-import OfficeContactDetails from "../components/OfficeContactDetails.astro";
-import QuickLinkCard from "../components/QuickLinkCard.astro";
-import SearchForm from "../components/SearchForm.astro";
+import FileText from "@lucide/astro/icons/file-text";
+import Heart from "@lucide/astro/icons/heart";
+import HeartPulse from "@lucide/astro/icons/heart-pulse";
+import Hospital from "@lucide/astro/icons/hospital";
+import MessageSquare from "@lucide/astro/icons/message-square";
+import Search from "@lucide/astro/icons/search";
+import Users from "@lucide/astro/icons/users";
+import HomeActivityTile from "../components/HomeActivityTile.astro";
+import HomeAnnouncementRow from "../components/HomeAnnouncementRow.astro";
+import HomeContactCard from "../components/HomeContactCard.astro";
+import HomeDeepField from "../components/HomeDeepField.astro";
+import HomeHealthCard from "../components/HomeHealthCard.astro";
+import HomeHero from "../components/HomeHero.astro";
+import HomeLeadershipStrip from "../components/HomeLeadershipStrip.astro";
+import HomeNewsCard from "../components/HomeNewsCard.astro";
+import HomeQuickLink from "../components/HomeQuickLink.astro";
+import HomeServiceCard from "../components/HomeServiceCard.astro";
 import SectionHeading from "../components/SectionHeading.astro";
-import ServiceCard from "../components/ServiceCard.astro";
-import ThaiTitle from "../components/ThaiTitle.astro";
+import SectionListLink from "../components/SectionListLink.astro";
+import SubmitStateIcon from "../components/SubmitStateIcon.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { ACTIVITIES_PATH, ACTIVITIES_TITLE, latestActivities } from "../lib/activities";
 import {
 	ANNOUNCEMENTS_PATH,
 	ANNOUNCEMENTS_TITLE,
-	announcementPath,
 	currentAnnouncements,
 } from "../lib/announcements";
 import { HEALTH_CONTENT_PATH, HEALTH_CONTENT_TITLE } from "../lib/health";
-import { healthContentPath, latestHealthContent } from "../lib/health-content";
-import {
-	DIRECTORY_TITLE,
-	FILTER_LABELS,
-	FILTER_PARAMS,
-	directoryPath,
-} from "../lib/health-service-directory";
+import { healthContentListPath, latestHealthContent } from "../lib/health-content";
+import { FILTER_LABELS, FILTER_PARAMS, directoryPath } from "../lib/health-service-directory";
 import { directoryOverview } from "../lib/health-services";
+import { activitiesLayout, activityPictureSizes } from "../lib/homepage-activities";
 import { readHomepageCuration } from "../lib/homepage-curation";
-import { latestNews, newsPath } from "../lib/news";
+import { homepageSpacing, type HomepageSection } from "../lib/homepage-spacing";
+import { latestNews } from "../lib/news";
 import { readOfficeContact } from "../lib/office-contact";
-import { SERVICES_PATH } from "../lib/service-catalog";
+import { OFFICE_SUMMARY } from "../lib/office-summary";
+import { listHomepageLeadership } from "../lib/personnel";
+import { SERVICES_PATH, SERVICES_TITLE } from "../lib/service-catalog";
 import { getSiteIdentity } from "../lib/site-identity";
-import { termsOf } from "../lib/terms";
-
-/**
- * The Contact Summary's lead (docs/design/homepage-concept-v1.md §11), also the page's description.
- */
-const OFFICE_SUMMARY =
-	"ศูนย์กลางข้อมูล บริการ และการประสานงานด้านสุขภาพของประชาชนในอำเภอสอง จังหวัดแพร่";
+import { offeredTerms } from "../lib/terms";
 
 /** One instant for the current Announcements, the status each states and the Featured item's. */
 const now = new Date();
 const [
 	identity,
 	{ featured, services, quickAccess },
+	leaders,
 	newestNews,
 	newestAnnouncements,
 	healthContent,
+	healthTopics,
 	directory,
 	activities,
 	{ contact },
 ] = await Promise.all([
 	getSiteIdentity(Astro.url),
 	readHomepageCuration(Astro.url.origin, now),
-	latestNews(2),
-	currentAnnouncements(4, now),
+	listHomepageLeadership(),
+	latestNews(6),
+	currentAnnouncements(5, now),
 	latestHealthContent(4),
+	offeredTerms("health_content", "topic"),
 	directoryOverview(),
-	latestActivities(4),
+	latestActivities(5),
 	readOfficeContact(),
 ]);
 /**
@@ -117,268 +175,368 @@ const notFeatured =
 	(collection: string) =>
 	({ data }: { data: { id: string } }) =>
 		!(featured?.collection === collection && featured.id === data.id);
-/** The News card: the newest News that is not Featured. */
-const news = newestNews.find(notFeatured("news"));
-/** Up to 3 current Announcements that are not Featured. */
-const announcements = newestAnnouncements.filter(notFeatured("announcements")).slice(0, 3);
-const newsCategory = news && termsOf(news.data, "news_category")[0];
+/** The Latest News: the five newest News that are not Featured. */
+const news = newestNews.filter(notFeatured("news")).slice(0, 5);
+/** The Current Announcements: the four newest current ones that are not Featured. */
+const announcements = newestAnnouncements.filter(notFeatured("announcements")).slice(0, 4);
+/**
+ * Whether Latest News follows the Leadership strip on the page's own colour and gives the strip
+ * its space below.
+ */
+const showsNews = news.length > 0;
+/**
+ * Whether the large News card spans the row from `sm`: when the small cards are an even number, so
+ * the two columns leave no empty cell.
+ */
+const largeSpansRow = news.length % 2 === 1;
+/** Whether the large News card stands beside the four small cards from `lg`. */
+const largeBesideFour = news.length === 5;
+/**
+ * The large News card's least height: 300 px, 380 px from `sm` where it spans the row, and 520 px
+ * from `lg` beside the four small cards.
+ */
+const largeCardHeight = [
+	"min-h-75",
+	largeSpansRow && "sm:min-h-95",
+	largeBesideFour && "lg:min-h-130",
+]
+	.filter(Boolean)
+	.join(" ");
+/** The space below a section after the deep field, and the same above it. */
+const spaceBelow = "pb-8 sm:pb-16 lg:pb-20";
+const spaceAbove = "pt-8 sm:pt-16 lg:pt-20";
 
-/** The Health Service Discovery fields' box: 44 px high, with a 3:1 boundary, as FilterForm's. */
-const control =
-	"min-h-11 w-full min-w-0 rounded-14 border border-border-input bg-surface-base px-3 text-body";
+/** Which section has that space, by the sections the page shows (src/lib/homepage-spacing.ts). */
+const shown: Array<HomepageSection | false> = [
+	leaders.length > 0 && "leadership",
+	showsNews && "news",
+	announcements.length > 0 && "announcements",
+	healthContent.length > 0 && "health",
+	directory.count > 0 && "discovery",
+	activities.length > 0 && "activities",
+	quickAccess.length > 0 && "quickAccess",
+	"contact",
+];
+const spacing = homepageSpacing(shown.filter((section) => section !== false));
+/** The classes of `section`'s space above and below. */
+const spaceOf = (section: HomepageSection) => [
+	spacing[section].above && spaceAbove,
+	spacing[section].below && spaceBelow,
+];
+
+/** The Activities' grid: its columns from `lg` and its rows' heights. */
+const activityLayout = activitiesLayout(activities.length);
+const activityColumns = [
+	"",
+	"lg:grid-cols-1",
+	"lg:grid-cols-2",
+	"lg:grid-cols-3",
+	"lg:grid-cols-4",
+][activityLayout.columns];
+
+/**
+ * A Health Service Discovery field's box: 52 px high, with the 3:1 boundary colour FilterForm's
+ * fields have.
+ */
+const discoveryField =
+	"mb-2 h-13 w-full min-w-0 rounded-14 border-[1.5px] border-border-input bg-surface-base px-4 text-body";
 ---
 
 <SiteLayout section="home" description={OFFICE_SUMMARY} canonical="/">
 	<meta slot="head" name="songhealth-foundation" content="public-runtime" />
 
-	{featured ? (
-		<>
-			<h1 class="sr-only">
-				<ThaiTitle text={identity.title} />
-			</h1>
-			<FeaturedHero featured={featured} />
-		</>
-	) : (
-		<div class="page-container pt-6 pb-10 lg:pt-8 lg:pb-16">
-			<div class="flex flex-col gap-3 rounded-32 bg-brand-dark px-6 py-8 text-surface-base sm:px-10 lg:px-14 lg:py-12">
-				<h1 class="text-h3 wrap-anywhere sm:text-h2 lg:text-h1">
-					<ThaiTitle text={identity.title} />
-				</h1>
-				{identity.tagline && <p class="text-body-large wrap-anywhere">{identity.tagline}</p>}
-			</div>
-		</div>
-	)}
+	<HomeDeepField extended={services.length > 0}>
+		<HomeHero siteTitle={identity.title} featured={featured} />
+		{services.length > 0 && (
+			<section aria-labelledby="home-services" class="relative pt-2 max-sm:pb-10">
+				<div class="page-container flex flex-col gap-6 sm:gap-7">
+					<SectionHeading
+						surface="field"
+						id="home-services"
+						label="บริการ"
+						title={SERVICES_TITLE}
+						href={SERVICES_PATH}
+						class="scroll-reveal"
+					>
+						<Users slot="icon" class="shrink-0" size={24} />
+					</SectionHeading>
+					<ul
+						class:list={[
+							"grid gap-3 sm:-mb-(--field-overhang) sm:grid-cols-2 sm:gap-5",
+							services.length !== 4 && "lg:grid-cols-3",
+						]}
+					>
+						{services.map((service) => (
+							<li class="scroll-reveal [--reveal-end:90%]">
+								<HomeServiceCard service={service} />
+							</li>
+						))}
+					</ul>
+				</div>
+			</section>
+		)}
+	</HomeDeepField>
 
-	<section aria-labelledby="home-search" class="page-container flex flex-col gap-4 pb-8 sm:pb-16">
-		<h2 id="home-search" class="text-h3 text-text-primary">
-			<ThaiTitle text="คุณกำลังมองหาอะไร?" />
-		</h2>
-		<SearchForm />
-	</section>
-
-	{services.length > 0 && (
-		<section aria-labelledby="home-services" class="bg-surface-base py-8 sm:py-16 lg:pb-20">
-			<div class="page-container flex flex-col gap-7">
-				<SectionHeading
-					id="home-services"
-					eyebrow="บริการประชาชน"
-					title="วันนี้คุณต้องการทำอะไร?"
-					lead="เข้าถึงบริการสำคัญได้ง่าย โดยไม่ต้องรู้โครงสร้างภายในของหน่วยงาน"
-				/>
-				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
-					{services.map((service) => (
-						<li>
-							<ServiceCard service={service} headingLevel={3} compact />
-						</li>
-					))}
-				</ul>
-				<ArrowLink href={SERVICES_PATH}>ดูบริการทั้งหมด</ArrowLink>
+	{leaders.length > 0 && (
+		<section
+			aria-labelledby="home-leadership"
+			class:list={["pt-8 sm:pt-10", spaceOf("leadership")]}
+		>
+			<div class="page-container">
+				<HomeLeadershipStrip id="home-leadership" people={leaders} />
 			</div>
 		</section>
 	)}
 
-	{(news || announcements.length > 0) && (
-		<section aria-labelledby="home-news" class="py-8 sm:py-16 lg:py-20">
+	{showsNews && (
+		<section aria-labelledby="home-news" class:list={spaceOf("news")}>
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-news"
-					eyebrow="ข่าวสาร"
-					title="เรื่องใหม่จากเครือข่ายสุขภาพอำเภอสอง"
-					lead="ข่าวประชาสัมพันธ์และประกาศที่ประชาชนควรรู้"
-				/>
-				<div
+					label="ข่าวสาร"
+					title="ข่าวประชาสัมพันธ์"
+					href="/news"
+					class="scroll-reveal"
+				>
+					<MessageSquare slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
+				<ul
 					class:list={[
-						"grid gap-6",
-						news && announcements.length > 0 && "lg:grid-cols-[minmax(0,1fr)_26rem]",
+						"grid gap-3.5 sm:grid-cols-2 sm:gap-6",
+						largeBesideFour && "lg:grid-cols-[1.25fr_1fr_1fr]",
 					]}
 				>
-					{news && (
-						<div class="flex flex-col gap-4">
-							<article class="flex flex-1 flex-col gap-4 rounded-24 bg-brand-primary px-6 py-7 text-surface-base lg:px-7.5">
-								{newsCategory && <p class="text-label wrap-anywhere">{newsCategory.label}</p>}
-								<h3 class="text-h3 wrap-anywhere lg:text-h1">
-									<ThaiTitle text={news.data.title} />
-								</h3>
-								{news.data.summary && (
-									<p class="line-clamp-4 text-body-large max-sm:line-clamp-3">
-										{news.data.summary}
-									</p>
-								)}
-								<ArrowLink
-									href={newsPath(news.id)}
-									context={news.data.title}
-									onDark
-									class="mt-auto"
-								>
-									อ่านข่าว
-								</ArrowLink>
-							</article>
-							<ArrowLink href="/news">ดูข่าวทั้งหมด</ArrowLink>
-						</div>
-					)}
-					{announcements.length > 0 && (
-						<div class="flex flex-col gap-4">
-							<div class="flex flex-1 flex-col rounded-24 border border-border-default bg-surface-base">
-								<div class="flex flex-col gap-1 px-6 pt-6 pb-5">
-									<h3 id="home-announcements" class="text-h3 text-text-primary">
-										<ThaiTitle text="ประกาศ" />
-									</h3>
-									<p class="text-small text-text-secondary">
-										ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ
-									</p>
-								</div>
-								<ul aria-labelledby="home-announcements">
-									{announcements.map((announcement) => (
-										<li class="flex flex-col gap-1.5 border-t border-divider px-6 py-4.5">
-											<p class="wrap-anywhere">
-												<ThaiTitle text={announcement.data.title} />
-											</p>
-											<AnnouncementStatusLine data={announcement.data} now={now} />
-											<ArrowLink
-												href={announcementPath(announcement.id)}
-												context={announcement.data.title}
-											>
-												ดูรายละเอียด
-											</ArrowLink>
-										</li>
-									))}
-								</ul>
-							</div>
-							<ArrowLink href={ANNOUNCEMENTS_PATH}>ดู{ANNOUNCEMENTS_TITLE}ทั้งหมด</ArrowLink>
-						</div>
-					)}
+					{news.map((item, index) => (
+						<li
+							class:list={[
+								"scroll-reveal min-w-0",
+								index === 0 && largeSpansRow && "sm:col-span-2",
+								index === 0 && largeBesideFour && "lg:col-span-1 lg:row-span-2",
+								index === 4 && "max-sm:hidden",
+							]}
+						>
+							{index === 0 ? (
+								<HomeNewsCard news={item} large class={largeCardHeight} />
+							) : (
+								<HomeNewsCard news={item} />
+							)}
+						</li>
+					))}
+				</ul>
+			</div>
+		</section>
+	)}
+
+	{announcements.length > 0 && (
+		<section
+			aria-labelledby="home-announcements"
+			class:list={["relative overflow-clip bg-surface-soft", spaceAbove, spaceBelow]}
+		>
+			<span
+				aria-hidden="true"
+				class="pointer-events-none absolute -top-15 -left-40 h-120 w-130 rounded-pill bg-linear-140 from-surface-base to-transparent to-70%"
+			/>
+			<div class="page-container relative grid gap-6 sm:gap-7 lg:grid-cols-[0.8fr_1.6fr] lg:items-start lg:gap-14">
+				<div class="scroll-reveal grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 lg:sticky lg:top-[calc(var(--header-offset)+1.5rem)] lg:block">
+					<SectionHeading id="home-announcements" label="แจ้งให้ทราบ" title={ANNOUNCEMENTS_TITLE}>
+						<FileText slot="icon" class="shrink-0" size={24} />
+					</SectionHeading>
+					<p class="col-span-2 row-start-2 mt-3 text-body text-text-secondary-on-soft sm:text-body-large lg:mt-5">
+						ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ
+					</p>
+					<SectionListLink
+						href={ANNOUNCEMENTS_PATH}
+						title={ANNOUNCEMENTS_TITLE}
+						tone="solid"
+						class="col-start-2 row-start-1 lg:mt-7"
+					/>
 				</div>
+				<ul class="flex flex-col gap-3.5">
+					{announcements.map((announcement, index) => (
+						<li class:list={["scroll-reveal", index === 3 && "max-sm:hidden"]}>
+							<HomeAnnouncementRow announcement={announcement} now={now} />
+						</li>
+					))}
+				</ul>
 			</div>
 		</section>
 	)}
 
 	{healthContent.length > 0 && (
-		<section aria-labelledby="home-health" class="bg-surface-base py-8 sm:py-16 lg:py-20">
-			<div class="page-container flex flex-col gap-7">
+		<section aria-labelledby="home-health" class:list={spaceOf("health")}>
+			<div class="page-container flex flex-col gap-4.5 sm:gap-7">
 				<SectionHeading
 					id="home-health"
-					eyebrow="สุขภาพใกล้ตัว"
-					title="ความรู้ที่ใช้ได้ในชีวิตประจำวัน"
-					lead="เนื้อหาสุขภาพที่คัดสรรและทบทวนเพื่อคนในพื้นที่"
-				/>
-				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
-					{healthContent.map((item, index) => {
-						const topic = termsOf(item.data, "topic")[0];
-						return (
-							<li>
-								<article
-									class:list={[
-										"flex h-full flex-col gap-3 rounded-22 px-6 pt-6.5 pb-6",
-										"max-sm:gap-1.5 max-sm:rounded-18 max-sm:px-3 max-sm:pt-3.5 max-sm:pb-2",
-										index % 2 === 0 ? "bg-topic-green" : "bg-topic-blue",
-									]}
+					label="สุขภาพ"
+					title={HEALTH_CONTENT_TITLE}
+					href={HEALTH_CONTENT_PATH}
+					class="scroll-reveal"
+				>
+					<HeartPulse slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
+				{healthTopics.length > 0 && (
+					<ul
+						aria-label="ประเด็นสุขภาพ"
+						class="scroll-reveal flex flex-wrap gap-2 sm:-mt-3 sm:gap-2.5"
+					>
+						{healthTopics.map((topic) => (
+							<li class="flex min-w-0">
+								<a
+									href={healthContentListPath(topic.slug)}
+									class="rounded-pill border-[1.5px] border-border-default bg-surface-base px-3 py-1 text-small font-medium wrap-anywhere text-brand-primary hover:border-brand-primary hover:bg-brand-primary hover:text-surface-base motion-safe:transition-colors sm:px-4 sm:py-1.5 sm:text-label"
 								>
-									{topic && (
-										<p class="text-label wrap-anywhere text-brand-primary">{topic.label}</p>
-									)}
-									<h3 class="text-h3 wrap-anywhere text-text-primary max-sm:text-body max-sm:font-semibold">
-										<ThaiTitle text={item.data.title} />
-									</h3>
-									{item.data.summary && (
-										<p class="line-clamp-3 text-text-secondary-on-soft max-sm:hidden">
-											{item.data.summary}
-										</p>
-									)}
-									<ArrowLink
-										href={healthContentPath(item.id)}
-										context={item.data.title}
-										class="mt-auto"
-									>
-										อ่านเพิ่มเติม
-									</ArrowLink>
-								</article>
+									{topic.label}
+								</a>
 							</li>
-						);
-					})}
+						))}
+					</ul>
+				)}
+				<ul class="grid gap-3 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+					{healthContent.map((item) => (
+						<li class="scroll-reveal min-w-0">
+							<HomeHealthCard item={item} />
+						</li>
+					))}
 				</ul>
-				<ArrowLink href={HEALTH_CONTENT_PATH}>ดู{HEALTH_CONTENT_TITLE}ทั้งหมด</ArrowLink>
 			</div>
 		</section>
 	)}
 
-	{directory.hasHealthServices && (
-		<section aria-labelledby="home-discovery" class="bg-brand-dark py-8 sm:py-16 lg:py-20">
-			<div class="page-container flex flex-col gap-7">
-				<SectionHeading
-					onDark
-					id="home-discovery"
-					eyebrow={DIRECTORY_TITLE}
-					title="ค้นหาหน่วยบริการสุขภาพในอำเภอสอง"
-					lead="ค้นหาตามตำบลหรือชื่อหน่วยบริการ พร้อมข้อมูลติดต่อ เวลาเปิดบริการ และแผนที่"
-				/>
-				<form
-					method="get"
-					action={directoryPath()}
-					aria-label="ค้นหาหน่วยบริการ"
-					class="flex max-w-225 flex-col gap-4 rounded-18 bg-surface-base p-4 sm:flex-row sm:items-end sm:p-2.5 sm:pl-5.5"
+	{directory.count > 0 && (
+		<section aria-labelledby="home-discovery" class:list={spaceOf("discovery")}>
+			<div class="page-container">
+				<div
+					data-testid="discovery-band"
+					class="scroll-reveal deep-band focus-ring-on-dark relative grid items-center gap-6 overflow-clip rounded-24 px-5 py-7 text-surface-base shadow-deep sm:gap-8 sm:rounded-32 sm:p-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12 lg:p-14"
 				>
-					<div class="flex min-w-0 flex-1 flex-col gap-1.5">
-						<label class="text-label" for="discovery-area">
+					<span
+						aria-hidden="true"
+						class="pointer-events-none absolute -top-37.5 -right-22.5 size-85 rounded-pill border-[1.5px] border-accent-warm/45 max-lg:hidden"
+					/>
+					<div class="relative">
+						<SectionHeading
+							surface="field"
+							id="home-discovery"
+							label="หน่วยบริการ"
+							title="หน่วยบริการสุขภาพในอำเภอสอง"
+						>
+							<Hospital slot="icon" class="shrink-0" size={24} />
+						</SectionHeading>
+						<p class="mt-3 text-body sm:text-body-large lg:mt-5">
+							เลือกตำบลหรือพิมพ์ชื่อ เพื่อดูข้อมูลติดต่อ เวลาเปิดบริการ และแผนที่
+						</p>
+						<ul class="mt-4 flex flex-wrap gap-x-9 gap-y-2 sm:mt-6">
+							<li class="flex items-baseline gap-2.5">
+								<span class="text-h2 font-bold text-accent-warm sm:text-h1">{directory.count}</span>{" "}
+								<span>หน่วยบริการ</span>
+							</li>
+							{directory.areas.length > 0 && (
+								<li class="flex items-baseline gap-2.5">
+									<span class="text-h2 font-bold text-accent-warm sm:text-h1">
+										{directory.areas.length}
+									</span>{" "}
+									<span>พื้นที่</span>
+								</li>
+							)}
+						</ul>
+					</div>
+					<form
+						method="get"
+						action={directoryPath()}
+						aria-label="ค้นหาหน่วยบริการ"
+						data-submit-state
+						class="group/submit focus-ring-on-light relative flex flex-col gap-2 rounded-24 bg-surface-base p-5 text-text-primary shadow-deep sm:p-7"
+					>
+						<label class="text-label font-semibold" for="discovery-area">
 							{FILTER_LABELS.area}
 						</label>
-						<select id="discovery-area" name={FILTER_PARAMS.area} class={control}>
+						<select id="discovery-area" name={FILTER_PARAMS.area} class={discoveryField}>
 							<option value="">{FILTER_LABELS.anyArea}</option>
 							{directory.areas.map((area) => (
 								<option value={area.slug}>{area.label}</option>
 							))}
 						</select>
-					</div>
-					<div class="flex min-w-0 flex-1 flex-col gap-1.5">
-						<label class="text-label" for="discovery-name">
+						<label class="text-label font-semibold" for="discovery-name">
 							{FILTER_LABELS.name}
 						</label>
-						<input id="discovery-name" name={FILTER_PARAMS.name} type="search" class={control} />
-					</div>
-					<button
-						type="submit"
-						class="inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center rounded-pill bg-brand-primary px-5 text-label text-surface-base hover:bg-brand-dark"
-					>
-						ค้นหาหน่วยบริการ
-					</button>
-				</form>
+						<input
+							id="discovery-name"
+							name={FILTER_PARAMS.name}
+							type="search"
+							class={discoveryField}
+						/>
+						<button
+							type="submit"
+							class="mt-1.5 inline-flex h-13 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-pill bg-accent-warm px-7 text-body font-semibold text-brand-dark hover:shadow-card motion-safe:transition-shadow"
+						>
+							<SubmitStateIcon>
+								<Search class="shrink-0" size={20} />
+							</SubmitStateIcon>
+							ค้นหา
+						</button>
+					</form>
+				</div>
 			</div>
 		</section>
 	)}
 
 	{activities.length > 0 && (
-		<section aria-labelledby="home-activities" class="py-8 sm:py-16 lg:py-20">
+		<section aria-labelledby="home-activities" class:list={spaceOf("activities")}>
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-activities"
-					eyebrow="กิจกรรมของเรา"
-					title="สุขภาพเกิดขึ้นในชุมชน"
-					lead="การประชุม ลงพื้นที่ จิตอาสา และกิจกรรมร่วมกับเครือข่าย"
-				/>
-				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3">
+					label="ภาพกิจกรรม"
+					title={ACTIVITIES_TITLE}
+					href={ACTIVITIES_PATH}
+					class="scroll-reveal"
+				>
+					<Heart slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
+				<ul
+					class:list={[
+						"grid auto-rows-[10.625rem] grid-cols-2 gap-3 sm:auto-rows-[12.5rem] sm:gap-5",
+						activityColumns,
+						activityLayout.large ? "lg:auto-rows-[14.375rem]" : "lg:auto-rows-[18.75rem]",
+					]}
+				>
 					{activities.map((activity, index) => (
-						<li class:list={[index === 3 && "lg:hidden"]}>
-							<ActivityCard activity={activity} headingLevel={3} compact />
+						<li
+							class:list={[
+								"scroll-reveal min-w-0",
+								index === 0 && activityLayout.firstSpansRow && "max-lg:col-span-2",
+								index === 0 &&
+									activityLayout.large &&
+									"row-span-2 lg:col-span-2 lg:col-start-3 lg:row-start-1",
+							]}
+						>
+							<HomeActivityTile
+								activity={activity}
+								sizes={activityPictureSizes(activities.length, index)}
+								large={index === 0 && activityLayout.large}
+								spansRow={index === 0 && activityLayout.firstSpansRow}
+							/>
 						</li>
 					))}
 				</ul>
-				<ArrowLink href={ACTIVITIES_PATH}>ดู{ACTIVITIES_TITLE}ทั้งหมด</ArrowLink>
 			</div>
 		</section>
 	)}
 
 	{quickAccess.length > 0 && (
-		<section aria-labelledby="home-quick-access" class="bg-surface-base py-8 sm:py-16 lg:py-20">
+		<section aria-labelledby="home-quick-access" class:list={spaceOf("quickAccess")}>
 			<div class="page-container flex flex-col gap-7">
 				<SectionHeading
 					id="home-quick-access"
-					eyebrow="เข้าถึงข้อมูล"
+					label="เข้าถึงข้อมูล"
 					title="ข้อมูลและเอกสารสำคัญ"
-					lead="ทางลัดสำหรับข้อมูลอ้างอิงและความโปร่งใสของหน่วยงาน"
-				/>
+					class="scroll-reveal"
+				>
+					<FileText slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
 				<ul class="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
 					{quickAccess.map((link) => (
-						<li>
-							<QuickLinkCard href={link.href} label={link.label} compact />
+						<li class="scroll-reveal">
+							<HomeQuickLink href={link.href} label={link.label} />
 						</li>
 					))}
 				</ul>
@@ -386,23 +544,25 @@ const control =
 		</section>
 	)}
 
-	<section aria-labelledby="home-contact" class="bg-surface-soft py-8 sm:py-16">
-		<div class="page-container grid items-center gap-8 lg:grid-cols-[35rem_minmax(0,1fr)] lg:gap-12">
-			<div class="flex flex-col gap-3.5">
-				<h2 id="home-contact" class="text-h3 wrap-anywhere text-brand-dark lg:text-h2">
-					<ThaiTitle text={identity.title} />
-				</h2>
-				<p class="text-body-large text-text-secondary-on-soft max-sm:hidden">{OFFICE_SUMMARY}</p>
-				<OfficeContactDetails contact={contact} summary />
-				<ArrowLink href="/contact">ดูข้อมูลติดต่อทั้งหมด</ArrowLink>
-			</div>
-			<div
-				aria-hidden="true"
-				class="flex h-40 items-center justify-center gap-3 rounded-24 bg-linear-to-r from-contact-visual-from to-contact-visual-to px-6 text-center text-label text-brand-dark max-sm:hidden lg:h-57.5"
-			>
-				<span class="size-10.5 shrink-0 rounded-pill bg-surface-base"></span>
-				แผนที่สำนักงานและพื้นที่อำเภอสอง
-			</div>
+	<section aria-labelledby="home-contact" class:list={spaceOf("contact")}>
+		<div class="page-container">
+			<HomeContactCard id="home-contact" contact={contact} />
 		</div>
 	</section>
+
+	<script is:inline>
+		for (const form of document.querySelectorAll("form[data-submit-state]")) {
+			let release;
+			const open = () => {
+				clearTimeout(release);
+				delete form.dataset.submitting;
+			};
+			form.addEventListener("submit", (event) => {
+				if ("submitting" in form.dataset) return event.preventDefault();
+				form.dataset.submitting = "";
+				release = setTimeout(open, 10000);
+			});
+			addEventListener("pageshow", open);
+		}
+	</script>
 </SiteLayout>

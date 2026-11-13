@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "build:check": "node scripts/with-build-inputs.mjs astro build",
+    "build:check": "node scripts/with-build-inputs.mjs astro build && node scripts/check-built-styles.ts",
     "preview": "astro preview",
     "dev-db:start": "./scripts/dev-db.sh start",
     "dev-db:stop": "./scripts/dev-db.sh stop",
@@ -24,6 +24,7 @@
     "jscpd": "jscpd --config .jscpd.json && jscpd --config .jscpd.json --update-baseline --silent && git diff --exit-code -- .jscpd-baseline.json",
     "lint:shell": "./scripts/lint-shell.sh",
     "test:browser": "playwright test",
+    "test:browser:homepage": "playwright test $(grep -lE 'homepageSection|HOMEPAGE_HEADINGS|goto\\(\"/\"\\)|\\[\"/\",' tests/browser/*.spec.ts)",
     "verify:startup": "./tests/operations/verify-startup.sh"
   },
   "dependencies": {

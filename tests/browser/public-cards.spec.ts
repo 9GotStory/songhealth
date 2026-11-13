@@ -1,4 +1,6 @@
-// Shared single-destination cards (#193; spec #190, PO comment 6707205912).
+// Shared single-destination cards (#193; spec #190, PO comment 6707205912), and the Homepage's own
+// Service card, News cards and Announcement rows, which open from their whole surface as they do
+// (Feature 008 #242, #244, #245).
 // The public HTTP/browser seam checks native activation across each card's surface, independent
 // of its markup/classes. Fixtures belong to this suite; Homepage menus restore in finally.
 import type { Locator, Page } from "@playwright/test";
@@ -35,6 +37,7 @@ let news: DraftFixture;
 let service: DraftFixture;
 let activity: DraftFixture;
 let health: DraftFixture;
+let announcement: DraftFixture;
 const SUMMARY = "สรุปสำหรับทดสอบพื้นที่ลิงก์ โดยไม่ใช้สรุปเป็นชื่อลิงก์";
 const ownedTerms: SyntheticTerm[] = [];
 const extraActivities: DraftFixture[] = [];
@@ -56,6 +59,10 @@ test.beforeAll(async () => {
 		data: { activity_at: "2035-01-04T03:00:00.000Z", summary: SUMMARY },
 	});
 	await publishEntryAt(admin, "activities", activity.id);
+	announcement = await createSyntheticDraft(admin, "announcements", "ประกาศ", "whole-card", {
+		data: { announcement_at: "2035-01-01T03:00:00.000Z" },
+	});
+	await publishEntryAt(admin, "announcements", announcement.id);
 	health = await createSyntheticDraft(admin, "health_content", "ความรู้สุขภาพ", "whole-card", {
 		data: { summary: SUMMARY },
 	});
@@ -91,8 +98,8 @@ async function clickCardSurface(page: Page, target: Locator) {
 	await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
 }
 
-/** One title-named native target, with keyboard focus around its whole visible surface. */
-async function expectCardInteraction(page: Page, card: Locator, title: string, level: 2 | 3) {
+/** One title-named native target over the card's whole surface, and one keyboard stop. */
+async function expectWholeCardLink(page: Page, card: Locator, title: string, level: 2 | 3) {
 	const link = card.getByRole("link", { name: title, exact: true });
 	const heading = card.getByRole("heading", { name: title, level, exact: true });
 	await expect(card.getByRole("link")).toHaveCount(1);
@@ -100,20 +107,9 @@ async function expectCardInteraction(page: Page, card: Locator, title: string, l
 	await expect(link).toHaveAccessibleName(title);
 	await expect(link.locator('a, button, input, select, textarea, [tabindex="0"]')).toHaveCount(0);
 	await expect(heading).toBeVisible();
-	const green = await tokenColor(page, "brand-primary");
 	await card.scrollIntoViewIfNeeded();
 	await page.mouse.move(0, 0);
-	const restingBox = await card.boundingBox();
-	const restingShadow = await link.evaluate((el) => getComputedStyle(el).boxShadow);
-	const linkBox = await link.boundingBox();
-	expect(linkBox).toEqual(restingBox);
-	await link.hover();
-	await expect(heading).toHaveCSS("color", green);
-	await expect(heading).toHaveCSS("text-decoration-line", "underline");
-	await expect(link).toHaveCSS("box-shadow", new RegExp(`${RegExp.escape(green)} 0px 0px 0px 2px`));
-	expect(await card.boundingBox(), "hover must not move or resize a card").toEqual(restingBox);
-	await page.mouse.move(0, 0);
-	await expect(link).toHaveCSS("box-shadow", restingShadow);
+	expect(await link.boundingBox()).toEqual(await card.boundingBox());
 	await link.focus();
 	await page.keyboard.press("Tab");
 	expect(
@@ -122,6 +118,28 @@ async function expectCardInteraction(page: Page, card: Locator, title: string, l
 	).toBe(false);
 	await page.keyboard.press("Shift+Tab");
 	await expect(link).toBeFocused();
+	return link;
+}
+
+/**
+ * A shared card's interaction: the whole-card link, the hover that marks it without moving it, and
+ * keyboard focus around its whole visible surface.
+ */
+async function expectCardInteraction(page: Page, card: Locator, title: string, level: 2 | 3) {
+	const link = await expectWholeCardLink(page, card, title, level);
+	const heading = card.getByRole("heading", { name: title, level, exact: true });
+	const green = await tokenColor(page, "brand-primary");
+	await page.mouse.move(0, 0);
+	const restingBox = await card.boundingBox();
+	const restingShadow = await link.evaluate((el) => getComputedStyle(el).boxShadow);
+	await link.hover();
+	await expect(heading).toHaveCSS("color", green);
+	await expect(heading).toHaveCSS("text-decoration-line", "underline");
+	await expect(link).toHaveCSS("box-shadow", new RegExp(`${RegExp.escape(green)} 0px 0px 0px 2px`));
+	expect(await card.boundingBox(), "hover must not move or resize a card").toEqual(restingBox);
+	await page.mouse.move(0, 0);
+	await expect(link).toHaveCSS("box-shadow", restingShadow);
+	await link.focus();
 	await expect(link).toHaveCSS("outline-width", "3px");
 	await expect(link).toHaveCSS("outline-color", green);
 	return link;
@@ -216,9 +234,12 @@ for (const width of [320, 375, 1440]) {
 }
 
 for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
-	test(`Homepage shared cards keep compact content and Activity visibility at ${width}px`, async ({
+	test(`Homepage cards open from their whole surface and keep compact content, with five Activities, at ${width}px`, async ({
 		page,
 	}, testInfo) => {
+		// Nine cards, each opened three ways: 15 to 24 seconds on a quiet host, and past the 30 of a
+		// test while the host is busy (#247: three widths failed that way in one run).
+		test.setTimeout(90_000);
 		await withHomepageMenus(
 			admin,
 			{ services: [pickedMenuItem("services", service)], featured: [] },
@@ -229,26 +250,40 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 				const activities = homepageSection(page, HOMEPAGE_HEADINGS.activities);
 				const serviceCard = services.getByRole("article").filter({ hasText: service.title });
 				const activityCard = activities.getByRole("article").filter({ hasText: activity.title });
-				await expectCardInteraction(page, serviceCard, service.title, 3);
-				await expectCardInteraction(page, activityCard, activity.title, 3);
-				const visible = width < 1024 ? 4 : 3;
-				await expect(activities.getByRole("article").getByRole("link")).toHaveCount(visible);
-				await expect(activities.getByRole("heading", { level: 3 })).toHaveText(
-					[activity, ...extraActivities].slice(0, visible).map((item) => item.title),
-				);
-				const fourth = activities
-					.getByRole("article", { includeHidden: true })
-					.filter({ hasText: extraActivities[2].title });
-				if (width < 1024) await expect(fourth).toBeVisible();
-				else {
-					await expect(fourth).toBeHidden();
-					expect(
-						await fourth.getByRole("link", { includeHidden: true }).evaluate((el) => {
-							(el as HTMLElement).focus();
-							return el === document.activeElement;
-						}),
-						"hidden Activity never takes focus",
-					).toBe(false);
+				// The Homepage's own Service card (Feature 008 #242): its hover and focus ring are in
+				// public-homepage-curation.spec.ts.
+				await expectWholeCardLink(page, serviceCard, service.title, 3);
+				// Latest News' own cards (Feature 008 #244): the newest News, without a picture, is
+				// the large card, and the pictured one after it a small card.
+				const latestNews = homepageSection(page, HOMEPAGE_HEADINGS.news).getByRole("article");
+				const largeNewsCard = latestNews.filter({ hasText: news.title });
+				const smallNewsCard = latestNews.filter({ hasText: pictureEntries.news!.title });
+				await expect(latestNews.getByRole("heading", { level: 3 }).first()).toHaveText(news.title);
+				await expectWholeCardLink(page, largeNewsCard, news.title, 3);
+				await expectWholeCardLink(page, smallNewsCard, pictureEntries.news!.title, 3);
+				// The Current Announcements' own rows (Feature 008 #245).
+				const announcementRow = homepageSection(page, HOMEPAGE_HEADINGS.announcements)
+					.getByRole("article")
+					.filter({ hasText: announcement.title });
+				await expectWholeCardLink(page, announcementRow, announcement.title, 3);
+				// Health Information's own cards (Feature 008 #246): the newest Health Content,
+				// without a picture, and the pictured one after it.
+				const healthCards = homepageSection(page, HOMEPAGE_HEADINGS.health).getByRole("article");
+				const healthCard = healthCards.filter({ hasText: health.title });
+				const pictureHealthCard = healthCards.filter({
+					hasText: pictureEntries.health_content!.title,
+				});
+				await expectWholeCardLink(page, healthCard, health.title, 3);
+				await expectWholeCardLink(page, pictureHealthCard, pictureEntries.health_content!.title, 3);
+				// The Activities' own tiles (Feature 008 #247): five at every width, this suite's four
+				// leading them.
+				await expectWholeCardLink(page, activityCard, activity.title, 3);
+				await expect(activities.getByRole("article").getByRole("link")).toHaveCount(5);
+				for (const [index, item] of [activity, ...extraActivities].entries()) {
+					await expect(
+						activities.getByRole("heading", { level: 3 }).nth(index),
+						`the Activity in place ${index + 1}`,
+					).toHaveText(item.title);
 				}
 				if (width < 640) await expect(serviceCard.getByText(SUMMARY, { exact: true })).toBeHidden();
 				else await expect(serviceCard.getByText(SUMMARY, { exact: true })).toBeVisible();
@@ -263,22 +298,44 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 					});
 				}
 				await expectNoHorizontalScroll(page, "Homepage cards");
-				for (const [fixture, card, visual, path] of [
-					[service, serviceCard, "service-icon", `/services/${service.slug}`],
-					[activity, activityCard, "activity-visual", `/activities/${activity.slug}`],
+				// Each card with the part of it a citizen points at: an icon, a visual's tile, a picture.
+				for (const [fixture, card, part, path] of [
+					[service, serviceCard, serviceCard.getByTestId("service-icon"), "/services/"],
+					[
+						activity,
+						activityCard,
+						activityCard.getByTestId("activity-visual").locator("span"),
+						"/activities/",
+					],
+					[news, largeNewsCard, largeNewsCard.getByTestId("news-visual").locator("span"), "/news/"],
+					[pictureEntries.news!, smallNewsCard, smallNewsCard.locator("img"), "/news/"],
+					[announcement, announcementRow, announcementRow.locator("time"), "/announcements/"],
+					[
+						health,
+						healthCard,
+						healthCard.getByTestId("health-visual").locator("span"),
+						"/health/content/",
+					],
+					[
+						pictureEntries.health_content!,
+						pictureHealthCard,
+						pictureHealthCard.locator("img"),
+						"/health/content/",
+					],
 				] as const) {
+					const destination = `${path}${fixture.slug}`;
 					await page.goto("/");
-					await clickCardSurface(page, card.getByTestId(visual));
-					await expectCardDestination(page, path, fixture);
+					await clickCardSurface(page, part);
+					await expectCardDestination(page, destination, fixture);
 					await page.goto("/");
 					const link = card.getByRole("link", { name: fixture.title, exact: true });
 					await link.focus();
 					await link.press("Enter");
-					await expectCardDestination(page, path, fixture);
+					await expectCardDestination(page, destination, fixture);
 					await page.goto("/");
 					const box = await card.boundingBox();
 					await card.click({ position: { x: box!.width - 8, y: box!.height - 8 } });
-					await expectCardDestination(page, path, fixture);
+					await expectCardDestination(page, destination, fixture);
 				}
 				await page.goto("/");
 				const pictureCard = activities

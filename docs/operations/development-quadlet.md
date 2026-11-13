@@ -104,10 +104,16 @@ the real state first and only adds what is missing:
     `PLAYWRIGHT_BASE_URL`, the credential file paths (`SONGHEALTH_DEV_ACCESS`,
     `SONGHEALTH_ROLE_FIXTURE_ACCESS`, `SONGHEALTH_T021_ROUTE_ACCESS`) and
     `SONGHEALTH_ADMIN_SESSION=dev-bypass`. A variable set beforehand, even to empty, wins.
+  - **One run at a time, and a quiet host.** The runtime is one application and one database, and
+    a suite's cases have 30 seconds each: start no second suite, and run no build, typecheck or
+    formatter on the host while one runs (#247 retro: four cases timed out beside
+    `npm run format` and `npm run typecheck`). After a run, the list ends with the tests that
+    passed close to their timeout or ran past it, each with its two slowest steps
+    (`tests/browser/near-timeout-reporter.ts`).
   - **Ordinary suites:**
 
     ```bash
-    scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts --workers=1
+    scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts
     ```
 
     Without `SONGHEALTH_ROLE_FIXTURE_ACCESS` the T019/T020 role cases skip. The role cases
@@ -128,7 +134,13 @@ the real state first and only adds what is missing:
     checkout's HEAD.
   - **Residue.** At the end of a task run, `scripts/dev-runtime-residue.sh` counts what the tests
     left behind: synthetic entries (live or in trash), media, terms, bylines, redirects and menu
-    items. It exits 1 while any remain.
+    items. It exits 1 while any remain. It also counts the demo dataset's entries and lists any
+    that is not published, with exit 1: a suite that returns the runtime's content to draft can
+    fail to give it back, and `demo-dataset.ts add` publishes it again.
+  - **The database during a run.** Residue's last line counts the database connection errors in
+    the app's journal over the last hour, with the first one's time. A suite's timeout or a 500
+    from the native API at that time is the host's: run that suite again alone before reading
+    the change for a cause (#246 retro). The line never changes the exit status.
   - **The 404 log.** EmDash logs every miss, including the tests' deliberate requests for
     missing pages. That log can be cleared only as a whole or pruned by age, not entry by entry,
     so its synthetic misses stay until one clear just before the Product Owner's review (Feature
@@ -250,11 +262,13 @@ content model from the model-update step:
     has none, after the fields they name, so a run cut short after creating a collection still
     gives it them;
   - its fields: it creates the seed's fields that the collection lacks, such as Personnel's
-    `leadership_order`, and removes none. A blocks field gets the seed's allowed block types, in
-    the order the Admin's picker offers them, and its item limit. A new seed field also joins the
-    approved field list of the Feature 002 suite that allow-lists that collection
-    (`tests/browser/cms-personnel.spec.ts`, `cms-facilities.spec.ts`), or that suite fails on the
-    unexpected field.
+    `leadership_order` and Service's `icon`, and removes none. A blocks field gets the seed's
+    allowed block types, in the order the Admin's picker offers them, and its item limit. A choice
+    field (`select`), such as Service's `icon`, gets the seed's values in the seed's order, the
+    order the editor lists them in (#248); an entry that holds a value the seed no longer has keeps
+    it until staff choose again. A new seed field also joins the approved field list of the
+    Feature 002 suite that allow-lists that collection (`tests/browser/cms-personnel.spec.ts`,
+    `cms-facilities.spec.ts`), or that suite fails on the unexpected field.
 
   For each taxonomy the seed gives reference terms, such as the Document Types `policy`, `plan` and
   `result` that the About pages list by, it adds the terms whose slug the taxonomy lacks. A term
@@ -296,8 +310,9 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
 ```
 
 - **What it holds.** `scripts/demo-dataset/content.ts` defines it: News (some of it Health News),
-  Activities with and without pictures, Announcements (current, upcoming and closed), Services,
-  Health Services in three demo Areas, Health Content, Health Reports with their Documents,
+  Activities with and without pictures, Announcements (current, upcoming and closed), Services
+  with an icon each (#248), Health Services in three demo Areas, Health Content, Health Reports
+  with their Documents,
   Documents of the types policy, plan and result (one superseded by its successor), Personnel
   with two Leadership, the reserved Basic Pages, Office Contact values with the Facebook and
   YouTube handles, items in the three Homepage menus, and MOIT 1 and MOIT 2 of fiscal year 2570
@@ -331,7 +346,9 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
     Contact value and handle that is unset.
 
   An entry it finds keeps its fields: to bring back the dataset as defined, or to move its dates
-  to today, run `remove` and then `add`. What holds content the dataset did not make stays as it
+  to today, run `remove` and then `add`. When the dataset only gains a field's value, such as a
+  Service's icon (#248), save that value on each of its entries through the native API and publish
+  the entry again: the dataset stays installed and its dates stay. What holds content the dataset did not make stays as it
   is, and `add` names it on a `left … as it is` line: a Basic Page at a reserved slug whose title
   lacks the mark, a menu with an item the dataset did not add, an Office Contact value or a handle
   with another value.
@@ -357,7 +374,8 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
   and every Homepage section, and sweeps every public template it fills with the axe, focus and
   reflow checks (#67). It skips while the dataset is not installed, so evidence that rests on the
   sweep shows its tests as passed, not skipped. The residue scan
-  counts only synthetic fixtures, so the dataset never counts as residue.
+  counts only synthetic fixtures as residue, so the dataset never counts as residue; it reports
+  separately a dataset entry that is not published.
 
 ## Verify
 
@@ -383,7 +401,8 @@ scripts/dev-runtime-env.sh node scripts/demo-dataset.ts remove   # take all of i
   collection with its fields, its Evidence field's allowed block types and limit, and the three
   ITA block types. #169's is each collection's Admin sidebar folder, position and icon. Feature
   005's is the terms the migrated content uses (#175): the Announcement types `procurement`,
-  `recruitment` and `general`, the Document Type `order` and the Topic `pm25`;
+  `recruitment` and `general`, the Document Type `order` and the Topic `pm25`. Feature 008's is
+  Service's `icon` field with its 18 names, in order (#248);
 - the Office Contact plugin is registered and enabled, with its settings form.
 
 Runtime results are interpreted only against the commit verify reports.
@@ -458,20 +477,31 @@ the restore costs another window (#183 retro):
    it can still be walked again (#184 retro):
 
    ```bash
-   podman logs --timestamps --since <UTC time> songhealth-qdev-app 2>&1 \
-     | sed 's/\x1b\[[0-9;]*m//g' | grep -E '\[[0-9]{3}\] '
+   node scripts/dev-runtime-opened.ts <UTC time, such as 2026-11-13T01:42:00Z>
    ```
 
-   `/` every 15 seconds is the container's health check, and the log drops query strings, so a
-   filter's address reads as its list's.
+   It prints each page a request named and each stretch where `/` was asked for more often than
+   the container's health check asks, every 15 seconds (#250 retro). The log starts at the app's
+   last start, drops query strings, so a filter's address reads as its list's, and holds no window
+   width. A walkthrough outside a window is read the same way, before the next promotion.
 4. Put it back: `systemctl --user stop songhealth-dev-app.service`, then the restore above (it asks
    three times, so type `yes` three times), `systemctl --user start songhealth-dev-app.service`, and
    verify.
 5. `scripts/dev-runtime-window.sh close`. `scripts/dev-runtime-window.sh status` says whether one is
-   open, warns once its close time has passed, and prints the newest line of
+   open, prints why it opened, when, the directory it was opened from and its close time, warns
+   once that time has passed, and prints the newest line of
    `~/.local/state/songhealth-qdev/runtime-events.log`. Each window's open and close, and each UAT
    node's start and stop, adds a line there with its time and script, so a session reads what
    another one did to the runtime.
+
+**A window another session left open** is closed on the Product Owner's word, by steps 4 and 5
+(#240 retro; #238 comment 6787146310 is the worked record). Its backup is the folder under
+`~/.local/state/songhealth-qdev/backups/` whose `qdev-meta-*.txt` has the first `created-utc` after
+the window opened. Before the restore, stop what the window started (its issue and the directory
+`status` prints name it, such as `scripts/dev-runtime-uat.sh stop`), and back up the runtime as the
+window leaves it, so the restore can be undone. Record what was done on the window's issue.
+`scripts/capture-screenshots.mjs` stops while a window is open, since its pages then show the
+window's content.
 
 ## Thai search UAT through a Tailscale Funnel
 
