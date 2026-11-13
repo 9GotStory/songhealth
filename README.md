@@ -38,6 +38,16 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   Health Content posts without an empty trailing row (spec #190, tickets #191–#198).
   `docs/design/DESIGN.md` v1.1 records it with the code. The Product Owner gave it Final Acceptance
   on 2026-11-10 (#190 comment 6759434955), and it was merged into `main`.
+- **Feature 008 `homepage-redesign`:** complete: the Homepage and the header and footer of every
+  page redesigned in the "bold modern" look the Product Owner chose from a prototype, on the
+  existing colours, radii and Noto Sans Thai: a deep green field with the hero and the Services, a
+  Leadership strip, Latest News, the Current Announcements with date tiles, Health Topic chips, the
+  Health Service Discovery band, five Activities, the contact card, a Service's icon, and motion
+  that stops with the visitor's reduced-motion setting (spec #239, tickets #240–#250).
+  `docs/design/DESIGN.md` v1.2 records it with the code, and
+  `docs/evidence/250-homepage-redesign-evidence-round.md` its evidence and what that does not
+  cover. The Product Owner gave it Final Acceptance on 2026-11-13 (#239 comment 6841960594), and it
+  was merged into `main`. Every other page keeps its design until its own feature.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
