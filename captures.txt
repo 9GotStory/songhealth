@@ -1,0 +1,127 @@
+# before (runtime 50402c1)
+before-activity-photos-1024.png	/activities/songhealth-f002-synthetic-shot-3f1d2bf3-9a5f@1024
+before-activity-photos-1440.png	/activities/songhealth-f002-synthetic-shot-3f1d2bf3-9a5f@1440
+before-activity-photos-320.png	/activities/songhealth-f002-synthetic-shot-3f1d2bf3-9a5f@320
+before-activity-photos-375.png	/activities/songhealth-f002-synthetic-shot-3f1d2bf3-9a5f@375
+before-activity-photos-768.png	/activities/songhealth-f002-synthetic-shot-3f1d2bf3-9a5f@768
+before-activity-photos-open-1024.png	/activities/songhealth-f002-synthetic-shot-3f1d2bf3-9a5f@1024!ดูรูปทั้งหมด (20 รูป)
+before-activity-photos-open-1440.png	/activities/songhealth-f002-synthetic-shot-3f1d2bf3-9a5f@1440!ดูรูปทั้งหมด (20 รูป)
+before-activity-photos-open-320.png	/activities/songhealth-f002-synthetic-shot-3f1d2bf3-9a5f@320!ดูรูปทั้งหมด (20 รูป)
+before-activity-photos-open-375.png	/activities/songhealth-f002-synthetic-shot-3f1d2bf3-9a5f@375!ดูรูปทั้งหมด (20 รูป)
+before-activity-photos-open-768.png	/activities/songhealth-f002-synthetic-shot-3f1d2bf3-9a5f@768!ดูรูปทั้งหมด (20 รูป)
+before-activity-post-1024.png	/activities/songhealth-f002-synthetic-shot-b9a26237-21dd@1024
+before-activity-post-1440.png	/activities/songhealth-f002-synthetic-shot-b9a26237-21dd@1440
+before-activity-post-320.png	/activities/songhealth-f002-synthetic-shot-b9a26237-21dd@320
+before-activity-post-375.png	/activities/songhealth-f002-synthetic-shot-b9a26237-21dd@375
+before-activity-post-768.png	/activities/songhealth-f002-synthetic-shot-b9a26237-21dd@768
+before-demo-activity-post-1024.png	/activities/demo-activity-health-fair@1024
+before-demo-activity-post-1440.png	/activities/demo-activity-health-fair@1440
+before-demo-activity-post-320.png	/activities/demo-activity-health-fair@320
+before-demo-activity-post-375.png	/activities/demo-activity-health-fair@375
+before-demo-activity-post-768.png	/activities/demo-activity-health-fair@768
+before-demo-health-content-post-1024.png	/health/content/demo-health-dengue@1024
+before-demo-health-content-post-1440.png	/health/content/demo-health-dengue@1440
+before-demo-health-content-post-320.png	/health/content/demo-health-dengue@320
+before-demo-health-content-post-375.png	/health/content/demo-health-dengue@375
+before-demo-health-content-post-768.png	/health/content/demo-health-dengue@768
+before-demo-news-post-1024.png	/news/demo-news-health-fair@1024
+before-demo-news-post-1440.png	/news/demo-news-health-fair@1440
+before-demo-news-post-320.png	/news/demo-news-health-fair@320
+before-demo-news-post-375.png	/news/demo-news-health-fair@375
+before-demo-news-post-768.png	/news/demo-news-health-fair@768
+before-demo-news-text-post-1024.png	/news/demo-news-ncd-screening@1024
+before-demo-news-text-post-1440.png	/news/demo-news-ncd-screening@1440
+before-demo-news-text-post-320.png	/news/demo-news-ncd-screening@320
+before-demo-news-text-post-375.png	/news/demo-news-ncd-screening@375
+before-demo-news-text-post-768.png	/news/demo-news-ncd-screening@768
+before-health-content-plain-1024.png	/health/content/songhealth-f002-synthetic-shot-fee46aa0-4b22@1024
+before-health-content-plain-1440.png	/health/content/songhealth-f002-synthetic-shot-fee46aa0-4b22@1440
+before-health-content-plain-320.png	/health/content/songhealth-f002-synthetic-shot-fee46aa0-4b22@320
+before-health-content-plain-375.png	/health/content/songhealth-f002-synthetic-shot-fee46aa0-4b22@375
+before-health-content-plain-768.png	/health/content/songhealth-f002-synthetic-shot-fee46aa0-4b22@768
+before-health-content-plain-desktop.png	/health/content/songhealth-f002-synthetic-shot-3b037f6d-9694@1440
+before-health-content-post-1024.png	/health/content/songhealth-f002-synthetic-shot-85c49b1b-19c3@1024
+before-health-content-post-1440.png	/health/content/songhealth-f002-synthetic-shot-85c49b1b-19c3@1440
+before-health-content-post-320.png	/health/content/songhealth-f002-synthetic-shot-85c49b1b-19c3@320
+before-health-content-post-375.png	/health/content/songhealth-f002-synthetic-shot-85c49b1b-19c3@375
+before-health-content-post-768.png	/health/content/songhealth-f002-synthetic-shot-85c49b1b-19c3@768
+before-news-landscape-1024.png	/news/songhealth-f002-synthetic-shot-e8ddfa32-20ff@1024
+before-news-landscape-1440.png	/news/songhealth-f002-synthetic-shot-e8ddfa32-20ff@1440
+before-news-landscape-320-menu.png	/news/songhealth-f002-synthetic-shot-5730a419-982f@320 menu open
+before-news-landscape-320.png	/news/songhealth-f002-synthetic-shot-e8ddfa32-20ff@320
+before-news-landscape-375-menu.png	/news/songhealth-f002-synthetic-shot-5730a419-982f@375 menu open
+before-news-landscape-375.png	/news/songhealth-f002-synthetic-shot-e8ddfa32-20ff@375
+before-news-landscape-768.png	/news/songhealth-f002-synthetic-shot-e8ddfa32-20ff@768
+before-news-landscape-desktop.png	/news/songhealth-f002-synthetic-shot-5730a419-982f@1440
+before-news-one-page-1024.png	/news/songhealth-f002-synthetic-shot-018884cf-304b@1024
+before-news-one-page-1440.png	/news/songhealth-f002-synthetic-shot-018884cf-304b@1440
+before-news-one-page-320.png	/news/songhealth-f002-synthetic-shot-018884cf-304b@320
+before-news-one-page-375.png	/news/songhealth-f002-synthetic-shot-018884cf-304b@375
+before-news-one-page-768.png	/news/songhealth-f002-synthetic-shot-018884cf-304b@768
+before-news-one-page-desktop.png	/news/songhealth-f002-synthetic-shot-93d52838-28d8@1440
+before-news-post-1024.png	/news/songhealth-f002-synthetic-shot-1bfcd633-f43e@1024
+before-news-post-1440.png	/news/songhealth-f002-synthetic-shot-1bfcd633-f43e@1440
+before-news-post-320.png	/news/songhealth-f002-synthetic-shot-1bfcd633-f43e@320
+before-news-post-375.png	/news/songhealth-f002-synthetic-shot-1bfcd633-f43e@375
+before-news-post-768.png	/news/songhealth-f002-synthetic-shot-1bfcd633-f43e@768
+# after (runtime 771d330)
+after-activity-photos-1024.png	/activities/songhealth-f002-synthetic-shot-7c81cfb2-7e38@1024
+after-activity-photos-1440.png	/activities/songhealth-f002-synthetic-shot-7c81cfb2-7e38@1440
+after-activity-photos-320.png	/activities/songhealth-f002-synthetic-shot-7c81cfb2-7e38@320
+after-activity-photos-375.png	/activities/songhealth-f002-synthetic-shot-7c81cfb2-7e38@375
+after-activity-photos-768.png	/activities/songhealth-f002-synthetic-shot-7c81cfb2-7e38@768
+after-activity-photos-open-1024.png	/activities/songhealth-f002-synthetic-shot-7c81cfb2-7e38@1024!ดูรูปทั้งหมด (20 รูป)
+after-activity-photos-open-1440.png	/activities/songhealth-f002-synthetic-shot-7c81cfb2-7e38@1440!ดูรูปทั้งหมด (20 รูป)
+after-activity-photos-open-320.png	/activities/songhealth-f002-synthetic-shot-7c81cfb2-7e38@320!ดูรูปทั้งหมด (20 รูป)
+after-activity-photos-open-375.png	/activities/songhealth-f002-synthetic-shot-7c81cfb2-7e38@375!ดูรูปทั้งหมด (20 รูป)
+after-activity-photos-open-768.png	/activities/songhealth-f002-synthetic-shot-7c81cfb2-7e38@768!ดูรูปทั้งหมด (20 รูป)
+after-activity-post-1024.png	/activities/songhealth-f002-synthetic-shot-12065cd8-e28c@1024
+after-activity-post-1440.png	/activities/songhealth-f002-synthetic-shot-12065cd8-e28c@1440
+after-activity-post-320.png	/activities/songhealth-f002-synthetic-shot-12065cd8-e28c@320
+after-activity-post-375.png	/activities/songhealth-f002-synthetic-shot-12065cd8-e28c@375
+after-activity-post-768.png	/activities/songhealth-f002-synthetic-shot-12065cd8-e28c@768
+after-demo-activity-post-1024.png	/activities/demo-activity-health-fair@1024
+after-demo-activity-post-1440.png	/activities/demo-activity-health-fair@1440
+after-demo-activity-post-320.png	/activities/demo-activity-health-fair@320
+after-demo-activity-post-375.png	/activities/demo-activity-health-fair@375
+after-demo-activity-post-768.png	/activities/demo-activity-health-fair@768
+after-demo-health-content-post-1024.png	/health/content/demo-health-dengue@1024
+after-demo-health-content-post-1440.png	/health/content/demo-health-dengue@1440
+after-demo-health-content-post-320.png	/health/content/demo-health-dengue@320
+after-demo-health-content-post-375.png	/health/content/demo-health-dengue@375
+after-demo-health-content-post-768.png	/health/content/demo-health-dengue@768
+after-demo-news-post-1024.png	/news/demo-news-health-fair@1024
+after-demo-news-post-1440.png	/news/demo-news-health-fair@1440
+after-demo-news-post-320.png	/news/demo-news-health-fair@320
+after-demo-news-post-375.png	/news/demo-news-health-fair@375
+after-demo-news-post-768.png	/news/demo-news-health-fair@768
+after-demo-news-text-post-1024.png	/news/demo-news-ncd-screening@1024
+after-demo-news-text-post-1440.png	/news/demo-news-ncd-screening@1440
+after-demo-news-text-post-320.png	/news/demo-news-ncd-screening@320
+after-demo-news-text-post-375.png	/news/demo-news-ncd-screening@375
+after-demo-news-text-post-768.png	/news/demo-news-ncd-screening@768
+after-health-content-plain-1024.png	/health/content/songhealth-f002-synthetic-shot-4e6f2dd6-45c3@1024
+after-health-content-plain-1440.png	/health/content/songhealth-f002-synthetic-shot-4e6f2dd6-45c3@1440
+after-health-content-plain-320.png	/health/content/songhealth-f002-synthetic-shot-4e6f2dd6-45c3@320
+after-health-content-plain-375.png	/health/content/songhealth-f002-synthetic-shot-4e6f2dd6-45c3@375
+after-health-content-plain-768.png	/health/content/songhealth-f002-synthetic-shot-4e6f2dd6-45c3@768
+after-health-content-post-1024.png	/health/content/songhealth-f002-synthetic-shot-490ab041-6b2f@1024
+after-health-content-post-1440.png	/health/content/songhealth-f002-synthetic-shot-490ab041-6b2f@1440
+after-health-content-post-320.png	/health/content/songhealth-f002-synthetic-shot-490ab041-6b2f@320
+after-health-content-post-375.png	/health/content/songhealth-f002-synthetic-shot-490ab041-6b2f@375
+after-health-content-post-768.png	/health/content/songhealth-f002-synthetic-shot-490ab041-6b2f@768
+after-news-landscape-1024.png	/news/songhealth-f002-synthetic-shot-a16d5c02-2d7c@1024
+after-news-landscape-1440.png	/news/songhealth-f002-synthetic-shot-a16d5c02-2d7c@1440
+after-news-landscape-320.png	/news/songhealth-f002-synthetic-shot-a16d5c02-2d7c@320
+after-news-landscape-375.png	/news/songhealth-f002-synthetic-shot-a16d5c02-2d7c@375
+after-news-landscape-768.png	/news/songhealth-f002-synthetic-shot-a16d5c02-2d7c@768
+after-news-one-page-1024.png	/news/songhealth-f002-synthetic-shot-a7a3c3ff-354b@1024
+after-news-one-page-1440.png	/news/songhealth-f002-synthetic-shot-a7a3c3ff-354b@1440
+after-news-one-page-320.png	/news/songhealth-f002-synthetic-shot-a7a3c3ff-354b@320
+after-news-one-page-375.png	/news/songhealth-f002-synthetic-shot-a7a3c3ff-354b@375
+after-news-one-page-768.png	/news/songhealth-f002-synthetic-shot-a7a3c3ff-354b@768
+after-news-post-1024.png	/news/songhealth-f002-synthetic-shot-d5369a5a-6b8c@1024
+after-news-post-1440.png	/news/songhealth-f002-synthetic-shot-d5369a5a-6b8c@1440
+after-news-post-320.png	/news/songhealth-f002-synthetic-shot-d5369a5a-6b8c@320
+after-news-post-375.png	/news/songhealth-f002-synthetic-shot-d5369a5a-6b8c@375
+after-news-post-768.png	/news/songhealth-f002-synthetic-shot-d5369a5a-6b8c@768
