@@ -1,0 +1,50 @@
+before-activity-photos-1024.png	/activities/songhealth-f002-synthetic-shot-a943f2e4-ee9d@1024
+before-activity-photos-1440.png	/activities/songhealth-f002-synthetic-shot-a943f2e4-ee9d@1440
+before-activity-photos-320.png	/activities/songhealth-f002-synthetic-shot-a943f2e4-ee9d@320
+before-activity-photos-375.png	/activities/songhealth-f002-synthetic-shot-a943f2e4-ee9d@375
+before-activity-photos-768.png	/activities/songhealth-f002-synthetic-shot-a943f2e4-ee9d@768
+before-activity-photos-open-1024.png	/activities/songhealth-f002-synthetic-shot-a943f2e4-ee9d@1024!ดูรูปทั้งหมด (20 รูป)
+before-activity-photos-open-1440.png	/activities/songhealth-f002-synthetic-shot-a943f2e4-ee9d@1440!ดูรูปทั้งหมด (20 รูป)
+before-activity-photos-open-320.png	/activities/songhealth-f002-synthetic-shot-a943f2e4-ee9d@320!ดูรูปทั้งหมด (20 รูป)
+before-activity-photos-open-375.png	/activities/songhealth-f002-synthetic-shot-a943f2e4-ee9d@375!ดูรูปทั้งหมด (20 รูป)
+before-activity-photos-open-768.png	/activities/songhealth-f002-synthetic-shot-a943f2e4-ee9d@768!ดูรูปทั้งหมด (20 รูป)
+before-activity-post-1024.png	/activities/songhealth-f002-synthetic-shot-a5a54688-d5b8@1024
+before-activity-post-1440.png	/activities/songhealth-f002-synthetic-shot-a5a54688-d5b8@1440
+before-activity-post-320.png	/activities/songhealth-f002-synthetic-shot-a5a54688-d5b8@320
+before-activity-post-375.png	/activities/songhealth-f002-synthetic-shot-a5a54688-d5b8@375
+before-activity-post-768.png	/activities/songhealth-f002-synthetic-shot-a5a54688-d5b8@768
+before-health-content-post-1024.png	/health/content/songhealth-f002-synthetic-shot-0123a927-9c96@1024
+before-health-content-post-1440.png	/health/content/songhealth-f002-synthetic-shot-0123a927-9c96@1440
+before-health-content-post-320.png	/health/content/songhealth-f002-synthetic-shot-0123a927-9c96@320
+before-health-content-post-375.png	/health/content/songhealth-f002-synthetic-shot-0123a927-9c96@375
+before-health-content-post-768.png	/health/content/songhealth-f002-synthetic-shot-0123a927-9c96@768
+before-news-post-1024.png	/news/songhealth-f002-synthetic-shot-a2a636ea-3ecb@1024
+before-news-post-1440.png	/news/songhealth-f002-synthetic-shot-a2a636ea-3ecb@1440
+before-news-post-320.png	/news/songhealth-f002-synthetic-shot-a2a636ea-3ecb@320
+before-news-post-375.png	/news/songhealth-f002-synthetic-shot-a2a636ea-3ecb@375
+before-news-post-768.png	/news/songhealth-f002-synthetic-shot-a2a636ea-3ecb@768
+after-activity-photos-1024.png	/activities/songhealth-f002-synthetic-shot-940e60c7-6c6a@1024
+after-activity-photos-1440.png	/activities/songhealth-f002-synthetic-shot-940e60c7-6c6a@1440
+after-activity-photos-320.png	/activities/songhealth-f002-synthetic-shot-940e60c7-6c6a@320
+after-activity-photos-375.png	/activities/songhealth-f002-synthetic-shot-940e60c7-6c6a@375
+after-activity-photos-768.png	/activities/songhealth-f002-synthetic-shot-940e60c7-6c6a@768
+after-activity-photos-open-1024.png	/activities/songhealth-f002-synthetic-shot-940e60c7-6c6a@1024!ดูรูปทั้งหมด (20 รูป)
+after-activity-photos-open-1440.png	/activities/songhealth-f002-synthetic-shot-940e60c7-6c6a@1440!ดูรูปทั้งหมด (20 รูป)
+after-activity-photos-open-320.png	/activities/songhealth-f002-synthetic-shot-940e60c7-6c6a@320!ดูรูปทั้งหมด (20 รูป)
+after-activity-photos-open-375.png	/activities/songhealth-f002-synthetic-shot-940e60c7-6c6a@375!ดูรูปทั้งหมด (20 รูป)
+after-activity-photos-open-768.png	/activities/songhealth-f002-synthetic-shot-940e60c7-6c6a@768!ดูรูปทั้งหมด (20 รูป)
+after-activity-post-1024.png	/activities/songhealth-f002-synthetic-shot-30127ce0-3c94@1024
+after-activity-post-1440.png	/activities/songhealth-f002-synthetic-shot-30127ce0-3c94@1440
+after-activity-post-320.png	/activities/songhealth-f002-synthetic-shot-30127ce0-3c94@320
+after-activity-post-375.png	/activities/songhealth-f002-synthetic-shot-30127ce0-3c94@375
+after-activity-post-768.png	/activities/songhealth-f002-synthetic-shot-30127ce0-3c94@768
+after-health-content-post-1024.png	/health/content/songhealth-f002-synthetic-shot-b4d187e6-b278@1024
+after-health-content-post-1440.png	/health/content/songhealth-f002-synthetic-shot-b4d187e6-b278@1440
+after-health-content-post-320.png	/health/content/songhealth-f002-synthetic-shot-b4d187e6-b278@320
+after-health-content-post-375.png	/health/content/songhealth-f002-synthetic-shot-b4d187e6-b278@375
+after-health-content-post-768.png	/health/content/songhealth-f002-synthetic-shot-b4d187e6-b278@768
+after-news-post-1024.png	/news/songhealth-f002-synthetic-shot-2310413e-135c@1024
+after-news-post-1440.png	/news/songhealth-f002-synthetic-shot-2310413e-135c@1440
+after-news-post-320.png	/news/songhealth-f002-synthetic-shot-2310413e-135c@320
+after-news-post-375.png	/news/songhealth-f002-synthetic-shot-2310413e-135c@375
+after-news-post-768.png	/news/songhealth-f002-synthetic-shot-2310413e-135c@768
