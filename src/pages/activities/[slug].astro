@@ -5,7 +5,8 @@
 // read beside its picture, and the photos come after both columns, so the picture never covers
 // them (Feature 006 #147; spec #144 "Post pages: News, Activity and Health Content";
 // src/components/PostColumns.astro). The photos fold after the first eight
-// (src/components/ActivityPhotos.astro).
+// (src/components/ActivityPhotos.astro), and start 48 px under the columns and 64 px from sm
+// (Feature 009 #286; spec #280 "Post page: the text").
 //
 // getEmDashEntry returns the published entry, or the draft when the request carries a valid
 // signed preview token for it (emdash 1.1.0 src/query.ts resolveEmDashEntry). Anything else
@@ -52,7 +53,7 @@ const hasDetails =
 	}}
 	noindex={isPreview}
 >
-	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+	<article class="page-container flex flex-col gap-12 pt-6 pb-16 sm:gap-16 lg:pb-20">
 		<PostColumns image={activity.featured_image}>
 			<PostHeader
 				title={activity.title}

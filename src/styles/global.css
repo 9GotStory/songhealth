@@ -319,7 +319,8 @@
 /*
  * A Homepage section's H2 (spec #239 "Tokens"), sizes beyond the type scale: 26 / 38 below `sm`,
  * 36 / 48 from `sm` and 42 / 54 from `lg`. A list page's H1 on the deep field has them too (spec
- * #280 "List heading").
+ * #280 "List heading"), and so does the H2 over an Activity's photos (spec #280 "Post page: the
+ * text").
  */
 @utility section-title {
 	font-size: 1.625rem;

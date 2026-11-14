@@ -54,12 +54,16 @@ import {
 	detailOf,
 	expect,
 	expectImageLoaded,
+	entersAfter,
 	expectNoAxeViolations,
+	expectNoHorizontalScroll,
 	expectPictureFillsBox,
 	expectStacked,
 	expectVisibleFocusOnEveryStop,
+	heldBack,
 	test,
 	testAccessibilityAndReflow,
+	tokenColor,
 } from "./public.helpers";
 
 /**
@@ -586,6 +590,8 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 	const posts: TrailingPost[] = [];
 	/** Each template's post with no trailing part whose long summary outlasts its picture. */
 	const tallHeader = {} as Record<TextTemplate, TrailingPost>;
+	/** A News post with two Health Topics, whose chips share a row. */
+	let twoTopics: Post;
 
 	/** Publish a `template` post holding `parts`, with `picture` and `summary` when given. */
 	async function publishTrailingPost(
@@ -630,6 +636,15 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 			}
 			tallHeader[template] = await publishTrailingPost(template, [], picture, LONG_SUMMARY);
 		}
+		const second = await createOwnedTerm(admin, "topic", "ไข้เลือดออก", ownedTerms);
+		twoTopics = await publishPost(
+			"news",
+			"two-topics",
+			{},
+			{
+				taxonomies: { topic: [topic.slug, second.slug] },
+			},
+		);
 	});
 
 	for (const template of TEXT_TEMPLATES) {
@@ -751,7 +766,121 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 		}
 	});
 
+	test("a News and a Health Content post's Health Topics are the Homepage's chips under ประเด็นสุขภาพ: white with a 1.5 px border-default edge and brand-primary words, brand-primary with white words under the pointer, 44 px high at 320, 375 and 1440 px, 13 / 20 then 14 / 22 from 640 px and 8 then 10 px apart, each opening the list it narrows, shown at once with no effect and nothing past the window; a post without a topic shows neither the heading nor a chip", async ({
+		page,
+	}) => {
+		const colours = {} as Record<"white" | "edge" | "primary", string>;
+		for (const template of TEXT_TEMPLATES) {
+			const { kind } = TEMPLATES[template];
+			const withTopic = posts.find(
+				(post) =>
+					post.template === template && post.parts.length === 1 && post.parts[0] === "topic",
+			)!;
+			const withoutTopic = posts.find(
+				(post) => post.template === template && !post.parts.includes("topic"),
+			)!;
+			await page.goto(withoutTopic.path);
+			const absent = page.getByRole("main");
+			await expect(
+				absent.getByRole("heading", { name: TOPICS_HEADING }),
+				`${kind}: no heading`,
+			).toHaveCount(0);
+			await expect(absent.getByRole("link", { name: topic.label }), `${kind}: no chip`).toHaveCount(
+				0,
+			);
+
+			await page.goto(withTopic.path);
+			colours.white ??= await tokenColor(page, "surface-base");
+			colours.edge ??= await tokenColor(page, "border-default");
+			colours.primary ??= await tokenColor(page, "brand-primary");
+			const chip = page.getByRole("main").getByRole("link", { name: topic.label, exact: true });
+			const list = template === "news" ? "/news/health" : "/health/content";
+			await expect(chip, `${kind}: the chip's address`).toHaveAttribute(
+				"href",
+				`${list}?topic=${topic.slug}`,
+			);
+			// The heading and the chips show at once, with no effect, even where motion is allowed.
+			await page.emulateMedia({ reducedMotion: "no-preference" });
+			await page.reload();
+			const heading = page.getByRole("main").getByRole("heading", { name: TOPICS_HEADING });
+			const chips = page
+				.getByRole("main")
+				.getByRole("list")
+				.filter({ has: page.getByRole("link", { name: topic.label, exact: true }) });
+			expect(await heldBack(chips), `${kind}: no chip held back`).toEqual([]);
+			expect(await heldBack(heading), `${kind}: the heading not held back`).toEqual([]);
+			expect(await entersAfter(chip), `${kind}: the chip has no entrance`).toBe(-1);
+			expect(await entersAfter(heading), `${kind}: the heading has no entrance`).toBe(-1);
+			await page.emulateMedia({ reducedMotion: "reduce" });
+			for (const viewport of [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+				await page.setViewportSize(viewport);
+				const label = `${kind} at ${viewport.width} px`;
+				await expectNoHorizontalScroll(page, label);
+				expect((await boxOf(chip, label)).height, `${label}: the chip is 44 px high`).toBeCloseTo(
+					44,
+					0,
+				);
+				await page.mouse.move(0, 0);
+				await expect(chip, `${label}: white`).toHaveCSS("background-color", colours.white);
+				// Chromium draws the 1.5 px edge on a whole CSS pixel and reads it 1px
+				// (docs/agents/playwright-test-1.63.0.md "Computed styles").
+				await expect(chip, `${label}: the 1.5 px edge`).toHaveCSS("border-top-width", "1px");
+				await expect(chip, `${label}: a border-default edge`).toHaveCSS(
+					"border-top-color",
+					colours.edge,
+				);
+				await expect(chip, `${label}: brand-primary words`).toHaveCSS("color", colours.primary);
+				await chip.hover();
+				await expect(chip, `${label}, under the pointer: brand-primary`).toHaveCSS(
+					"background-color",
+					colours.primary,
+				);
+				await expect(chip, `${label}, under the pointer: white words`).toHaveCSS(
+					"color",
+					colours.white,
+				);
+			}
+			await chip.click();
+			await expect(page, `${kind}: the chip opens the list it narrows`).toHaveURL(
+				`${list}?topic=${topic.slug}`,
+			);
+			await expect(page.getByLabel(TOPICS_HEADING), `${kind}: the list's topic`).toHaveValue(
+				topic.slug,
+			);
+		}
+
+		// The Homepage's chip changes its type, side padding and spacing at 640 px (Product Owner,
+		// #286 comment 6876267675, item 1).
+		await page.goto(twoTopics.path);
+		const pair = page
+			.getByRole("main")
+			.getByRole("list")
+			.filter({ has: page.getByRole("link", { name: topic.label, exact: true }) })
+			.getByRole("link");
+		await expect(pair, "the post's two chips").toHaveCount(2);
+		for (const [width, font, padding, gap] of [
+			[639, "13px", "12px", 8],
+			[640, "14px", "16px", 10],
+		] as const) {
+			await page.setViewportSize({ width, height: 900 });
+			const at = `two chips at ${width} px`;
+			for (const chip of await pair.all()) {
+				await expect(chip, `${at}: the chip's type`).toHaveCSS("font-size", font);
+				await expect(chip, `${at}: the chip's side padding`).toHaveCSS("padding-left", padding);
+			}
+			const first = await boxOf(pair.nth(0), `${at}: the first`);
+			const next = await boxOf(pair.nth(1), `${at}: the second`);
+			// A synthetic label is long, so the second chip may wrap: the gap is the same across rows.
+			const sameRow = Math.abs(next.y - first.y) < 0.5;
+			const apart = sameRow ? next.x - first.x - first.width : next.y - first.y - first.height;
+			expect(apart, `${at}: the chips are ${gap} px apart`).toBeCloseTo(gap, 0);
+		}
+	});
+
 	testPostAccessibility("the post pages with no body, source or topics", emptyPaths);
+	testPostAccessibility("the post pages with a body, a source and Health Topics", () =>
+		posts.filter(({ parts }) => parts.length === 3).map(({ path }) => path),
+	);
 });
 
 test.describe("accessibility and reflow", () => {

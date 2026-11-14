@@ -42,11 +42,13 @@ import {
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
 	boxOf,
+	entersAfter,
 	expect,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectStacked,
 	expectVisibleFocusOnEveryStop,
+	heldBack,
 	itemsPerRow,
 	test,
 	testAccessibilityAndReflow,
@@ -85,6 +87,8 @@ let many: Activity;
 let nine: Activity;
 let eight: Activity;
 let unnamed: Activity;
+/** An Activity without photos. */
+let none: Activity;
 /** The caption of the photo without alt text that has one; the other has none. */
 let unnamedCaption: string;
 
@@ -99,6 +103,9 @@ async function publishActivity(label: string, gallery: unknown[]): Promise<Activ
 
 /** The Activity's photos, the region its heading names. */
 const photosOf = (page: Page) => page.getByRole("main").getByRole("region", { name: "ภาพกิจกรรม" });
+
+/** The small label over the photos' heading, which has no role; a crumb reads the same. */
+const labelIn = (scope: Locator) => scope.locator("p").filter({ hasText: /^\s*กิจกรรม\s*$/ });
 
 /** The control that reads `label`. */
 const controlOf = (photos: Locator, label: string) => photos.getByText(label, { exact: true });
@@ -240,6 +247,7 @@ test.beforeAll(async () => {
 		{ image: { id: await withoutAlt() }, caption: unnamedCaption },
 		{ image: { id: await withoutAlt() } },
 	]);
+	none = await publishActivity("no-photos", []);
 });
 
 test.afterAll(() => removeSuiteFixtures(admin));
@@ -250,6 +258,74 @@ test("an Activity with twenty photos shows the first eight with ดูรูป�
 	for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
 		await page.setViewportSize(viewport);
 		await expectPhotosFold(page, many, PHOTOS, TWENTY, `at ${viewport.width} px`);
+	}
+});
+
+test("an Activity's photos open under the Homepage's section heading, its icon tile, the label กิจกรรม and the H2 ภาพกิจกรรม, 48 px under the header below 640 px and 64 px from 640 px, 24 and 28 px above the photos, shown at once with no effect and nothing past the window; an Activity without photos shows no heading", async ({
+	page,
+}) => {
+	await page.goto(none.path);
+	const main = page.getByRole("main");
+	await expect(
+		main.getByRole("heading", { level: 1 }),
+		"the Activity without photos",
+	).toBeVisible();
+	await expect(
+		main.getByRole("heading", { name: "ภาพกิจกรรม" }),
+		"no heading without photos",
+	).toHaveCount(0);
+	await expect(labelIn(main), "no label without photos").toHaveCount(0);
+
+	// The heading and the photos show at once, with no effect, even where motion is allowed.
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.goto(many.path);
+	const photos = photosOf(page);
+	const heading = photos.getByRole("heading", { level: 2, name: "ภาพกิจกรรม", exact: true });
+	expect(await heldBack(photos), "nothing in the photos held back").toEqual([]);
+	expect(await entersAfter(heading), "the heading has no entrance").toBe(-1);
+	await page.emulateMedia({ reducedMotion: "reduce" });
+	// The tile is decorative, hidden from assistive technology.
+	const label = labelIn(photos);
+	const tile = photos.locator('[aria-hidden="true"]').filter({ has: page.locator("svg") });
+	// The header's last part, as the Activity has no details and no picture.
+	const date = main.getByText(/^เผยแพร่ /);
+	for (const [width, under, above] of [
+		[320, 48, 24],
+		[375, 48, 24],
+		[639, 48, 24],
+		[640, 64, 28],
+		[1024, 64, 28],
+		[1440, 64, 28],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		const at = `at ${width} px`;
+		await expectNoHorizontalScroll(page, at);
+		await expectStacked(at, [
+			["the date", date],
+			["the label", label],
+			["the H2", heading],
+			["the first photo", photos.getByRole("link").first()],
+		]);
+		await expect(tile, `${at}: the gradient tile`).toHaveCSS("background-image", /linear-gradient/);
+		await expect(tile.locator("svg"), `${at}: the images icon`).toHaveClass(
+			/(?:^| )lucide-images(?: |$)/,
+		);
+		const tileBox = await boxOf(tile, `${at}: the tile`);
+		const headingBox = await boxOf(heading, `${at}: the H2`);
+		expect(tileBox.x + tileBox.width, `${at}: the tile is left of the H2`).toBeLessThanOrEqual(
+			headingBox.x,
+		);
+		const dateBox = await boxOf(date, `${at}: the date`);
+		const region = await boxOf(photos, `${at}: the photos`);
+		expect(
+			region.y - dateBox.y - dateBox.height,
+			`${at}: the heading is ${under} px under the header`,
+		).toBeCloseTo(under, 0);
+		const first = await boxOf(photos.getByRole("link").first(), `${at}: the first photo`);
+		expect(
+			first.y - headingBox.y - headingBox.height,
+			`${at}: the photos are ${above} px under the H2`,
+		).toBeCloseTo(above, 0);
 	}
 });
 

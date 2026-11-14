@@ -121,6 +121,7 @@ import HomeServiceCard from "../components/HomeServiceCard.astro";
 import SectionHeading from "../components/SectionHeading.astro";
 import SectionListLink from "../components/SectionListLink.astro";
 import SubmitStateIcon from "../components/SubmitStateIcon.astro";
+import TopicChip from "../components/TopicChip.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { ACTIVITIES_PATH, ACTIVITIES_TITLE, latestActivities } from "../lib/activities";
 import {
@@ -397,12 +398,7 @@ const discoveryField =
 					>
 						{healthTopics.map((topic) => (
 							<li class="flex min-w-0">
-								<a
-									href={healthContentListPath(topic.slug)}
-									class="rounded-pill border-[1.5px] border-border-default bg-surface-base px-3 py-1 text-small font-medium wrap-anywhere text-brand-primary hover:border-brand-primary hover:bg-brand-primary hover:text-surface-base motion-safe:transition-colors sm:px-4 sm:py-1.5 sm:text-label"
-								>
-									{topic.label}
-								</a>
+								<TopicChip href={healthContentListPath(topic.slug)} label={topic.label} />
 							</li>
 						))}
 					</ul>

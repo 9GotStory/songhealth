@@ -6,7 +6,7 @@
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
 > 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
 > implemented by #281–#287; its acceptance is still to come.
-> **Updated:** 2026-11-14 (Feature 009 #284); first drafted 2026-10-30
+> **Updated:** 2026-11-14 (Feature 009 #286); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -132,7 +132,8 @@ health-service network.
    `hero-headline-alone` and `section-title`; the Homepage's motion, §8.12: `hero-enter`,
    `featured-card-enter`, `featured-sheet-enter`, `scroll-reveal` and `picture-shimmer`, with the keyframes they run) and the `.rich-text` typography of Portable Text
    bodies, which EmDash renders as plain HTML that takes no utility classes. A list's heading
-   uses `deep-field`, `section-title` and `hero-enter` too (§7.8), and a list's cards
+   uses `deep-field`, `section-title` and `hero-enter` too (§7.8), the heading of an Activity's
+   photos `section-title` (§9.2), and a list's cards
    `plain-visual`, `deep-visual` (the large card's, on a first page), `scroll-reveal` and
    `picture-shimmer` (§7.3).
 4. No other plain CSS selectors for component styling, no CSS Modules, Astro `<style>` blocks or
@@ -206,7 +207,7 @@ Three Homepage styles are utilities beyond the scale too (spec #239 "Tokens"), e
 window on a line of 1.42; `hero-headline-alone`, the headline with nothing Featured, 29 / 42, then
 38 / 54 from 640 px and 52 / 74 from 1,024 px; and `section-title`, a Homepage section's H2, 26 /
 38, then 36 / 48 from 640 px and 42 / 54 from 1,024 px. A list page's H1 on the deep field is
-`section-title` too (§7.8).
+`section-title` too (§7.8), and so is the H2 over an Activity's photos (§9.2).
 
 Radii are named by their size in px: 14, 16, 18, 20, 22, 24, 26 and 32, and `pill` (999 px). Four
 shadows: `card`, `0 10px 15px rgb(13 46 36 / 0.08)`; `header`, the sticky header's lower edge,
@@ -258,14 +259,15 @@ There is no alert colour: a status is stated in text, and colour supports it.
   `src/assets/fonts/README.md`).
 - **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`; the H1
   of a list page on the deep field (the News, Health News and Health Content lists) is
-  `section-title` instead, under its label (§7.8). A Homepage section's H2 is `section-title` (§3.1), under a label at label size between slashes. The
+  `section-title` instead, under its label (§7.8). A Homepage section's H2 is `section-title` (§3.1), under a label at label size between slashes, and so is
+  the H2 over an Activity's photos (§9.2). The
   Homepage's H1, the site title, is out of sight: the hero's headline shows in its place (§8.1).
   The Leadership strip's H2 is H3 size in bold, its compact heading (§8.5). Keep the `h1` → `h2`
   → `h3` order whatever the visual size.
 - **Sizes beyond the scale** are the Homepage's (§3.1), and one of them a list heading's:
   `hero-headline` and
   `hero-headline-alone` for the hero's headline, up to 44 px beside a Featured card and 52 px
-  without one; `section-title`, up to 42 / 54, also a list page's H1 on the deep field (§7.8); and `telephone`, 40 / 52, on the contact card from 640 px. The
+  without one; `section-title`, up to 42 / 54, also a list page's H1 on the deep field (§7.8) and the H2 over an Activity's photos (§9.2); and `telephone`, 40 / 52, on the contact card from 640 px. The
   header's title and navigation items scale with the window from 1,024 px (§7.4).
 - **Copy:** concise, natural Thai. Dates and categories sit below the title in emphasis, and colour
   is never the only cue. No hard-coded dates, opening hours, news, phone numbers or service status.
@@ -399,7 +401,8 @@ this document names:
 | Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
 | Cards | `ContentCard` (the Homepage's Latest News; the News, Health News and Health Content lists), `ActivityCard`, `ServiceCard`, `QuickLinkCard`, `PersonCard` |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
-| Posts | `PostHeader`, `PostColumns`, `PostBody`, `ActivityPhotos`, `RichText` |
+| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText` |
+| Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
 | Lists | `FilterForm` |
 
@@ -1006,7 +1009,8 @@ Announcements on the page's colour:
   `brand-primary` on `surface-base` with a 1.5 px `border-default` edge at 14 / 22 medium (13 / 20
   below `sm`), `surface-base` on `brand-primary` under the pointer; 36 px high, 30 px below `sm` (measured),
   above the 24 px a link's target needs (spec #239 "Accessibility").
-  The row wraps, 10 px apart (8 px below `sm`). With no topic offered the row is left out.
+  The row wraps, 10 px apart (8 px below `sm`). With no topic offered the row is left out. The
+  chip is `TopicChip`, which a post's Health Topics share at 44 px high (§9.1).
 - **The cards** are the latest 4 Health Content items, four to a row from `lg` and two from `sm`,
   24 px apart. A card is white, radius 22, with the `card` shadow and 10 px of padding:
   - the picture, radius 14, at 4:3 from `lg` and 16:9 from `sm`, covering its box from its middle
@@ -1222,6 +1226,13 @@ stays the submit state (§8.9).
   - the picture is sticky 1.5 rem below the header (`--header-offset` plus 1.5 rem from the top, §7.4): it stays in view while the left column scrolls and
     stops at the end of the two columns. Anything full width, such as an Activity's photos, comes
     after them, so the picture never covers it.
+- **A post's Health Topics** (`TopicPills`) follow its body and source under "ประเด็นสุขภาพ" at
+  label size and a `divider` rule, as Homepage chips (`TopicChip`, §8.8): `brand-primary` words on
+  `surface-base` with a 1.5 px `border-default` edge, at 13 / 20 medium below `sm` and 14 / 22 from
+  `sm`, `surface-base` on `brand-primary` under the pointer, 44 px high, in a row 8 px apart and
+  10 px from `sm`. Each opens Health News narrowed to its topic from a News item, and the Health
+  Content list narrowed to it from Health Content. They show at once, with no effect (Feature 009
+  #286; spec #280 "Post page: the text"; Product Owner, #286 comment 6876267675, item 1).
 - **Below `lg`**, one column in the page's order: the header, the picture, then the body, source
   and topics the post has, 2 rem apart (News, Health Content); the header, the details, the
   picture, then the photos (Activity). "เปิดภาพขนาดเต็ม" shows at every width (Product Owner, #147
@@ -1235,8 +1246,14 @@ stays the submit state (§8.9).
 
 ### 9.2 An Activity's photos
 
-`src/components/ActivityPhotos.astro`, under the heading "ภาพกิจกรรม" (Product Owner's decisions:
-#148 comment 6649367649):
+`src/components/ActivityPhotos.astro` (Product Owner's decisions: #148 comment 6649367649):
+
+- **The heading** is the Homepage's section heading (`SectionHeading`, §8): the gradient tile with
+  a 24 px `images` icon, the label "กิจกรรม" and the H2 "ภาพกิจกรรม" in `section-title`, 24 px
+  above the photos and 28 px from `sm`, as Latest News is above its cards. The section starts
+  48 px under the columns and 64 px from `sm`, and shows at once, with no effect. An Activity
+  without photos has neither (Feature 009 #286; spec #280 "Post page: the text"; Product Owner,
+  #286 comment 6876267675, item 2).
 
 - Square thumbnails, four to a row from `lg` and three below, each a link to the photo's file,
   with its caption under it on at most two lines and in full to a screen reader.
@@ -1248,8 +1265,8 @@ stays the submit state (§8.9).
 - A link is named by the photo's alt text from the media library, else its caption, else "ภาพที่ N".
 - The crop is the middle of the photo, or the part around a focal point that the field's value
   carries (`05` §5.1).
-- An Activity page with twenty photos is 2,266 px tall on a 375 px phone while they are folded
-  (#148's pull request).
+- An Activity page with twenty photos is 2,263 px tall on a 375 px phone while they are folded,
+  under its section heading (#286, `scripts/screenshot-fixtures/activity-photos.ts`).
 
 ### 9.3 A gallery in a News body
 
@@ -1605,3 +1622,12 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (the other cards: #298). Authority: spec #280 "The cards", "The first page" and decisions 2 and
   11, #283 comment 6854670042 (the ring's band), #284 comment 6870867641 (the pill's fill, the
   placeholder).
+- **v1.3 a post's Health Topics and an Activity's photos (2026-11-14, Feature 009 #286):** a News
+  or Health Content post's Health Topics are the Homepage's chips (`TopicChip`, shared with Health
+  Information) at 44 px high, in place of `surface-soft` pills with `brand-dark` words underlined
+  under the pointer; an Activity's photos open under the Homepage's section heading, the
+  gradient tile with `images`, the label "กิจกรรม" and the H2 "ภาพกิจกรรม" in `section-title`,
+  48 px under the columns and 64 px from 640 px, in place of an H3-size heading 2 rem under them
+  (§9.1, §9.2). Where the chips link, the photos' fold and every word remain. Authority: spec #280
+  "Post page: the text" and decisions 8 and 9, #286 comment 6876267675 (the chip's sizes, the
+  heading's space above the photos).
