@@ -69,11 +69,10 @@ interface Props {
 }
 
 /**
- * The picture's width, inside the frame's 10 px padding: the 28 rem frame from lg, the 48 rem one
- * below it, and at most the window on a phone.
+ * The picture's width, inside the frame's 10 px padding: 26.75 rem in the 28 rem frame from lg,
+ * 46.75 rem in the 48 rem one below it, and at most the window on a phone.
  */
-const PICTURE_SIZES =
-	"(min-width: 64rem) calc(28rem - 20px), (min-width: 48rem) calc(48rem - 20px), 100vw";
+const PICTURE_SIZES = "(min-width: 64rem) 26.75rem, (min-width: 48rem) 46.75rem, 100vw";
 
 const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
 const fullSizeHref = image && mediaFileHref(image, Astro.locals.emdash);
