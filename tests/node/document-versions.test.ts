@@ -5,6 +5,8 @@
 // amended: in #127, DESIGN.md §8 kept the old versions while its §12 was updated. Each cited
 // version must be the document's own Version line, so amending a current document also brings
 // back every file that cites its version. The Feature 001 and 002 records in specs/ are left out.
+// DESIGN.md also names, in its Updated line and a change-history entry, the ticket whose branch
+// commits a change to it (#286 retro).
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -68,6 +70,62 @@ describe("DESIGN.md's own version", () => {
 		// a v1.2 Status line).
 		const entries = [...design.matchAll(/^- \*\*v(\d+\.\d+)\b/gm)].map(([, version]) => version);
 		assert.equal(entries.at(-1), status);
+	});
+});
+
+/**
+ * The ticket a branch builds, from its name (docs/agents/issue-tracker.md "Branches"):
+ * `feat/<feature>-<ticket>-<slug>` or, standalone, `feat/<ticket>-<slug>`. A retro's or any other
+ * branch builds none.
+ */
+function ticketOfBranch(branch: string): string | undefined {
+	return /^feat\/(?:\d{3}-)?(\d+)-/.exec(branch)?.[1];
+}
+
+/**
+ * What DESIGN.md lacks for `ticket`: its Updated line naming it, a change-history entry naming it.
+ */
+function missingFor(design: string, ticket: string): string[] {
+	const named = new RegExp(`#${ticket}\\b`);
+	const updated = /^> \*\*Updated:\*\*.*$/m.exec(design)?.[0] ?? "";
+	const entries = design.match(/^- \*\*v\d+\.\d+\b.*$/gm) ?? [];
+	return [
+		...(named.test(updated) ? [] : [`the Updated line names #${ticket}`]),
+		...(entries.some((entry) => named.test(entry)) ? [] : [`a §13 entry names #${ticket}`]),
+	];
+}
+
+describe("DESIGN.md amended on a ticket's branch", () => {
+	it("names the ticket in its Updated line and a change-history entry when a commit stages it", async () => {
+		// CODING_STANDARDS "Documents", Amendments (#286 retro: neither reached the commit, and the
+		// review found both). CI stages nothing, so there the check holds by itself.
+		const git = (...args: string[]) =>
+			execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
+		const staged = git("diff", "--cached", "--name-only").split("\n");
+		const ticket = ticketOfBranch(git("rev-parse", "--abbrev-ref", "HEAD"));
+		if (!staged.includes("docs/design/DESIGN.md") || ticket === undefined) return;
+		const design = await readFile(new URL("docs/design/DESIGN.md", ROOT), "utf8");
+		assert.deepEqual(missingFor(design, ticket), []);
+	});
+
+	it("reads the ticket from a feature's or a standalone ticket's branch, and none from another", () => {
+		assert.equal(ticketOfBranch("feat/009-286-topic-chips-photos-heading"), "286");
+		assert.equal(ticketOfBranch("feat/276-built-reveal"), "276");
+		assert.equal(ticketOfBranch("chore/009-retro-286"), undefined);
+		assert.equal(ticketOfBranch("009-news-post-redesign"), undefined);
+		assert.equal(ticketOfBranch("main"), undefined);
+	});
+
+	it("finds a missing Updated line or entry, and a ticket whose number only starts another", () => {
+		const design = (updated: string, entry: string) =>
+			`> **Updated:** 2026-11-14 (Feature 009 ${updated})\n\n- **v1.3 x (2026-11-14, Feature 009 ${entry}):** y\n`;
+		assert.deepEqual(missingFor(design("#286", "#286"), "286"), []);
+		assert.deepEqual(missingFor(design("#284", "#286"), "286"), ["the Updated line names #286"]);
+		assert.deepEqual(missingFor(design("#286", "#284"), "286"), ["a §13 entry names #286"]);
+		assert.deepEqual(missingFor(design("#2861", "#2861"), "286"), [
+			"the Updated line names #286",
+			"a §13 entry names #286",
+		]);
 	});
 });
 
