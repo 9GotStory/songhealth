@@ -1885,13 +1885,15 @@ export function testListCards(list: ListCards): void {
 				`the title under the label at ${width} px`,
 			).toBeGreaterThanOrEqual(label.y + label.height - 0.5);
 			const last = await boxOf(parts.at(-1)![1], parts.at(-1)![0]);
-			expect(
-				pill.y,
-				`the text lies in the card's lower half at ${width} px`,
-			).toBeGreaterThanOrEqual(box.y + box.height / 2 - 1);
+			// The text sits at the card's foot: less room under it than above it, however many lines a
+			// long label and title take at a phone's width.
 			expect(last.y + last.height, `the text ends in the card at ${width} px`).toBeLessThanOrEqual(
 				box.y + box.height,
 			);
+			expect(
+				box.y + box.height - (last.y + last.height),
+				`the text lies at the card's foot at ${width} px`,
+			).toBeLessThan(pill.y - box.y);
 			await expectNoHorizontalScroll(page, `${list.path} at ${width} px`);
 		}
 
