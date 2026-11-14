@@ -11,9 +11,10 @@
 // page under each pixel its text covers. It finds those pixels by capturing the element with its
 // text and again with the text transparent, after scrolling it into the window and waiting for the
 // pictures that then load (#244). Text inside the element in another colour is measured
-// against the element's colour, so give such a run its own selector. Animations are stopped
-// first. Small text needs 4.5:1 and large text 3:1 (SC 1.4.3); the script prints and judges
-// nothing.
+// against the element's colour, so give such a run its own selector. A selector that matches more
+// than one element prints how many and the first one's words beside its reading. Animations are
+// stopped first. Small text needs 4.5:1 and large text 3:1 (SC 1.4.3); the script prints and
+// judges nothing.
 //
 // A state the demo dataset does not hold takes --fixtures, a module of
 // scripts/screenshot-fixtures/, through scripts/dev-runtime-env.sh: its content is made first and
@@ -40,10 +41,20 @@ if (path === undefined || selectors.length === 0 || (args[0] === "--fixtures" &&
 	process.exit(2);
 }
 
-/** The lowest contrast of `selector`'s text against the page under it, and how many pixels. */
+/**
+ * The lowest contrast of `selector`'s text against the page under it, and how many pixels. Where
+ * the selector matches more than one element, the reading names how many and the words of the
+ * first, the one measured, so a selector that matches another part first shows it (#285 retro: one
+ * read the row of pills at 1.58:1 where the review date was meant).
+ */
 async function lowestContrast(page: Page, selector: string): Promise<string> {
+	const matches = await page.locator(selector).count();
 	const element = page.locator(selector).first();
 	if (!(await element.isVisible())) return "not shown";
+	const measured =
+		matches > 1
+			? `, the first of ${matches}: "${(await element.innerText()).trim().slice(0, 30)}"`
+			: "";
 	// A screenshot's clip lies in the window, and a picture below it loads once it comes into view.
 	await element.scrollIntoViewIfNeeded();
 	await page.waitForLoadState("networkidle");
@@ -66,7 +77,9 @@ async function lowestContrast(page: Page, selector: string): Promise<string> {
 		covered++;
 		lowest = Math.min(lowest, contrast(text, field));
 	}
-	return covered === 0 ? "no text pixel found" : `${lowest.toFixed(2)}:1 (${covered} px)`;
+	return covered === 0
+		? `no text pixel found${measured}`
+		: `${lowest.toFixed(2)}:1 (${covered} px${measured})`;
 }
 
 await measureAtEachWidth({ path, selectors, fixtures: fixturesPath }, lowestContrast);
