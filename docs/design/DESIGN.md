@@ -462,9 +462,11 @@ this document names:
   date in an `accent-warm` pill and, when the item has one, its label in an outlined pill
   (`surface-base` words, a 1 px `surface-base` outline at 40 % and a `brand-dark` fill at 40 %, so
   its words keep 4.5:1 where the gradient is lightest: Product Owner, 2026-11-14: #284 comment
-  6870867641, item 1), beside the date or, when it is too long for the line, under it; the title, an H2, in `surface-base` at H3 size and body-large
-  semibold below `sm`, three lines at most; and from `sm` the summary in `surface-base` at body
-  size, two lines at most. Without a picture, or when its media item was deleted, the
+  6870867641, item 1), beside the date or, when it is too long for the line, under it where the
+  date starts, never cut (Product Owner, 2026-11-14, #284 comment 6871942671); the title,
+  an H2, in `surface-base` at H3 size and body-large semibold below `sm`, three lines at most; and
+  from `sm` the summary in `surface-base` at body size, two lines at most. Without a picture, or
+  when its media item was deleted, the
   `deep-visual` with the 72 px `accent-warm` tile and the list's 24 px icon. One link named by the
   title covers it, with the lists' `focus-ring-banded`. Under the pointer, with motion allowed,
   the picture grows by 6 % inside its box and the card stays in its place; it reveals as it comes
