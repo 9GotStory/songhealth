@@ -82,7 +82,7 @@ const showsText = Boolean(textHtml?.trim());
 	]}
 >
 	<DeepField kind="post" class="col-span-full row-start-1">
-		<div class:list={["page-container relative pt-6 pb-10 sm:pb-12", image && "max-lg:pb-20"]}>
+		<div class:list={["page-container relative pt-6", image ? "pb-20 lg:pb-12" : "pb-10 sm:pb-12"]}>
 			<div class:list={[image && "lg:mr-124"]}>
 				<slot name="header" />
 			</div>

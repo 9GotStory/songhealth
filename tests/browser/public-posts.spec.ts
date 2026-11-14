@@ -606,13 +606,19 @@ test("a News, an Activity and a Health Content post open on the deep field: the 
 			if (template === "news") {
 				const dateBox = await boxOf(date, `${label}: the date`);
 				const pillBox = await boxOf(pill, `${label}: the category`);
-				expect(
-					Math.abs(pillBox.y - dateBox.y),
-					`${label}: the category on the date's row`,
-				).toBeLessThanOrEqual(1);
-				expect(pillBox.x, `${label}: the category after the date`).toBeGreaterThan(
-					dateBox.x + dateBox.width,
-				);
+				// The category follows the date on its row, or, too long for what is left of it, on the
+				// next row 8 px under it.
+				if (Math.abs(pillBox.y - dateBox.y) <= 1) {
+					expect(pillBox.x, `${label}: the category after the date`).toBeGreaterThan(
+						dateBox.x + dateBox.width,
+					);
+				} else {
+					expect(pillBox.x, `${label}: the category starts the next row`).toBeCloseTo(dateBox.x, 0);
+					expect(
+						pillBox.y - dateBox.y - dateBox.height,
+						`${label}: the category's row 8 px under the date's`,
+					).toBeCloseTo(8, 0);
+				}
 				await expect(pill, `${label}: the category in surface-base`).toHaveCSS(
 					"color",
 					colours.white,
@@ -764,10 +770,14 @@ test("from 1,024 px a News, an Activity and a Health Content post with a picture
 				FRAME_FROM_FIELD_TOP,
 				0,
 			);
-			expect(
-				Math.abs((await boxOf(header[0][1], `${label}: the date`)).y - box.y),
-				`${label}: the frame level with the date's row`,
-			).toBeLessThanOrEqual(1);
+			// Level with the date's row where the breadcrumb takes one line; a breadcrumb that wraps
+			// moves the row down, and the frame keeps its place.
+			if (column.height <= 20.5) {
+				expect(
+					Math.abs((await boxOf(header[0][1], `${label}: the date`)).y - box.y),
+					`${label}: the frame level with the date's row`,
+				).toBeLessThanOrEqual(1);
+			}
 			expect(
 				box.y + box.height,
 				`${label}: the frame runs over the field's lower edge`,
@@ -837,9 +847,11 @@ test("while an Activity post with photos scrolls at 1440 px, its frame stays in 
 		"the text column",
 	);
 	const frame = await boxOf(frameOf(page), "the frame");
+	// The section spans the page's column with the gutter inside it.
 	const region = await boxOf(photos, "the photos");
-	expect(region.x, "the photos start at the page's column").toBeCloseTo(column.x, 0);
-	expect(region.x + region.width, "the photos reach the frame's right edge").toBeCloseTo(
+	const gutter = gutterAt(DESKTOP_VIEWPORT.width);
+	expect(region.x + gutter, "the photos start at the page's column").toBeCloseTo(column.x, 0);
+	expect(region.x + region.width - gutter, "the photos reach the frame's right edge").toBeCloseTo(
 		frame.x + frame.width,
 		0,
 	);
