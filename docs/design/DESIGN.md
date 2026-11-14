@@ -1247,8 +1247,9 @@ text"; Product Owner, #285 comment 6877659654).
   keeps the page's `brand-primary` focus ring on the white frame.
 - **From `lg`, a post with a picture reads in two columns:** the text column, 44 rem at most, a
   3 rem gap and the frame's column, 28 rem, at the right of the page's column. The frame starts on
-  the field, 4.25 rem under its top, level with the row of pills, and runs over the field's lower
-  edge when it is the taller. It is sticky 1.5 rem below the header (`--header-offset` plus 1.5 rem
+  the field, 4.25 rem under its top, level with the row of pills while the breadcrumb takes one
+  line (a breadcrumb that wraps moves the row down, and the frame keeps its place), and runs over
+  the field's lower edge when it is the taller. It is sticky 1.5 rem below the header (`--header-offset` plus 1.5 rem
   from the top, §7.4): it stays in view while the text scrolls and stops at the end of the two
   columns. Anything full width, such as an Activity's photos, comes after them, so the frame never
   covers it.

@@ -169,10 +169,16 @@ const FRAME_WIDEST = 768;
 const TRAILING_GAP = 32;
 
 /** How far under the field a post's text starts, below lg and from lg. */
-const TEXT_UNDER_FIELD = { phone: 32, wide: 40 };
+const TEXT_UNDER_FIELD = { belowLg: 32, fromLg: 40 };
+
+/** How far under the frame a post's text starts below lg, where the frame comes before it. */
+const TEXT_UNDER_FRAME = 32;
 
 /** How far the field reaches under its header, below `sm` and from `sm`; below lg with a frame. */
-const FIELD_UNDER_HEADER = { phone: 40, fromSm: 48, withFrame: 80 };
+const FIELD_UNDER_HEADER = { belowSm: 40, fromSm: 48, withFrame: 80 };
+
+/** The header's widest, 48 rem, the breadcrumb's with it. */
+const HEADER_WIDEST = 768;
 
 /** The breadcrumb's accessible name (Breadcrumb.astro). */
 const BREADCRUMB = "เส้นทางนำทาง";
@@ -266,6 +272,15 @@ const titleOf = (page: Page, post: Post) =>
 /** The white frame that holds a post's picture and its เปิดภาพขนาดเต็ม link, a part with no role. */
 const frameOf = (page: Page) => page.getByTestId("picture-frame");
 
+/** The page's breadcrumb, on the field. */
+const breadcrumbOf = (page: Page) => deepField(page).getByRole("navigation", { name: BREADCRUMB });
+
+/** An Activity's photos, which follow the columns, as a part to place; none for another kind. */
+const photosOf = (page: Page, template: Template): NamedPart[] =>
+	template === "activities"
+		? [["the photos", page.getByRole("main").getByRole("region", { name: "ภาพกิจกรรม" })]]
+		: [];
+
 /**
  * A post's picture, its เปิดภาพขนาดเต็ม link and the frame that holds them, and the picture and the
  * link as named parts in their order.
@@ -296,7 +311,11 @@ async function expectFramed(
 		await tokenColor(page, "surface-base"),
 	);
 	await expect(frame, `${label}: the frame's corners`).toHaveCSS("border-top-left-radius", "24px");
-	await expect(frame, `${label}: the frame's shadow`).not.toHaveCSS("box-shadow", "none");
+	// The deep shadow (DESIGN.md §3.1), after Tailwind's empty ring and inset layers.
+	await expect(frame, `${label}: the frame's deep shadow`).toHaveCSS(
+		"box-shadow",
+		/rgba\(13, 46, 36, 0\.35\) 0px 30px 60px -20px$/,
+	);
 	await expect(picture, `${label}: the picture's corners`).toHaveCSS(
 		"border-top-left-radius",
 		"18px",
@@ -569,12 +588,12 @@ test("a News, an Activity and a Health Content post open on the deep field: the 
 		colours.warm ??= await tokenColor(page, "accent-warm");
 		colours.dark ??= await tokenColor(page, "brand-dark");
 		const field = deepField(page);
-		const breadcrumb = field.getByRole("navigation", { name: BREADCRUMB });
+		const breadcrumb = breadcrumbOf(page);
 		const header = headerOf(page, post, template);
 		const [[, date], [, title], [, summary]] = header;
 		const pill = field.getByText(category.label, { exact: true });
 		await expect(page.getByRole("heading", { level: 1 }), `${template}: one H1`).toHaveCount(1);
-		for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+		for (const viewport of [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
 			await page.setViewportSize(viewport);
 			const label = `${post.title} at ${viewport.width} px`;
 			await expectStacked(label, [["the breadcrumb", breadcrumb], ...header]);
@@ -630,6 +649,12 @@ test("a News, an Activity and a Health Content post open on the deep field: the 
 					"border-top-style",
 					"solid",
 				);
+				await expect(pill, `${label}: the outline 1 px wide`).toHaveCSS("border-top-width", "1px");
+				// surface-base at 40 %, which the browser gives in oklab.
+				await expect(pill, `${label}: the outline white at 40 %`).toHaveCSS(
+					"border-top-color",
+					/^oklab\(0\.99\d* [-\d.e]+ [-\d.e]+ \/ 0\.4\)$/,
+				);
 				await expect(pill, `${label}: the category's pill is not filled`).toHaveCSS(
 					"background-color",
 					"rgba(0, 0, 0, 0)",
@@ -670,7 +695,7 @@ test("a News, an Activity and a Health Content post open on the deep field: the 
 		draft.title,
 	);
 	await expect(field.getByText(/เผยแพร่/), "no publication date").toHaveCount(0);
-	const crumbs = await boxOf(field.getByRole("navigation", { name: BREADCRUMB }), "the draft");
+	const crumbs = await boxOf(breadcrumbOf(page), "the draft");
 	expect(
 		(await boxOf(field.getByRole("heading", { level: 1 }), "the draft's title")).y -
 			crumbs.y -
@@ -715,7 +740,7 @@ test("a Post page's field has the small glow in its upper right corner from 640 
 				post === pictured.news && width < 1024
 					? FIELD_UNDER_HEADER.withFrame
 					: width < 640
-						? FIELD_UNDER_HEADER.phone
+						? FIELD_UNDER_HEADER.belowSm
 						: FIELD_UNDER_HEADER.fromSm;
 			expect(
 				fieldBox.y + fieldBox.height - last.y - last.height,
@@ -726,7 +751,7 @@ test("a Post page's field has the small glow in its upper right corner from 640 
 
 	await page.setViewportSize(DESKTOP_VIEWPORT);
 	await page.goto(pictured.news.path);
-	const crumbs = deepField(page).getByRole("navigation", { name: BREADCRUMB }).getByRole("link");
+	const crumbs = breadcrumbOf(page).getByRole("link");
 	await expectFocusRingWhole(crumbs.first(), "the breadcrumb's first link");
 	await expect(crumbs.first(), "the field's focus ring").toHaveCSS(
 		"outline-color",
@@ -746,11 +771,12 @@ test("a Post page's field has the small glow in its upper right corner from 640 
 test("from 1,024 px a News, an Activity and a Health Content post with a picture read in two columns: the text column at most 44 rem, 3 rem from the frame's 28 rem column; the frame, white with the picture whole 10 px inside it and เปิดภาพขนาดเต็ม under the picture, starts on the field 4.25 rem under its top, level with the date's row, and runs over the field's lower edge; the field is as high as the header, the text starts 40 px under it, and เปิดภาพขนาดเต็ม opens the picture's file", async ({
 	page,
 }) => {
+	let levelRead = 0;
 	for (const template of ALL_TEMPLATES) {
 		const post = pictured[template];
 		await page.goto(post.path);
 		const field = deepField(page);
-		const breadcrumb = field.getByRole("navigation", { name: BREADCRUMB });
+		const breadcrumb = breadcrumbOf(page);
 		const header = headerOf(page, post, template);
 		const text = textOf(page, template);
 		const { shown, frame } = pictureParts(page, post);
@@ -760,14 +786,15 @@ test("from 1,024 px a News, an Activity and a Health Content post with a picture
 			await expectNoHorizontalScroll(page, label);
 			await expectPictureBeside(shown, header[1][1], [...header, text], label);
 			const box = await expectFramed(page, frame, shown, label);
-			const column = await boxOf(breadcrumb, `${label}: the text column`);
+			// The breadcrumb spans the text column.
+			const crumbs = await boxOf(breadcrumb, `${label}: the text column`);
 			const fieldBox = await boxOf(field, `${label}: the field`);
 			expect(box.width, `${label}: the frame's 28 rem column`).toBeCloseTo(FRAME_COLUMN, 0);
-			expect(column.width, `${label}: the text column`).toBeCloseTo(
+			expect(crumbs.width, `${label}: the text column`).toBeCloseTo(
 				Math.min(TEXT_COLUMN, width - 2 * gutterAt(width) - FRAME_COLUMN - COLUMN_GAP),
 				0,
 			);
-			expect(box.x - column.x - column.width, `${label}: 3 rem between the columns`).toBeCloseTo(
+			expect(box.x - crumbs.x - crumbs.width, `${label}: 3 rem between the columns`).toBeCloseTo(
 				COLUMN_GAP,
 				0,
 			);
@@ -777,7 +804,8 @@ test("from 1,024 px a News, an Activity and a Health Content post with a picture
 			);
 			// Level with the date's row where the breadcrumb takes one line; a breadcrumb that wraps
 			// moves the row down, and the frame keeps its place.
-			if (column.height <= 20.5) {
+			if (crumbs.height <= 20.5) {
+				levelRead += 1;
 				expect(
 					Math.abs((await boxOf(header[0][1], `${label}: the date`)).y - box.y),
 					`${label}: the frame level with the date's row`,
@@ -795,10 +823,13 @@ test("from 1,024 px a News, an Activity and a Health Content post with a picture
 			expect(
 				(await boxOf(text[1], `${label}: ${text[0]}`)).y - fieldBox.y - fieldBox.height,
 				`${label}: ${text[0]} 40 px under the field`,
-			).toBeCloseTo(TEXT_UNDER_FIELD.wide, 0);
+			).toBeCloseTo(TEXT_UNDER_FIELD.fromLg, 0);
 		}
 		await expectFullSizeOpens(page, post.png, `${post.title} at 1440 px`);
 	}
+	expect(levelRead, "the frame read level with a one-line breadcrumb's date row").toBeGreaterThan(
+		0,
+	);
 });
 
 test("at 1440 px a post without a picture keeps one column, its text wider than beside a picture", async ({
@@ -820,6 +851,10 @@ test("at 1440 px a post without a picture keeps one column, its text wider than 
 			`${label}: no ${FULL_SIZE}`,
 		).toHaveCount(0);
 		expect(alone, `${label}: the text keeps the one column's width`).toBeGreaterThan(beside + 1);
+		expect(
+			(await boxOf(breadcrumbOf(page), `${label}: the breadcrumb`)).width,
+			`${label}: the header, its breadcrumb with it, at most 48 rem wide`,
+		).toBeLessThanOrEqual(HEADER_WIDEST + 0.5);
 	}
 });
 
@@ -847,10 +882,7 @@ test("while an Activity post with photos scrolls at 1440 px, its frame stays in 
 	}
 	expect(overlaps, "the frame never overlaps the photos").toEqual([]);
 	await page.evaluate(() => window.scrollTo(0, 0));
-	const column = await boxOf(
-		deepField(page).getByRole("navigation", { name: BREADCRUMB }),
-		"the text column",
-	);
+	const column = await boxOf(breadcrumbOf(page), "the text column");
 	const frame = await boxOf(frameOf(page), "the frame");
 	// The section spans the page's column with the gutter inside it.
 	const region = await boxOf(photos, "the photos");
@@ -868,7 +900,6 @@ test("below 1,024 px a News, an Activity and a Health Content post with a pictur
 	for (const template of ALL_TEMPLATES) {
 		const post = pictured[template];
 		await page.goto(post.path);
-		const main = page.getByRole("main");
 		const field = deepField(page);
 		const header = headerOf(page, post, template);
 		const text = textOf(page, template);
@@ -882,9 +913,7 @@ test("below 1,024 px a News, an Activity and a Health Content post with a pictur
 				["the picture", shown],
 				[FULL_SIZE, link],
 				text,
-				...(template === "activities"
-					? ([["the photos", main.getByRole("region", { name: "ภาพกิจกรรม" })]] as NamedPart[])
-					: []),
+				...photosOf(page, template),
 			]);
 			const box = await expectFramed(page, frame, shown, label);
 			const fieldBox = await boxOf(field, `${label}: the field`);
@@ -899,7 +928,7 @@ test("below 1,024 px a News, an Activity and a Health Content post with a pictur
 			expect(
 				(await boxOf(text[1], `${label}: ${text[0]}`)).y - box.y - box.height,
 				`${label}: ${text[0]} 32 px under the frame`,
-			).toBeCloseTo(TEXT_UNDER_FIELD.phone, 0);
+			).toBeCloseTo(TEXT_UNDER_FRAME, 0);
 		}
 	}
 });
@@ -912,15 +941,12 @@ test("a post moves only when motion is allowed: its header rises in as the page 
 	for (const template of ALL_TEMPLATES) {
 		const post = pictured[template];
 		const field = deepField(page);
-		const breadcrumb = field.getByRole("navigation", { name: BREADCRUMB });
 		const header = headerOf(page, post, template);
 		const frame = frameOf(page);
 		const atOnce: NamedPart[] = [
-			["the breadcrumb", breadcrumb],
+			["the breadcrumb", breadcrumbOf(page)],
 			textOf(page, template),
-			...(template === "activities"
-				? ([["the photos", main.getByRole("region", { name: "ภาพกิจกรรม" })]] as NamedPart[])
-				: []),
+			...photosOf(page, template),
 		];
 		const parts: NamedPart[] = [["the field", field], ...header, ["the frame", frame], ...atOnce];
 		const layouts = async () => {
@@ -1138,10 +1164,10 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 								pictureShown && !twoColumns ? framed[0]! : (["the field", field] as NamedPart);
 							const under =
 								pictureShown && !twoColumns
-									? TEXT_UNDER_FIELD.phone
+									? TEXT_UNDER_FRAME
 									: viewport.width >= 1024
-										? TEXT_UNDER_FIELD.wide
-										: TEXT_UNDER_FIELD.phone;
+										? TEXT_UNDER_FIELD.fromLg
+										: TEXT_UNDER_FIELD.belowLg;
 							const [firstName, first] = shown[0]!;
 							const aboveBox = await boxOf(above, `${label}: ${aboveName}`);
 							const firstBox = await boxOf(first, `${label}: ${firstName}`);
