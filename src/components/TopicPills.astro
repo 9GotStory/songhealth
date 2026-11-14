@@ -1,9 +1,14 @@
 ---
 // The Health Topics of a News item or of Health Content (Feature 003 #54, #59): a "ประเด็นสุขภาพ"
-// heading and each `topic` term as a pill linking to the list it filters, Health News for a News
-// item and the Health Content list for Health Content. Shown only when there is a topic.
+// heading and each `topic` term as a link to the list it filters, Health News for a News item and
+// the Health Content list for Health Content. Shown only when there is a topic.
+//
+// Each is the Homepage's Health Topic chip at 44 px high, in the Homepage's row, 8 px apart and
+// 10 px from sm (Feature 009 #286; spec #280 "Post page: the text"; Product Owner, 2026-11-14:
+// #286 comment 6876267675, item 1; TopicChip.astro). They show at once, with no effect.
 import type { TaxonomyTerm } from "emdash";
 import ThaiTitle from "./ThaiTitle.astro";
+import TopicChip from "./TopicChip.astro";
 
 interface Props {
 	topics: TaxonomyTerm[];
@@ -19,15 +24,14 @@ const { topics, href } = Astro.props;
 		<h2 class="text-label">
 			<ThaiTitle text="ประเด็นสุขภาพ" />
 		</h2>
-		<ul class="flex flex-wrap gap-2">
+		<ul class="flex flex-wrap gap-2 sm:gap-2.5">
 			{topics.map((topic) => (
-				<li>
-					<a
-						class="inline-flex min-h-11 items-center rounded-pill bg-surface-soft px-4 text-label text-brand-dark underline-offset-4 hover:underline"
+				<li class="flex min-w-0">
+					<TopicChip
 						href={href(topic.slug)}
-					>
-						{topic.label}
-					</a>
+						label={topic.label}
+						class="inline-flex min-h-11 items-center"
+					/>
 				</li>
 			))}
 		</ul>

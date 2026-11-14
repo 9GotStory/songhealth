@@ -54,12 +54,16 @@ import {
 	detailOf,
 	expect,
 	expectImageLoaded,
+	entersAfter,
 	expectNoAxeViolations,
+	expectNoHorizontalScroll,
 	expectPictureFillsBox,
 	expectStacked,
 	expectVisibleFocusOnEveryStop,
+	heldBack,
 	test,
 	testAccessibilityAndReflow,
+	tokenColor,
 } from "./public.helpers";
 
 /**
@@ -751,7 +755,94 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 		}
 	});
 
+	test("a News and a Health Content post's Health Topics are the Homepage's chips under ประเด็นสุขภาพ: white with a 1.5 px border-default edge and brand-primary words, brand-primary with white words under the pointer, 44 px high at 320, 375 and 1440 px, each opening the list it narrows, shown at once with no effect and nothing past the window; a post without a topic shows neither the heading nor a chip", async ({
+		page,
+	}) => {
+		const colours = {} as Record<"white" | "edge" | "primary", string>;
+		for (const template of TEXT_TEMPLATES) {
+			const { kind } = TEMPLATES[template];
+			const withTopic = posts.find(
+				(post) =>
+					post.template === template && post.parts.length === 1 && post.parts[0] === "topic",
+			)!;
+			const withoutTopic = posts.find(
+				(post) => post.template === template && !post.parts.includes("topic"),
+			)!;
+			await page.goto(withoutTopic.path);
+			const absent = page.getByRole("main");
+			await expect(
+				absent.getByRole("heading", { name: TOPICS_HEADING }),
+				`${kind}: no heading`,
+			).toHaveCount(0);
+			await expect(absent.getByRole("link", { name: topic.label }), `${kind}: no chip`).toHaveCount(
+				0,
+			);
+
+			await page.goto(withTopic.path);
+			colours.white ??= await tokenColor(page, "surface-base");
+			colours.edge ??= await tokenColor(page, "border-default");
+			colours.primary ??= await tokenColor(page, "brand-primary");
+			const chip = page.getByRole("main").getByRole("link", { name: topic.label, exact: true });
+			const list = template === "news" ? "/news/health" : "/health/content";
+			await expect(chip, `${kind}: the chip's address`).toHaveAttribute(
+				"href",
+				`${list}?topic=${topic.slug}`,
+			);
+			// The heading and the chips show at once, with no effect, even where motion is allowed.
+			await page.emulateMedia({ reducedMotion: "no-preference" });
+			await page.reload();
+			const heading = page.getByRole("main").getByRole("heading", { name: TOPICS_HEADING });
+			const chips = page
+				.getByRole("main")
+				.getByRole("list")
+				.filter({ has: page.getByRole("link", { name: topic.label, exact: true }) });
+			expect(await heldBack(chips), `${kind}: no chip held back`).toEqual([]);
+			expect(await heldBack(heading), `${kind}: the heading not held back`).toEqual([]);
+			expect(await entersAfter(chip), `${kind}: the chip has no entrance`).toBe(-1);
+			expect(await entersAfter(heading), `${kind}: the heading has no entrance`).toBe(-1);
+			await page.emulateMedia({ reducedMotion: "reduce" });
+			for (const viewport of [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+				await page.setViewportSize(viewport);
+				const label = `${kind} at ${viewport.width} px`;
+				await expectNoHorizontalScroll(page, label);
+				expect((await boxOf(chip, label)).height, `${label}: the chip is 44 px high`).toBeCloseTo(
+					44,
+					0,
+				);
+				await page.mouse.move(0, 0);
+				await expect(chip, `${label}: white`).toHaveCSS("background-color", colours.white);
+				// Chromium draws a border on whole CSS pixels at every device scale (Playwright 1.63.0's
+				// Chromium, measured): the 1.5 px edge reads 1px.
+				await expect(chip, `${label}: the 1.5 px edge`).toHaveCSS("border-top-width", "1px");
+				await expect(chip, `${label}: a border-default edge`).toHaveCSS(
+					"border-top-color",
+					colours.edge,
+				);
+				await expect(chip, `${label}: brand-primary words`).toHaveCSS("color", colours.primary);
+				await chip.hover();
+				await expect(chip, `${label}, under the pointer: brand-primary`).toHaveCSS(
+					"background-color",
+					colours.primary,
+				);
+				await expect(chip, `${label}, under the pointer: white words`).toHaveCSS(
+					"color",
+					colours.white,
+				);
+			}
+			await chip.click();
+			await expect(page, `${kind}: the chip opens the list it narrows`).toHaveURL(
+				`${list}?topic=${topic.slug}`,
+			);
+			await expect(page.getByLabel(TOPICS_HEADING), `${kind}: the list's topic`).toHaveValue(
+				topic.slug,
+			);
+		}
+	});
+
 	testPostAccessibility("the post pages with no body, source or topics", emptyPaths);
+	testPostAccessibility("the post pages with a body, a source and Health Topics", () =>
+		posts.filter(({ parts }) => parts.length === 3).map(({ path }) => path),
+	);
 });
 
 test.describe("accessibility and reflow", () => {
