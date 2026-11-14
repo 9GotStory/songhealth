@@ -590,6 +590,8 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 	const posts: TrailingPost[] = [];
 	/** Each template's post with no trailing part whose long summary outlasts its picture. */
 	const tallHeader = {} as Record<TextTemplate, TrailingPost>;
+	/** A News post with two Health Topics, whose chips share a row. */
+	let twoTopics: Post;
 
 	/** Publish a `template` post holding `parts`, with `picture` and `summary` when given. */
 	async function publishTrailingPost(
@@ -634,6 +636,15 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 			}
 			tallHeader[template] = await publishTrailingPost(template, [], picture, LONG_SUMMARY);
 		}
+		const second = await createOwnedTerm(admin, "topic", "ไข้เลือดออก", ownedTerms);
+		twoTopics = await publishPost(
+			"news",
+			"two-topics",
+			{},
+			{
+				taxonomies: { topic: [topic.slug, second.slug] },
+			},
+		);
 	});
 
 	for (const template of TEXT_TEMPLATES) {
@@ -755,7 +766,7 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 		}
 	});
 
-	test("a News and a Health Content post's Health Topics are the Homepage's chips under ประเด็นสุขภาพ: white with a 1.5 px border-default edge and brand-primary words, brand-primary with white words under the pointer, 44 px high at 320, 375 and 1440 px, each opening the list it narrows, shown at once with no effect and nothing past the window; a post without a topic shows neither the heading nor a chip", async ({
+	test("a News and a Health Content post's Health Topics are the Homepage's chips under ประเด็นสุขภาพ: white with a 1.5 px border-default edge and brand-primary words, brand-primary with white words under the pointer, 44 px high at 320, 375 and 1440 px, 13 / 20 then 14 / 22 from 640 px and 8 then 10 px apart, each opening the list it narrows, shown at once with no effect and nothing past the window; a post without a topic shows neither the heading nor a chip", async ({
 		page,
 	}) => {
 		const colours = {} as Record<"white" | "edge" | "primary", string>;
@@ -811,8 +822,8 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 				);
 				await page.mouse.move(0, 0);
 				await expect(chip, `${label}: white`).toHaveCSS("background-color", colours.white);
-				// Chromium draws a border on whole CSS pixels at every device scale (Playwright 1.63.0's
-				// Chromium, measured): the 1.5 px edge reads 1px.
+				// Chromium draws the 1.5 px edge on a whole CSS pixel and reads it 1px
+				// (docs/agents/playwright-test-1.63.0.md "Computed styles").
 				await expect(chip, `${label}: the 1.5 px edge`).toHaveCSS("border-top-width", "1px");
 				await expect(chip, `${label}: a border-default edge`).toHaveCSS(
 					"border-top-color",
@@ -836,6 +847,33 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 			await expect(page.getByLabel(TOPICS_HEADING), `${kind}: the list's topic`).toHaveValue(
 				topic.slug,
 			);
+		}
+
+		// The Homepage's chip changes its type, side padding and spacing at 640 px (Product Owner,
+		// #286 comment 6876267675, item 1).
+		await page.goto(twoTopics.path);
+		const pair = page
+			.getByRole("main")
+			.getByRole("list")
+			.filter({ has: page.getByRole("link", { name: topic.label, exact: true }) })
+			.getByRole("link");
+		await expect(pair, "the post's two chips").toHaveCount(2);
+		for (const [width, font, padding, gap] of [
+			[639, "13px", "12px", 8],
+			[640, "14px", "16px", 10],
+		] as const) {
+			await page.setViewportSize({ width, height: 900 });
+			const at = `two chips at ${width} px`;
+			for (const chip of await pair.all()) {
+				await expect(chip, `${at}: the chip's type`).toHaveCSS("font-size", font);
+				await expect(chip, `${at}: the chip's side padding`).toHaveCSS("padding-left", padding);
+			}
+			const first = await boxOf(pair.nth(0), `${at}: the first`);
+			const next = await boxOf(pair.nth(1), `${at}: the second`);
+			// A synthetic label is long, so the second chip may wrap: the gap is the same across rows.
+			const sameRow = Math.abs(next.y - first.y) < 0.5;
+			const apart = sameRow ? next.x - first.x - first.width : next.y - first.y - first.height;
+			expect(apart, `${at}: the chips are ${gap} px apart`).toBeCloseTo(gap, 0);
 		}
 	});
 

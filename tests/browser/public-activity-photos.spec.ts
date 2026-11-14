@@ -306,6 +306,10 @@ test("an Activity's photos open under the Homepage's section heading, its icon t
 			["the H2", heading],
 			["the first photo", photos.getByRole("link").first()],
 		]);
+		await expect(tile, `${at}: the gradient tile`).toHaveCSS("background-image", /linear-gradient/);
+		await expect(tile.locator("svg"), `${at}: the images icon`).toHaveClass(
+			/(?:^| )lucide-images(?: |$)/,
+		);
 		const tileBox = await boxOf(tile, `${at}: the tile`);
 		const headingBox = await boxOf(heading, `${at}: the H2`);
 		expect(tileBox.x + tileBox.width, `${at}: the tile is left of the H2`).toBeLessThanOrEqual(

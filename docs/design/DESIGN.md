@@ -6,7 +6,7 @@
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
 > 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
 > implemented by #281–#287; its acceptance is still to come.
-> **Updated:** 2026-11-14 (Feature 009 #284); first drafted 2026-10-30
+> **Updated:** 2026-11-14 (Feature 009 #286); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -267,7 +267,7 @@ There is no alert colour: a status is stated in text, and colour supports it.
 - **Sizes beyond the scale** are the Homepage's (§3.1), and one of them a list heading's:
   `hero-headline` and
   `hero-headline-alone` for the hero's headline, up to 44 px beside a Featured card and 52 px
-  without one; `section-title`, up to 42 / 54, also a list page's H1 on the deep field (§7.8); and `telephone`, 40 / 52, on the contact card from 640 px. The
+  without one; `section-title`, up to 42 / 54, also a list page's H1 on the deep field (§7.8) and the H2 over an Activity's photos (§9.2); and `telephone`, 40 / 52, on the contact card from 640 px. The
   header's title and navigation items scale with the window from 1,024 px (§7.4).
 - **Copy:** concise, natural Thai. Dates and categories sit below the title in emphasis, and colour
   is never the only cue. No hard-coded dates, opening hours, news, phone numbers or service status.
@@ -1265,8 +1265,8 @@ stays the submit state (§8.9).
 - A link is named by the photo's alt text from the media library, else its caption, else "ภาพที่ N".
 - The crop is the middle of the photo, or the part around a focal point that the field's value
   carries (`05` §5.1).
-- An Activity page with twenty photos is 2,266 px tall on a 375 px phone while they are folded
-  (#148's pull request).
+- An Activity page with twenty photos is 2,263 px tall on a 375 px phone while they are folded,
+  under its section heading (#286, `scripts/screenshot-fixtures/activity-photos.ts`).
 
 ### 9.3 A gallery in a News body
 
@@ -1622,3 +1622,12 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (the other cards: #298). Authority: spec #280 "The cards", "The first page" and decisions 2 and
   11, #283 comment 6854670042 (the ring's band), #284 comment 6870867641 (the pill's fill, the
   placeholder).
+- **v1.3 a post's Health Topics and an Activity's photos (2026-11-14, Feature 009 #286):** a News
+  or Health Content post's Health Topics are the Homepage's chips (`TopicChip`, shared with Health
+  Information) at 44 px high, in place of `surface-soft` pills with `brand-dark` words underlined
+  under the pointer; an Activity's photos open under the Homepage's section heading, the
+  gradient tile with `images`, the label "กิจกรรม" and the H2 "ภาพกิจกรรม" in `section-title`,
+  48 px under the columns and 64 px from 640 px, in place of an H3-size heading 2 rem under them
+  (§9.1, §9.2). Where the chips link, the photos' fold and every word remain. Authority: spec #280
+  "Post page: the text" and decisions 8 and 9, #286 comment 6876267675 (the chip's sizes, the
+  heading's space above the photos).

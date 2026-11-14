@@ -84,6 +84,13 @@ When the pinned version changes, re-verify every line and rename this file:
   hover still shows `:focus-visible` styles, such as `focus-ring-banded`'s band. Blur the link
   before reading what the pointer alone does. Observed on the runtime (#283).
 
+## Computed styles
+
+- **A border of 1.5 px reads 1px.** The bundled Chromium draws a border on whole CSS pixels at a
+  device scale of 1, 2 and 3, and `getComputedStyle(...).borderTopWidth`, which `toHaveCSS` reads,
+  gives `1px` for `border-[1.5px]`. A test reads such an edge as `1px`, as the Health Topic chips'
+  test does. Observed with a launched browser (#286).
+
 ## Timers
 
 - **`page.clock` moves a page's timers.** `await page.clock.install()` before `goto`, then
