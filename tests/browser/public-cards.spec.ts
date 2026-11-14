@@ -2,7 +2,9 @@
 // Service card, News cards and Announcement rows, which open from their whole surface as they do
 // (Feature 008 #242, #244, #245). The News, Health News and Health Content lists' cards are the
 // Homepage's small News card (Feature 009 #283; spec #280 "The cards"): they rise under the pointer
-// with no ring, and their focus ring has a white band on both sides.
+// with no ring, and their focus ring has a white band on both sides. A first page leads with the
+// newest item as the Homepage's large card (#284), whose picture grows under the pointer while the
+// card stays.
 // The public HTTP/browser seam checks native activation across each card's surface, independent
 // of its markup/classes. Fixtures belong to this suite; Homepage menus restore in finally.
 import type { Locator, Page } from "@playwright/test";

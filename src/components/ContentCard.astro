@@ -9,8 +9,10 @@
 // The large card, the Homepage's newest News and the newest item of a list's first page (Feature
 // 009 #284; spec #280 "The cards"), is its picture with the date in an accent-warm pill and the
 // title over a brand-dark gradient (the date as the prototype shows it: Product Owner, 2026-11-12,
-// #244 comment 6809892992, item 1). On a list the label follows the date in an outlined white pill,
-// and from `sm` the summary follows the title in two lines at most. The text is surface-base on the
+// #244 comment 6809892992, item 1). On a list the label follows the date in an outlined white pill
+// filled with brand-dark at 40 %, which keeps its small words at 4.5:1 or more where the gradient
+// is lightest (Product Owner, 2026-11-14: #284 comment 6870867641, item 1), and from `sm` the
+// summary follows the title in two lines at most. The text is surface-base on the
 // gradient, which is brand-dark at 80 % or more under the title's three lines at most, so it reads
 // over any picture (measured with scripts/measure-text-contrast.ts over a white picture;
 // docs/design/DESIGN.md §7.3, §8.6). Without a picture it shows the deep green visual (item 2) with
@@ -32,7 +34,11 @@
 // One native link named by the title covers the whole card; the date, the label and the summary
 // stay readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190 comment 6707205912). The
 // picture is decorative, because the title names the link, and covers its box from its middle, or
-// around its focal point (docs/design/DESIGN.md §7.3).
+// around its focal point (docs/design/DESIGN.md §7.3). The picture takes no placeholder: EmDash
+// writes the blurhash placeholder and the focal point's `object-position` as one inline
+// declaration browsers drop, so with it the crop stays on the middle (docs/agents/emdash-1.1.0.md
+// "Media"; Product Owner, 2026-11-14: #284 comment 6870867641, item 2; the other components:
+// #298).
 //
 // Images go through EmDash's Image component (emdash 1.1.0 src/components/EmDashImage.astro). It
 // gives a responsive srcset where Astro's image service may transform the media, which is the
@@ -151,6 +157,7 @@ const zoom =
 					alt=""
 					sizes={sizes}
 					loading={loading}
+					placeholder={false}
 					class:list={["absolute inset-0 size-full object-cover", zoom]}
 				/>
 			) : (
@@ -172,7 +179,7 @@ const zoom =
 								<DateText value={date} />
 							</span>
 						)}
-						<span class="rounded-pill border border-surface-base/40 px-3 py-0.5 wrap-anywhere">
+						<span class="rounded-pill border border-surface-base/40 bg-brand-dark/40 px-3 py-0.5 wrap-anywhere">
 							{label}
 						</span>
 					</p>
@@ -212,6 +219,7 @@ const zoom =
 						alt=""
 						sizes={sizes}
 						loading={loading}
+						placeholder={false}
 						class:list={["absolute inset-0 size-full object-cover", zoom]}
 					/>
 				) : (

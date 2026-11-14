@@ -1325,7 +1325,8 @@ export interface FilteredListOnField {
 /**
  * Declare the tests of a list's heading on the deep field and of what follows it: the heading's
  * parts, their sizes on both sides of 640 and 1,024 px, the filter form before the cards over the
- * field's lower edge, the empty states where the cards would be, the keyboard's order with each
+ * field's lower edge, the large card on the unfiltered first page alone (Feature 009 #284), the
+ * empty states where the cards would be, the keyboard's order with each
  * surface's focus ring, the motion case, and the page without JavaScript. The list's suite calls
  * it after the tests whose fixtures must lead the list, and tests the list with no item at all
  * itself (`whileNonePublished`, `expectEmptyStateUnderForm`).
@@ -1556,7 +1557,10 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 	});
 }
 
-/** A list page whose cards are the small card of spec #280 "The cards" (Feature 009 #283). */
+/**
+ * A list page whose cards are the small and the large card of spec #280 "The cards" (Feature 009
+ * #283, #284).
+ */
 export interface ListCards {
 	path: string;
 	/** The Lucide icon of the plain visual that stands in for a missing picture. */
@@ -1589,8 +1593,11 @@ export interface ListCards {
  * the label on the line under the date without the dot; its title as an H2, and from 640 px its
  * summary. A card without a label writes the date alone, one without a
  * summary shows none, and one without a picture shows the plain visual with the list's icon in a
- * 48 px tile. The cards go three to a row from 1,024 px, two from 640 px and in rows below, 24 px
- * apart from 640 px and 14 px below, each in one column.
+ * 48 px tile. On a second page the cards go three to a row from 1,024 px, two from 640 px and in
+ * rows below, 24 px apart from 640 px and 14 px below, each in one column. The first page leads
+ * with its newest item as the large card (Feature 009 #284): its picture covering it, its date and
+ * its label in pills, its title and from 640 px its summary over the gradient at its foot, and
+ * without a picture the deep visual with the list's icon in a 72 px tile.
  */
 export function testListCards(list: ListCards): void {
 	const SUMMARY = "สรุปข่าวสำหรับทดสอบการ์ดของรายการ ซึ่งแสดงใต้ชื่อเรื่องตั้งแต่ 640 พิกเซล";
@@ -1753,7 +1760,7 @@ export function testListCards(list: ListCards): void {
 		}
 	});
 
-	test(`on the first page of ${list.path} the newest item is the large card: its picture covers it from its middle, and over the gradient at its foot its date in an accent-warm pill, its label in an outlined white pill, its title as an H2 at H3 size, body-large below 640 px, and from 640 px its summary, each in surface-base; ${list.unlabelled ? "without a label its date alone; " : ""}without a picture the deep green visual with the ${list.icon} icon in a 72 px accent-warm tile`, async ({
+	test(`on the first page of ${list.path} the newest item is the large card: its picture covers it from its middle, and over the gradient at its foot its date in an accent-warm pill, its label in an outlined pill filled brand-dark at 40 %, its title as an H2 at H3 size, body-large below 640 px, and from 640 px its summary, each in surface-base; ${list.unlabelled ? "without a label its date alone; " : ""}without a picture the deep green visual with the ${list.icon} icon in a 72 px accent-warm tile`, async ({
 		page,
 	}) => {
 		const term = await list.createLabel("ข่าวเด่น");
@@ -1787,9 +1794,11 @@ export function testListCards(list: ListCards): void {
 			await tokenColor(page, "brand-dark"),
 		);
 		await expect(labelPill, "the label's outline").toHaveCSS("border-top-width", "1px");
-		await expect(labelPill, "the label's pill is open").toHaveCSS(
+		// Its words keep 4.5:1 over a white picture (Product Owner, 2026-11-14: #284 comment
+		// 6870867641, item 1).
+		await expect(labelPill, "the label's pill is brand-dark at 40 %").toHaveCSS(
 			"background-color",
-			"rgba(0, 0, 0, 0)",
+			(await tokenColor(page, "brand-dark")).replace(/^rgb\((.*)\)$/, "rgba($1, 0.4)"),
 		);
 		await expect(image).toHaveAttribute("alt", "");
 		await expect(image).toHaveCSS("object-fit", "cover");
@@ -1831,10 +1840,19 @@ export function testListCards(list: ListCards): void {
 			await expectStacked(`the large card at ${width} px`, parts);
 			const pill = await boxOf(datePill, "the date's pill");
 			const label = await boxOf(labelPill, "the label's pill");
-			expect(label.y + label.height / 2, `the label beside the date at ${width} px`).toBeCloseTo(
-				pill.y + pill.height / 2,
-				0,
-			);
+			// A label too long for the date's line goes on the next one.
+			const beside =
+				Math.abs(label.y + label.height / 2 - (pill.y + pill.height / 2)) < 1 &&
+				label.x >= pill.x + pill.width;
+			const under = label.y >= pill.y + pill.height - 1 && Math.abs(label.x - pill.x) < 1;
+			expect(
+				beside || under,
+				`the label follows the date, beside it or under it at ${width} px`,
+			).toBe(true);
+			expect(
+				(await boxOf(title, "the title")).y,
+				`the title under the label at ${width} px`,
+			).toBeGreaterThanOrEqual(label.y + label.height - 0.5);
 			const last = await boxOf(parts.at(-1)![1], parts.at(-1)![0]);
 			expect(
 				pill.y,

@@ -6,7 +6,7 @@
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
 > 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
 > implemented by #281–#287; its acceptance is still to come.
-> **Updated:** 2026-11-13 (Feature 009 #283); first drafted 2026-10-30
+> **Updated:** 2026-11-14 (Feature 009 #284); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -133,7 +133,8 @@ health-service network.
    `featured-card-enter`, `featured-sheet-enter`, `scroll-reveal` and `picture-shimmer`, with the keyframes they run) and the `.rich-text` typography of Portable Text
    bodies, which EmDash renders as plain HTML that takes no utility classes. A list's heading
    uses `deep-field`, `section-title` and `hero-enter` too (§7.8), and a list's cards
-   `plain-visual`, `scroll-reveal` and `picture-shimmer` (§7.3).
+   `plain-visual`, `deep-visual` (the large card's, on a first page), `scroll-reveal` and
+   `picture-shimmer` (§7.3).
 4. No other plain CSS selectors for component styling, no CSS Modules, Astro `<style>` blocks or
    CSS-in-JS, and no Tailwind v3 setup or `tailwind.config.js`. An inline `style` carries only a
    value computed from content: the shell's `--menu-height` from its number of menu items (§7.4).
@@ -153,7 +154,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and in the Current Announcements the month and year on a date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and in the Current Announcements the month and year on a date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -181,8 +182,9 @@ Current Announcements use `procurement-text` and `procurement-border` on the pro
 yet: the Homepage lists current Announcements only. Some fills are a token at an opacity, not a token of their own: the hero's decorations and
 chip (`accent-warm` at 28 %, 30 %, 38 % and 50 %, `surface-soft` at 16 %, `surface-base` at 18 %
 and 22 %), the header's
-surface, `surface-base` at 90 %, and the footer's quiet text, pills and rule, `surface-base` at
-70 %, 85 %, 20 %, 15 % and 10 %.
+surface, `surface-base` at 90 %, the footer's quiet text, pills and rule, `surface-base` at
+70 %, 85 %, 20 %, 15 % and 10 %, and the label pill on a list's large card, its outline
+`surface-base` at 40 % and its fill `brand-dark` at 40 % (§7.3).
 
 Type, Noto Sans Thai, as size / line height / weight in px:
 
@@ -313,7 +315,7 @@ own module.
   2026-11-11: #241 comment 6791096480, item 1), and so does the link of a list's heading on the
   deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link, 20 px in the search's
   submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The hero's search field opens with a 20 px `search`
-  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's card `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3). A Service card shows
+  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's cards, small and large, `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3). A Service card shows
   the Service's icon (below).
 - **Service icons** (Product Owner, 2026-11-12: #248 comment 6826430670): a Service card's tile
   shows the icon staff chose for the Service in the Service editor, on the Homepage (§8.4) and in
@@ -450,11 +452,40 @@ this document names:
   comment 6854670042; measured at `5fb6b4a` with `scripts/measure-focus-contrast.ts`, §3.2). On
   the page's colour the band hardly
   shows.
+- **The large card on a list's first page** (Feature 009 #284; spec #280 "The cards", "The
+  first page", decisions 2 and 11): on a first page of `/news`, Health News or Health Content
+  that no Health Topic narrows, the newest item is the Homepage's large News card (§8.6),
+  `ContentCard` with `kind="list"` and `large`. Its picture covers it, radius 24, from its middle
+  or around its focal point, under the `brand-dark` gradient from its foot. Over the gradient: the
+  date in an `accent-warm` pill and, when the item has one, its label in an outlined pill
+  (`surface-base` words, a 1 px `surface-base` outline at 40 % and a `brand-dark` fill at 40 %, so
+  its words keep 4.5:1 where the gradient is lightest: Product Owner, 2026-11-14: #284 comment
+  6870867641, item 1), beside the date or, when it is too long for the line, under it; the title, an H2, in `surface-base` at H3 size and body-large
+  semibold below `sm`, three lines at most; and from `sm` the summary in `surface-base` at body
+  size, two lines at most. Without a picture, or when its media item was deleted, the
+  `deep-visual` with the 72 px `accent-warm` tile and the list's 24 px icon. One link named by the
+  title covers it, with the lists' `focus-ring-banded`. Under the pointer, with motion allowed,
+  the picture grows by 6 % inside its box and the card stays in its place; it reveals as it comes
+  into the window and its picture's box shimmers as the page opens (§8.12). The layout by the
+  number of items the page shows (`src/lib/list-first-page.ts`):
+
+  | Items | From `lg` (three columns) | From `sm` (two columns) | Below `sm` |
+  | --- | --- | --- | --- |
+  | 1 | across the row, 440 px high or more | across the row, 380 px or more | 300 px or more |
+  | 2 | two columns wide, as high as the card beside it and 380 px or more | across the row, the other under it | the large card, then a row |
+  | 3 or more | two columns wide and two rows high, 520 px or more, beside the next two; the rest three to a row | across the row; the rest two to a row | the large card, then rows |
+
+  A full page of twelve at two columns ends with one card alone (decision 11). A later page, and
+  a list narrowed by a Health Topic, show the small cards alone. Its picture's `sizes` is two of
+  the container's three columns from `lg` (all three with one item) and the row below.
 - **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
   Health Content card in a list to 16:9 from `sm` and 4:3 below (`ContentCard.astro`), as the
   Homepage's small News card does; the Homepage's Health Content
   cards and its Activity tiles have their own boxes (§8.8, §8.10). Every crop centres on the middle, or around the focal point
-  that the field's value carries. A One Page in a card therefore shows its middle, where its photo
+  that the field's value carries; EmDash's placeholder drops the focal point, so only
+  `ContentCard`, whose pictures take none, crops around one today, and the other cards on the
+  middle until #298 (#284 comment 6870867641, item 2). A One Page in a card therefore shows its
+  middle, where its photo
   collage is (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144 names the 16:9 crop, exact
   for Activity cards only).
 - Without a picture, or when its media item was deleted, a card shows a plain visual that keeps
@@ -626,8 +657,9 @@ heads `/news`, Health News (`/news/health`) and the Health Content list (`/healt
   above the edge from `sm` and 96 px below, and the block that follows (`ListBody`) starts 88 px
   above it from `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state,
   then the pager (§7.6); on Health News and Health Content the filter form (§7.7) comes first. They
-  are 32 px apart, and each keeps its content and behaviour. The cards are the Homepage's small
-  News card (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
+  are 32 px apart, and each keeps its content and behaviour. The cards are the Homepage's News
+  cards: the small one, and on a first page that no Health Topic narrows the large one first
+  (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
   ring alone was faint, so a card's ring has a `surface-base` band on both sides
   (`focus-ring-banded`, §7.3; Product Owner, 2026-11-13: #281 comment 6847783611, item 1, and
   #283 comment 6854670042).
@@ -1557,3 +1589,15 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   page size, its whole-card link and its addresses remain. Authority: spec #280 "The cards",
   "Motion" and decisions 4, 10 and 15, #283 comment 6854670042 (the ring's band) and #283 comment
   6855983271 (the label under the date below 640 px).
+- **v1.3 the lists' large card (2026-11-14, Feature 009 #284):** on a first page of `/news`, Health
+  News or Health Content that no Health Topic narrows, the newest item is the Homepage's large
+  card (§7.3), with its label in an outlined pill filled `brand-dark` at 40 % beside the date and
+  from 640 px its summary,
+  laid out by the number of items: across the row with one, two columns wide with two, and two
+  columns wide and two rows high beside the next two with three or more, from 1,024 px. The first
+  page had shown the small cards alone. A later page, a narrowed list, what each list reads, its
+  order and its page size remain. `ContentCard`'s pictures, on the lists and in Latest News,
+  take no placeholder, so they crop around a focal point, which EmDash's placeholder had dropped
+  (the other cards: #298). Authority: spec #280 "The cards", "The first page" and decisions 2 and
+  11, #283 comment 6854670042 (the ring's band), #284 comment 6870867641 (the pill's fill, the
+  placeholder).
