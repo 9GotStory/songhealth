@@ -51,6 +51,8 @@ const listUrl = new URL("/news", Astro.url);
 				labelTaxonomy="news_category"
 				icon="message-square"
 				pathOf={newsPath}
+				page={page}
+				narrowed={false}
 			/>
 		) : page > 1 ? (
 			<EmptyState

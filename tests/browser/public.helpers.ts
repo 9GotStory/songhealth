@@ -621,6 +621,25 @@ export function tokenColor(page: Page, name: string): Promise<string> {
 }
 
 /**
+ * The colour token `--color-<name>` at `percent` %, as the page's browser computes Tailwind's
+ * `<utility>-<name>/<percent>`, a mix with transparent in oklab, to compare with an element's
+ * computed style.
+ */
+function mixedColor(page: Page, name: string, percent: number): Promise<string> {
+	return page.evaluate(
+		([token, share]) => {
+			const probe = document.createElement("span");
+			probe.style.color = `color-mix(in oklab, var(--color-${token}) ${share}%, transparent)`;
+			document.body.append(probe);
+			const color = getComputedStyle(probe).color;
+			probe.remove();
+			return color;
+		},
+		[name, percent] as const,
+	);
+}
+
+/**
  * Fail unless every one of `parts` shows, each one below the one before it, as the page is laid out
  * now.
  */
@@ -918,11 +937,17 @@ export function listHeading(page: Page, { label, lead }: Pick<ListHeadingText, "
 
 type ListHeadingParts = ReturnType<typeof listHeading>;
 
-/** The cards a list page shows, the list that holds them, and the page's pager. */
+/**
+ * The cards a list page shows, the list that holds them, and the page's pager. `large` is the large
+ * card a News list's first page leads with: the one whose picture covers it, with no white surface
+ * of a small card's (spec #280 "The cards").
+ */
 export function cardList(page: Page) {
 	const main = page.getByRole("main");
+	const cards = main.getByRole("article");
 	return {
-		cards: main.getByRole("article"),
+		cards,
+		large: cards.filter({ hasNot: page.getByTestId("news-surface") }),
 		grid: main.getByRole("list").filter({ has: page.getByRole("article") }),
 		pager: page.getByRole("navigation", { name: "การแบ่งหน้า" }),
 	};
@@ -1319,7 +1344,8 @@ export interface FilteredListOnField {
 /**
  * Declare the tests of a list's heading on the deep field and of what follows it: the heading's
  * parts, their sizes on both sides of 640 and 1,024 px, the filter form before the cards over the
- * field's lower edge, the empty states where the cards would be, the keyboard's order with each
+ * field's lower edge, the large card on the unfiltered first page alone (Feature 009 #284), the
+ * empty states where the cards would be, the keyboard's order with each
  * surface's focus ring, the motion case, and the page without JavaScript. The list's suite calls
  * it after the tests whose fixtures must lead the list, and tests the list with no item at all
  * itself (`whileNonePublished`, `expectEmptyStateUnderForm`).
@@ -1384,6 +1410,45 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 				["the cards", grid],
 				["the pager", pager],
 			],
+		);
+	});
+
+	test(`the unfiltered first page of ${path} leads with its newest item as the large card, shown once, and the other items follow it in the list's order as small cards; a page narrowed by a Health Topic, its first and its second, and the unfiltered second page show small cards alone`, async ({
+		page,
+	}) => {
+		const topic = await list.createTopic("อาหารปลอดภัย");
+		// One more than a page, so the narrowed list has a second page; the last is the newest.
+		const items: DraftFixture[] = [];
+		for (let index = 0; index <= list.pageSize; index += 1) {
+			items.push(await list.publishItem(`lead-${String(index).padStart(2, "0")}`, topic));
+		}
+		const newestFirst = items.toReversed().map((item) => item.title);
+		const { cards, large } = cardList(page);
+
+		await page.goto(path);
+		await expect(large, "one large card").toHaveCount(1);
+		await expect(cards.first(), "the large card leads the cards").toHaveText(
+			new RegExp(RegExp.escape(newestFirst[0]!)),
+		);
+		await expect(large.getByRole("heading", { level: 2 })).toHaveText(newestFirst[0]!);
+		const titles = await listedTitles(page);
+		expect(ownTitles(titles, items), "each item once, newest first").toEqual(
+			newestFirst.slice(0, list.pageSize),
+		);
+
+		for (const [address, count] of [
+			[`${path}?topic=${topic.slug}`, list.pageSize],
+			[`${path}?topic=${topic.slug}&page=2`, 1],
+			[`${path}?page=2`, undefined],
+		] as const) {
+			await page.goto(address);
+			await expect(cards.first(), `${address} shows cards`).toBeVisible();
+			if (count) await expect(cards, `${address} shows ${count}`).toHaveCount(count);
+			await expect(large, `${address} has no large card`).toHaveCount(0);
+		}
+		await page.goto(`${path}?topic=${topic.slug}`);
+		expect(await listedTitles(page), "narrowed, the newest leads as a small card").toEqual(
+			newestFirst.slice(0, list.pageSize),
 		);
 	});
 
@@ -1511,7 +1576,10 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 	});
 }
 
-/** A list page whose cards are the small card of spec #280 "The cards" (Feature 009 #283). */
+/**
+ * A list page whose cards are the small and the large card of spec #280 "The cards" (Feature 009
+ * #283, #284).
+ */
 export interface ListCards {
 	path: string;
 	/** The Lucide icon of the plain visual that stands in for a missing picture. */
@@ -1525,6 +1593,8 @@ export interface ListCards {
 	createLabel: (label: string) => Promise<SyntheticTerm>;
 	/** A new synthetic picture in the media library: its media item's id. */
 	uploadPicture: () => Promise<string>;
+	/** The fixed number of items a page of the list shows. */
+	pageSize: number;
 	/**
 	 * A new item of the list, published now, labelled by `term`, with `summary` and the picture of
 	 * the media item `picture` where each is given. Returns it with its stored publication instant.
@@ -1542,8 +1612,11 @@ export interface ListCards {
  * the label on the line under the date without the dot; its title as an H2, and from 640 px its
  * summary. A card without a label writes the date alone, one without a
  * summary shows none, and one without a picture shows the plain visual with the list's icon in a
- * 48 px tile. The cards go three to a row from 1,024 px, two from 640 px and in rows below, 24 px
- * apart from 640 px and 14 px below, each in one column.
+ * 48 px tile. On a second page the cards go three to a row from 1,024 px, two from 640 px and in
+ * rows below, 24 px apart from 640 px and 14 px below, each in one column. The first page leads
+ * with its newest item as the large card (Feature 009 #284): its picture covering it, its date and
+ * its label in pills, its title and from 640 px its summary over the gradient at its foot, and
+ * without a picture the deep visual with the list's icon in a 72 px tile.
  */
 export function testListCards(list: ListCards): void {
 	const SUMMARY = "สรุปข่าวสำหรับทดสอบการ์ดของรายการ ซึ่งแสดงใต้ชื่อเรื่องตั้งแต่ 640 พิกเซล";
@@ -1554,6 +1627,8 @@ export function testListCards(list: ListCards): void {
 		const picture = await list.uploadPicture();
 		const bare = await list.publishItem("card-bare", list.unlabelled ? {} : { term });
 		const full = await list.publishItem("card-full", { term, summary: SUMMARY, picture });
+		// The newest item is the large card of the first page (Feature 009 #284), so a newer one leads.
+		await list.publishItem("card-lead", list.unlabelled ? {} : { term });
 		await page.goto(list.path);
 		const fullCard = listedItem(page, full.item.title);
 		const bareCard = listedItem(page, bare.item.title);
@@ -1647,14 +1722,19 @@ export function testListCards(list: ListCards): void {
 		}
 	});
 
-	test(`on ${list.path} the cards go three to a row from 1,024 px, two from 640 px and in rows below, 24 px apart from 640 px and 14 px below, each in one column, a last row's too`, async ({
+	test(`on the second page of ${list.path} the cards go three to a row from 1,024 px, two from 640 px and in rows below, 24 px apart from 640 px and 14 px below, each in one column, a last row's too, with no large card`, async ({
 		page,
 	}) => {
+		test.setTimeout(90_000);
 		const parts = list.unlabelled ? {} : { term: await list.createLabel("แถวการ์ด") };
-		for (const index of [1, 2, 3, 4]) await list.publishItem(`card-row-${index}`, parts);
+		// A first page and four more, so the second page has a row and the next row's first card.
+		for (let index = 0; index < list.pageSize + 4; index += 1) {
+			await list.publishItem(`card-row-${String(index).padStart(2, "0")}`, parts);
+		}
 		// The suite's reduced motion leaves each cell at its resting place.
-		await page.goto(list.path);
-		const { grid, cards } = cardList(page);
+		await page.goto(`${list.path}?page=2`);
+		const { grid, cards, large } = cardList(page);
+		await expect(large, "no large card on a second page").toHaveCount(0);
 		const cells = grid.getByRole("listitem");
 		await expect(cells, "a cell holds each card, and no cell stands empty").toHaveCount(
 			await cards.count(),
@@ -1697,6 +1777,155 @@ export function testListCards(list: ListCards): void {
 				).toBeCloseTo(gap, 0);
 			}
 		}
+	});
+
+	test(`on the first page of ${list.path} the newest item is the large card: its picture covers it from its middle, and over the gradient at its foot its date in an accent-warm pill, its label in an outlined pill filled brand-dark at 40 %, its title as an H2 at H3 size, body-large below 640 px, and from 640 px its summary, each in surface-base; ${list.unlabelled ? "without a label its date alone; " : ""}without a picture the deep green visual with the ${list.icon} icon in a 72 px accent-warm tile`, async ({
+		page,
+	}) => {
+		const term = await list.createLabel("ข่าวเด่น");
+		const full = await list.publishItem("large-full", {
+			term,
+			summary: SUMMARY,
+			picture: await list.uploadPicture(),
+		});
+		await page.goto(list.path);
+		const { cards, large } = cardList(page);
+		const card = listedItem(page, full.item.title);
+		await expect(large, "one large card").toHaveCount(1);
+		await expect(cards.first(), "the newest leads as the large card").toHaveText(
+			new RegExp(RegExp.escape(full.item.title)),
+		);
+		await expect(card.getByTestId("news-surface"), "no small card's surface").toHaveCount(0);
+		const white = await tokenColor(page, "surface-base");
+		const title = card.getByRole("heading", { level: 2, name: full.item.title, exact: true });
+		const date = card.locator("time");
+		const datePill = card.locator("span").filter({ has: page.locator("time") });
+		const labelPill = card.getByText(term.label, { exact: true });
+		const summary = card.getByText(SUMMARY, { exact: true });
+		const image = card.locator("img");
+		await expect(date).toHaveText(thaiDate(full.at));
+		await expect(datePill, "the date's pill").toHaveCSS(
+			"background-color",
+			await tokenColor(page, "accent-warm"),
+		);
+		await expect(datePill, "the date's words").toHaveCSS(
+			"color",
+			await tokenColor(page, "brand-dark"),
+		);
+		await expect(labelPill, "the label's outline").toHaveCSS("border-top-width", "1px");
+		// Its words keep 4.5:1 over a white picture (Product Owner, 2026-11-14: #284 comment
+		// 6870867641, item 1).
+		await expect(labelPill, "the label's pill is brand-dark at 40 %").toHaveCSS(
+			"background-color",
+			await mixedColor(page, "brand-dark", 40),
+		);
+		await expect(image).toHaveAttribute("alt", "");
+		await expect(image).toHaveCSS("object-fit", "cover");
+		await expect(image, "the picture's middle").toHaveCSS("object-position", "50% 50%");
+
+		for (const [width, size, labelPlace] of [
+			// The label, a synthetic term's (the fixture mark, the word and a unique ending, about 250 px
+			// wide), sits beside the date where the line holds both and under it at a phone's width.
+			[1440, "24px", "beside"],
+			[640, "24px", "beside"],
+			[639, "18px", "beside"],
+			[375, "18px", "under"],
+			[320, "18px", "under"],
+		] as const) {
+			await page.setViewportSize({ width, height: 900 });
+			await expectImageLoaded(image, `the large card's picture at ${width} px`);
+			const box = await boxOf(card, "the large card");
+			const shown = await boxOf(image, "the picture");
+			expect(
+				[shown.x, shown.y, shown.width, shown.height].map(Math.round),
+				`the picture covers the card at ${width} px`,
+			).toEqual([box.x, box.y, box.width, box.height].map(Math.round));
+			await expect(title, `the title's size at ${width} px`).toHaveCSS("font-size", size);
+			await expect(title, "the title's weight").toHaveCSS("font-weight", "600");
+			for (const [name, part] of [
+				["the title", title],
+				["the label", labelPill],
+			] as const) {
+				await expect(part, `${name} in surface-base at ${width} px`).toHaveCSS("color", white);
+			}
+			const parts: Array<[name: string, part: Locator]> = [
+				["the date's pill", datePill],
+				["the title", title],
+			];
+			if (width >= 640) {
+				await expect(summary, `the summary at ${width} px`).toBeVisible();
+				await expect(summary, "the summary in surface-base").toHaveCSS("color", white);
+				parts.push(["the summary", summary]);
+			} else {
+				await expect(summary, `no summary at ${width} px`).toBeHidden();
+			}
+			await expectStacked(`the large card at ${width} px`, parts);
+			const pill = await boxOf(datePill, "the date's pill");
+			const label = await boxOf(labelPill, "the label's pill");
+			// A label too long for the date's line goes on the next one, where the date starts.
+			if (labelPlace === "beside") {
+				expect(label.x, `the label after the date at ${width} px`).toBeGreaterThanOrEqual(
+					pill.x + pill.width,
+				);
+				expect(label.y + label.height / 2, `the label beside the date at ${width} px`).toBeCloseTo(
+					pill.y + pill.height / 2,
+					0,
+				);
+			} else {
+				expect(label.y, `the label under the date at ${width} px`).toBeGreaterThanOrEqual(
+					pill.y + pill.height - 1,
+				);
+				expect(label.x, `the label starts where the date does at ${width} px`).toBeCloseTo(
+					pill.x,
+					0,
+				);
+			}
+			expect(
+				(await boxOf(title, "the title")).y,
+				`the title under the label at ${width} px`,
+			).toBeGreaterThanOrEqual(label.y + label.height - 0.5);
+			const last = await boxOf(parts.at(-1)![1], parts.at(-1)![0]);
+			// The text sits at the card's foot: less room under it than above it, however many lines a
+			// long label and title take at a phone's width.
+			expect(last.y + last.height, `the text ends in the card at ${width} px`).toBeLessThanOrEqual(
+				box.y + box.height,
+			);
+			expect(
+				box.y + box.height - (last.y + last.height),
+				`the text lies at the card's foot at ${width} px`,
+			).toBeLessThan(pill.y - box.y);
+			await expectNoHorizontalScroll(page, `${list.path} at ${width} px`);
+		}
+
+		const bare = await list.publishItem("large-bare", list.unlabelled ? {} : { term });
+		await page.setViewportSize({ width: 1440, height: 900 });
+		await page.goto(list.path);
+		const bareCard = listedItem(page, bare.item.title);
+		await expect(large, "the newer item is the large card").toHaveText(
+			new RegExp(RegExp.escape(bare.item.title)),
+		);
+		await expect(bareCard.locator("img"), "no picture").toHaveCount(0);
+		await expect(bareCard, "its date, its label if it has one, and its title").toHaveText(
+			new RegExp(
+				`^\\s*${thaiDate(bare.at)}\\s*${list.unlabelled ? "" : `${term.label}\\s*`}${RegExp.escape(bare.item.title)}\\s*$`,
+			),
+		);
+		const visual = bareCard.getByTestId("news-visual");
+		const cardBox = await boxOf(bareCard, "the large card");
+		const visualBox = await boxOf(visual, "the visual");
+		expect(
+			[visualBox.width, visualBox.height].map(Math.round),
+			"the visual covers the card",
+		).toEqual([cardBox.width, cardBox.height].map(Math.round));
+		const tile = visual.locator("span");
+		const tileBox = await boxOf(tile, "the visual's tile");
+		expect([tileBox.width, tileBox.height], "the visual's tile is 72 px").toEqual([72, 72]);
+		await expect(tile, "the visual's tile").toHaveCSS(
+			"background-color",
+			await tokenColor(page, "accent-warm"),
+		);
+		const icon = await boxOf(visual.locator(`svg.lucide-${list.icon}`), "the visual's icon");
+		expect([icon.width, icon.height], "the visual's icon is 24 px").toEqual([24, 24]);
 	});
 }
 

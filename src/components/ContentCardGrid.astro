@@ -4,10 +4,13 @@
 // #280 "The cards"), carries one term of `labelTaxonomy` as its label, shows `icon` in place of a
 // missing picture and links to the address `pathOf` gives the entry's slug. The cards go three to
 // a row from `lg`, two from `sm` and in rows below, 24 px apart from `sm` and 14 px below; a last
-// row may hold fewer, and no cell is filled. The first row is in view when the page opens, so its
-// pictures load at once; the rest load lazily. Each card reveals as it comes into the window
+// row may hold fewer, and no cell is filled. A first page that no Health Topic narrows leads with
+// its newest item as the large card, laid out by the number of items (Feature 009 #284; spec #280
+// "The first page"; src/lib/list-first-page.ts). The first row is in view when the page opens, so
+// its pictures load at once; the rest load lazily. Each card reveals as it comes into the window
 // (`scroll-reveal`, src/styles/global.css; spec #280 "Motion").
 import type { TaxonomyTerm } from "emdash";
+import { firstPageLargeCard, largeCardPictureSizes } from "../lib/list-first-page";
 import type { ImageFieldValue } from "../lib/news";
 import { termsOf } from "../lib/terms";
 import ContentCard from "./ContentCard.astro";
@@ -32,27 +35,56 @@ interface Props {
 	icon: "message-square" | "heart-pulse";
 	/** The entry's own address, from its slug. */
 	pathOf: (slug: string) => string;
+	/** The page's number, from 1. */
+	page: number;
+	/** Whether a Health Topic narrows the list. */
+	narrowed: boolean;
 }
 
-const { entries, labelTaxonomy, icon, pathOf } = Astro.props;
-/** Cards per row at the widest layout (lg:grid-cols-3). */
+const { entries, labelTaxonomy, icon, pathOf, page, narrowed } = Astro.props;
+/** Cards in the first row at the widest layout: three, or the large card and the two beside it. */
 const FIRST_ROW = 3;
+const large = firstPageLargeCard(entries.length, { page, narrowed });
+/**
+ * The large card, when the page leads with one: its cell, which spans the row from `sm` and from
+ * `lg` its columns and rows; its picture's width; and its least height, 300 px, 380 px from `sm`
+ * and from `lg` by the count.
+ */
+const largeCell = large && {
+	cell: [
+		"sm:col-span-2",
+		large.columnsFromLg === 3 && "lg:col-span-3",
+		large.rowsFromLg === 2 && "lg:row-span-2",
+	],
+	sizes: largeCardPictureSizes(large),
+	height: {
+		380: "min-h-75 sm:min-h-95",
+		440: "min-h-75 sm:min-h-95 lg:min-h-110",
+		520: "min-h-75 sm:min-h-95 lg:min-h-130",
+	}[large.minHeight.lg],
+};
 ---
 
 <ul class="grid gap-3.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-	{entries.map((entry, index) => (
-		<li class="scroll-reveal min-w-0">
-			<ContentCard
-				kind="list"
-				href={pathOf(entry.id)}
-				title={entry.data.title}
-				label={termsOf(entry.data, labelTaxonomy)[0]?.label}
-				date={entry.data.publishedAt}
-				summary={entry.data.summary}
-				image={entry.data.featured_image}
-				icon={icon}
-				eager={index < FIRST_ROW}
-			/>
-		</li>
-	))}
+	{entries.map((entry, index) => {
+		const cell = index === 0 ? largeCell : undefined;
+		return (
+			<li class:list={["scroll-reveal min-w-0", cell?.cell]}>
+				<ContentCard
+					kind="list"
+					large={cell !== undefined}
+					href={pathOf(entry.id)}
+					title={entry.data.title}
+					label={termsOf(entry.data, labelTaxonomy)[0]?.label}
+					date={entry.data.publishedAt}
+					summary={entry.data.summary}
+					image={entry.data.featured_image}
+					icon={icon}
+					eager={index < FIRST_ROW}
+					sizes={cell?.sizes}
+					class={cell?.height}
+				/>
+			</li>
+		);
+	})}
 </ul>
