@@ -1,88 +1,114 @@
 ---
-// A post page's text and picture (Feature 006 #147; spec #144 "Post pages: News, Activity and
-// Health Content"). From lg a post with a picture reads in two columns ("สองคอลัมน์"): the left
-// column holds what the page has, in its order, and the right column, 28 rem wide, holds the
-// picture whole with a "เปิดภาพขนาดเต็ม" link to its file. Below lg the parts read in one column in
-// the page's order: the default slot (the header, and an Activity's details), the picture and its
-// link, then the `body` slot (a body, its source and its topics). The link shows at every width,
-// as a phone needs it most (Product Owner, 2026-11-04: #147 comment 6634124888). A post without a
-// picture keeps one column.
+// A post page's header on the deep field, its picture in a white frame and its text (Feature 006
+// #147; Feature 009 #285; spec #280 "Post page: the header", "Post page: the picture", "Post page:
+// the text"). The `header` slot lies on the field (DeepField.astro), and the default slot is the
+// text on the page's colour: an Activity's details card, or a News or Health Content post's body,
+// source and topics (PostBody.astro). The text starts 32 px under the field below lg and 40 px from
+// lg, or 32 px under the frame where the frame comes before it (Product Owner, 2026-11-14: #285
+// comment 6877659654, item 2).
 //
-// The picture stays in view while the left column scrolls ("ลอยตาม (แนะนำ)") and stops at the end
-// of the two columns: a grid item's grid area is its containing block (CSS Grid Layout 1, "Placing
-// Grid Items"), which a sticky box never leaves (CSS Positioned Layout 3, sticky positioning), and
-// the picture's spans every row of the block (observed with Playwright 1.63.0's Chromium;
-// tests/browser/public-posts.spec.ts checks it). So what a page puts after this block, such as an
-// Activity's photos, comes below the picture and never under it (the Product Owner's finding of
-// 2026-11-04, spec #144). With a `body` slot the block has two rows: the first takes the height of
-// what it holds, and the picture's extra height goes to the second, a flexible row (CSS Grid
-// Layout 1's track sizing), so the body stays right under the header when the picture is the
-// taller. Without one the block has a single row, so no empty row and its gap lengthen it past the
-// text. A `body` slot that renders nothing counts as none, so a News or Health Content post with
-// no body, source or topics (PostBody.astro) ends with the last part it shows, with no empty row or
-// gap after it (#198; #190 comment 6707205912, Empty Post page row B). `Astro.slots.has` tells
-// only that a page passed the slot (astro 7.3.5 dist/core/render/slots.js), so the block renders
-// it once with `Astro.slots.render` and places that HTML. The picture follows only while the left
-// column is the longer, and one taller than the window shows its lower part as the block ends. The
-// Product Owner kept both limits (2026-11-04: #147 comment 6634124888).
+// The block is a grid of the page's column between two gutters, so the field spans the window
+// while the header, the frame and the text keep to the column. The field is the first row's
+// height, which its header sets: it reaches 40 px under the header below `sm` and 48 px from `sm`,
+// and 80 px below lg where the frame follows.
 //
-// The picture fills the column's width at its own aspect ratio, never cropped, in a box shaped by
-// the size EmDash keeps with the image (docs/agents/emdash-1.1.0.md "Media" says how), so a
-// dominant colour EmDash's Image paints behind it never shows beside it (#147 comment 6628040681;
-// its blurhash placeholder does not show at all, same section). It
-// loads at once with a high fetch priority, since from lg it is in view when the page opens
-// (emdash 1.1.0 src/components/EmDashImage.astro). The link opens the file as it was uploaded,
-// which EmDash stores unchanged (src/astro/routes/api/media.ts), whatever rendition the picture
-// shows (ADR 0003), so a citizen can read a One Page's small print (#144 user story 17). It is an
-// onward link on this site, so it ends in chevron-right (ArrowLink.astro).
+// - **From lg a post with a picture reads in two columns** ("สองคอลัมน์"): the text column, 44 rem
+//   at most, a 3 rem gap and the frame, 28 rem wide, at the column's right. The frame starts on the
+//   field, 4.25 rem under its top, level with the header's row of pills, and spans both rows of the
+//   grid, so it runs over the field's lower edge when it is the taller. It stays in view 1.5 rem
+//   below the site's header while the text scrolls ("ลอยตาม (แนะนำ)") and stops where the two
+//   columns end: a grid item's grid area is its containing block (CSS Grid Layout 1, "Placing Grid
+//   Items"), which a sticky box never leaves (CSS Positioned Layout 3, sticky positioning). So what
+//   a page puts after this block, such as an Activity's photos, comes below the frame and never
+//   under it (the Product Owner's finding of 2026-11-04, spec #144). The second row is flexible
+//   (CSS Grid Layout 1's track sizing): an item that spans a flexible track gives its size to that
+//   track alone, so the first row stays the header's height and the frame's extra height goes to
+//   the second, where the text starts right under the field. Without text the second row holds
+//   only what the frame adds, so the block ends with whichever of the field and the frame ends
+//   lower, with no empty row or gap after it (#198; #190 comment 6707205912, Empty Post page row
+//   B). The frame follows only while the text is the longer, and one taller than the window shows
+//   its lower part as the block ends. The Product Owner kept both limits (2026-11-04: #147 comment
+//   6634124888).
+// - **Below lg** the page reads in one column: the header on the field, the frame, 48 rem wide at
+//   most, starting 48 px above the field's lower edge, then the text (#285 comment 6877659654,
+//   item 1).
+// - **A post without a picture** keeps one column.
+//
+// A default slot that renders nothing counts as none, so a post with no text ends with its field or
+// its frame. `Astro.slots.has` tells only that a page passed the slot (astro 7.3.5
+// dist/core/render/slots.js), so the block renders it once with `Astro.slots.render` and places
+// that HTML.
+//
+// The frame is white with the `deep` shadow, radius 24 and 10 px of padding, and holds the picture
+// whole, at its own aspect ratio with corners of radius 18, and "เปิดภาพขนาดเต็ม" under it at every
+// width, as a phone needs it most (Product Owner, 2026-11-04: #147 comment 6634124888). The picture
+// fills the frame's width in a box shaped by the size EmDash keeps with the image
+// (docs/agents/emdash-1.1.0.md "Media" says how), so a dominant colour EmDash's Image paints behind
+// it never shows beside it (#147 comment 6628040681; its blurhash placeholder does not show at all,
+// same section). It loads at once with a high fetch priority, since it is in view when the page
+// opens (emdash 1.1.0 src/components/EmDashImage.astro). The link opens the file as it was
+// uploaded, which EmDash stores unchanged (src/astro/routes/api/media.ts), whatever rendition the
+// picture shows (ADR 0003), so a citizen can read a One Page's small print (#144 user story 17). It
+// is an onward link on this site, so it ends in chevron-right (ArrowLink.astro), and it keeps the
+// page's focus ring, on the white frame.
+//
+// With motion allowed the frame rises in after the header's text, as the Featured card follows the
+// hero's text on the Homepage (`hero-enter`, src/styles/global.css; spec #280 "Motion"); the text
+// shows at once.
 import { Image } from "emdash/ui";
 import { availableMedia, mediaFileHref } from "../lib/media";
 import type { ImageFieldValue } from "../lib/news";
 import ArrowLink from "./ArrowLink.astro";
+import DeepField from "./DeepField.astro";
 
 interface Props {
 	/** The post's picture, its featured image field's value. */
 	image: ImageFieldValue | null | undefined;
 }
 
-/** The picture's width: the right column from lg, the reading width below it. */
+/** The picture's width: the frame's column from lg, the reading width below it. */
 const PICTURE_SIZES = "(min-width: 64rem) 28rem, (min-width: 48rem) 48rem, 100vw";
 
 const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
 const fullSizeHref = image && mediaFileHref(image, Astro.locals.emdash);
-const bodyHtml = await Astro.slots.render("body");
-const showsBody = Boolean(bodyHtml?.trim());
+const textHtml = await Astro.slots.render("default");
+const showsText = Boolean(textHtml?.trim());
 ---
 
 <div
 	class:list={[
-		"flex flex-col gap-8",
-		image && "lg:grid lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start lg:gap-x-12",
-		image && showsBody && "lg:grid-rows-[auto_1fr]",
+		"grid grid-cols-[minmax(var(--page-gutter),1fr)_minmax(0,var(--container-content))_minmax(var(--page-gutter),1fr)]",
+		image && "lg:grid-rows-[auto_1fr]",
 	]}
 >
-	<div class="flex flex-col gap-8 lg:col-start-1">
-		<slot />
-	</div>
+	<DeepField kind="post" class="col-span-full row-start-1">
+		<div class:list={["page-container relative pt-6 pb-10 sm:pb-12", image && "max-lg:pb-20"]}>
+			<div class:list={[image && "lg:mr-124"]}>
+				<slot name="header" />
+			</div>
+		</div>
+	</DeepField>
 	{image && (
 		<div
-			class:list={[
-				"flex flex-col gap-2 lg:sticky lg:top-[calc(var(--header-offset)+1.5rem)] lg:col-start-2 lg:row-start-1",
-				showsBody && "lg:row-span-2",
-			]}
+			data-testid="picture-frame"
+			class="hero-enter relative col-start-2 -mt-12 max-w-3xl self-start rounded-24 bg-surface-base p-2.5 shadow-deep [--hero-enter-delay:0.25s] lg:sticky lg:top-[calc(var(--header-offset)+1.5rem)] lg:row-span-2 lg:row-start-1 lg:mt-17 lg:w-112 lg:max-w-none lg:justify-self-end"
 		>
 			<Image
 				image={image}
 				priority
 				sizes={PICTURE_SIZES}
-				class="h-auto w-full max-w-3xl rounded-24 bg-surface-soft"
+				class="h-auto w-full rounded-18 bg-surface-soft"
 			/>
-			{fullSizeHref && <ArrowLink href={fullSizeHref}>เปิดภาพขนาดเต็ม</ArrowLink>}
+			{fullSizeHref && (
+				<div class="px-2.5 pt-1.5">
+					<ArrowLink href={fullSizeHref}>เปิดภาพขนาดเต็ม</ArrowLink>
+				</div>
+			)}
 		</div>
 	)}
-	{showsBody && (
-		<div class="lg:col-start-1">
-			<Fragment set:html={bodyHtml} />
+	{showsText && (
+		<div class:list={["col-start-2 pt-8 lg:pt-10", image && "lg:row-start-2 lg:mr-124"]}>
+			<Fragment set:html={textHtml} />
 		</div>
 	)}
 </div>

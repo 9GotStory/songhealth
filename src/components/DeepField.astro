@@ -10,6 +10,9 @@
 //   rings a lead read 3.42:1 and an outlined link's words 2.47:1 (spec #280 "Measured in the
 //   prototype"). It has no surface-soft glow either, as the prototype's field (Product Owner,
 //   2026-11-13: #281 comment 6847783611, item 2).
+// - `post`, the field under a Post page's header (Feature 009 #285; spec #280 "The field under a
+//   heading"): the list's glow and no decoration, since a ring crossed the summary of a post
+//   without a picture, 4.35:1 (spec #280 "Measured in the prototype").
 //
 // The decorations lie in a layer of their own, which clips them to the field and its corners. They
 // are hidden from assistive technology and take no pointer events (spec #239 "Accessibility").
@@ -23,11 +26,16 @@
 // below it, --field-overhang (src/styles/global.css), so what follows the field is not covered.
 
 interface Props {
-	/** What the field lies under: the Homepage's hero and Services, or a list's heading. */
+	/** What the field lies under: the Homepage's hero and Services, a list's heading or a post's. */
 	kind?: keyof typeof FIELDS;
 	/** The field's last section extends --field-overhang below it from `sm`. */
 	extended?: boolean;
+	/** The field's place in its parent, such as a grid's row. */
+	class?: string;
 }
+
+/** The small glow in the field's upper right corner from `sm`, under a heading. */
+const CORNER_GLOW = "sm:[--deep-field-glow:28%_12rem_at_100%_0%]";
 
 /** Each field's own glow, where it differs from the utility's, and its decorations' classes. */
 const FIELDS = {
@@ -41,14 +49,15 @@ const FIELDS = {
 		],
 	},
 	list: {
-		glow: "sm:[--deep-field-glow:28%_12rem_at_100%_0%]",
+		glow: CORNER_GLOW,
 		decorations: [
 			"top-15 -right-42.5 size-130 border-[1.5px] border-surface-base/18 max-lg:hidden",
 		],
 	},
+	post: { glow: CORNER_GLOW, decorations: [] },
 };
 
-const { kind = "home", extended = false } = Astro.props;
+const { kind = "home", extended = false, class: className } = Astro.props;
 const { glow, decorations } = FIELDS[kind];
 ---
 
@@ -58,6 +67,7 @@ const { glow, decorations } = FIELDS[kind];
 		"deep-field focus-ring-on-dark relative overflow-x-clip rounded-b-24 text-surface-base sm:rounded-b-32",
 		glow,
 		extended && "sm:mb-(--field-overhang)",
+		className,
 	]}
 >
 	<div

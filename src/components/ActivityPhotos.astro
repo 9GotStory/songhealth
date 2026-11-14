@@ -45,6 +45,8 @@ import SectionHeading from "./SectionHeading.astro";
 interface Props {
 	/** The Activity's gallery field's value. */
 	gallery: ActivityData["gallery"];
+	/** The section's place on the page, such as the page's column. */
+	class?: string;
 }
 
 /** How many photos show before the rest fold away. */
@@ -67,7 +69,10 @@ const folded = photos.length - SHOWN;
 ---
 
 {photos.length > 0 && (
-	<section aria-labelledby="activity-gallery" class="group/photos flex flex-col gap-6 sm:gap-7">
+	<section
+		aria-labelledby="activity-gallery"
+		class:list={["group/photos flex flex-col gap-6 sm:gap-7", Astro.props.class]}
+	>
 		<SectionHeading id="activity-gallery" label="กิจกรรม" title="ภาพกิจกรรม">
 			<Images slot="icon" class="shrink-0" size={24} />
 		</SectionHeading>

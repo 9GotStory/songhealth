@@ -1,8 +1,9 @@
 ---
-// A News or Health Content post's text after its picture (Feature 006 #147; spec #144 "Post pages:
-// News, Activity and Health Content"): its body, its source when staff named one, and its Health
-// Topics, each linking to the list it filters (TopicPills.astro). With none of the three it renders
-// nothing, so PostColumns.astro leaves out its row (#198; #190 comment 6707205912).
+// A News or Health Content post's text after its header and picture (Feature 006 #147; spec #144
+// "Post pages: News, Activity and Health Content"; Feature 009 #285): its body, its source when
+// staff named one, and its Health Topics, each linking to the list it filters (TopicPills.astro),
+// 2 rem apart. With none of the three it renders nothing, so PostColumns.astro leaves out the text
+// (#198; #190 comment 6707205912).
 import type { PortableTextBlock, TaxonomyTerm } from "emdash";
 import RichText from "./RichText.astro";
 import TopicPills from "./TopicPills.astro";

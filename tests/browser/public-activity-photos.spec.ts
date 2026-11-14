@@ -42,6 +42,7 @@ import {
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
 	boxOf,
+	deepField,
 	entersAfter,
 	expect,
 	expectNoAxeViolations,
@@ -261,7 +262,7 @@ test("an Activity with twenty photos shows the first eight with ดูรูป�
 	}
 });
 
-test("an Activity's photos open under the Homepage's section heading, its icon tile, the label กิจกรรม and the H2 ภาพกิจกรรม, 48 px under the header below 640 px and 64 px from 640 px, 24 and 28 px above the photos, shown at once with no effect and nothing past the window; an Activity without photos shows no heading", async ({
+test("an Activity's photos open under the Homepage's section heading, its icon tile, the label กิจกรรม and the H2 ภาพกิจกรรม, 48 px under the columns below 640 px and 64 px from 640 px, 24 and 28 px above the photos, shown at once with no effect and nothing past the window; an Activity without photos shows no heading", async ({
 	page,
 }) => {
 	await page.goto(none.path);
@@ -287,8 +288,9 @@ test("an Activity's photos open under the Homepage's section heading, its icon t
 	// The tile is decorative, hidden from assistive technology.
 	const label = labelIn(photos);
 	const tile = photos.locator('[aria-hidden="true"]').filter({ has: page.locator("svg") });
-	// The header's last part, as the Activity has no details and no picture.
-	const date = main.getByText(/^เผยแพร่ /);
+	// The end of the columns: the deep field under the header, as the Activity has no details and no
+	// picture (Feature 009 #285).
+	const field = deepField(page);
 	for (const [width, under, above] of [
 		[320, 48, 24],
 		[375, 48, 24],
@@ -301,7 +303,7 @@ test("an Activity's photos open under the Homepage's section heading, its icon t
 		const at = `at ${width} px`;
 		await expectNoHorizontalScroll(page, at);
 		await expectStacked(at, [
-			["the date", date],
+			["the field", field],
 			["the label", label],
 			["the H2", heading],
 			["the first photo", photos.getByRole("link").first()],
@@ -315,11 +317,11 @@ test("an Activity's photos open under the Homepage's section heading, its icon t
 		expect(tileBox.x + tileBox.width, `${at}: the tile is left of the H2`).toBeLessThanOrEqual(
 			headingBox.x,
 		);
-		const dateBox = await boxOf(date, `${at}: the date`);
+		const fieldBox = await boxOf(field, `${at}: the field`);
 		const region = await boxOf(photos, `${at}: the photos`);
 		expect(
-			region.y - dateBox.y - dateBox.height,
-			`${at}: the heading is ${under} px under the header`,
+			region.y - fieldBox.y - fieldBox.height,
+			`${at}: the heading is ${under} px under the columns`,
 		).toBeCloseTo(under, 0);
 		const first = await boxOf(photos.getByRole("link").first(), `${at}: the first photo`);
 		expect(
