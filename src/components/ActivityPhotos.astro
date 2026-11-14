@@ -1,15 +1,17 @@
 ---
 // An Activity's photos, its gallery field (Feature 006 #148; spec #144 "An Activity's photos (its
-// gallery field)"), under the Homepage's section heading (SectionHeading): the gradient tile with
-// the `images` icon, the label กิจกรรม and the H2 ภาพกิจกรรม, 24 px above the photos and 28 px
-// from sm, as the Homepage's Latest News (Feature 009 #286; spec #280 "Post page: the text";
-// Product Owner, 2026-11-14: #286 comment 6876267675, item 2). The section starts 48 px under the
-// columns and 64 px from sm, and shows at once, with no effect. Each photo is a square thumbnail,
-// four to a row from lg and three below, that links to the photo's file, with its caption under it
-// on at most two lines. The first eight show, and the rest show while a native disclosure after
-// them is open, so its control sits under the photos it opens (the Product Owner's finding of
-// 2026-11-04, spec #144 Further Notes). The control reads "ดูรูปทั้งหมด (N รูป)" while closed and "ซ่อนรูป
-// M รูป" while open, and an Activity with eight photos or fewer has none.
+// gallery field)"), under the heading ภาพกิจกรรม. Each photo is a square thumbnail, four to a row
+// from lg and three below, that links to the photo's file, with its caption under it on at most
+// two lines. The first eight show, and the rest show while a native disclosure after them is open,
+// so its control sits under the photos it opens (the Product Owner's finding of 2026-11-04, spec
+// #144 Further Notes). The control reads "ดูรูปทั้งหมด (N รูป)" while closed and "ซ่อนรูป M รูป" while
+// open, and an Activity with eight photos or fewer has none.
+//
+// The heading is the Homepage's section heading (SectionHeading): the gradient tile with the
+// `images` icon, the label กิจกรรม and the H2, 24 px above the photos and 28 px from sm, as the
+// Homepage's Latest News (Feature 009 #286; spec #280 "Post page: the text"; Product Owner,
+// 2026-11-14: #286 comment 6876267675, item 2). The section shows at once, with no effect, and the
+// Activity page places it under the columns (src/pages/activities/[slug].astro).
 //
 // It needs no JavaScript: the photos come before a <details> that holds only its <summary>, and a
 // :has() rule on the section shows the folded ones while it is open (the prototype's mechanism,
@@ -65,10 +67,7 @@ const folded = photos.length - SHOWN;
 ---
 
 {photos.length > 0 && (
-	<section
-		aria-labelledby="activity-gallery"
-		class="group/photos mt-12 flex flex-col gap-6 sm:mt-16 sm:gap-7"
-	>
+	<section aria-labelledby="activity-gallery" class="group/photos flex flex-col gap-6 sm:gap-7">
 		<SectionHeading id="activity-gallery" label="กิจกรรม" title="ภาพกิจกรรม">
 			<Images slot="icon" class="shrink-0" size={24} />
 		</SectionHeading>
