@@ -33,7 +33,7 @@
 // harness. Its fixtures are synthetic News, Activities and Health Content, a News category and a
 // Health Topic made through the native API and removed afterwards, each post with a summary, and
 // those with a picture carry a portrait A4 stand-in for a One Page. The News with a picture has a
-// category and a summary of two lines, and the Health Content a review date. The Activity's
+// category and a summary of two lines, and each Health Content post a review date. The Activity's
 // participants run to many lines, so its left column outlasts the picture on a 1440 × 900 window
 // and the picture follows it for a while.
 
@@ -549,7 +549,10 @@ test.beforeAll(async () => {
 				: {},
 		);
 		pictured[template] = { ...post, alt, png };
-		plain[template] = await publishPost(template, "plain", content());
+		plain[template] = await publishPost(template, "plain", {
+			...content(),
+			...(template === "health_content" ? { reviewed_at: REVIEWED_AT } : {}),
+		});
 	}
 });
 
@@ -631,8 +634,10 @@ test("a News, an Activity and a Health Content post open on the deep field: the 
 					"background-color",
 					"rgba(0, 0, 0, 0)",
 				);
-				// Staff's line break keeps the summary's second line.
-				expect((await shownLines(summary)).lines, `${label}: the summary's two lines`).toBe(2);
+				// Staff's line break keeps the summary's second line; at 1440 px each line fits.
+				if (viewport === DESKTOP_VIEWPORT) {
+					expect((await shownLines(summary)).lines, `${label}: the summary's two lines`).toBe(2);
+				}
 			} else {
 				await expect(pill, `${label}: no category`).toHaveCount(0);
 			}
