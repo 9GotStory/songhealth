@@ -111,9 +111,15 @@ and why, and `.jscpd-baseline.json` records them.
   piece that two pages need moves into `src/components/` or `src/lib/`. So does a page's title
   that another page shows as a crumb or link: one constant in its section's module, as
   `HEALTH_CONTENT_TITLE` is.
-- CMS images go through EmDash's `Image` with a `sizes` that matches their box. Image size
-  evidence from the development runtime shows renditions that production does not serve
-  (ADR 0003).
+- CMS images go through EmDash's `Image` with a `sizes` that matches their box, in plain lengths
+  (rem, px, vw), the ones the suites' `expectPictureFillsBox` reads (#285 retro: a `calc()` read
+  as NaN). Image size evidence from the development runtime shows renditions that production does
+  not serve (ADR 0003).
+- A utility that changes with the width steps up with min-width variants alone, such as
+  `pb-20 lg:pb-12`. Tailwind 4.3.3 writes a `max-*` variant's rules before the breakpoint
+  variants' rules in the built stylesheet, so on one property a `max-lg:` loses to a `sm:` (#285
+  retro: `pb-10 sm:pb-12 max-lg:pb-20` gave 48 px at 1,023 px where 80 was meant). A `max-*` variant fits a property no breakpoint variant also
+  sets, such as `max-sm:hidden`.
 - A CMS image or file is shown only while `src/lib/media.ts` (`availableMedia`,
   `downloadableFile`) says its media can be served, because Admin can delete a media item that
   content still uses. A rich-text body goes through `availableBody` before EmDash's
