@@ -35,10 +35,12 @@
 // stay readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190 comment 6707205912). The
 // picture is decorative, because the title names the link, and covers its box from its middle, or
 // around its focal point (docs/design/DESIGN.md §7.3). The picture takes no placeholder: EmDash
-// writes the blurhash placeholder and the focal point's `object-position` as one inline
-// declaration browsers drop, so with it the crop stays on the middle (docs/agents/emdash-1.1.0.md
-// "Media"; Product Owner, 2026-11-14: #284 comment 6870867641, item 2; the other components:
-// #298).
+// writes the blurhash placeholder, which has no closing `;`, and the focal point's
+// `object-position` as one inline declaration browsers drop, so with it the crop stays on the
+// middle (emdash 1.1.0 src/components/EmDashImage.astro resolveImage;
+// @unpic/placeholder/dist/index.js blurhashToImageCssString, version 0.1.2;
+// docs/agents/emdash-1.1.0.md "Media"; Product Owner, 2026-11-14: #284 comment 6870867641,
+// item 2; the other components: #298).
 //
 // Images go through EmDash's Image component (emdash 1.1.0 src/components/EmDashImage.astro). It
 // gives a responsive srcset where Astro's image service may transform the media, which is the

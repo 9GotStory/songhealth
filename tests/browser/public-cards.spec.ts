@@ -600,6 +600,51 @@ test.describe("native navigation without JavaScript", () => {
 	});
 });
 
+/**
+ * Fail unless a press on `card`'s lower corner, and Enter on its link, each open `fixture` at
+ * `path`, from the page at `list`.
+ */
+async function expectLowerCornerAndEnter(
+	page: Page,
+	list: string,
+	card: Locator,
+	fixture: DraftFixture,
+	path: string,
+) {
+	await page.goto(list);
+	await card.scrollIntoViewIfNeeded();
+	const box = await boxOf(card, "the card");
+	await card.click({ position: { x: box.width - 8, y: box.height - 8 } });
+	await expectCardDestination(page, path, fixture);
+	await page.goto(list);
+	await card.getByRole("link", { name: fixture.title, exact: true }).press("Enter");
+	await expectCardDestination(page, path, fixture);
+}
+
+// Until the describe below, the suite's newest News and Health Content, `news` and `health`, lead
+// the lists as the large card, without a picture (Feature 009 #284).
+for (const width of [375, 1440]) {
+	for (const { name, list, collection } of newsLists) {
+		test(`the large card of ${name} without a picture opens by one link named by its title from the tile of its visual, its lower corner and Enter, at ${width} px`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height: 900 });
+			const fixture = collection === "news" ? news : health;
+			const path = `${collection === "news" ? "/news" : "/health/content"}/${fixture.slug}`;
+			await page.goto(list);
+			const card = listedItem(page, fixture.title);
+			await expect(page.getByRole("main").getByRole("article").first()).toHaveText(
+				new RegExp(RegExp.escape(fixture.title)),
+			);
+			await expect(card.getByTestId("news-surface"), "no small card's surface").toHaveCount(0);
+			await expectWholeCardLink(page, card, fixture.title, 2);
+			await clickCardSurface(page, card.getByTestId("news-visual").locator("span"));
+			await expectCardDestination(page, path, fixture);
+			await expectLowerCornerAndEnter(page, list, card, fixture, path);
+		});
+	}
+}
+
 // Last in the suite: these items are newer than every other fixture, so from here on they lead the
 // News lists and Health Content as the large card (Feature 009 #284; spec #280 "The cards").
 test.describe("the large card", () => {
@@ -680,6 +725,7 @@ test.describe("the large card", () => {
 					await clickCardSurface(page, part);
 					await expectCardDestination(page, path, fixture);
 				}
+				await expectLowerCornerAndEnter(page, list, card, fixture, path);
 
 				await page.emulateMedia({ reducedMotion: "no-preference" });
 				await page.goto(list);

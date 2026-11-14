@@ -1823,11 +1823,14 @@ export function testListCards(list: ListCards): void {
 		await expect(image).toHaveCSS("object-fit", "cover");
 		await expect(image, "the picture's middle").toHaveCSS("object-position", "50% 50%");
 
-		for (const [width, size] of [
-			[1440, "24px"],
-			[640, "24px"],
-			[639, "18px"],
-			[375, "18px"],
+		for (const [width, size, labelPlace] of [
+			// The label, a synthetic term's (the fixture mark, the word and a unique ending, about 250 px
+			// wide), sits beside the date where the line holds both and under it at a phone's width.
+			[1440, "24px", "beside"],
+			[640, "24px", "beside"],
+			[639, "18px", "beside"],
+			[375, "18px", "under"],
+			[320, "18px", "under"],
 		] as const) {
 			await page.setViewportSize({ width, height: 900 });
 			await expectImageLoaded(image, `the large card's picture at ${width} px`);
@@ -1859,15 +1862,24 @@ export function testListCards(list: ListCards): void {
 			await expectStacked(`the large card at ${width} px`, parts);
 			const pill = await boxOf(datePill, "the date's pill");
 			const label = await boxOf(labelPill, "the label's pill");
-			// A label too long for the date's line goes on the next one.
-			const beside =
-				Math.abs(label.y + label.height / 2 - (pill.y + pill.height / 2)) < 1 &&
-				label.x >= pill.x + pill.width;
-			const under = label.y >= pill.y + pill.height - 1 && Math.abs(label.x - pill.x) < 1;
-			expect(
-				beside || under,
-				`the label follows the date, beside it or under it at ${width} px`,
-			).toBe(true);
+			// A label too long for the date's line goes on the next one, where the date starts.
+			if (labelPlace === "beside") {
+				expect(label.x, `the label after the date at ${width} px`).toBeGreaterThanOrEqual(
+					pill.x + pill.width,
+				);
+				expect(label.y + label.height / 2, `the label beside the date at ${width} px`).toBeCloseTo(
+					pill.y + pill.height / 2,
+					0,
+				);
+			} else {
+				expect(label.y, `the label under the date at ${width} px`).toBeGreaterThanOrEqual(
+					pill.y + pill.height - 1,
+				);
+				expect(label.x, `the label starts where the date does at ${width} px`).toBeCloseTo(
+					pill.x,
+					0,
+				);
+			}
 			expect(
 				(await boxOf(title, "the title")).y,
 				`the title under the label at ${width} px`,

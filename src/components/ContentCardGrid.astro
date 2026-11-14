@@ -50,7 +50,7 @@ const large = firstPageLargeCard(entries.length, { page, narrowed });
  * `lg` its columns and rows; its picture's width; and its least height, 300 px, 380 px from `sm`
  * and from `lg` by the count.
  */
-const lead = large && {
+const largeCell = large && {
 	cell: [
 		"sm:col-span-2",
 		large.columnsFromLg === 3 && "lg:col-span-3",
@@ -67,12 +67,12 @@ const lead = large && {
 
 <ul class="grid gap-3.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
 	{entries.map((entry, index) => {
-		const leads = index === 0 ? lead : undefined;
+		const cell = index === 0 ? largeCell : undefined;
 		return (
-			<li class:list={["scroll-reveal min-w-0", leads?.cell]}>
+			<li class:list={["scroll-reveal min-w-0", cell?.cell]}>
 				<ContentCard
 					kind="list"
-					large={leads !== undefined}
+					large={cell !== undefined}
 					href={pathOf(entry.id)}
 					title={entry.data.title}
 					label={termsOf(entry.data, labelTaxonomy)[0]?.label}
@@ -81,8 +81,8 @@ const lead = large && {
 					image={entry.data.featured_image}
 					icon={icon}
 					eager={index < FIRST_ROW}
-					sizes={leads?.sizes}
-					class={leads?.height}
+					sizes={cell?.sizes}
+					class={cell?.height}
 				/>
 			</li>
 		);

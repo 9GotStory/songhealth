@@ -262,13 +262,14 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   `src/components/EmDashImage.astro` `resolveImage`), so a picture cropped with
   `object-fit: cover` centres on it; without one, CSS's initial `object-position`, `50% 50%`,
   centres the crop. With the blurhash placeholder (above) the focal point is lost too:
-  `resolveImage` joins the placeholder's declaration, which has no closing `;`, and
+  `resolveImage` joins the placeholder's declaration (`@unpic/placeholder/dist/index.js`
+  `blurhashToImageCssString`), which has no closing `;`, and
   `object-position: <x>% <y>%;` with a space, and the browser drops the whole run as one invalid
   declaration. On the development runtime at `66e9ad4`, a News saved with `focalX` 0.25 and
   `focalY` 0.75 kept them in the API, and its `<img>` on `/news`, its post and `/` held a `style`
   of the placeholder's `background` followed by `object-position: 25% 75%;` and computed
-  `object-position: 50% 50%` (#284 comment 6870867641). So `./src/components/ContentCard.astro` takes `placeholder={false}` and crops around
-  a focal point; `./src/components/ActivityPhotos.astro`, `./src/components/ActivityCard.astro`
+  `object-position: 50% 50%` (#284 comment 6870867641). So `./src/components/ContentCard.astro`
+  takes `placeholder={false}` and crops around a focal point; `./src/components/ActivityPhotos.astro`, `./src/components/ActivityCard.astro`
   and the other components that keep the placeholder crop on the middle until #298.
 - For a value with a size, `Image` renders Astro's `<Image layout="constrained">`, which marks the
   image `data-astro-image-fit="cover"` (`astro/dist/assets/internal.js`). Astro 7.3.5 adds the CSS
