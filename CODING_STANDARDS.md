@@ -183,6 +183,12 @@ and why, and `.jscpd-baseline.json` records them.
   320 px ran onto two lines). The assertion reads the spec's own word: "at its foot" is less room
   under the text than above it, where a stricter stand-in such as "in the lower half" fails at
   320 px on a card the spec allows (#284 retro: it cost a 24-minute repeat run).
+- A fixture's label carries `SYNTHETIC_FIXTURE_MARK` before its words and a suffix after them,
+  some 33 characters more than a real label, so a row of such labels can wrap where real ones
+  would not. A
+  measure between parts that a wrap may separate, such as the space between two chips, reads
+  across rows as well as along one (#286 retro: two chips wrapped at 640 px and a "share a row"
+  assertion failed).
 - The migration script is temporary and reads one known export (ADR 0008). A shape the export does
   not hold needs no rule or edge test of its own: it reaches the report or stops the plan, so no
   content disappears unreported. Review lists any other edge that only such a shape reaches as

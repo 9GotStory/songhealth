@@ -84,6 +84,15 @@ When the pinned version changes, re-verify every line and rename this file:
   hover still shows `:focus-visible` styles, such as `focus-ring-banded`'s band. Blur the link
   before reading what the pointer alone does. Observed on the runtime (#283).
 
+## Locators
+
+- **A `has` locator is found inside the element it filters.** `filter({ has })` and
+  `locator(…, { has })` match an element that holds `has`, which is queried from that element
+  (the types, the `has` option: "Inner locator **must be relative** to the outer locator"). One
+  built from a scope above it, such as `page.getByRole("main").getByRole("link")`, looks for a
+  `main` inside the element and matches nothing, so the call waits out the test's timeout. Build
+  it from `page`. Observed on the runtime (#286: a chips list filtered by a link from `main`).
+
 ## Computed styles
 
 - **A border of 1.5 px reads 1px.** The bundled Chromium draws a border on whole CSS pixels at a
