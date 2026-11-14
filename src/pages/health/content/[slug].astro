@@ -5,7 +5,9 @@
 // picture, body and source, and its Health Topics linking to the list each one filters (#51 user
 // story 44). The next review date is for staff and is not shown (`02` §7). From lg it reads beside
 // its picture, as a News page does (Feature 006 #147; spec #144 "Post pages: News, Activity and
-// Health Content"; src/components/PostColumns.astro).
+// Health Content"; src/components/PostColumns.astro). Its header, with its breadcrumb, lies on the
+// deep field, so the page gives the shell no crumbs (Feature 009 #285;
+// src/components/PostHeader.astro).
 //
 // getEmDashEntry returns the published entry, or the draft when the request carries a valid
 // signed preview token for it (emdash 1.1.0 src/query.ts resolveEmDashEntry). Anything else
@@ -45,7 +47,6 @@ const topics = termsOf(content, "topic");
 	section="health"
 	description={content.summary}
 	canonical={healthContentPath(entry.id)}
-	crumbs={[{ label: HEALTH_CONTENT_TITLE, href: HEALTH_CONTENT_PATH }, { label: content.title }]}
 	entry={{
 		collection: "health_content",
 		id: content.id,
@@ -54,17 +55,26 @@ const topics = termsOf(content, "topic");
 	}}
 	noindex={isPreview}
 >
-	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
+	<article class="pb-16 lg:pb-20">
 		<PostColumns image={content.featured_image}>
-			<PostHeader title={content.title} summary={content.summary} publishedAt={content.publishedAt}>
+			<PostHeader
+				slot="header"
+				section="health"
+				crumbs={[
+					{ label: HEALTH_CONTENT_TITLE, href: HEALTH_CONTENT_PATH },
+					{ label: content.title },
+				]}
+				title={content.title}
+				summary={content.summary}
+				publishedAt={content.publishedAt}
+			>
 				{content.reviewed_at && (
-					<p class="text-small text-text-secondary">
+					<p class="text-small">
 						ทบทวนล่าสุด <DateText value={content.reviewed_at} />
 					</p>
 				)}
 			</PostHeader>
 			<PostBody
-				slot="body"
 				body={content.body}
 				source={content.source_text}
 				topics={topics}

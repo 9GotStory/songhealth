@@ -5,30 +5,37 @@
 // title, as an Activity post does (grill Q14), so a story told only in its One Page still reaches a
 // citizen who cannot see the picture.
 //
-// From lg, 1024 px, a post with a picture reads in two columns: on the left what the page has, in
-// its order, and on the right the picture whole with a "เปิดภาพขนาดเต็ม" link that opens its file.
-// The picture stays in view while the left column scrolls, and stops where the two columns end, so
-// it never covers what follows them, such as an Activity's photos. Below lg a post reads in one
-// column in its order: the header, then the picture and the body (News, Health Content), or the
-// details and then the picture (Activity). A post without a picture keeps one column. Each
-// template, with a picture and without, passes the axe, focus and reflow checks at the harness's
-// widths and at 375 px.
+// A post opens on the deep field (Feature 009 #285; spec #280 "Post page: the header", "Post page:
+// the picture", "Post page: the text"): its breadcrumb in white, a row of "เผยแพร่" and the date in
+// an accent-warm pill and a News item's category in an outlined white pill, the title as the one
+// H1, the summary and Health Content's review date. Its picture shows whole in a white frame with a
+// "เปิดภาพขนาดเต็ม" link that opens its file. From lg, 1024 px, a post with a picture reads in two
+// columns: the text column on the left and the frame's 28 rem column on the right, the frame
+// starting on the field and staying in view while the text scrolls, stopping where the two columns
+// end, so it never covers what follows them, such as an Activity's photos. Below lg a post reads in
+// one column: the header on the field, the frame over the field's lower edge, then the text, an
+// Activity's details card first (Product Owner, 2026-11-14: #285 comment 6877659654, item 1). A
+// post without a picture keeps one column. The header rises in as the page opens and the frame
+// after it, only where motion is allowed. Each template, with a picture and without, passes the
+// axe, focus and reflow checks at the harness's widths and at 375 px.
 //
 // A News or Health Content post ends with what it holds (#198; spec #190 "Empty trailing content
 // on News/Health Content Post pages", #190 comment 6707205912, Empty Post page row B): its body,
-// its source and its Health Topics show only when it has them, in that order, at least 2 rem under
-// what comes before them, and a post with none of the three ends with its header, or with its
-// picture's link where the picture is the taller, with no empty row after it. Each case (none,
-// each alone, all three) is checked with a picture and without, at 320, 375 and 1023 px in one
-// column and at 1024 and 1440 px in two. A post whose long summary makes its header taller than
-// its picture shows where the empty row was, and its picture stops where its header ends.
+// its source and its Health Topics show only when it has them, in that order, 2 rem apart and the
+// first 32 px under the field below lg and 40 px from lg, or 32 px under the frame where the frame
+// comes before it (#285 comment 6877659654, item 2); a post with none of the three ends with its
+// field, or with its frame where the frame is the taller, with no empty row after it. Each case
+// (none, each alone, all three) is checked with a picture and without, at 320, 375 and 1023 px in
+// one column and at 1024 and 1440 px in two. A post whose long summary makes its header taller
+// than its picture shows where the empty row was, and its frame stops where its field ends.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
-// harness. Its fixtures are synthetic News, Activities and Health Content and a Health Topic made
-// through the native API and removed afterwards, each post with a summary, and those with a
-// picture carry a portrait A4 stand-in for a One Page. The Activity's participants run to many
-// lines, so its left column outlasts the picture on a 1440 × 900 window and the picture follows it
-// for a while.
+// harness. Its fixtures are synthetic News, Activities and Health Content, a News category and a
+// Health Topic made through the native API and removed afterwards, each post with a summary, and
+// those with a picture carry a portrait A4 stand-in for a One Page. The News with a picture has a
+// category and a summary of two lines, and each Health Content post a review date. The Activity's
+// participants run to many lines, so its left column outlasts the picture on a 1440 × 900 window
+// and the picture follows it for a while.
 
 import type { Locator, Page } from "@playwright/test";
 
@@ -37,6 +44,7 @@ import {
 	createSyntheticDraft,
 	devAdminActor,
 	gradientPng,
+	mintPreviewLink,
 	ONE_PAGE_SIZE,
 	portableTextBlock,
 	publishEntryAt,
@@ -51,8 +59,9 @@ import {
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
 	boxOf,
-	detailOf,
+	deepField,
 	expect,
+	expectFocusRingWhole,
 	expectImageLoaded,
 	entersAfter,
 	expectNoAxeViolations,
@@ -61,6 +70,8 @@ import {
 	expectStacked,
 	expectVisibleFocusOnEveryStop,
 	heldBack,
+	selfRunningEnds,
+	shownLines,
 	test,
 	testAccessibilityAndReflow,
 	tokenColor,
@@ -137,11 +148,43 @@ const LAYOUT_VIEWPORTS = [
 	DESKTOP_VIEWPORT,
 ];
 
-/** The width of the picture's column from lg, 28 rem. */
-const PICTURE_COLUMN = 448;
+/** The frame's column from lg, 28 rem, and the gap between it and the text column, 3 rem. */
+const FRAME_COLUMN = 448;
+const COLUMN_GAP = 48;
 
-/** The space above a post's first trailing part, 2 rem. */
+/** The text column's widest, 44 rem, beside the frame from lg. */
+const TEXT_COLUMN = 704;
+
+/** The frame's padding around the picture and its link. */
+const FRAME_PADDING = 10;
+
+/** From lg the frame starts 4.25 rem under the field's top; below lg 48 px above its lower edge. */
+const FRAME_FROM_FIELD_TOP = 68;
+const FRAME_OVER_EDGE = 48;
+
+/** The frame's widest below lg, 48 rem. */
+const FRAME_WIDEST = 768;
+
+/** The space between a post's trailing parts, 2 rem. */
 const TRAILING_GAP = 32;
+
+/** How far under the field a post's text starts, below lg and from lg. */
+const TEXT_UNDER_FIELD = { belowLg: 32, fromLg: 40 };
+
+/** How far under the frame a post's text starts below lg, where the frame comes before it. */
+const TEXT_UNDER_FRAME = 32;
+
+/** How far the field reaches under its header, below `sm` and from `sm`; below lg with a frame. */
+const FIELD_UNDER_HEADER = { belowSm: 40, fromSm: 48, withFrame: 80 };
+
+/** The header's widest, 48 rem, the breadcrumb's with it. */
+const HEADER_WIDEST = 768;
+
+/** The breadcrumb's accessible name (Breadcrumb.astro). */
+const BREADCRUMB = "เส้นทางนำทาง";
+
+/** The page's gutter beside its column, below `sm` and from `sm`. */
+const gutterAt = (width: number) => (width < 640 ? 16 : 24);
 
 /** When the Health Content fixtures were last reviewed, so their header ends with ทบทวนล่าสุด. */
 const REVIEWED_AT = "2026-09-23T17:30:00.000Z";
@@ -184,6 +227,8 @@ interface TrailingPost extends Post {
 }
 
 let admin: CmsActor;
+/** The category of the News with a picture. */
+let category: SyntheticTerm;
 /** Each template's post with a One Page as its picture; the Activity's has photos too. */
 const pictured = {} as Record<Template, PicturedPost>;
 /** Each template's post without a picture. */
@@ -224,7 +269,22 @@ const pictureOf = (page: Page, picture: Picture) =>
 const titleOf = (page: Page, post: Post) =>
 	page.getByRole("main").getByRole("heading", { level: 1, name: post.title });
 
-/** A post's picture and its เปิดภาพขนาดเต็ม link, and the two as named parts in their order. */
+/** The white frame that holds a post's picture and its เปิดภาพขนาดเต็ม link, a part with no role. */
+const frameOf = (page: Page) => page.getByTestId("picture-frame");
+
+/** The page's breadcrumb, on the field. */
+const breadcrumbOf = (page: Page) => deepField(page).getByRole("navigation", { name: BREADCRUMB });
+
+/** An Activity's photos, which follow the columns, as a part to place; none for another kind. */
+const photosOf = (page: Page, template: Template): NamedPart[] =>
+	template === "activities"
+		? [["the photos", page.getByRole("main").getByRole("region", { name: "ภาพกิจกรรม" })]]
+		: [];
+
+/**
+ * A post's picture, its เปิดภาพขนาดเต็ม link and the frame that holds them, and the picture and the
+ * link as named parts in their order.
+ */
 function pictureParts(page: Page, picture: Picture) {
 	const shown = pictureOf(page, picture);
 	const link = page.getByRole("main").getByRole("link", { name: FULL_SIZE });
@@ -232,7 +292,61 @@ function pictureParts(page: Page, picture: Picture) {
 		["the picture", shown],
 		[FULL_SIZE, link],
 	];
-	return { shown, link, named };
+	return { shown, link, frame: frameOf(page), named };
+}
+
+/**
+ * Fail unless, as the page is laid out now, `frame` is white with its corners of 24 px and its
+ * shadow, and holds `picture`, whose corners are 18 px, 10 px inside it, and under the picture the
+ * เปิดภาพขนาดเต็ม link. Gives the frame's box.
+ */
+async function expectFramed(
+	page: Page,
+	frame: Locator,
+	picture: Locator,
+	label: string,
+): Promise<Box> {
+	await expect(frame, `${label}: the white frame`).toHaveCSS(
+		"background-color",
+		await tokenColor(page, "surface-base"),
+	);
+	await expect(frame, `${label}: the frame's corners`).toHaveCSS("border-top-left-radius", "24px");
+	// The deep shadow (DESIGN.md §3.1), after Tailwind's empty ring and inset layers.
+	await expect(frame, `${label}: the frame's deep shadow`).toHaveCSS(
+		"box-shadow",
+		/rgba\(13, 46, 36, 0\.35\) 0px 30px 60px -20px$/,
+	);
+	await expect(picture, `${label}: the picture's corners`).toHaveCSS(
+		"border-top-left-radius",
+		"18px",
+	);
+	await expectPictureFillsBox(picture, label);
+	const box = await boxOf(frame, `${label}: the frame`);
+	const shown = await boxOf(picture, `${label}: the picture`);
+	const link = await boxOf(
+		frame.getByRole("link", { name: FULL_SIZE }),
+		`${label}: ${FULL_SIZE} in the frame`,
+	);
+	expect(shown.x - box.x, `${label}: the picture 10 px inside the frame`).toBeCloseTo(
+		FRAME_PADDING,
+		0,
+	);
+	expect(shown.y - box.y, `${label}: the picture 10 px under the frame's top`).toBeCloseTo(
+		FRAME_PADDING,
+		0,
+	);
+	expect(shown.width, `${label}: the picture fills the frame's width`).toBeCloseTo(
+		box.width - 2 * FRAME_PADDING,
+		0,
+	);
+	expect(link.y, `${label}: ${FULL_SIZE} under the picture`).toBeGreaterThanOrEqual(
+		shown.y + shown.height - 0.5,
+	);
+	expect(
+		link.y + link.height,
+		`${label}: ${FULL_SIZE} inside the frame, 10 px above its foot`,
+	).toBeCloseTo(box.y + box.height - FRAME_PADDING, 0);
+	return box;
 }
 
 /**
@@ -306,52 +420,52 @@ async function scrolledBoxes(
 }
 
 /**
- * Scroll the page through at 1440 px and fail unless `picture` stays in view, below the sticky
- * header, while the left column
- * scrolls (its `title` above the window and its last part, `end`, below it), as it does at some
- * offsets, and its link never passes the bottom of `end`, where the two columns end, and stops
- * there. Gives the boxes at each offset of the picture, its link and each of `more`.
+ * Scroll the page through at 1440 px and fail unless the frame of the picture stays in view,
+ * 1.5 rem below the sticky header, while the left column scrolls (its `title` above the window and
+ * its last part, `end`, below it), as it does at some offsets, and the frame never passes the
+ * bottom of `end`, where the two columns end, and stops there. Gives the boxes at each offset of
+ * the frame and each of `more`.
  */
-async function expectPictureFollows(
+async function expectFrameFollows(
 	page: Page,
-	picture: Locator,
 	title: Locator,
 	end: Locator,
 	more: Locator[] = [],
-): Promise<Array<{ at: number; picture: Box; link: Box; more: Box[] }>> {
+): Promise<Array<{ at: number; frame: Box; more: Box[] }>> {
 	const windowHeight = DESKTOP_VIEWPORT.height;
 	// The sticky header covers the top of the window (#240).
 	const headerHeight = (await page.getByRole("banner").boundingBox())!.height;
-	const link = page.getByRole("main").getByRole("link", { name: FULL_SIZE });
-	const offsets = await scrolledBoxes(page, [picture, link, title, end, ...more]);
+	const offsets = await scrolledBoxes(page, [frameOf(page), title, end, ...more]);
 	const outOfView: string[] = [];
 	const pastTheEnd: string[] = [];
 	let following = 0;
+	let stuck = 0;
 	let stopped = 0;
 	for (const {
 		at,
-		boxes: [shown, linkBox, titleBox, endBox],
+		boxes: [frame, titleBox, endBox],
 	} of offsets) {
-		const linkBottom = linkBox!.y + linkBox!.height;
+		const frameBottom = frame!.y + frame!.height;
 		const endBottom = endBox!.y + endBox!.height;
-		if (linkBottom > endBottom + 0.5)
-			pastTheEnd.push(`at ${at} px: by ${linkBottom - endBottom} px`);
-		if (Math.abs(linkBottom - endBottom) <= 0.5) stopped += 1;
+		if (frameBottom > endBottom + 0.5)
+			pastTheEnd.push(`at ${at} px: by ${frameBottom - endBottom} px`);
+		if (Math.abs(frameBottom - endBottom) <= 0.5) stopped += 1;
 		if (titleBox!.y + titleBox!.height < 0 && endBottom > windowHeight) {
 			following += 1;
-			if (shown!.y < headerHeight || shown!.y + shown!.height > windowHeight) {
-				outOfView.push(`at ${at} px: from ${shown!.y} to ${shown!.y + shown!.height}`);
+			if (frame!.y < headerHeight || frameBottom > windowHeight) {
+				outOfView.push(`at ${at} px: from ${frame!.y} to ${frameBottom}`);
 			}
+			if (Math.abs(frame!.y - headerHeight - 24) <= 0.5) stuck += 1;
 		}
 	}
 	expect(following, "the left column scrolls past the window at some offsets").toBeGreaterThan(0);
-	expect(outOfView, "the picture stays in view while the left column scrolls").toEqual([]);
-	expect(pastTheEnd, "the picture's link never passes the end of the left column").toEqual([]);
-	expect(stopped, "the picture's link stops at the end of the left column").toBeGreaterThan(0);
-	return offsets.map(({ at, boxes: [shown, linkBox, , , ...moreBoxes] }) => ({
+	expect(outOfView, "the frame stays in view while the left column scrolls").toEqual([]);
+	expect(stuck, "the frame stays 1.5 rem under the site's header").toBeGreaterThan(0);
+	expect(pastTheEnd, "the frame never passes the end of the left column").toEqual([]);
+	expect(stopped, "the frame stops at the end of the left column").toBeGreaterThan(0);
+	return offsets.map(({ at, boxes: [frame, , , ...moreBoxes] }) => ({
 		at,
-		picture: shown!,
-		link: linkBox!,
+		frame: frame!,
 		more: moreBoxes,
 	}));
 }
@@ -379,20 +493,28 @@ async function spaceAfter(page: Page, parts: NamedPart[], label: string): Promis
 }
 
 /**
- * A post's header as it reads: the title, the summary, the publication date and, on Health
- * Content, the review date.
+ * A post's header as it reads on its field: the publication date, the title, the summary and, on
+ * Health Content, the review date.
  */
-function headerOf(page: Page, post: TrailingPost): NamedPart[] {
-	const main = page.getByRole("main");
+function headerOf(page: Page, post: Post, template: Template): NamedPart[] {
+	const field = deepField(page);
 	const header: NamedPart[] = [
-		["the title", titleOf(page, post)],
-		["the summary", main.getByText(post.summary, { exact: true })],
-		["the date", main.getByText(/^เผยแพร่ /)],
+		["the date", field.getByText(/^เผยแพร่ /)],
+		["the title", field.getByRole("heading", { level: 1, name: post.title })],
+		["the summary", field.getByText(post.summary, { exact: true })],
 	];
-	if (post.template === "health_content") {
-		header.push(["the review date", main.getByText(/^ทบทวนล่าสุด /)]);
+	if (template === "health_content") {
+		header.push(["the review date", field.getByText(/^ทบทวนล่าสุด /)]);
 	}
 	return header;
+}
+
+/** A post's text after its header and frame, as `expectStacked` reads it: its first part. */
+function textOf(page: Page, template: Template): NamedPart {
+	const main = page.getByRole("main");
+	return template === "activities"
+		? ["the details", main.locator("dl")]
+		: ["the body", main.getByText(BODY, { exact: true })];
 }
 
 /** What each trailing part shows, in its order: the topic's are its heading, then its list. */
@@ -415,6 +537,7 @@ test.use({ viewport: DESKTOP_VIEWPORT });
 
 test.beforeAll(async () => {
 	admin = await devAdminActor();
+	category = await createOwnedTerm(admin, "news_category", "ประชาสัมพันธ์", ownedTerms);
 	const photos = [];
 	for (const number of [1, 2, 3, 4]) {
 		const caption = `${SYNTHETIC_FIXTURE_MARK} ภาพกิจกรรมที่ ${number}`;
@@ -428,61 +551,285 @@ test.beforeAll(async () => {
 		const { kind, content } = TEMPLATES[template];
 		const alt = `${SYNTHETIC_FIXTURE_MARK} ภาพ One Page ${kind}`;
 		const png = gradientPng(colours[0], colours[1], ONE_PAGE_SIZE);
-		const post = await publishPost(template, "pictured", {
-			...content(),
-			featured_image: { id: await uploadSyntheticPicture(admin, alt, png) },
-			...(template === "activities" ? { gallery: photos } : {}),
-		});
+		const post = await publishPost(
+			template,
+			"pictured",
+			{
+				...content(),
+				featured_image: { id: await uploadSyntheticPicture(admin, alt, png) },
+				...(template === "activities" ? { gallery: photos } : {}),
+				...(template === "health_content" ? { reviewed_at: REVIEWED_AT } : {}),
+			},
+			template === "news"
+				? {
+						summary: `${SYNTHETIC_FIXTURE_MARK} สรุปข่าวบรรทัดแรก\n${SYNTHETIC_FIXTURE_MARK} บรรทัดที่สอง`,
+						taxonomies: { news_category: [category.slug] },
+					}
+				: {},
+		);
 		pictured[template] = { ...post, alt, png };
-		plain[template] = await publishPost(template, "plain", content());
+		plain[template] = await publishPost(template, "plain", {
+			...content(),
+			...(template === "health_content" ? { reviewed_at: REVIEWED_AT } : {}),
+		});
 	}
 });
 
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
-test("a News post and a Health Content post show their summary under the title, above its dates, at 375 and 1440 px", async ({
+test("a News, an Activity and a Health Content post open on the deep field: the breadcrumb in white, 24 px under it เผยแพร่ and the date in an accent-warm pill beside a News item's category in an outlined white pill, the title as the page's one H1, the summary with its line breaks and Health Content's ทบทวนล่าสุด, in that order, each on the field in surface-base, at 375 and 1440 px; a part the post lacks is left out", async ({
 	page,
 }) => {
-	for (const template of ["news", "health_content"] as const) {
-		const post = pictured[template];
-		for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
-			await page.setViewportSize(viewport);
-			await page.goto(post.path);
-			const main = page.getByRole("main");
-			await expectStacked(`${post.title} at ${viewport.width} px`, [
-				["the title", main.getByRole("heading", { level: 1, name: post.title })],
-				["the summary", main.getByText(post.summary, { exact: true })],
-				["the date", main.getByText(/^เผยแพร่ /)],
-			]);
-		}
-	}
-});
-
-test("at 1440 px a News, an Activity and a Health Content post with a picture show it whole on the right of the title, the rest of the text under the header, and เปิดภาพขนาดเต็ม opens its file", async ({
-	page,
-}) => {
+	const colours = {} as Record<"white" | "warm" | "dark", string>;
 	for (const template of ALL_TEMPLATES) {
 		const post = pictured[template];
-		const label = `${post.title} at 1440 px`;
 		await page.goto(post.path);
-		const main = page.getByRole("main");
-		// The left column goes on in the page's order: the details card, or the body and its source.
-		const rest: NamedPart[] =
-			template === "activities"
-				? [["the details", main.locator("dl")]]
-				: [
-						["the body", main.getByText(BODY, { exact: true })],
-						["the source", main.getByText(`แหล่งที่มา: ${SOURCE}`, { exact: true })],
-					];
-		await expectPictureBeside(
-			pictureOf(page, post),
-			main.getByRole("heading", { level: 1 }),
-			rest,
-			label,
-		);
-		await expectStacked(label, [["the date", main.getByText(/^เผยแพร่ /)], ...rest]);
-		await expectFullSizeOpens(page, post.png, label);
+		colours.white ??= await tokenColor(page, "surface-base");
+		colours.warm ??= await tokenColor(page, "accent-warm");
+		colours.dark ??= await tokenColor(page, "brand-dark");
+		const field = deepField(page);
+		const breadcrumb = breadcrumbOf(page);
+		const header = headerOf(page, post, template);
+		const [[, date], [, title], [, summary]] = header;
+		const pill = field.getByText(category.label, { exact: true });
+		await expect(page.getByRole("heading", { level: 1 }), `${template}: one H1`).toHaveCount(1);
+		for (const viewport of [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+			await page.setViewportSize(viewport);
+			const label = `${post.title} at ${viewport.width} px`;
+			await expectStacked(label, [["the breadcrumb", breadcrumb], ...header]);
+			const fieldBox = await boxOf(field, `${label}: the field`);
+			for (const [name, part] of [["the breadcrumb", breadcrumb] as const, ...header]) {
+				const box = await boxOf(part, `${label}: ${name}`);
+				expect(box.y, `${label}: ${name} starts on the field`).toBeGreaterThanOrEqual(fieldBox.y);
+				expect(box.y + box.height, `${label}: ${name} ends on the field`).toBeLessThanOrEqual(
+					fieldBox.y + fieldBox.height,
+				);
+			}
+			const crumbs = await boxOf(breadcrumb, `${label}: the breadcrumb`);
+			expect(
+				(await boxOf(date, `${label}: the date`)).y - crumbs.y - crumbs.height,
+				`${label}: the date's row 24 px under the breadcrumb`,
+			).toBeCloseTo(24, 0);
+			for (const [name, part] of [
+				["the breadcrumb's current page", breadcrumb.locator('[aria-current="page"]')],
+				["a breadcrumb's link", breadcrumb.getByRole("link").first()],
+				...header.slice(1),
+			] as const) {
+				await expect(part, `${label}: ${name} in surface-base`).toHaveCSS("color", colours.white);
+			}
+			await expect(date, `${label}: the date's accent-warm pill`).toHaveCSS(
+				"background-color",
+				colours.warm,
+			);
+			await expect(date, `${label}: the date in brand-dark`).toHaveCSS("color", colours.dark);
+			await expect(date, `${label}: the date at 13 px`).toHaveCSS("font-size", "13px");
+			await expect(date, `${label}: the date's 20 px line`).toHaveCSS("line-height", "20px");
+			await expect(date, `${label}: the date semibold`).toHaveCSS("font-weight", "600");
+			if (template === "news") {
+				const dateBox = await boxOf(date, `${label}: the date`);
+				const pillBox = await boxOf(pill, `${label}: the category`);
+				// The category follows the date on its row, or, too long for what is left of it, on the
+				// next row 8 px under it.
+				if (Math.abs(pillBox.y - dateBox.y) <= 1) {
+					expect(pillBox.x, `${label}: the category after the date`).toBeGreaterThan(
+						dateBox.x + dateBox.width,
+					);
+				} else {
+					expect(pillBox.x, `${label}: the category starts the next row`).toBeCloseTo(dateBox.x, 0);
+					expect(
+						pillBox.y - dateBox.y - dateBox.height,
+						`${label}: the category's row 8 px under the date's`,
+					).toBeCloseTo(8, 0);
+				}
+				await expect(pill, `${label}: the category in surface-base`).toHaveCSS(
+					"color",
+					colours.white,
+				);
+				await expect(pill, `${label}: the category's outline`).toHaveCSS(
+					"border-top-style",
+					"solid",
+				);
+				await expect(pill, `${label}: the outline 1 px wide`).toHaveCSS("border-top-width", "1px");
+				// surface-base at 40 %, which the browser gives in oklab.
+				await expect(pill, `${label}: the outline white at 40 %`).toHaveCSS(
+					"border-top-color",
+					/^oklab\(0\.99\d* [-\d.e]+ [-\d.e]+ \/ 0\.4\)$/,
+				);
+				await expect(pill, `${label}: the category's pill is not filled`).toHaveCSS(
+					"background-color",
+					"rgba(0, 0, 0, 0)",
+				);
+				// Staff's line break keeps the summary's second line; at 1440 px each line fits.
+				if (viewport === DESKTOP_VIEWPORT) {
+					expect((await shownLines(summary)).lines, `${label}: the summary's two lines`).toBe(2);
+				}
+			} else {
+				await expect(pill, `${label}: no category`).toHaveCount(0);
+			}
+		}
+		// The title in today's sizes: H3 below 640 px, H2 from 640 px and H1 from 1,024 px.
+		for (const [width, size] of [
+			[639, "24px"],
+			[640, "34px"],
+			[1023, "34px"],
+			[1024, "46px"],
+		] as const) {
+			await page.setViewportSize({ width, height: 900 });
+			await expect(title, `${template}: the title at ${width} px`).toHaveCSS("font-size", size);
+		}
 	}
+	// A News item without a category shows the date alone on its row.
+	await page.goto(plain.news.path);
+	const date = deepField(page).getByText(/^เผยแพร่ /);
+	await expect(date.locator("xpath=.."), "the row holds the date alone").toHaveText(
+		(await date.textContent())!,
+	);
+	// A draft has no publication date and an Activity no category, so its preview has no row:
+	// its title follows the breadcrumb.
+	const draft = await createSyntheticDraft(admin, "activities", "กิจกรรม", "draft", {
+		data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปกิจกรรมฉบับร่าง` },
+	});
+	await page.goto((await mintPreviewLink(admin, "activities", draft.id)).toString());
+	const field = deepField(page);
+	await expect(field.getByRole("heading", { level: 1 }), "the draft's title").toHaveText(
+		draft.title,
+	);
+	await expect(field.getByText(/เผยแพร่/), "no publication date").toHaveCount(0);
+	const crumbs = await boxOf(breadcrumbOf(page), "the draft");
+	expect(
+		(await boxOf(field.getByRole("heading", { level: 1 }), "the draft's title")).y -
+			crumbs.y -
+			crumbs.height,
+		"the draft's title 24 px under the breadcrumb, with no row of pills between",
+	).toBeCloseTo(24, 0);
+});
+
+test("a Post page's field has the small glow in its upper right corner from 640 px and the phone glow below, no ring or other decoration, lower corners of 32 and 24 px, and reaches 48 px under the header from 640 px and 40 px below, or 80 px below 1,024 px where the frame follows; its focus ring is accent-warm, and the frame's link keeps the page's", async ({
+	page,
+}) => {
+	for (const [post, template, widths] of [
+		[plain.news, "news", [375, 639, 640, 1024, 1440]],
+		[pictured.news, "news", [375, 1023, 1024, 1440]],
+		[plain.health_content, "health_content", [375, 1440]],
+	] as const) {
+		await page.goto(post.path);
+		const field = deepField(page);
+		await expect(
+			field.locator(':scope > [aria-hidden="true"] > *'),
+			`${post.title}: no ring or other decoration`,
+		).toHaveCount(0);
+		const header = headerOf(page, post, template);
+		for (const width of widths) {
+			await page.setViewportSize({ width, height: 900 });
+			const label = `${post.title} at ${width} px`;
+			const glow = await field.evaluate((element) =>
+				getComputedStyle(element).getPropertyValue("--deep-field-glow").trim(),
+			);
+			expect(glow, `${label}: the field's glow`).toBe(
+				width < 640 ? "45% 18rem at 100% 0%" : "28% 12rem at 100% 0%",
+			);
+			for (const side of ["left", "right"]) {
+				await expect(field, `${label}: the field's lower corners`).toHaveCSS(
+					`border-bottom-${side}-radius`,
+					width < 640 ? "24px" : "32px",
+				);
+			}
+			const last = await boxOf(header.at(-1)![1], `${label}: the header's last part`);
+			const fieldBox = await boxOf(field, `${label}: the field`);
+			const room =
+				post === pictured.news && width < 1024
+					? FIELD_UNDER_HEADER.withFrame
+					: width < 640
+						? FIELD_UNDER_HEADER.belowSm
+						: FIELD_UNDER_HEADER.fromSm;
+			expect(
+				fieldBox.y + fieldBox.height - last.y - last.height,
+				`${label}: the field reaches ${room} px under the header`,
+			).toBeCloseTo(room, 0);
+		}
+	}
+
+	await page.setViewportSize(DESKTOP_VIEWPORT);
+	await page.goto(pictured.news.path);
+	const crumbs = breadcrumbOf(page).getByRole("link");
+	await expectFocusRingWhole(crumbs.first(), "the breadcrumb's first link");
+	await expect(crumbs.first(), "the field's focus ring").toHaveCSS(
+		"outline-color",
+		await tokenColor(page, "accent-warm"),
+	);
+	await crumbs.last().focus();
+	await page.keyboard.press("Tab");
+	const link = frameOf(page).getByRole("link", { name: FULL_SIZE });
+	await expect(link, "the keyboard goes from the breadcrumb to the frame's link").toBeFocused();
+	await expect(link, "the page's focus ring in the white frame").toHaveCSS(
+		"outline-color",
+		await tokenColor(page, "brand-primary"),
+	);
+	await expect(link, "a whole focus ring").toHaveCSS("outline-width", "3px");
+});
+
+test("from 1,024 px a News, an Activity and a Health Content post with a picture read in two columns: the text column at most 44 rem, 3 rem from the frame's 28 rem column; the frame, white with the picture whole 10 px inside it and เปิดภาพขนาดเต็ม under the picture, starts on the field 4.25 rem under its top, level with the date's row, and runs over the field's lower edge; the field is as high as the header, the text starts 40 px under it, and เปิดภาพขนาดเต็ม opens the picture's file", async ({
+	page,
+}) => {
+	let levelRead = 0;
+	for (const template of ALL_TEMPLATES) {
+		const post = pictured[template];
+		await page.goto(post.path);
+		const field = deepField(page);
+		const breadcrumb = breadcrumbOf(page);
+		const header = headerOf(page, post, template);
+		const text = textOf(page, template);
+		const { shown, frame } = pictureParts(page, post);
+		for (const width of [1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			const label = `${post.title} at ${width} px`;
+			await expectNoHorizontalScroll(page, label);
+			await expectPictureBeside(shown, header[1][1], [...header, text], label);
+			const box = await expectFramed(page, frame, shown, label);
+			// The breadcrumb spans the text column.
+			const crumbs = await boxOf(breadcrumb, `${label}: the text column`);
+			const fieldBox = await boxOf(field, `${label}: the field`);
+			expect(box.width, `${label}: the frame's 28 rem column`).toBeCloseTo(FRAME_COLUMN, 0);
+			expect(crumbs.width, `${label}: the text column`).toBeCloseTo(
+				Math.min(TEXT_COLUMN, width - 2 * gutterAt(width) - FRAME_COLUMN - COLUMN_GAP),
+				0,
+			);
+			expect(box.x - crumbs.x - crumbs.width, `${label}: 3 rem between the columns`).toBeCloseTo(
+				COLUMN_GAP,
+				0,
+			);
+			expect(box.y - fieldBox.y, `${label}: the frame 4.25 rem under the field's top`).toBeCloseTo(
+				FRAME_FROM_FIELD_TOP,
+				0,
+			);
+			// Level with the date's row where the breadcrumb takes one line; a breadcrumb that wraps
+			// moves the row down, and the frame keeps its place.
+			if (crumbs.height <= 20.5) {
+				levelRead += 1;
+				expect(
+					Math.abs((await boxOf(header[0][1], `${label}: the date`)).y - box.y),
+					`${label}: the frame level with the date's row`,
+				).toBeLessThanOrEqual(1);
+			}
+			expect(
+				box.y + box.height,
+				`${label}: the frame runs over the field's lower edge`,
+			).toBeGreaterThan(fieldBox.y + fieldBox.height);
+			const last = await boxOf(header.at(-1)![1], `${label}: the header's last part`);
+			expect(
+				fieldBox.y + fieldBox.height - last.y - last.height,
+				`${label}: the field as high as the header`,
+			).toBeCloseTo(FIELD_UNDER_HEADER.fromSm, 0);
+			expect(
+				(await boxOf(text[1], `${label}: ${text[0]}`)).y - fieldBox.y - fieldBox.height,
+				`${label}: ${text[0]} 40 px under the field`,
+			).toBeCloseTo(TEXT_UNDER_FIELD.fromLg, 0);
+		}
+		await expectFullSizeOpens(page, post.png, `${post.title} at 1440 px`);
+	}
+	expect(levelRead, "the frame read level with a one-line breadcrumb's date row").toBeGreaterThan(
+		0,
+	);
 });
 
 test("at 1440 px a post without a picture keeps one column, its text wider than beside a picture", async ({
@@ -498,70 +845,190 @@ test("at 1440 px a post without a picture keeps one column, its text wider than 
 		const alone = await textWidth(plain[template]);
 		const label = plain[template].title;
 		await expect(page.getByRole("main").getByRole("img"), `${label}: no picture`).toHaveCount(0);
+		await expect(frameOf(page), `${label}: no frame`).toHaveCount(0);
 		await expect(
 			page.getByRole("main").getByRole("link", { name: FULL_SIZE }),
 			`${label}: no ${FULL_SIZE}`,
 		).toHaveCount(0);
 		expect(alone, `${label}: the text keeps the one column's width`).toBeGreaterThan(beside + 1);
+		expect(
+			(await boxOf(breadcrumbOf(page), `${label}: the breadcrumb`)).width,
+			`${label}: the header, its breadcrumb with it, at most 48 rem wide`,
+		).toBeLessThanOrEqual(HEADER_WIDEST + 0.5);
 	}
 });
 
-test("while an Activity post with photos scrolls at 1440 px, its picture stays in view beside the details, stops where they end, and never overlaps the photos", async ({
+test("while an Activity post with photos scrolls at 1440 px, its frame stays in view beside the details, stops where they end, and never overlaps the photos, which follow the columns across the page", async ({
 	page,
 }) => {
 	const post = pictured.activities;
 	await page.goto(post.path);
 	const main = page.getByRole("main");
-	const picture = pictureOf(page, post);
-	await expectImageLoaded(picture, "the picture");
+	await expectImageLoaded(pictureOf(page, post), "the picture");
 	const photos = main.getByRole("region", { name: "ภาพกิจกรรม" });
 	const overlaps: string[] = [];
 	for (const {
 		at,
-		picture: shown,
-		link,
+		frame,
 		more: [photosBox],
-	} of await expectPictureFollows(
+	} of await expectFrameFollows(
 		page,
-		picture,
 		main.getByRole("heading", { level: 1 }),
 		// The details card, the end of the left column, which is the longer.
 		main.locator("dl"),
 		[photos],
 	)) {
-		if (overlap(shown, photosBox!)) overlaps.push(`the picture at ${at} px`);
-		if (overlap(link, photosBox!)) overlaps.push(`its link at ${at} px`);
+		if (overlap(frame, photosBox!)) overlaps.push(`the frame at ${at} px`);
 	}
-	expect(overlaps, "the picture and its link never overlap the photos").toEqual([]);
+	expect(overlaps, "the frame never overlaps the photos").toEqual([]);
+	await page.evaluate(() => window.scrollTo(0, 0));
+	const column = await boxOf(breadcrumbOf(page), "the text column");
+	const frame = await boxOf(frameOf(page), "the frame");
+	// The section spans the page's column with the gutter inside it.
+	const region = await boxOf(photos, "the photos");
+	const gutter = gutterAt(DESKTOP_VIEWPORT.width);
+	expect(region.x + gutter, "the photos start at the page's column").toBeCloseTo(column.x, 0);
+	expect(region.x + region.width - gutter, "the photos reach the frame's right edge").toBeCloseTo(
+		frame.x + frame.width,
+		0,
+	);
 });
 
-test("at 375 px a post reads in one column in its order, the picture and its link after the header", async ({
+test("below 1,024 px a News, an Activity and a Health Content post with a picture read in one column: the header on the field, the frame at most 48 rem wide starting 48 px above the field's lower edge with the picture whole and เปิดภาพขนาดเต็ม inside it, then the text 32 px under the frame, an Activity's details card first and its photos after, at 320, 375, 768 and 1023 px", async ({
 	page,
 }) => {
-	await page.setViewportSize(PHONE_VIEWPORT);
-	for (const template of ["news", "health_content"] as const) {
+	for (const template of ALL_TEMPLATES) {
 		const post = pictured[template];
 		await page.goto(post.path);
-		const main = page.getByRole("main");
-		await expectStacked(`${post.title} at 375 px`, [
-			["the title", main.getByRole("heading", { level: 1 })],
-			["the date", main.getByText(/^เผยแพร่ /)],
-			["the picture", pictureOf(page, post)],
-			[FULL_SIZE, main.getByRole("link", { name: FULL_SIZE })],
-			["the body", main.getByText(BODY, { exact: true })],
-		]);
+		const field = deepField(page);
+		const header = headerOf(page, post, template);
+		const text = textOf(page, template);
+		const { shown, link, frame } = pictureParts(page, post);
+		for (const width of [320, 375, 768, 1023]) {
+			await page.setViewportSize({ width, height: 900 });
+			const label = `${post.title} at ${width} px`;
+			await expectNoHorizontalScroll(page, label);
+			await expectStacked(label, [
+				...header,
+				["the picture", shown],
+				[FULL_SIZE, link],
+				text,
+				...photosOf(page, template),
+			]);
+			const box = await expectFramed(page, frame, shown, label);
+			const fieldBox = await boxOf(field, `${label}: the field`);
+			expect(box.width, `${label}: the frame at most 48 rem wide`).toBeCloseTo(
+				Math.min(FRAME_WIDEST, width - 2 * gutterAt(width)),
+				0,
+			);
+			expect(
+				fieldBox.y + fieldBox.height - box.y,
+				`${label}: the frame starts 48 px above the field's lower edge`,
+			).toBeCloseTo(FRAME_OVER_EDGE, 0);
+			expect(
+				(await boxOf(text[1], `${label}: ${text[0]}`)).y - box.y - box.height,
+				`${label}: ${text[0]} 32 px under the frame`,
+			).toBeCloseTo(TEXT_UNDER_FRAME, 0);
+		}
 	}
-	const activity = pictured.activities;
-	await page.goto(activity.path);
+});
+
+test("a post moves only when motion is allowed: its header rises in as the page opens and its frame after it, while the breadcrumb, the text, an Activity's details card and its photos show at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
+	page,
+}) => {
 	const main = page.getByRole("main");
-	await expectStacked(`${activity.title} at 375 px`, [
-		["the title", main.getByRole("heading", { level: 1 })],
-		["the date", main.getByText(/^เผยแพร่ /)],
-		["the details", detailOf(page, "ผู้เข้าร่วม")],
-		["the picture", pictureOf(page, activity)],
-		[FULL_SIZE, main.getByRole("link", { name: FULL_SIZE })],
-		["the photos", main.getByRole("region", { name: "ภาพกิจกรรม" })],
-	]);
+	const running = () => page.evaluate(() => document.getAnimations().length);
+	for (const template of ALL_TEMPLATES) {
+		const post = pictured[template];
+		const field = deepField(page);
+		const header = headerOf(page, post, template);
+		const frame = frameOf(page);
+		const atOnce: NamedPart[] = [
+			["the breadcrumb", breadcrumbOf(page)],
+			textOf(page, template),
+			...photosOf(page, template),
+		];
+		const parts: NamedPart[] = [["the field", field], ...header, ["the frame", frame], ...atOnce];
+		const layouts = async () => {
+			const read = [];
+			for (const viewport of [PHONE_VIEWPORT, MOBILE_VIEWPORT, DESKTOP_VIEWPORT]) {
+				await page.setViewportSize(viewport);
+				await page.evaluate(() => window.scrollTo(0, 0));
+				const places = [];
+				for (const [name, part] of parts) places.push([name, await boxOf(part, name)]);
+				read.push({
+					width: viewport.width,
+					height: await page.evaluate(() => document.documentElement.scrollHeight),
+					places,
+				});
+			}
+			return read;
+		};
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await page.goto(post.path);
+		expect(await running(), `${template}: nothing is mid-animation`).toBe(0);
+		expect(await heldBack(main), `${template}: nothing waits for an effect`).toEqual([]);
+		const still = await layouts();
+
+		await page.emulateMedia({ reducedMotion: "no-preference" });
+		await page.goto(post.path, { waitUntil: "commit" });
+		await expect(header[1][1]).toBeVisible();
+		const ends = await selfRunningEnds(page.locator("html"));
+		expect(Math.max(0, ...ends), `${template}: the last effect to end, in ms`).toBeLessThanOrEqual(
+			5_000,
+		);
+		const headerEnters = await entersAfter(header[1][1]);
+		expect(headerEnters, `${template}: the header enters as the page opens`).toBe(0);
+		for (const [name, part] of header) {
+			expect(await entersAfter(part), `${template}: ${name} enters with the header`).toBe(0);
+		}
+		expect(
+			await entersAfter(frame),
+			`${template}: the frame enters after the header`,
+		).toBeGreaterThan(headerEnters);
+		for (const [name, part] of atOnce) {
+			expect(await entersAfter(part), `${template}: ${name} shows at once`).toBe(-1);
+		}
+		await expect
+			.poll(() => heldBack(main), {
+				message: `${template}: the page shows whole after the entrance`,
+			})
+			.toEqual([]);
+		expect(await layouts(), `${template}: the page with motion, after its entrance`).toEqual(still);
+
+		await page.emulateMedia({ media: "print", reducedMotion: "no-preference" });
+		await page.goto(post.path);
+		await expect(header[1][1]).toBeVisible();
+		expect(await running(), `${template} on paper: nothing is mid-animation`).toBe(0);
+		expect(await heldBack(main), `${template} on paper: nothing waits for an effect`).toEqual([]);
+		await page.emulateMedia({ media: "screen", reducedMotion: "reduce" });
+	}
+});
+
+test.describe("without JavaScript", () => {
+	test.use({ javaScriptEnabled: false });
+
+	test("a News, an Activity and a Health Content post show their header on the field, the frame with its picture and เปิดภาพขนาดเต็ม, and their text, at 375 and 1440 px", async ({
+		page,
+	}) => {
+		for (const template of ALL_TEMPLATES) {
+			const post = pictured[template];
+			await page.goto(post.path);
+			const { shown, link } = pictureParts(page, post);
+			for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+				await page.setViewportSize(viewport);
+				const label = `${post.title} without JavaScript at ${viewport.width} px`;
+				for (const [name, part] of [
+					...headerOf(page, post, template),
+					["the picture", shown],
+					[FULL_SIZE, link],
+					textOf(page, template),
+				] as NamedPart[]) {
+					await expect(part, `${label}: ${name}`).toBeVisible();
+				}
+			}
+		}
+	});
 });
 
 /**
@@ -650,7 +1117,7 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 	for (const template of TEXT_TEMPLATES) {
 		const { kind } = TEMPLATES[template];
 		for (const withPicture of [true, false]) {
-			test(`a ${kind} post ${withPicture ? "with" : "without"} a picture shows its body, source and topics only when it has them, in their order 2 rem under what comes before, and ends with its last part, at 320, 375, 1023, 1024 and 1440 px`, async ({
+			test(`a ${kind} post ${withPicture ? "with" : "without"} a picture shows its body, source and topics only when it has them, in their order 2 rem apart, the first 32 px under the field below 1,024 px and 40 px from it, or 32 px under the frame where it follows the frame, and ends with its last part, at 320, 375, 1023, 1024 and 1440 px`, async ({
 				page,
 			}) => {
 				const cases = posts.filter(
@@ -658,29 +1125,31 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 				);
 				for (const post of cases) {
 					await page.goto(post.path);
+					const field = deepField(page);
 					const trailing = trailingOf(page, topic);
 					const shown = post.parts.flatMap((part) => trailing[part]);
 					const pictureShown = post.picture && pictureParts(page, post.picture);
 					const picture = pictureShown?.named ?? [];
+					const framed: NamedPart[] = pictureShown ? [["the frame", pictureShown.frame]] : [];
 					for (const viewport of LAYOUT_VIEWPORTS) {
 						await page.setViewportSize(viewport);
 						const label = `${post.title} at ${viewport.width} px`;
-						const header = headerOf(page, post);
+						const header = headerOf(page, post, template);
 						const twoColumns = pictureShown !== undefined && viewport.width >= 1024;
-						// From lg the picture is beside the text; below it, it comes after the header.
+						// From lg the frame is beside the text; below it, it comes after the header.
 						const column = twoColumns ? [...header, ...shown] : [...header, ...picture, ...shown];
 						await expectStacked(label, column);
 						if (twoColumns) {
-							const box = await expectPictureBeside(
+							await expectPictureBeside(
 								pictureShown.shown,
 								titleOf(page, post),
 								[...header, ...shown],
 								label,
 							);
-							expect(box.width, `${label}: the picture fills its 28 rem column`).toBeCloseTo(
-								PICTURE_COLUMN,
-								0,
-							);
+							expect(
+								(await boxOf(pictureShown.frame, `${label}: the frame`)).width,
+								`${label}: the frame fills its 28 rem column`,
+							).toBeCloseTo(FRAME_COLUMN, 0);
 						}
 						for (const part of (["body", "source", "topic"] as const).filter(
 							(part) => !post.parts.includes(part),
@@ -689,27 +1158,58 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 							await expect(absent, `${label}: no ${name}`).toHaveCount(0);
 						}
 						if (shown.length > 0) {
-							const [aboveName, above] = column[column.length - shown.length - 1]!;
+							// The text starts under the frame where the frame comes before it, else under the
+							// field (Product Owner, 2026-11-14: #285 comment 6877659654, item 2).
+							const [aboveName, above] =
+								pictureShown && !twoColumns ? framed[0]! : (["the field", field] as NamedPart);
+							const under =
+								pictureShown && !twoColumns
+									? TEXT_UNDER_FRAME
+									: viewport.width >= 1024
+										? TEXT_UNDER_FIELD.fromLg
+										: TEXT_UNDER_FIELD.belowLg;
 							const [firstName, first] = shown[0]!;
 							const aboveBox = await boxOf(above, `${label}: ${aboveName}`);
 							const firstBox = await boxOf(first, `${label}: ${firstName}`);
 							const gap = firstBox.y - aboveBox.y - aboveBox.height;
 							if (post.parts[0] === "topic") {
 								// The topics' heading sits under their own divider and padding (TopicPills.astro),
-								// so the 2 rem before the section is a lower bound on the heading's space.
+								// so the space before the section is a lower bound on the heading's space.
 								expect(
 									gap,
-									`${label}: ${firstName} is at least 2 rem under ${aboveName}`,
-								).toBeGreaterThanOrEqual(TRAILING_GAP - 0.5);
+									`${label}: ${firstName} is at least ${under} px under ${aboveName}`,
+								).toBeGreaterThanOrEqual(under - 0.5);
 							} else {
-								expect(gap, `${label}: ${firstName} is 2 rem under ${aboveName}`).toBeCloseTo(
-									TRAILING_GAP,
+								expect(gap, `${label}: ${firstName} is ${under} px under ${aboveName}`).toBeCloseTo(
+									under,
 									0,
 								);
 							}
+							for (const [index, [name, part]] of shown.entries()) {
+								if (index === 0 || name === "the topics") continue;
+								const [prevName, prev] = shown[index - 1]!;
+								const prevBox = await boxOf(prev, `${label}: ${prevName}`);
+								const box = await boxOf(part, `${label}: ${name}`);
+								const apart = box.y - prevBox.y - prevBox.height;
+								if (name === "the topics' heading") {
+									expect(
+										apart,
+										`${label}: ${name} at least 2 rem under ${prevName}`,
+									).toBeGreaterThanOrEqual(TRAILING_GAP - 0.5);
+								} else {
+									expect(apart, `${label}: ${name} 2 rem under ${prevName}`).toBeCloseTo(
+										TRAILING_GAP,
+										0,
+									);
+								}
+							}
 						}
 						expect(
-							await spaceAfter(page, [...header, ...picture, ...shown], label),
+							await spaceAfter(
+								page,
+								[["the field", field], ...header, ...framed, ...picture, ...shown],
+								label,
+							),
 							`${label}: nothing empty follows the post's last part`,
 						).toBeCloseTo(0, 0);
 					}
@@ -718,7 +1218,7 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 		}
 	}
 
-	test("at 1440 px a News and a Health Content post with no body, source or topics end with the picture's link where the picture is the taller, and with the header where the header is, with no empty row after it; เปิดภาพขนาดเต็ม opens the file", async ({
+	test("at 1440 px a News and a Health Content post with no body, source or topics end with the frame where the frame is the taller, and with the field where the header is, with no empty row after it; เปิดภาพขนาดเต็ม opens the file", async ({
 		page,
 	}) => {
 		for (const template of TEXT_TEMPLATES) {
@@ -726,43 +1226,46 @@ test.describe("a News or Health Content post's body, source and topics", () => {
 				(post) => post.template === template && post.parts.length === 0 && post.picture,
 			)!;
 			for (const [post, taller] of [
-				[pictureTaller, "picture"],
-				[tallHeader[template], "header"],
+				[pictureTaller, "frame"],
+				[tallHeader[template], "field"],
 			] as const) {
 				await page.goto(post.path);
 				const label = `${post.title} at 1440 px, its ${taller} the taller`;
-				const header = headerOf(page, post);
+				const field = deepField(page);
+				const header = headerOf(page, post, template);
 				const picture = pictureParts(page, post.picture!);
 				await expectStacked(label, header);
 				await expectPictureBeside(picture.shown, titleOf(page, post), header, label);
-				const headerEnd = await boxOf(header.at(-1)![1], label);
-				const linkEnd = await boxOf(picture.link, label);
+				const fieldEnd = await boxOf(field, label);
+				const frameEnd = await boxOf(picture.frame, label);
 				expect(
-					taller === "header"
-						? headerEnd.y + headerEnd.height > linkEnd.y + linkEnd.height
-						: linkEnd.y + linkEnd.height > headerEnd.y + headerEnd.height,
+					taller === "field"
+						? fieldEnd.y + fieldEnd.height > frameEnd.y + frameEnd.height
+						: frameEnd.y + frameEnd.height > fieldEnd.y + fieldEnd.height,
 					`${label}: the ${taller} is the taller`,
 				).toBe(true);
-				const space = await spaceAfter(page, [...header, ...picture.named], label);
+				const space = await spaceAfter(
+					page,
+					[["the field", field], ...header, ["the frame", picture.frame], ...picture.named],
+					label,
+				);
 				await expectFullSizeOpens(page, post.picture!.png, label);
 				expect(
 					space,
-					`${label}: the post ends with its ${taller === "header" ? "header" : "picture's link"}, with no empty row after it`,
+					`${label}: the post ends with its ${taller}, with no empty row after it`,
 				).toBeCloseTo(0, 0);
 			}
 		}
 	});
 
-	test("while a News and a Health Content post whose header is taller than its picture scroll at 1440 px, the picture stays in view beside the header and stops where the header ends", async ({
+	test("while a News and a Health Content post whose header is taller than its picture scroll at 1440 px, the frame stays in view beside the header and stops where the field ends", async ({
 		page,
 	}) => {
 		for (const template of TEXT_TEMPLATES) {
 			const post = tallHeader[template];
 			await page.goto(post.path);
-			const header = headerOf(page, post);
-			const picture = pictureOf(page, post.picture!);
-			await expectImageLoaded(picture, `${post.title}: the picture`);
-			await expectPictureFollows(page, picture, titleOf(page, post), header.at(-1)![1]);
+			await expectImageLoaded(pictureOf(page, post.picture!), `${post.title}: the picture`);
+			await expectFrameFollows(page, titleOf(page, post), deepField(page));
 		}
 	});
 

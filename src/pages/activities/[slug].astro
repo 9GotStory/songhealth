@@ -2,9 +2,11 @@
 // An Activity page, /activities/{slug} (Feature 003 #56; spec #51 "Public reads" (Activities) and
 // "Errors, redirects, preview and SEO"): when and where it was held, its description (the
 // summary), who took part, its picture and its captioned photos. From lg its header and details
-// read beside its picture, and the photos come after both columns, so the picture never covers
-// them (Feature 006 #147; spec #144 "Post pages: News, Activity and Health Content";
-// src/components/PostColumns.astro). The photos fold after the first eight
+// read beside its picture, and the photos come after both columns, across the page's column, so
+// the picture never covers them (Feature 006 #147; spec #144 "Post pages: News, Activity and
+// Health Content"; src/components/PostColumns.astro). Its header, with its breadcrumb, lies on the
+// deep field, so the page gives the shell no crumbs, and its details card is the text under it
+// (Feature 009 #285; src/components/PostHeader.astro). The photos fold after the first eight
 // (src/components/ActivityPhotos.astro), and start 48 px under the columns and 64 px from sm
 // (Feature 009 #286; spec #280 "Post page: the text").
 //
@@ -44,7 +46,6 @@ const hasDetails =
 	section="news"
 	description={activity.summary ?? undefined}
 	canonical={activityPath(entry.id)}
-	crumbs={[{ label: ACTIVITIES_TITLE, href: ACTIVITIES_PATH }, { label: activity.title }]}
 	entry={{
 		collection: "activities",
 		id: activity.id,
@@ -53,9 +54,12 @@ const hasDetails =
 	}}
 	noindex={isPreview}
 >
-	<article class="page-container flex flex-col gap-12 pt-6 pb-16 sm:gap-16 lg:pb-20">
+	<article class="flex flex-col gap-12 pb-16 sm:gap-16 lg:pb-20">
 		<PostColumns image={activity.featured_image}>
 			<PostHeader
+				slot="header"
+				section="news"
+				crumbs={[{ label: ACTIVITIES_TITLE, href: ACTIVITIES_PATH }, { label: activity.title }]}
 				title={activity.title}
 				summary={activity.summary}
 				publishedAt={activity.publishedAt}
@@ -78,6 +82,6 @@ const hasDetails =
 				</dl>
 			)}
 		</PostColumns>
-		<ActivityPhotos gallery={activity.gallery} />
+		<ActivityPhotos gallery={activity.gallery} class="page-container" />
 	</article>
 </SiteLayout>

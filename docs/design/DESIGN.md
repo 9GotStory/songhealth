@@ -6,7 +6,7 @@
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
 > 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
 > implemented by #281–#287; its acceptance is still to come.
-> **Updated:** 2026-11-14 (Feature 009 #286); first drafted 2026-10-30
+> **Updated:** 2026-11-14 (Feature 009 #285); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -90,7 +90,8 @@ health-service network.
   have it (§7.4, §8). Feature 009 brings it to the News, Health News and Health Content lists and
   the Post pages (spec #280): so far the three lists have their heading on the deep field (§7.8),
   with the Homepage's small News card under it (§7.3), and on Health News and Health Content the
-  filter form (§7.7) before them. Every other page keeps the design of §7 and §9 under the new shell until its own
+  filter form (§7.7) before them; and a Post page has its header on the field, its picture in a
+  white frame and its text on the page's colour (§9.1). Every other page keeps the design of §7 and §9 under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
@@ -132,7 +133,8 @@ health-service network.
    `hero-headline-alone` and `section-title`; the Homepage's motion, §8.12: `hero-enter`,
    `featured-card-enter`, `featured-sheet-enter`, `scroll-reveal` and `picture-shimmer`, with the keyframes they run) and the `.rich-text` typography of Portable Text
    bodies, which EmDash renders as plain HTML that takes no utility classes. A list's heading
-   uses `deep-field`, `section-title` and `hero-enter` too (§7.8), the heading of an Activity's
+   uses `deep-field`, `section-title` and `hero-enter` too (§7.8), a Post page's header and frame
+   `deep-field` and `hero-enter` (§9.1), the heading of an Activity's
    photos `section-title` (§9.2), and a list's cards
    `plain-visual`, `deep-visual` (the large card's, on a first page), `scroll-reveal` and
    `picture-shimmer` (§7.3).
@@ -212,7 +214,7 @@ window on a line of 1.42; `hero-headline-alone`, the headline with nothing Featu
 Radii are named by their size in px: 14, 16, 18, 20, 22, 24, 26 and 32, and `pill` (999 px). Four
 shadows: `card`, `0 10px 15px rgb(13 46 36 / 0.08)`; `header`, the sticky header's lower edge,
 a 1 px `border-default` hairline with `0 8px 24px -16px rgb(13 46 36 / 0.25)`; `deep`, a card on
-the deep green field, `0 30px 60px -20px rgb(13 46 36 / 0.35)`; and `tile`, a section heading's
+the deep green field or a Post page's frame over it, `0 30px 60px -20px rgb(13 46 36 / 0.35)`; and `tile`, a section heading's
 icon tile on a light surface, `0 14px 26px -12px rgb(11 107 87 / 0.7)`. One container,
 `content`: 75 rem (1,200 px). One length, `--header-offset`: the room the sticky header takes at
 the top of the window, 88 px below 640 px and 84 px from 640 px (§7.4).
@@ -571,7 +573,7 @@ the focus rings, axe, and the configured and fallback identities, restoring sett
   as before. Breadcrumb labels remain outside ThaiTitle's word-keeping scope (§4.1).
 - The public-browser suite covers long and short labels at 320/375/639/640/1440 px, ancestor
   destinations, H1, clipping, keyboard navigation, axe, reflow and JavaScript-disabled pages.
-- On the deep field under a page's heading (§7.8) the links and the current page are
+- On the deep field under a page's heading (§7.8) or a post's header (§9.1) the links and the current page are
   `surface-base` and the separators `surface-base` at 75 %, with the field's `accent-warm` focus
   ring. The page shows the breadcrumb on its field in place of the shell's, with the same items,
   markup and one-line rule; a link there keeps its underline and does not change under the pointer.
@@ -1193,6 +1195,10 @@ stays the submit state (§8.9).
   breadcrumb, the link, the filter form, the empty state and the pager show at once
   (`public-news.spec.ts` "/news moves only when motion is allowed: …", and
   `testFilteredListOnField`'s motion case for the other two).
+- **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
+  as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
+  (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
+  show at once (`public-posts.spec.ts` "a post moves only when motion is allowed: …").
 - **Hover** ships with each section (§8.1, §8.4, §8.6 to §8.10).
 - **Reduced motion and paper.** All of it runs only on a screen under
   `prefers-reduced-motion: no-preference`. With reduced motion preferred, and in print, nothing
@@ -1211,21 +1217,51 @@ stays the submit state (§8.9).
 
 ## 9. Post pages: News, Activity and Health Content
 
-### 9.1 The header and two columns
+### 9.1 The header on the field, the frame and the text
 
-- **The header** (`PostHeader.astro`): a News item's category, the title as the page's one H1, the
-  summary under it with the line breaks staff typed, and the publication date; Health Content's
-  review date follows. Every News and Activity states its story in words, at least its summary,
-  as a One Page's text is an image (grill Q14; `05` §5.1).
-- **From `lg`, a post with a picture reads in two columns** (`PostColumns.astro`):
-  - on the left, the page's text in its order: the header, then an Activity's details card, or a
-    News or Health Content post's body, source and topics, each only when the post has it, 2 rem
-    under the header;
-  - on the right, a 28 rem column, 48 px from the text, with the picture whole and
-    "เปิดภาพขนาดเต็ม", a link to the file as it was uploaded;
-  - the picture is sticky 1.5 rem below the header (`--header-offset` plus 1.5 rem from the top, §7.4): it stays in view while the left column scrolls and
-    stops at the end of the two columns. Anything full width, such as an Activity's photos, comes
-    after them, so the picture never covers it.
+Feature 009 #285 (spec #280 "Post page: the header", "Post page: the picture", "Post page: the
+text"; Product Owner, #285 comment 6877659654).
+
+- **The field** is the Homepage's deep green field (`DeepField` with `kind="post"`, the
+  `deep-field` utility; §8.1) across the window, with lower corners of radius 32 (24 below `sm`),
+  `surface-base` text and the `accent-warm` focus ring. As under a list's heading (§7.8) its glow
+  is small, 28 % of its width by 12 rem at the upper right corner from `sm`, and the utility's
+  phone glow below; it has no ring and no other decoration, since the ring crossed the summary of
+  a post without a picture at 4.35:1 (spec #280 "Measured in the prototype"). It is as high as the
+  header: it reaches 40 px under it below `sm` and 48 px from `sm`, and 80 px below `lg` where the
+  frame follows.
+- **The header** (`PostHeader.astro`), on the field, in the text column, 48 rem wide at most: the
+  breadcrumb in white (§7.5), 24 px under the shell's header; 24 px under it a row with "เผยแพร่"
+  and the publication date in an `accent-warm` pill with `brand-dark` words at 13 / 20 semibold,
+  and for a News item with a category the category in a pill outlined in `surface-base` at 40 %;
+  the title as the page's one H1, H3 below `sm`, H2 from `sm` and H1 from `lg`; the summary at
+  body-large with the line breaks staff typed; and Health Content's "ทบทวนล่าสุด" date at small
+  size, all 12 px apart and in `surface-base`. A part the post lacks is left out, and so is the row
+  with neither pill, as on a draft's preview. Every News and Activity states its story in words, at
+  least its summary, as a One Page's text is an image (grill Q14; `05` §5.1). The page gives the
+  shell no crumbs and shows its breadcrumb here, as a list's heading does.
+- **The frame** (`PostColumns.astro`): the picture whole, at its own aspect ratio with corners of
+  radius 18, in a white frame of radius 24 with 10 px of padding and the `deep` shadow, with
+  "เปิดภาพขนาดเต็ม" and its `chevron-right` inside the frame under the picture at every width
+  (Product Owner, #147 comment 6634124888 item 1), a link to the file as it was uploaded. The link
+  keeps the page's `brand-primary` focus ring on the white frame.
+- **From `lg`, a post with a picture reads in two columns:** the text column, 44 rem at most, a
+  3 rem gap and the frame's column, 28 rem, at the right of the page's column. The frame starts on
+  the field, 4.25 rem under its top, level with the row of pills while the breadcrumb takes one
+  line (a breadcrumb that wraps moves the row down, and the frame keeps its place), and runs over
+  the field's lower edge when it is the taller. It is sticky 1.5 rem below the header (`--header-offset` plus 1.5 rem
+  from the top, §7.4): it stays in view while the text scrolls and stops at the end of the two
+  columns. Anything full width, such as an Activity's photos, comes after them, so the frame never
+  covers it.
+- **Below `lg`**, one column: the header on the field, the frame, 48 rem wide at most, starting
+  48 px above the field's lower edge, then the text (an Activity's details card after the frame:
+  #285 comment 6877659654, item 1). A post without a picture keeps one column, its field as high as
+  its header.
+- **The text**, on the page's colour in the text column, starts 32 px under the field below `lg`
+  and 40 px from `lg`, or 32 px under the frame where the frame comes before it (#285 comment
+  6877659654, item 2). Its parts are 2 rem apart, each only when the post has it: an Activity's
+  details card, white with the `card` shadow; or a News or Health Content post's body in the
+  body's typography, its source line and its Health Topics.
 - **A post's Health Topics** (`TopicPills`) follow its body and source under "ประเด็นสุขภาพ" at
   label size and a `divider` rule, as Homepage chips (`TopicChip`, §8.8): `brand-primary` words on
   `surface-base` with a 1.5 px `border-default` edge, at 13 / 20 medium below `sm` and 14 / 22 from
@@ -1233,15 +1269,18 @@ stays the submit state (§8.9).
   10 px from `sm`. Each opens Health News narrowed to its topic from a News item, and the Health
   Content list narrowed to it from Health Content. They show at once, with no effect (Feature 009
   #286; spec #280 "Post page: the text"; Product Owner, #286 comment 6876267675, item 1).
-- **Below `lg`**, one column in the page's order: the header, the picture, then the body, source
-  and topics the post has, 2 rem apart (News, Health Content); the header, the details, the
-  picture, then the photos (Activity). "เปิดภาพขนาดเต็ม" shows at every width (Product Owner, #147
-  comment 6634124888 item 1). A post without a picture keeps one column.
-- **A News or Health Content post with no body, source or topics** ends with whichever of its
-  header and its picture's link ends lower; below `lg` that is the link, which follows the header.
-  No empty row or 2 rem gap follows (#190 comment 6707205912, Empty Post page row B). A difference
-  in height between the picture and the text, and the shell's minimum page height, still leave
-  their own space.
+- **A post with a picture and no text** ends with whichever of its field and its frame ends
+  lower; one without a picture ends with its field. No empty row or gap follows (#190 comment
+  6707205912, Empty Post page row B). A difference in height between the frame and the text, and
+  the shell's minimum page height, still leave their own space.
+- **Motion** (§8.12): with motion allowed the header's text rises in as the page opens, as the
+  hero's does, and the frame 0.25 s after it, as the Featured card follows the hero's text. The
+  breadcrumb, the text, the details card and the photos show at once.
+- `tests/browser/public-posts.spec.ts` reads the header's parts, their order, colours and the
+  title's sizes on both sides of 640 and 1,024 px; the field's glow, corners and room under the
+  header; the frame, its columns at 1,024 and 1,440 px and its one column at 320, 375, 768 and
+  1,023 px; the frame in view while the text scrolls; the text's parts and spaces; the motion; and
+  the pages without JavaScript.
 - The other detail templates, such as Announcement, Document and Service, keep their layout.
 
 ### 9.2 An Activity's photos
@@ -1315,7 +1354,7 @@ not its prototype ("design หน้าแรก (ปัจจุบัน)"):
 
 The prototype's variant C, on the branch `prototype/news-post-redesign`, is the visual reference
 (`docs/prototypes/news-post-redesign.md` there). Each ticket's decisions are on #281 to #287 and in
-§13; of these picks the code holds the heading of the three lists (§7.8). The feature's acceptance
+§13; of these picks the code holds the heading of the three lists (§7.8) and the Post page (§9). The feature's acceptance
 is still to come.
 
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
@@ -1354,8 +1393,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   - a loading picture's shimmer runs on the page's clock, so a picture that loads later has the
     resting box behind it.
 - **Post pages** (#147 comment 6634124888 item 2):
-  - the picture follows only while the left column is the longer;
-  - a picture taller than the window shows its lower part as the block ends.
+  - the frame follows only while the text is the longer;
+  - a frame taller than the window shows its lower part as the block ends.
 - **A gallery in a News body** does not fold, and EmDash's Edit mode shows it as a placeholder
   (§9.3).
 - **A focal point or alt text** set in the media library after staff picked a picture may not
@@ -1631,3 +1670,17 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (§9.1, §9.2). Where the chips link, the photos' fold and every word remain. Authority: spec #280
   "Post page: the text" and decisions 8 and 9, #286 comment 6876267675 (the chip's sizes, the
   heading's space above the photos).
+- **v1.3 the Post page on the deep field (2026-11-14, Feature 009 #285):** a News, Activity or
+  Health Content post opens on the deep field (`DeepField` with `kind="post"`): its breadcrumb in
+  white, a row of "เผยแพร่" and the date in an `accent-warm` pill beside a News item's category in an
+  outlined pill, the title, the summary and Health Content's review date in `surface-base`; its
+  picture is in a white frame that starts on the field and stays in view from 1,024 px, and over
+  the field's lower edge below; its text lies on the page's colour, 32 px under the field below
+  1,024 px and 40 px from it, or 32 px under the frame below 1,024 px; the header rises in and the
+  frame after it (§9.1, §8.12). The date and the category came after and before the title in
+  secondary text on the page's colour, the shell showed the breadcrumb, the picture had no frame,
+  and below 1,024 px an Activity's details card came before the picture. The two columns, the
+  frame in view while the text scrolls, "เปิดภาพขนาดเต็ม" at every width, no empty row after a post
+  without text and every word remain. Authority: spec #280 "Post page: the header", "Post page: the
+  picture", "Post page: the text", "Motion" and decisions 6, 7 and 16, #285 comment 6877659654 (the
+  details card after the frame, the text under the frame).
