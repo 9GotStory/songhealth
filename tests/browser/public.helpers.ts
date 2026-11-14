@@ -621,6 +621,25 @@ export function tokenColor(page: Page, name: string): Promise<string> {
 }
 
 /**
+ * The colour token `--color-<name>` at `percent` %, as the page's browser computes Tailwind's
+ * `<utility>-<name>/<percent>`, a mix with transparent in oklab, to compare with an element's
+ * computed style.
+ */
+function mixedColor(page: Page, name: string, percent: number): Promise<string> {
+	return page.evaluate(
+		([token, share]) => {
+			const probe = document.createElement("span");
+			probe.style.color = `color-mix(in oklab, var(--color-${token}) ${share}%, transparent)`;
+			document.body.append(probe);
+			const color = getComputedStyle(probe).color;
+			probe.remove();
+			return color;
+		},
+		[name, percent] as const,
+	);
+}
+
+/**
  * Fail unless every one of `parts` shows, each one below the one before it, as the page is laid out
  * now.
  */
@@ -1798,7 +1817,7 @@ export function testListCards(list: ListCards): void {
 		// 6870867641, item 1).
 		await expect(labelPill, "the label's pill is brand-dark at 40 %").toHaveCSS(
 			"background-color",
-			(await tokenColor(page, "brand-dark")).replace(/^rgb\((.*)\)$/, "rgba($1, 0.4)"),
+			await mixedColor(page, "brand-dark", 40),
 		);
 		await expect(image).toHaveAttribute("alt", "");
 		await expect(image).toHaveCSS("object-fit", "cover");

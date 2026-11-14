@@ -52,6 +52,8 @@ const LONG_TITLE =
 	"ข่าวที่มีชื่อเรื่องยาวมากเพื่อทดสอบว่าการ์ดของรายการแสดงชื่อเรื่องได้ไม่เกินสามบรรทัด ส่วนที่เหลือจะถูกตัดออกโดยไม่ทำให้การ์ดในแถวเดียวกันสูงไม่เท่ากัน และยังต่อด้วยข้อความอีกช่วงหนึ่งเพื่อให้ยาวเกินสามบรรทัดแน่นอนแม้บนจอกว้าง";
 const LONG_SUMMARY =
 	"สรุปที่ยาวกว่าสองบรรทัดของการ์ด เพื่อทดสอบว่าการ์ดแสดงสรุปได้ไม่เกินสองบรรทัดบนจอกว้าง และซ่อนสรุปทั้งหมดบนจอแคบ โดยข้อความส่วนนี้ต่อยาวออกไปอีกเพื่อให้เกินสองบรรทัดแน่นอน";
+/** A summary longer than the large card's two lines, on a card two columns wide. */
+const LARGE_SUMMARY = `${LONG_SUMMARY} ${LONG_SUMMARY}`;
 const longEntries: Partial<Record<"news" | "health_content", DraftFixture>> = {};
 const ownedTerms: SyntheticTerm[] = [];
 const extraActivities: DraftFixture[] = [];
@@ -610,7 +612,7 @@ test.describe("the large card", () => {
 			const entry = await createSyntheticDraft(admin, collection, LONG_TITLE, "large", {
 				// A focal point off the middle, which the picture's crop centres on.
 				data: {
-					summary: LONG_SUMMARY,
+					summary: LARGE_SUMMARY,
 					featured_image: { id: imageId, focalX: 0.25, focalY: 0.75 },
 				},
 				taxonomies: { topic: [topic.slug] },
@@ -660,7 +662,7 @@ test.describe("the large card", () => {
 					lines: 3,
 					clamped: true,
 				});
-				const summary = card.getByText(LONG_SUMMARY, { exact: true });
+				const summary = card.getByText(LARGE_SUMMARY, { exact: true });
 				if (width < 640) await expect(summary).toBeHidden();
 				else expect(await shownLines(summary), "the summary").toEqual({ lines: 2, clamped: true });
 
@@ -681,6 +683,9 @@ test.describe("the large card", () => {
 
 				await page.emulateMedia({ reducedMotion: "no-preference" });
 				await page.goto(list);
+				// The card, 800 px high at 1,440 px, reveals as it scrolls into the window, and pointing at
+				// it scrolls no further.
+				await picture.scrollIntoViewIfNeeded();
 				await expect.poll(() => shownOpacity(card), { message: "the card has come in" }).toBe(1);
 				const resting = await boxOf(picture, "the picture at rest");
 				const cardAtRest = await boxOf(card, "the card at rest");
