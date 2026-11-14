@@ -14,24 +14,25 @@
 //
 // - **From lg a post with a picture reads in two columns** ("สองคอลัมน์"): the text column, 44 rem
 //   at most, a 3 rem gap and the frame, 28 rem wide, at the column's right. The frame starts on the
-//   field, 4.25 rem under its top, level with the header's row of pills, and spans both rows of the
-//   grid, so it runs over the field's lower edge when it is the taller. It stays in view 1.5 rem
-//   below the site's header while the text scrolls ("ลอยตาม (แนะนำ)") and stops where the two
-//   columns end: a grid item's grid area is its containing block (CSS Grid Layout 1, "Placing Grid
-//   Items"), which a sticky box never leaves (CSS Positioned Layout 3, sticky positioning). So what
-//   a page puts after this block, such as an Activity's photos, comes below the frame and never
-//   under it (the Product Owner's finding of 2026-11-04, spec #144). The second row is flexible
-//   (CSS Grid Layout 1's track sizing): an item that spans a flexible track gives its size to that
-//   track alone, so the first row stays the header's height and the frame's extra height goes to
-//   the second, where the text starts right under the field. Without text the second row holds
-//   only what the frame adds, so the block ends with whichever of the field and the frame ends
-//   lower, with no empty row or gap after it (#198; #190 comment 6707205912, Empty Post page row
-//   B). The frame follows only while the text is the longer, and one taller than the window shows
-//   its lower part as the block ends. The Product Owner kept both limits (2026-11-04: #147 comment
-//   6634124888).
+//   field, 4.25 rem under its top, level with the header's row of pills while the breadcrumb takes
+//   one line (a breadcrumb that wraps moves the row down, and the frame keeps its place), and spans
+//   both rows of the grid, so it runs over the field's lower edge when it is the taller. It stays
+//   in view 1.5 rem below the site's header while the text scrolls ("ลอยตาม (แนะนำ)") and stops
+//   where the two columns end: a grid item's grid area is its containing block (CSS Grid Layout 1,
+//   "Placing Grid Items"), which a sticky box never leaves (CSS Positioned Layout 3, sticky
+//   positioning). So what a page puts after this block, such as an Activity's photos, comes below
+//   the frame and never under it (the Product Owner's finding of 2026-11-04, spec #144). The second
+//   row is flexible (CSS Grid Layout 1's track sizing): an item that spans a flexible track gives
+//   its size to that track alone, so the first row stays the header's height and the frame's extra
+//   height goes to the second, where the text starts right under the field. Without text the second
+//   row holds only what the frame adds, so the block ends with whichever of the field and the frame
+//   ends lower, with no empty row or gap after it (#198; #190 comment 6707205912, Empty Post page
+//   row B). The frame follows only while the text is the longer, and one taller than the window
+//   shows its lower part as the block ends. The Product Owner kept both limits (2026-11-04: #147
+//   comment 6634124888).
 // - **Below lg** the page reads in one column: the header on the field, the frame, 48 rem wide at
 //   most, starting 48 px above the field's lower edge, then the text (#285 comment 6877659654,
-//   item 1).
+//   item 1). The frame is positioned, as the field is, so it paints over the field's edge.
 // - **A post without a picture** keeps one column.
 //
 // A default slot that renders nothing counts as none, so a post with no text ends with its field or
@@ -54,7 +55,8 @@
 //
 // With motion allowed the frame rises in after the header's text, as the Featured card follows the
 // hero's text on the Homepage (`hero-enter`, src/styles/global.css; spec #280 "Motion"); the text
-// shows at once.
+// shows at once. Its link is the keyboard's next stop after the breadcrumb from lg, and it is
+// whole within about a second of the page opening, as the Featured card's links are.
 import { Image } from "emdash/ui";
 import { availableMedia, mediaFileHref } from "../lib/media";
 import type { ImageFieldValue } from "../lib/news";
@@ -66,8 +68,12 @@ interface Props {
 	image: ImageFieldValue | null | undefined;
 }
 
-/** The picture's width: the frame's column from lg, the reading width below it. */
-const PICTURE_SIZES = "(min-width: 64rem) 28rem, (min-width: 48rem) 48rem, 100vw";
+/**
+ * The picture's width, inside the frame's 10 px padding: the 28 rem frame from lg, the 48 rem one
+ * below it, and at most the window on a phone.
+ */
+const PICTURE_SIZES =
+	"(min-width: 64rem) calc(28rem - 20px), (min-width: 48rem) calc(48rem - 20px), 100vw";
 
 const image = await availableMedia(Astro.props.image, Astro.locals.emdash);
 const fullSizeHref = image && mediaFileHref(image, Astro.locals.emdash);

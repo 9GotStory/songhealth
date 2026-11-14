@@ -1,13 +1,13 @@
 ---
 // A post page's header, on the deep field (Feature 006 #147; Feature 009 #285; spec #280 "Post
-// page: the header"): the page's breadcrumb in white, then 24 px under it a row with "เผยแพร่" and
-// the publication date in an accent-warm pill and a News item's category in an outlined white
-// pill, both with a 1 px edge so they are as high and share a line, the title as the page's one H1,
-// and the summary under it, so a story told only in its One Page is in words too (grill Q14). A
-// page's other dates, such as when Health Content was last reviewed, follow in the default slot.
-// The summary keeps the line breaks staff typed. A part the post lacks is left out, and so is the
-// row when it holds neither pill, as a draft's preview has no publication date. Its text takes the
-// field's surface-base (DeepField.astro).
+// page: the header"), 48 rem wide at most: the page's breadcrumb in white, then 24 px under it a
+// row with "เผยแพร่" and the publication date in an accent-warm pill and a News item's category in
+// an outlined white pill, both with a 1 px edge so they are as high and share a line, the title as
+// the page's one H1, and the summary under it, so a story told only in its One Page is in words too
+// (grill Q14). A page's other dates, such as when Health Content was last reviewed, follow in the
+// default slot. The summary keeps the line breaks staff typed. A part the post lacks is left out,
+// and so is the row when it holds neither pill, as a draft's preview has no publication date. Its
+// text takes the field's surface-base (DeepField.astro).
 //
 // The page passes no `crumbs` to the shell, which then shows no breadcrumb above the page
 // (src/layouts/SiteLayout.astro), and gives them here with its section, as ListHeading.astro does.
@@ -36,9 +36,9 @@ interface Props {
 const { section, crumbs, title, summary, publishedAt, category } = Astro.props;
 ---
 
-<header class="flex flex-col gap-6">
+<header class="flex max-w-3xl flex-col gap-6">
 	<Breadcrumb onField items={breadcrumbTrail(section, crumbs)} />
-	<div class="hero-enter flex max-w-3xl flex-col gap-3">
+	<div class="hero-enter flex flex-col gap-3">
 		{(publishedAt || category) && (
 			<p class="flex flex-wrap items-center gap-2 text-small font-semibold">
 				{publishedAt && (
