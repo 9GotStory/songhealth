@@ -5,7 +5,9 @@
 # after-<name>.png (#196 retro). The branch keeps no code. A new capture for the same ticket
 # becomes a child commit, so earlier screenshots stay reachable. The commit also holds <dir>'s
 # captures.txt, when scripts/capture-screenshots.mjs wrote one, so the branch keeps each image's
-# path (#282 retro). The push is left to you: it publishes the images, and the repository is public.
+# path (#282 retro). It ends with the table of the pages' heights that scripts/evidence-heights.ts
+# reads from the PNGs, for a pull request or a record to quote whole (#287 retro). The push is left
+# to you: it publishes the images, and the repository is public.
 #   scripts/evidence-branch.sh <ticket: 003-61, or 169 for a standalone one> <dir of PNGs>
 set -euo pipefail
 (($# == 2)) || { echo "usage: scripts/evidence-branch.sh <ticket> <dir of PNGs>" >&2; exit 2; }
@@ -36,3 +38,5 @@ for before in "$dir"/before-*.png; do
   [[ -e $dir/after-$name ]] || continue
   echo "| ${name%.png} | ![Before: ${name%.png}]($address/before-$name?raw=true) | ![After: ${name%.png}]($address/after-$name?raw=true) |"
 done
+echo "heights (px):"
+node "$(dirname "${BASH_SOURCE[0]}")/evidence-heights.ts" "$dir"

@@ -1,20 +1,27 @@
 // The pages opened on the development runtime since a time, read from the app's log (#250 retro):
 // what a walkthrough's record can say a person opened.
 //
-//   node scripts/dev-runtime-opened.ts <since, such as 2026-11-13T01:42:00Z or 10m>
+//   node scripts/dev-runtime-opened.ts <since, such as 2026-11-13T01:42:00Z or 10m> \
+//     [--expect <address> [<address>...]]
 //
 // It prints each page a request named, then the stretches where / was asked for more often than
 // the container's health check asks (scripts/opened-pages/plan.ts). Read-only. The log holds
 // every client's requests, a browser suite's too, and neither query strings nor window widths.
+//
+// --expect takes the addresses a walkthrough's steps gave, and prints each one the log does not
+// show answered, so the steps to ask about again are named in the same reading (#287 retro: a
+// list and a post were missed by eye, in two rounds). An address counts without its query string.
 
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-import { openedPages } from "./opened-pages/plan.ts";
+import { notOpened, openedPages } from "./opened-pages/plan.ts";
 
-const since = process.argv[2];
-if (since === undefined) {
-	console.error("usage: node scripts/dev-runtime-opened.ts <since>");
+const [since, flag, ...expected] = process.argv.slice(2);
+if (since === undefined || (flag !== undefined && (flag !== "--expect" || expected.length === 0))) {
+	console.error(
+		"usage: node scripts/dev-runtime-opened.ts <since> [--expect <address> [<address>...]]",
+	);
 	process.exit(2);
 }
 const unit = readFileSync(
@@ -36,7 +43,8 @@ if (logs.status !== 0) {
 	process.exit(1);
 }
 const lines = `${logs.stdout}\n${logs.stderr}`.replace(/\x1b\[[0-9;]*m/g, "").split("\n");
-const { pages, homepage } = openedPages(lines, interval);
+const opened = openedPages(lines, interval);
+const { pages, homepage } = opened;
 for (const page of pages) console.log(`${page.at} [${page.status}] ${page.path}`);
 for (const stretch of homepage) {
 	console.log(
@@ -46,3 +54,8 @@ for (const stretch of homepage) {
 console.log(
 	`opened since ${since}: ${pages.length} page requests, ${homepage.length} stretches of / beyond the health check (every ${interval} s)`,
 );
+if (expected.length > 0) {
+	const missing = notOpened(opened, expected);
+	for (const path of missing) console.log(`not opened: ${path}`);
+	console.log(`expected: ${missing.length} of ${expected.length} addresses not shown as opened`);
+}

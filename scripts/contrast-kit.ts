@@ -8,6 +8,7 @@ import { chromium, type Page } from "@playwright/test";
 
 import { SYNTHETIC_REFERRER } from "../playwright.config.ts";
 import type { Fixtures } from "./capture-with-fixtures.ts";
+import { fixturePath } from "./contrast/plan.ts";
 
 const WIDTHS = [1440, 1024, 768, 375, 320];
 const ORIGIN = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4324";
@@ -74,13 +75,21 @@ export function pixelAt(pixels: Pixels, at: number): Rgb {
 	return [pixels.data[at]!, pixels.data[at + 1]!, pixels.data[at + 2]!];
 }
 
+/** One thing to read on a page: the name its line carries, and the locator that finds it. */
+export interface Target {
+	name: string;
+	selector: string;
+}
+
 /**
  * Open `path` at each width with animations and transitions stopped, and `style` added when it is
- * given, and print what `read` gives for each selector there, a line each. With a fixtures module
- * of scripts/screenshot-fixtures/, its content is made first and removed afterwards, as
- * scripts/capture-with-fixtures.ts does, and the paths it returns are not used. The measuring runs
- * in this process without blocking it, so the fixture kit's restore still reaches the runtime (a
- * blocked event loop failed a menu restore in #241). Pages are read anonymously.
+ * given, and print what `read` gives for each selector there, a line each. With `expand`, a
+ * selector stands for the targets it gives on that page, a line each under its own name. With a
+ * fixtures module of scripts/screenshot-fixtures/, its content is made first and removed
+ * afterwards, as scripts/capture-with-fixtures.ts does; a path written "fixture:<name>" is then
+ * the page of the module's capture of that name, whose slug the module made (#287 retro). The
+ * measuring runs in this process without blocking it, so the fixture kit's restore still reaches
+ * the runtime (a blocked event loop failed a menu restore in #241). Pages are read anonymously.
  */
 export async function measureAtEachWidth(
 	{
@@ -88,15 +97,21 @@ export async function measureAtEachWidth(
 		selectors,
 		fixtures,
 		style,
+		expand,
 	}: {
 		path: string;
 		selectors: string[];
 		fixtures?: string;
 		style?: string;
+		expand?: (page: Page, selector: string) => Promise<Target[]>;
 	},
-	read: (page: Page, selector: string) => Promise<string>,
+	read: (page: Page, selector: string, name: string) => Promise<string>,
 ): Promise<void> {
-	const measure = async () => {
+	const FIXTURE = "fixture:";
+	if (path.startsWith(FIXTURE) && fixtures === undefined) {
+		throw new Error(`${path} needs --fixtures, the module that makes the page`);
+	}
+	const measure = async (path: string) => {
 		const browser = await chromium.launch();
 		try {
 			for (const width of WIDTHS) {
@@ -113,7 +128,11 @@ export async function measureAtEachWidth(
 					}
 				});
 				for (const selector of selectors) {
-					console.log(`${width} px  ${selector}  ${await read(page, selector)}`);
+					const targets = expand ? await expand(page, selector) : [{ name: selector, selector }];
+					for (const target of targets) {
+						const reading = await read(page, target.selector, target.name);
+						console.log(`${width} px  ${target.name}  ${reading}`);
+					}
 				}
 				await page.close();
 			}
@@ -122,13 +141,15 @@ export async function measureAtEachWidth(
 		}
 	};
 	if (fixtures === undefined) {
-		await measure();
+		await measure(path);
 		return;
 	}
 	const { withFixtureKit } = await import("./fixture-kit.ts");
 	await withFixtureKit(async (kit) => {
 		const module = (await import(pathToFileURL(resolve(fixtures)).href)).default as Fixtures;
-		await module(kit);
-		await measure();
+		const captures = await module(kit);
+		await measure(
+			path.startsWith(FIXTURE) ? fixturePath(captures, path.slice(FIXTURE.length)) : path,
+		);
 	});
 }
