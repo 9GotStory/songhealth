@@ -73,3 +73,22 @@ export function openedPages(
 	});
 	return { pages, homepage };
 }
+
+/**
+ * The pages of `expected` that `opened` does not show, in the order given and each once: a
+ * walkthrough's steps the log cannot confirm (#287 retro: the record's reader saw only by eye that
+ * no request named the Health Content list). An address is read without its query string, as the
+ * log holds it. A page counts when a request for it answered 200, and the Homepage when a stretch
+ * of / holds a load.
+ */
+export function notOpened(
+	opened: { pages: readonly OpenedPage[]; homepage: readonly HomepageStretch[] },
+	expected: readonly string[],
+): string[] {
+	const answered = new Set(
+		opened.pages.filter((page) => page.status === 200).map((page) => page.path),
+	);
+	if (opened.homepage.length > 0) answered.add("/");
+	const paths = expected.map((address) => address.replace(/[?#].*$/, ""));
+	return [...new Set(paths)].filter((path) => !answered.has(path));
+}

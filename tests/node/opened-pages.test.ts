@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { openedPages } from "../../scripts/opened-pages/plan.ts";
+import { notOpened, openedPages } from "../../scripts/opened-pages/plan.ts";
 
 /** A line of `podman logs --timestamps`, at a second of 2026-11-13T09:mm:ss+07:00. */
 function line(clock: string, path: string, status = 200): string {
@@ -76,5 +76,52 @@ describe("openedPages", () => {
 			{ from: "2026-11-13T02:11:07Z", to: "2026-11-13T02:11:23Z", loads: 2 },
 			{ from: "2026-11-13T02:12:11Z", to: "2026-11-13T02:12:13Z", loads: 1 },
 		]);
+	});
+});
+
+describe("notOpened", () => {
+	const opened = openedPages(
+		[
+			line("11:00", "/news"),
+			line("11:05", "/news/health"),
+			line("11:09", "/health/content/demo-health-dengue"),
+			line("11:12", "/news/demo-news-gone", 404),
+		],
+		15,
+	);
+
+	it("lists the expected pages that no request answered 200, in the order given", () => {
+		assert.deepEqual(
+			notOpened(opened, [
+				"/health/content/demo-health-flu-vaccine",
+				"/news",
+				"/health/content",
+				"/health/content/demo-health-dengue",
+			]),
+			["/health/content/demo-health-flu-vaccine", "/health/content"],
+		);
+	});
+
+	it("does not count a page that answered another status", () => {
+		assert.deepEqual(notOpened(opened, ["/news/demo-news-gone"]), ["/news/demo-news-gone"]);
+	});
+
+	it("reads an expected address without its query string, as the log holds it, and names it once", () => {
+		assert.deepEqual(
+			notOpened(opened, [
+				"/news/health?topic=demo-topic-vaccine",
+				"/activities?page=2",
+				"/activities",
+			]),
+			["/activities"],
+		);
+	});
+
+	it("counts the Homepage as opened only where a stretch of / holds a load", () => {
+		assert.deepEqual(notOpened(opened, ["/"]), ["/"]);
+		const withLoad = openedPages([line("11:07", "/"), line("11:15", "/")], 15);
+		assert.deepEqual(notOpened(withLoad, ["/"]), []);
+		const healthCheckAlone = openedPages([line("11:07", "/"), line("11:22", "/")], 15);
+		assert.deepEqual(notOpened(healthCheckAlone, ["/"]), ["/"]);
 	});
 });

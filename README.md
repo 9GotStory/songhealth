@@ -298,9 +298,12 @@ Administrator, an Editor or an Author sees it, comes from
 `scripts/dev-runtime-env.sh node scripts/capture-admin.ts <out-dir> [<role>]`.
 
 Text on a gradient or over a decoration is read with
-`node scripts/measure-text-contrast.ts [--fixtures <module>] <path> <selector>...` before the
-suites run: axe leaves such text unmeasured. It prints the lowest contrast under the text's own
-pixels at five widths; its header says how. A focus ring over two surfaces, such as a card over
+`node scripts/measure-text-contrast.ts [--fixtures <module>] [--all-text] <path> <selector>...`
+before the suites run: axe leaves such text unmeasured. It prints the lowest contrast under the
+text's own pixels at five widths, then each text's lowest reading; its header says how. With
+`--all-text` a selector is a surface, such as `'main .deep-field'`, and every text on it is read,
+which is what a spec's or a hand-off's "every text" asks for. A page a fixtures module makes is
+named `fixture:<capture's name>`. A focus ring over two surfaces, such as a card over
 the deep field's edge, is read the same way with
 `node scripts/measure-focus-contrast.ts [--fixtures <module>] [--style <css>] <path> <selector>...`
 (CODING_STANDARDS "Public pages").

@@ -278,7 +278,10 @@ A record in `docs/evidence/` says what its evidence log shows, and no more. Each
 line of the log or a run's output. Each cell of a coverage table names the check it rests on and
 how far that check goes: a status code shows a status code, and what a log cannot show stays
 unclaimed. A check reads as its result at its commit, never as a promise. In #151 four claims were
-not in the log, and in #184 five went wider than their checks.
+not in the log, and in #184 five went wider than their checks. A table of heights is the one
+`scripts/evidence-branch.sh` printed and a text's lowest contrast a closing line of
+`scripts/measure-text-contrast.ts`: review reads that each was taken whole and what its rows are
+called, not each cell (#287 retro: 45 typed rows held one page under another's name).
 
 A runbook in `docs/operations/` can be followed as written. Everything a step uses comes from an
 earlier step or its Setup, and a step's check reads something its command prints. In #185 no step
