@@ -498,7 +498,11 @@ this document names:
   with the band what lies beside the ring reads 5.09:1 or more (Product Owner, 2026-11-13: #283
   comment 6854670042; measured at `fb11b3e` with `scripts/measure-focus-contrast.ts`, §3.2). On
   the page's colour the band hardly
-  shows.
+  shows. On `/activities` the first row reads the same as `/news`'s, and with `--all-text` at the
+  five widths every text of a card reads 4.97:1 or more, the place and the summary in
+  `text-secondary` the lowest; the large card's text over a white picture 6.24:1 or more, its
+  place the lowest, and over the deep visual 11.12:1 or more (#313; measured at `bf70e05` with
+  `scripts/measure-text-contrast.ts` and `scripts/screenshot-fixtures/activities-list-light-picture.ts`).
 - **The large card on a list's first page** (Feature 009 #284; spec #280 "The cards", "The
   first page", decisions 2 and 11): on a first page of `/news`, Health News or Health Content
   that no Health Topic narrows, and on every first page of `/activities`, which has no filter
