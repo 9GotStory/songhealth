@@ -5,7 +5,8 @@
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
 > 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
-> implemented by #281–#287, and awaits the Product Owner's acceptance on #280.
+> implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
+> 6891402807).
 > **Updated:** 2026-11-15 (Feature 009 #287); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
@@ -1422,7 +1423,7 @@ The prototype's variant C, on the branch `prototype/news-post-redesign` at `427f
 visual reference (`docs/prototypes/news-post-redesign.md` there). Each ticket's decisions are on
 #281 to #286 and in §13. The evidence round of #287
 (`docs/evidence/287-news-post-redesign-evidence-round.md`) measures the pages and names what the
-evidence does not cover; the feature awaits the Product Owner's acceptance on #280.
+evidence does not cover. The Product Owner accepted the feature on #280 (comment 6891402807).
 
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
