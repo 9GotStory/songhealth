@@ -46,6 +46,8 @@ import {
 	OFF_CENTRE_CROP,
 	OFF_CENTRE_FOCAL_POINT,
 	SECTION_CRUMBS,
+	boxOf,
+	deepField,
 	detailOf,
 	expect,
 	expectBreadcrumb,
@@ -60,6 +62,7 @@ import {
 	testAccessibilityAndReflow,
 	testListOnField,
 	thaiDate,
+	tokenColor,
 } from "./public.helpers";
 
 /** The fixed number of Activities a list page shows. */
@@ -167,6 +170,24 @@ test("/activities lists only published Activities, the most recently held first,
 		);
 		await expect(card.locator("time"), `${activity.title} is dated`).toHaveText(thaiDate(shown));
 	}
+});
+
+test("the first Activity card lies over the deep field's lower edge, so its focus ring has a white band on both sides", async ({
+	page,
+}) => {
+	await page.goto("/activities");
+	const link = page.getByRole("main").getByRole("article").first().getByRole("link");
+	const field = await boxOf(deepField(page), "the deep field");
+	expect((await boxOf(link, "the first card")).y, "the card starts on the field").toBeLessThan(
+		field.y + field.height,
+	);
+	await link.focus();
+	await expect(link, "a card's focus ring").toHaveCSS("outline-width", "3px");
+	// The ring alone read under 3:1 on the field (scripts/measure-focus-contrast.ts, #312).
+	await expect(link, "the white band beside the ring").toHaveCSS(
+		"box-shadow",
+		new RegExp(`${RegExp.escape(await tokenColor(page, "surface-base"))} 0px 0px 0px 7px`),
+	);
 });
 
 test("an Activity card shows its picture, cropped around its middle or around its focal point, or the Activity visual when it has none or its picture is gone, and its summary", async ({

@@ -17,6 +17,11 @@
 //
 // A title-named native link covers the whole surface. Metadata and summaries remain readable
 // outside its label (WCAG 2.5.3; #193; #190 comment 6707205912).
+//
+// The list's first row lies over the deep field's lower edge (Feature 010 #312), where the global
+// `brand-primary` ring alone read under 3:1 on a third of its length, so the link's ring has a
+// white band on both sides (`focus-ring-banded`), as a News list's card has (CODING_STANDARDS
+// "Public pages"; #283 comment 6854670042).
 import { Image } from "emdash/ui";
 import { activityDate, activityPath, type ActivityEntry } from "../lib/activities";
 import { CARD_PICTURE_SIZES, availableMedia } from "../lib/media";
@@ -72,6 +77,6 @@ const titleId = `activitycard-${crypto.randomUUID()}`;
 	<a
 		href={activityPath(activity.id)}
 		aria-labelledby={titleId}
-		class="absolute inset-0 rounded-22 hover:ring-2 hover:ring-brand-primary"
+		class="focus-ring-banded absolute inset-0 rounded-22 hover:ring-2 hover:ring-brand-primary"
 	/>
 </article>
