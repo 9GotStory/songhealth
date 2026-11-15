@@ -1789,6 +1789,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   placeholder dropped it; they now take no placeholder. Without a focal point each crops as
   before, a portrait from its top (§7.3, §8.5, §8.6, §8.8, §8.10, §9.2). No box, size or layout
   changed, and nothing a page showed is gone: the placeholder never showed
-  (`docs/agents/emdash-1.1.0.md` "Media"). Authority: #298 comment 6892189972, decision 1 (no
-  placeholder in our code, no dependency upgrade) and decision 2 (a portrait follows its focal
-  point).
+  (`docs/agents/emdash-1.1.0.md` "Media"). `05` §5.1 tells staff how a person's picture crops
+  (v2.10). Authority: #298 comment 6892189972, decision 1 (no placeholder in our code, no
+  dependency upgrade) and decision 2 (a portrait follows its focal point), and #298 comment 6893006429
+  (the sentence for staff in `05`).
