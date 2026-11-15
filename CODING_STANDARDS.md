@@ -177,7 +177,14 @@ and why, and `.jscpd-baseline.json` records them.
   assertion expected a link the card does not have, and only review caught it). A loop over cases
   runs the cases that already hold first and the case the change creates last, even when that case
   was the first tracer (#198 retro: with the empty case first, the red run stopped before the body,
-  source and topic cases ran).
+  source and topic cases ran). A browser run ends with "stopped short", the failed tests that had
+  assertions after their failing line or failed inside a loop
+  (`tests/browser/stopped-short-reporter.ts`): a red run's is empty, each test failing at its last
+  assertion (#298 retro: two tests judged the new case first and two inside a loop).
+- A test that reads the source to enforce a rule counts what it cannot read as breaking the rule:
+  classes held in a constant, a list or a prop, a component imported under another name (#298
+  retro: `tests/node/public-media.test.ts` first read only a tag's own text, so a cropped picture
+  whose classes sat in a constant would have passed).
 - A rule with an edge is tested on both sides of the edge: a count such as "the first eight" or
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage
@@ -270,9 +277,11 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   feature's direction and the decisions that amend the document's rules, such as a model change in
   `02`. In `docs/design/DESIGN.md` a ticket's own decisions go into §13's change history, one
   entry per ticket with its authority, and the banner stays as it is (#248 retro: #242 to #248
-  each added an entry and none touched the banner). The feature's hand-off ticket alone rewrites
-  the banner's sentence on which tickets build what, so it names every ticket and no page the
-  feature has since built as still to come (#250 retro, #250 comment 6841500044).
+  each added an entry and none touched the banner). A standalone ticket's entry keeps the
+  document's version and names the ticket in the Updated line, as #298's did. The feature's
+  hand-off ticket alone rewrites the banner's sentence on which tickets build what, so it names
+  every ticket and no page the feature has since built as still to come (#250 retro, #250 comment
+  6841500044).
 - **Model changes.** A field or collection added to `seed/seed.json` is listed in its resource's
   section of `02-content-model.md`, under the feature's banner (#248 retro: `02` §12 lacked the
   Service's icon until review).
