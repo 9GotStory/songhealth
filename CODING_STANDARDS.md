@@ -95,7 +95,8 @@ and why, and `.jscpd-baseline.json` records them.
   2026-11-13: #281 comment 6848893055). Such a card takes `focus-ring-banded`, a white band on
   both sides of the ring (#283 comment 6854670042).
 - `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
-  the Homepage's and the one under a page's heading (spec #280 "The field under a heading"), it is
+  the Homepage's and the one under a list's heading or a Post page's header (spec #280 "The field
+  under a heading"), it is
   4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product
   Owner, 2026-11-11: #242 comment 6797113372, item 1). One measured exception: the month
   and year on a Current Announcement's date tile, 5.45:1 or more where they sit on its gradient
