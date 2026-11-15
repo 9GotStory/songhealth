@@ -311,13 +311,13 @@ const metaLine = (doc, withType = true) =>
 /** Variant A's row: the file's tile, the facts and the title, and its download at the right. */
 function documentRow(doc, tag = "h2") {
 	const id = `c${++uid}`;
-	return `<article class="group relative"><div class="flex flex-wrap items-center gap-x-3.5 gap-y-3 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:shadow-deep sm:flex-nowrap sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5">
+	return `<article class="group relative"><div class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3.5 gap-y-3 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:shadow-deep sm:gap-x-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
 ${fileTile(doc.file)}
 <div class="min-w-0 flex-1"><p class="mb-1 text-small text-text-secondary">${metaLine(doc)}</p>${doc.status ? `<p class="mb-1.5 flex">${attentionPill(doc.status)}</p>` : ""}
 <${tag} id="${id}" class="line-clamp-2 text-body font-semibold wrap-anywhere text-text-primary group-hover:text-brand-primary sm:text-body-large">${esc(doc.title)}</${tag}>${
 		doc.summary ? `<p class="mt-1 line-clamp-2 text-label text-text-secondary max-sm:hidden">${esc(doc.summary)}</p>` : ""
 	}</div>
-${doc.file ? downloadPill(doc.file, "max-sm:w-full") : unavailable("max-sm:w-full")}
+${doc.file ? downloadPill(doc.file, "max-sm:col-span-2 sm:col-start-2 sm:justify-self-start lg:col-start-3") : unavailable("max-sm:col-span-2 sm:col-start-2 lg:col-start-3")}
 <a href="${doc.href}" aria-labelledby="${id}" class="absolute inset-0 rounded-22"></a></div></article>`;
 }
 /** Variant B's card: the tile and the type, the title and the facts, the download at its foot. */

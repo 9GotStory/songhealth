@@ -105,5 +105,16 @@ On variants A and B, each answer "ตามที่แนะนำ":
 4. An Announcement's and a Document's page take A: one card over the field's lower edge, holding a
    Document's file and download above its details, and an Announcement's details.
 
+Then, before the spec (each answer "ตามที่แนะนำ"):
+
+5. A Document's row keeps its title as the link to its page and its download as a link of its
+   own, with no link over the whole row: `DESIGN.md` §7.3 lets a whole-card link hold no other
+   focus stop. The download's accessible name also names the Document.
+6. Below 1,024 px a row's download goes under its text: across the row below 640 px, at the text's
+   start from 640 px. Beside the text at 640 px it left the title about 200 px. `build.mjs` builds
+   the row that way since this answer.
+7. The seams are the public browser suites on the development runtime and node:test on
+   `src/lib`, with no new one.
+
 Known: the download on a Document's row is new; today's row names the file's type and size without
 a link to it (grill Q6).
