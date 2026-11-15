@@ -1,12 +1,13 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.3, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.4, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
 > 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
 > implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
-> 6891402807).
+> 6891402807). Feature 010's redesign of the Activities, Announcements and Documents pages follows
+> spec #311, implemented by #312–#318.
 > **Updated:** 2026-11-15 (#312); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
@@ -108,8 +109,9 @@ health-service network.
   frame and its text on the page's colour (§9). Feature 010 brings the list's heading to the
   Activities, Announcements and Documents lists (spec #311; §7.8), each with today's cards or rows
   over the field's edge, after the filter form on `/documents`, until its own ticket (#313 to
-  #315). Every other page, the Announcement's and the Document's page among them, keeps its design
-  under the new shell until its own feature.
+  #315). An Announcement's and a Document's page keep their design until their own tickets (#316,
+  #317), and every page outside the two features keeps its design under the new shell until its
+  own feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
   "มันยังดูธรรมดา เรียบง่ายเกินไป ไม่ได้ดูทันสมัย หรือ สมัยใหม่เลย", and naming two sites as the look
@@ -463,7 +465,9 @@ this document names:
   with no nested anchors or another focus stop. Enter, modified clicks and new-tab actions work.
 - **Interaction:** on a ServiceCard and an ActivityCard, hover adds a 2 px `brand-primary` ring
   without moving/resizing the card and makes its title green and underlined. The resting
-  border/shadow remains; keyboard focus uses the global 3 px outline around the whole card. The
+  border/shadow remains; keyboard focus uses the global 3 px outline around the whole card, and on
+  an ActivityCard a `surface-base` band on both sides of it (`focus-ring-banded`), since its first
+  row lies over the deep field's edge (§7.8; Feature 010 #312). The
   Homepage's own Service cards (§8.4), News cards (§8.6), Health Content cards (§8.8) and Activity
   tiles (§8.10), and multi-action cards, keep their own interactions.
 - **The News, Health News and Health Content lists' card** (Feature 009 #283; spec #280 "The
@@ -713,9 +717,12 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
   then the pager (§7.6); on Health News, Health Content and `/documents` the filter form (§7.7)
   comes first. They are 32 px apart, and each keeps its content and behaviour. On `/activities`,
   `/announcements` and `/documents` the block holds today's Activity cards (§7.3), Announcement
-  rows and Document rows until Feature 010 #313, #314 and #315, with the global `brand-primary`
-  focus ring where the first row lies over the field, as `/news`' cards had it until #283 (#281
-  comment 6847783611, item 1). The cards are the Homepage's News
+  rows and Document rows until Feature 010 #313, #314 and #315. On `/activities` the first row of
+  cards lies over the field, where the card's `brand-primary` ring alone read under 3:1 on 27 to
+  34 % of its length, so its link takes `focus-ring-banded`, as a News list's card does (§7.3;
+  `scripts/measure-focus-contrast.ts` at `73efb0d`). An Announcement row's and a Document row's
+  only links are their titles, whose ring lies on the row's white, 6.45:1; on `/documents` the
+  filter form is the block over the edge, its ring on its own white card. The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
   ring alone was faint, so a card's ring has a `surface-base` band on both sides
@@ -1832,11 +1839,13 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (v2.10). Authority: #298 comment 6892189972, decision 1 (no placeholder in our code, no
   dependency upgrade) and decision 2 (a portrait follows its focal point), and #298 comment 6893006429
   (the sentence for staff in `05`).
-- **v1.3 the list heading on three more lists (2026-11-15, Feature 010 #312):** `/activities`,
+- **v1.4 the list heading on three more lists (2026-11-15, Feature 010 #312):** `/activities`,
   `/announcements` and `/documents` open on the deep field with the list heading (§7.8): the
   labels "ภาพกิจกรรม", "แจ้งให้ทราบ" and "เข้าถึงข้อมูล" and the icons `heart`, `file-text` and
   `folder-open` are new, and the H1s, the leads, the titles in the head, the menu and the
   breadcrumbs stay. What follows the heading lies over the field's edge: on `/documents` the filter
   form first (§7.7), then today's cards or rows, empty states and pager, which keep their look until
-  #313 to #315. §2, §4, §5, §7.7, §7.8 and §8.12 name the three lists. Authority: spec #311
+  #313 to #315; the Activity card's link takes `focus-ring-banded` where its first row lies over
+  the field (§7.3, §7.8). §2, §4, §5, §7.7, §7.8 and §8.12 name the three lists, and the Status
+  line and a Feature 010 banner name the feature. Authority: spec #311
   "Decisions", 3, 4 and 5, and #311 comment 6895825492.

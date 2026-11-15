@@ -1273,6 +1273,34 @@ export async function expectListMovesOnlyWhenAllowed(
 		await page.emulateMedia({ media: "screen" });
 	});
 
+	if ("cards" in moving) {
+		const { cards } = moving;
+		await test.step("Each card's reveal", async () => {
+			await page.setViewportSize(DESKTOP_VIEWPORT);
+			await page.goto(path);
+			const last = cards.last();
+			expect(
+				(await boxOf(last, "the last card")).y,
+				"the last card lies below the window as the page opens",
+			).toBeGreaterThan(DESKTOP_VIEWPORT.height);
+			expect(await shownOpacity(last), "the last card, below the window, waits").toBe(0);
+			for (const card of await cards.all()) {
+				await card.scrollIntoViewIfNeeded();
+				await expect
+					.poll(() => shownOpacity(card), { message: "a card, in the window, shows" })
+					.toBe(1);
+			}
+			await page.goto(path);
+			await last.getByRole("link").focus();
+			await expect
+				.poll(() => shownOpacity(last), {
+					message: "the last card, focused, shows whole",
+					timeout: 3_000,
+				})
+				.toBe(1);
+		});
+	}
+
 	await test.step("Nothing moves by itself for long", async () => {
 		// Read as the page opens, while the entrance and a loading picture's shimmer run: each is
 		// over within five seconds (WCAG 2.2 SC 2.2.2), and the field's decorations stand still.
@@ -1289,33 +1317,6 @@ export async function expectListMovesOnlyWhenAllowed(
 			await selfRunningEnds(moving.plain),
 			"a missing picture's visual does not shimmer",
 		).toEqual([]);
-	});
-
-	if (!("cards" in moving)) return;
-	const { cards } = moving;
-	await test.step("Each card's reveal", async () => {
-		await page.setViewportSize(DESKTOP_VIEWPORT);
-		await page.goto(path);
-		const last = cards.last();
-		expect(
-			(await boxOf(last, "the last card")).y,
-			"the last card lies below the window as the page opens",
-		).toBeGreaterThan(DESKTOP_VIEWPORT.height);
-		expect(await shownOpacity(last), "the last card, below the window, waits").toBe(0);
-		for (const card of await cards.all()) {
-			await card.scrollIntoViewIfNeeded();
-			await expect
-				.poll(() => shownOpacity(card), { message: "a card, in the window, shows" })
-				.toBe(1);
-		}
-		await page.goto(path);
-		await last.getByRole("link").focus();
-		await expect
-			.poll(() => shownOpacity(last), {
-				message: "the last card, focused, shows whole",
-				timeout: 3_000,
-			})
-			.toBe(1);
 	});
 }
 
@@ -1726,9 +1727,12 @@ export function testListOnField(list: ListOnField): void {
 			],
 		];
 		if (list.form) states.push([`${path}?${list.form.unmatched}`, list.form.empty]);
+		for (const [address, empty] of states) await expectFilteredEmpty(page, address, empty);
+		// Each state's place over the field's edge is read after what every state says, which today's
+		// page already holds, so a red run reaches each of them (CODING_STANDARDS "Tests").
 		for (const [address, empty] of states) {
 			await page.setViewportSize(DESKTOP_VIEWPORT);
-			await expectFilteredEmpty(page, address, empty);
+			await page.goto(address);
 			await expectEmptyOverEdge(page, empty.message);
 		}
 	});

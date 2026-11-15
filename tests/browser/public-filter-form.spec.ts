@@ -355,26 +355,25 @@ test.beforeAll(async () => {
 
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
-// The lists that open on the deep field (Feature 009 #282, Feature 010 #312; DESIGN.md §7.7).
-for (const list of [HEALTH_NEWS, HEALTH_CONTENT, DOCUMENTS]) {
-	test(`${list.name}: the form is the first block over the deep field's lower edge, 64 px above it below 640 px and 88 px from 640 px, and keeps the page's brand-primary focus ring on its white card`, async ({
-		page,
-	}) => {
-		const form = formOf(page, list);
-		await page.goto(filteredPath(list));
-		await expectStartsOverFieldEdge(page, form, "the filter form");
-		const field = form.getByLabel(fixturesOf(list).filters[0].label);
-		await field.focus();
-		await expect(field, "the page's focus ring").toHaveCSS(
-			"outline-color",
-			await tokenColor(page, "brand-primary"),
-		);
-		await expect(form, "the form's white card").toHaveCSS(
-			"background-color",
-			await tokenColor(page, "surface-base"),
-		);
-	});
-}
+// Documents opens on the deep field (Feature 010 #312; DESIGN.md §7.7), as Health News and
+// Health Content do, whose suites read their form there (testFilteredListOnField).
+test("Documents: the form keeps its white card and the page's brand-primary focus ring, and is the first block over the deep field's lower edge, 64 px above it below 640 px and 88 px from 640 px", async ({
+	page,
+}) => {
+	const form = formOf(page, DOCUMENTS);
+	await page.goto(filteredPath(DOCUMENTS));
+	await expect(form, "the form's white card").toHaveCSS(
+		"background-color",
+		await tokenColor(page, "surface-base"),
+	);
+	const field = form.getByLabel(fixturesOf(DOCUMENTS).filters[0].label);
+	await field.focus();
+	await expect(field, "the page's focus ring").toHaveCSS(
+		"outline-color",
+		await tokenColor(page, "brand-primary"),
+	);
+	await expectStartsOverFieldEdge(page, form, "the filter form");
+});
 
 for (const list of LIST_FORMS) {
 	test(`${list.name}: a submitted filter narrows the list in its address, and the clear link opens the whole list`, async ({
