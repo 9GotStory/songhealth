@@ -1,13 +1,14 @@
 // Screenshot content for the crop around a picture's focal point (#298): an Activity with four
-// photos, a Health Content and a Leadership. Every picture is tall, 600 × 1500, with an
-// accent-warm disc on the focal point its field's value carries, so a box no taller than a square
-// shows the disc only when its crop keeps the focal point in view: the picture's middle and its
-// top both leave the disc out. The focal point is a quarter of the way across and three quarters
-// of the way down, and a quarter of the way down on the Activity's own picture, where the
-// Homepage's tile lays its gradient over the lower part. Captures a close-up of each of the six
-// cropped pictures at 1440 and 375 px: the Activity's card on /activities, its photos on its page
-// and its tile on the Homepage, the Health Content's card and the Leadership's portrait on the
-// Homepage, and the Leadership's card on /about/leadership.
+// photos, a Health Content and a Leadership. Every picture is tall, 600 × 1800, with an
+// accent-warm disc, a quarter of its width across, on the focal point its field's value carries.
+// The focal point is a quarter of the way across and three quarters of the way down. In a box no
+// taller than a square, the widest being 16:9, the picture's middle and its top both leave that
+// disc out, so the disc shows only when the crop keeps the focal point in view. The Activity's own
+// picture has it a quarter of the way down, which the picture's middle leaves out too, because the
+// Homepage's tile lays its gradient over the picture's lower part. Captures a close-up of each of
+// the six cropped pictures at 1440 and 375 px: the Activity's card on /activities, its photos on
+// its page and its tile on the Homepage, the Health Content's card and the Leadership's portrait
+// on the Homepage, and the Leadership's card on /about/leadership.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
 
@@ -16,10 +17,10 @@ const LOW = { focalX: 0.25, focalY: 0.75 };
 const HIGH = { focalX: 0.25, focalY: 0.25 };
 
 /**
- * A picture tall enough that a square's crop around its middle leaves both points out, and its
- * top the low one.
+ * A picture tall enough that a square's crop around its middle leaves both discs out, and its top
+ * the low one.
  */
-const TALL = { width: 600, height: 1500 };
+const TALL = { width: 600, height: 1800 };
 
 /** The colours the photos blend, the site's own tokens. */
 const COLOURS = ["#0b6b57", "#123c33", "#bae0cf", "#d1ebde"];

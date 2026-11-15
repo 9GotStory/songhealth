@@ -73,6 +73,7 @@ import {
 	HOMEPAGE_HEADINGS,
 	HOMEPAGE_HEADLINE,
 	MOBILE_VIEWPORT,
+	OFF_CENTRE_CROP,
 	OFF_CENTRE_FOCAL_POINT,
 	PHONE_VIEWPORT,
 	VIEWPORTS,
@@ -574,7 +575,6 @@ test("the Leadership strip shows the first three Leadership in Leadership order 
 	await expect(strip, "no public contact").not.toContainText(contact);
 	await expectImageLoaded(first.locator("img"), "the first person's picture");
 	await expectCrop(first.locator("img"), "50% 0%", "a portrait without a focal point");
-	await expectCrop(people.nth(2).locator("img"), "25% 75%", "a portrait with a focal point");
 	const plain = people.nth(1);
 	await expect(plain.locator("img"), "no picture without an image").toHaveCount(0);
 	await expect(plain.getByTestId("person-visual"), "the plain visual").toHaveCount(1);
@@ -630,6 +630,7 @@ test("the Leadership strip shows the first three Leadership in Leadership order 
 	await expectAccessibleAtEachWidth(page, "/ with three Leadership");
 	await page.setViewportSize(MOBILE_VIEWPORT);
 	await expectNoHorizontalScroll(page, "/ with three Leadership");
+	await expectCrop(people.nth(2).locator("img"), OFF_CENTRE_CROP, "a portrait with a focal point");
 });
 
 test("two Leadership divide the strip's row between them and one takes it whole, the strip keeps its own space below while the News section is left out, and with no Leadership the strip is left out", async ({
@@ -1218,7 +1219,6 @@ test("Health Information shows the latest 4 published Health Content, each with 
 	await card(newest).scrollIntoViewIfNeeded();
 	await expectImageLoaded(card(newest).locator("img"), "the newest Health Content's picture");
 	await expectCrop(card(newest).locator("img"), "50% 50%", "a picture without a focal point");
-	await expectCrop(card(third).locator("img"), "25% 75%", "a picture with a focal point");
 	await expect(card(newest).getByTestId("health-visual")).toHaveCount(0);
 	await expect(card(untopical).locator("img")).toHaveCount(0);
 	await expect(card(untopical).getByTestId("health-visual")).toBeVisible();
@@ -1259,6 +1259,7 @@ test("Health Information shows the latest 4 published Health Content, each with 
 		);
 	}
 	await expectNoHorizontalScroll(page, "/ with a long Health Topic at 320 px");
+	await expectCrop(card(third).locator("img"), OFF_CENTRE_CROP, "a picture with a focal point");
 });
 
 test("a chip shows for each Health Topic the Health Content list's filter offers, in the filter's order, and each opens the list narrowed to its topic, which shows only that topic's items", async ({
@@ -1659,7 +1660,6 @@ test("the Activities show the latest five by Activity date at every width, each 
 		);
 	}
 	await expectCrop(large.locator("img"), "50% 50%", "a picture without a focal point");
-	await expectCrop(tiles.nth(4).locator("img"), "25% 75%", "a picture with a focal point");
 	for (const index of [0, 4]) {
 		await expect(tiles.nth(index).getByTestId("activity-visual")).toHaveCount(0);
 	}
@@ -1727,6 +1727,7 @@ test("the Activities show the latest five by Activity date at every width, each 
 		await expect(tiles.nth(4).getByRole("heading"), `the fifth title at ${width} px`).toBeVisible();
 	}
 	await expectNoHorizontalScroll(page, "/ with five Activities at 320 px");
+	await expectCrop(tiles.nth(4).locator("img"), OFF_CENTRE_CROP, "a picture with a focal point");
 });
 
 test("with fewer than five Activities the tiles are equal and fill one row from 1,024 px; below, they go two to a row with the first across the row when the others are an even number: one alone, two side by side, three with the first across, four two by two; and with none the section is left out", async ({

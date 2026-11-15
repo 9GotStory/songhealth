@@ -41,6 +41,7 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	OFF_CENTRE_CROP,
 	OFF_CENTRE_FOCAL_POINT,
 	SECTION_CRUMBS,
 	detailOf,
@@ -189,11 +190,6 @@ test("an Activity card shows its picture, cropped around its middle or around it
 		"50% 50%",
 		"a picture without a focal point",
 	);
-	await expectCrop(
-		listedItem(page, focused.title).locator("img"),
-		"25% 75%",
-		"a picture with a focal point",
-	);
 	for (const activity of [plain, pictureGone]) {
 		await expect(listedItem(page, activity.title).locator("img"), activity.title).toHaveCount(0);
 		await expect(
@@ -202,6 +198,11 @@ test("an Activity card shows its picture, cropped around its middle or around it
 		).toHaveCount(1);
 	}
 	await expect(listedItem(page, plain.title).getByText(summary, { exact: true })).toBeVisible();
+	await expectCrop(
+		listedItem(page, focused.title).locator("img"),
+		OFF_CENTRE_CROP,
+		"a picture with a focal point",
+	);
 });
 
 test("/activities pages through older Activities in the same order, with the page number in the address", async ({

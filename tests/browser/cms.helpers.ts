@@ -1367,7 +1367,7 @@ export interface PictureMark {
 
 /**
  * A PNG of `size`, 1200×750 unless given, a diagonal blend from the hex colour `from` to `to`: a
- * stand-in photo, or at ONE_PAGE_SIZE a stand-in One Page. With `mark`, a disc a tenth of the
+ * stand-in photo, or at ONE_PAGE_SIZE a stand-in One Page. With `mark`, a disc a quarter of the
  * picture's shorter side wide lies on that point, so a crop shows whether it keeps the point in
  * view.
  */
@@ -1380,7 +1380,7 @@ export function gradientPng(
 	const [a, b, disc] = [from, to, mark?.colour ?? to].map((hex) =>
 		[1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16)),
 	);
-	const radius = Math.min(width, height) / 20;
+	const radius = Math.min(width, height) / 8;
 	const onMark = (x: number, y: number) =>
 		mark !== undefined && Math.hypot(x - mark.x * width, y - mark.y * height) <= radius;
 	const chunk = (type: string, data: Buffer) => {

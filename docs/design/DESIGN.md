@@ -119,7 +119,8 @@ health-service network.
   content, visible service choices, who leads the office, recent News and Announcements, health
   knowledge and contact details.
 - **Imagery:** genuine, permitted local imagery. Most of the office's pictures are One Pages
-  (GLOSSARY): a page shows one whole, and a card shows its middle (§7.3, §8.1, §9). A gradient
+  (GLOSSARY): a page shows one whole, and a card shows its middle, or the part around a focal
+  point staff set (§7.3, §8.1, §9). A gradient
   visual stands in where an item has no picture; it never replaces an editorial image.
 - **Content-driven cards:** never invent CMS records to fill a grid; show fewer cards or hide an
   optional section, as `04-homepage.md` requires.
@@ -506,7 +507,8 @@ this document names:
   Health Content card in a list to 16:9 from `sm` and 4:3 below (`ContentCard.astro`), as the
   Homepage's small News card does; the Homepage's Health Content
   cards and its Activity tiles have their own boxes (§8.8, §8.10), an Activity's photos are
-  squares (§9.2), and a person's portrait is a circle (`PersonCard.astro`, §8.5). Every picture a
+  squares (§9.2), and a person's portrait is a circle, on a personnel card (`PersonCard.astro`)
+  and in the Homepage's Leadership strip (§8.5). Every picture a
   page crops keeps in view the focal point that its field's value carries: its `object-position`
   is that point. Without a focal point a card, a tile and a photo show the picture's middle, and
   a portrait its top, where the face is (#284 comment 6870867641, item 2; #298 comment

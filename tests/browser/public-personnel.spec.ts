@@ -35,6 +35,7 @@ import {
 import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
+	OFF_CENTRE_CROP,
 	OFF_CENTRE_FOCAL_POINT,
 	expect,
 	expectAboutSubpage,
@@ -241,11 +242,6 @@ test("each person shows their profile image, cropped around its top or around it
 		);
 		await expectImageLoaded(card.locator("img"), `${path}: the profile image`);
 		await expectCrop(card.locator("img"), "50% 0%", `${path}: a portrait without a focal point`);
-		await expectCrop(
-			listedItem(page, focused.title).locator("img"),
-			"25% 75%",
-			`${path}: a portrait with a focal point`,
-		);
 		await expect(card).toContainText(position);
 		await expect(card).toContainText(CONTACT_LABEL);
 		for (const line of contact) await expect(card.getByText(line)).toBeVisible();
@@ -276,6 +272,22 @@ test("each person shows their profile image, cropped around its top or around it
 		withoutContact.title,
 	]);
 	await expectSiteNotFound(page, `/personnel/${withContact.slug}`, "a per-person address");
+
+	// Both pages are read before either is judged, so a failing run names each.
+	const focusedCrops: string[] = [];
+	for (const { path } of PAGES) {
+		await page.goto(path);
+		const portrait = listedItem(page, focused.title).locator("img");
+		await expect(portrait, `${path}: the portrait covers its circle`).toHaveCSS(
+			"object-fit",
+			"cover",
+		);
+		focusedCrops.push(await portrait.evaluate((image) => getComputedStyle(image).objectPosition));
+	}
+	expect(focusedCrops, "a portrait with a focal point, on each page").toEqual([
+		OFF_CENTRE_CROP,
+		OFF_CENTRE_CROP,
+	]);
 });
 
 test.describe("accessibility and reflow", () => {

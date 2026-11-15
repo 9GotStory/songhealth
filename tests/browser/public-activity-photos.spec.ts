@@ -40,6 +40,7 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	MOBILE_VIEWPORT,
+	OFF_CENTRE_CROP,
 	OFF_CENTRE_FOCAL_POINT,
 	PHONE_VIEWPORT,
 	boxOf,
@@ -411,6 +412,8 @@ test("the thumbnails are square, cropped around their middle or around a photo's
 		[1023, [3, 3, 2], [3, 3, 3, 3, 3, 3, 2]],
 		[375, [3, 3, 2], [3, 3, 3, 3, 3, 3, 2]],
 	] as const;
+	/** The second photo's crop at each width: its focal point is OFF_CENTRE_FOCAL_POINT. */
+	const focusedCrops: string[] = [];
 	for (const [width, closed, open] of widths) {
 		await page.setViewportSize({ width, height: 900 });
 		expect(await itemsPerRow(photos.getByRole("link")), `at ${width} px, closed`).toEqual(closed);
@@ -429,14 +432,17 @@ test("the thumbnails are square, cropped around their middle or around a photo's
 		for (const [index, shape] of shapes.entries()) {
 			const label = `at ${width} px, photo ${index + 1}`;
 			expect(Math.abs(shape.width - shape.height), `${label} is square`).toBeLessThan(1);
-			// The second photo's focal point is OFF_CENTRE_FOCAL_POINT; the others have none.
-			expect(
-				shape.crop,
-				`${label} is cropped around its ${index === 1 ? "focal point" : "middle"}, not squashed`,
-			).toEqual(["cover", index === 1 ? "25% 75%" : "50% 50%"]);
+			expect(shape.crop[0], `${label} is cropped, not squashed`).toBe("cover");
+			// The others have no focal point.
+			if (index === 1) focusedCrops.push(shape.crop[1]!);
+			else expect(shape.crop[1], `${label} is cropped around its middle`).toBe("50% 50%");
 		}
 		await controlOf(photos, TWENTY.open).click();
 	}
+	// Every width is read before the focal point is judged, so a failing run names each.
+	expect(focusedCrops, "the second photo is cropped around its focal point at each width").toEqual(
+		widths.map(() => OFF_CENTRE_CROP),
+	);
 });
 
 test("each thumbnail opens its own photo's file", async ({ page }) => {
