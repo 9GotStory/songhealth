@@ -127,6 +127,9 @@ and why, and `.jscpd-baseline.json` records them.
   `PortableText` renders it, which leaves out its images whose media is gone; `RichText.astro`
   does this. `tests/node/public-media.test.ts` checks both for EmDash's `Image` and
   `PortableText`.
+- An `Image` that crops its picture (`object-cover`) passes `placeholder={false}`, so the crop
+  keeps the picture's focal point in view: EmDash 1.1.0's placeholder drops it
+  (`docs/agents/emdash-1.1.0.md` "Media"; #298). `tests/node/public-media.test.ts` checks it.
 
 ## Tests
 

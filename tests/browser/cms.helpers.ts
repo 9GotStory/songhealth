@@ -1357,17 +1357,32 @@ export async function uploadSyntheticPicture(
 export const ONE_PAGE_SIZE = { width: 600, height: 848 };
 
 /**
+ * A disc on a picture: its centre at `x` of the width and `y` of the height, and its hex colour.
+ */
+export interface PictureMark {
+	x: number;
+	y: number;
+	colour: string;
+}
+
+/**
  * A PNG of `size`, 1200×750 unless given, a diagonal blend from the hex colour `from` to `to`: a
- * stand-in photo, or at ONE_PAGE_SIZE a stand-in One Page.
+ * stand-in photo, or at ONE_PAGE_SIZE a stand-in One Page. With `mark`, a disc a quarter of the
+ * picture's shorter side wide lies on that point, so a crop shows whether it keeps the point in
+ * view.
  */
 export function gradientPng(
 	from: string,
 	to: string,
 	{ width, height } = { width: 1200, height: 750 },
+	mark?: PictureMark,
 ): Uint8Array<ArrayBuffer> {
-	const [a, b] = [from, to].map((hex) =>
+	const [a, b, disc] = [from, to, mark?.colour ?? to].map((hex) =>
 		[1, 3, 5].map((index) => Number.parseInt(hex.slice(index, index + 2), 16)),
 	);
+	const radius = Math.min(width, height) / 8;
+	const onMark = (x: number, y: number) =>
+		mark !== undefined && Math.hypot(x - mark.x * width, y - mark.y * height) <= radius;
 	const chunk = (type: string, data: Buffer) => {
 		const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
 		const framed = Buffer.alloc(body.length + 8);
@@ -1386,7 +1401,9 @@ export function gradientPng(
 		for (let x = 0; x < width; x += 1) {
 			const t = (x / width + y / height) / 2;
 			rows.set(
-				a!.map((channel, index) => Math.round(channel + (b![index]! - channel) * t)),
+				onMark(x, y)
+					? disc!
+					: a!.map((channel, index) => Math.round(channel + (b![index]! - channel) * t)),
 				row + 1 + x * 3,
 			);
 		}

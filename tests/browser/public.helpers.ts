@@ -457,6 +457,25 @@ export async function expectPictureFillsBox(
 	return shown;
 }
 
+/** A focal point off a picture's middle, as an image field's value carries one. */
+export const OFF_CENTRE_FOCAL_POINT = { focalX: 0.25, focalY: 0.75 };
+
+/** The `object-position` of a picture cropped around OFF_CENTRE_FOCAL_POINT. */
+export const OFF_CENTRE_CROP = "25% 75%";
+
+/**
+ * Fail unless `picture` covers its box and keeps `position` of itself in view, its computed
+ * `object-position`: OFF_CENTRE_CROP with OFF_CENTRE_FOCAL_POINT, and without a focal point the
+ * picture's middle, "50% 50%", or a portrait's top, "50% 0%" (docs/design/DESIGN.md §7.3).
+ */
+export async function expectCrop(picture: Locator, position: string, label: string): Promise<void> {
+	await expect(picture, `${label} covers its box`).toHaveCSS("object-fit", "cover");
+	await expect(picture, `${label}: the point its crop keeps in view`).toHaveCSS(
+		"object-position",
+		position,
+	);
+}
+
 /**
  * The ancestors of `target` that cut into its focus ring: each one that clips its content where
  * the outline lies, the element's box widened by the outline's offset and width.
