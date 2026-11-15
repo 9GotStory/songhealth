@@ -7,10 +7,18 @@
 //
 // The canonical address keeps the filters that are set and a valid page number, so each view stays
 // its own address for search engines, as on the News lists.
+//
+// The page opens on the deep field as the News lists do (Feature 010 #312; spec #311 "Decisions",
+// 3 and 4; ListHeading): the label "เข้าถึงข้อมูล", the Homepage's Quick Access label, with the
+// folder-open icon, over its H1 "เอกสารเผยแพร่", and no link. The filter form comes first over the
+// field's lower edge, as on Health Content, then the rows, the empty state and the pager
+// (ListBody).
+import FolderOpen from "@lucide/astro/icons/folder-open";
 import DocumentRow from "../../components/DocumentRow.astro";
 import EmptyState from "../../components/EmptyState.astro";
 import FilterForm from "../../components/FilterForm.astro";
-import PageHeading from "../../components/PageHeading.astro";
+import ListBody from "../../components/ListBody.astro";
+import ListHeading from "../../components/ListHeading.astro";
 import Pagination from "../../components/Pagination.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import {
@@ -44,10 +52,11 @@ const termOptions = (terms: typeof types) =>
 	section="documents"
 	description={lead}
 	canonical={pageHref(listUrl, page)}
-	crumbs={[]}
 >
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={title} lead={lead} />
+	<ListHeading section="documents" crumbs={[]} label="เข้าถึงข้อมูล" title={title} lead={lead}>
+		<FolderOpen slot="icon" class="shrink-0" size={24} />
+	</ListHeading>
+	<ListBody>
 		<FilterForm
 			label="กรองเอกสาร"
 			action={documentsPath()}
@@ -97,5 +106,5 @@ const termOptions = (terms: typeof types) =>
 			<EmptyState message="ยังไม่มีเอกสาร" />
 		)}
 		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
-	</div>
+	</ListBody>
 </SiteLayout>

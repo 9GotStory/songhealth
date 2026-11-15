@@ -7,7 +7,7 @@
 > 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
 > implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
 > 6891402807).
-> **Updated:** 2026-11-15 (#298); first drafted 2026-10-30
+> **Updated:** 2026-11-15 (#312); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -57,6 +57,17 @@
 > §9), each with its own decisions in §13's change history, and #287 the documents, the measures
 > and the limits (§2, §3.2, §6, §10). Every page outside the feature keeps its design.
 
+> **Feature 010 decision (Product Owner, 2026-11-15; spec #311, #311 comment 6895825492):** the
+> Activities list, the Announcements list and an Announcement's page, and the Document repository
+> and a Document's page are redesigned after the Homepage and Feature 009's pages as they are
+> built, in the look the Product Owner picked from a prototype. Each list is headed on the deep
+> field as Feature 009's lists are (§7.8): `/activities` under the label "ภาพกิจกรรม",
+> `/announcements` under "แจ้งให้ทราบ" and `/documents` under "เข้าถึงข้อมูล"; their H1s, leads,
+> titles in the head, menu items and breadcrumbs stay. Every address, read and behaviour stays, and
+> no colour, type size, radius or shadow joins the tokens. #312 to #317 implement the five pages,
+> each with its own decisions in §13's change history, and #318 the documents, the measures and the
+> limits. Every page outside the feature keeps its design.
+
 ## 1. Scope, authority and status
 
 This document records the public presentation of Songhealth: its tokens, its components, the
@@ -94,8 +105,11 @@ health-service network.
   the deep field (§7.8), and over the field's edge, after the filter form on Health News and
   Health Content (§7.7), the Homepage's News cards, the newest large on a first page that no
   Health Topic narrows (§7.3); a Post page has its header on the field, its picture in a white
-  frame and its text on the page's colour (§9). Every other page, the Activities list and the
-  other detail pages among them, keeps its design under the new shell until its own feature.
+  frame and its text on the page's colour (§9). Feature 010 brings the list's heading to the
+  Activities, Announcements and Documents lists (spec #311; §7.8), each with today's cards or rows
+  over the field's edge, after the filter form on `/documents`, until its own ticket (#313 to
+  #315). Every other page, the Announcement's and the Document's page among them, keeps its design
+  under the new shell until its own feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
   "มันยังดูธรรมดา เรียบง่ายเกินไป ไม่ได้ดูทันสมัย หรือ สมัยใหม่เลย", and naming two sites as the look
@@ -268,7 +282,8 @@ There is no alert colour: a status is stated in text, and colour supports it.
 - **Typeface:** Noto Sans Thai, self-hosted through Astro's Fonts API (`astro.config.mjs`,
   `src/assets/fonts/README.md`).
 - **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`; the H1
-  of a list page on the deep field (the News, Health News and Health Content lists) is
+  of a list page on the deep field (the News, Health News, Health Content, Activities,
+  Announcements and Documents lists) is
   `section-title` instead, under its label (§7.8). A Homepage section's H2 is `section-title` (§3.1), under a label at label size between slashes, and so is
   the H2 over an Activity's photos (§9.2). The
   Homepage's H1, the site title, is out of sight: the hero's headline shows in its place (§8.1).
@@ -331,7 +346,9 @@ own module.
   2026-11-11: #241 comment 6791096480, item 1), and so does the link of a list's heading on the
   deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link, 20 px in the search's
   submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The hero's search field opens with a 20 px `search`
-  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's cards, small and large, `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3). A Service card shows
+  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's cards, small and large, `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3; in a
+  list heading's tile `heart` on `/activities`, `file-text` on `/announcements` and `folder-open` on
+  `/documents`, §7.8). A Service card shows
   the Service's icon (below).
 - **Service icons** (Product Owner, 2026-11-12: #248 comment 6826430670): a Service card's tile
   shows the icon staff chose for the Service in the Service editor, on the Homepage (§8.4) and in
@@ -639,7 +656,7 @@ Health Service Directory:
   the list from its first page.
 - Below 640 px the fields stack above the actions, each as wide as the form. From 640 px a field is
   288 px wide, and fields and actions wrap inside the form.
-- On Health News and Health Content the form is the first block over the deep field's lower edge,
+- On Health News, Health Content and Documents the form is the first block over the deep field's lower edge,
   under the list's heading, with the cards or the empty state 32 px under it (§7.8). It keeps its
   look there: its white card carries its own text and the page's `brand-primary` focus ring.
 - The public-browser suite goes through all five lists, with Documents' three selects and the
@@ -651,7 +668,9 @@ Health Service Directory:
 ### 7.8 List heading on the deep field
 
 `ListHeading` (Feature 009 #281, #282; spec #280 "The field under a heading", "List heading")
-heads `/news`, Health News (`/news/health`) and the Health Content list (`/health/content`).
+heads `/news`, Health News (`/news/health`) and the Health Content list (`/health/content`), and
+since Feature 010 #312 (spec #311 "Decisions", 3 and 4) the Activities list (`/activities`), the
+Announcements list (`/announcements`) and the Document repository (`/documents`).
 
 - **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
   `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
@@ -682,19 +701,30 @@ heads `/news`, Health News (`/news/health`) and the Health Content list (`/healt
   "ข่าวสุขภาพ"; **Health Content** is labelled "สุขภาพ", the Homepage's Health Information label,
   over its H1 "ความรู้สุขภาพ". Each has the `heart-pulse` icon and no link, and keeps its lead, its
   title in the head and its breadcrumb (spec #280 "Decisions", 3).
+- **`/activities`** is labelled "ภาพกิจกรรม" over its H1 "กิจกรรม", with the `heart` icon, and
+  **`/announcements`** "แจ้งให้ทราบ" over "ประกาศ", with `file-text`, as their Homepage sections
+  (§8.7, §8.10); both breadcrumbs go through ข่าวสาร. **`/documents`** is labelled "เข้าถึงข้อมูล",
+  the Homepage's Quick Access label (§8.11), over "เอกสารเผยแพร่", with `folder-open`, its
+  breadcrumb under หน้าแรก. None has a link, and each keeps its lead, its title in the head and its
+  breadcrumb (spec #311 "Decisions", 3).
 - **What follows the heading** lies over the field's lower edge: the field's content ends 128 px
   above the edge from `sm` and 96 px below, and the block that follows (`ListBody`) starts 88 px
   above it from `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state,
-  then the pager (§7.6); on Health News and Health Content the filter form (§7.7) comes first. They
-  are 32 px apart, and each keeps its content and behaviour. The cards are the Homepage's News
+  then the pager (§7.6); on Health News, Health Content and `/documents` the filter form (§7.7)
+  comes first. They are 32 px apart, and each keeps its content and behaviour. On `/activities`,
+  `/announcements` and `/documents` the block holds today's Activity cards (§7.3), Announcement
+  rows and Document rows until Feature 010 #313, #314 and #315, with the global `brand-primary`
+  focus ring where the first row lies over the field, as `/news`' cards had it until #283 (#281
+  comment 6847783611, item 1). The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
   ring alone was faint, so a card's ring has a `surface-base` band on both sides
   (`focus-ring-banded`, §7.3; Product Owner, 2026-11-13: #281 comment 6847783611, item 1, and
   #283 comment 6854670042).
 - **Motion** (§8.12): with motion allowed the heading block rises in as the page opens, and the
-  lead 0.1 s after it. Each card reveals as it comes into the window (§7.3). The breadcrumb, the
-  link, the filter form, the empty state and the pager show at once.
+  lead 0.1 s after it. Each card reveals as it comes into the window (§7.3); on `/activities`,
+  `/announcements` and `/documents` the cards and rows show at once until their own tickets. The
+  breadcrumb, the link, the filter form, the empty state and the pager show at once.
 - **Measured** on the development runtime at `fb11b3e`, the head of `009-news-post-redesign`,
   with the demo dataset's six News and five Health Content (#287,
   `docs/evidence/287-news-post-redesign-evidence-round.md`):
@@ -728,6 +758,11 @@ heads `/news`, Health News (`/news/health`) and the Health Content list (`/healt
   (`tests/browser/public.helpers.ts`): it adds the heading's icon, the filter form first over the
   edge with its ring on its white card, and a page past the last and a Health Topic that matches
   nothing 32 px under the form. Each suite's own first test reads the list with no item at all.
+  `public-activities.spec.ts`, `public-announcements.spec.ts` and `public-documents.spec.ts` take
+  `testListOnField`, which shares the heading's cases with `testFilteredListOnField`
+  (`testHeadingOnField`) and adds the list with no item, what follows over the edge with each empty
+  state, the keyboard from the breadcrumb, the motion and the page without JavaScript;
+  `public-filter-form.spec.ts` reads the form over the edge on the three lists that have it there.
 
 ## 8. Homepage
 
@@ -1222,13 +1257,16 @@ stays the submit state (§8.9).
   box behind it. A missing picture's visual has no shimmer, nor has the Featured picture, which
   has its blurred copy behind it (§8.1), or a Leadership portrait in its ring (§8.5) (Product
   Owner: the same comment, item 2).
-- **A list's motion.** On `/news`, Health News and Health Content the heading block rises in as
-  the hero's parts do, starting at 0 s, and the lead at 0.1 s (§7.8). Each card reveals as a
+- **A list's motion.** On `/news`, Health News, Health Content, `/activities`, `/announcements`
+  and `/documents` the heading block rises in as the hero's parts do, starting at 0 s, and the lead
+  at 0.1 s (§7.8). Each card reveals as a
   section's card does and shows whole while it holds the keyboard's focus, and its picture's box
   shimmers as the page opens; a missing picture's visual does not (§7.3; Feature 009 #283). The
   breadcrumb, the link, the filter form, the empty state and the pager show at once
-  (`public-news.spec.ts` "/news moves only when motion is allowed: …", and
-  `testFilteredListOnField`'s motion case for the other two).
+  (`public-news.spec.ts` "/news moves only when motion is allowed: …",
+  `testFilteredListOnField`'s motion case for the other two, and `testListOnField`'s for the
+  Activities, Announcements and Documents lists, whose cards and rows do not move until Feature
+  010 #313 to #315).
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
@@ -1536,6 +1574,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   design's source).
 - Feature 006: spec #144 and tickets #145 to #151.
 - Feature 009: spec #280 and tickets #281 to #287.
+- Feature 010: spec #311 and tickets #312 to #318.
 - Figma, as history: [Songhealth — Homepage Concept v1](https://www.figma.com/design/Lxdfd1dBgNNO28Rx62zGYO),
   described in `docs/design/homepage-concept-v1.md`.
 - Tailwind official: [Astro installation](https://tailwindcss.com/docs/installation/framework-guides/astro),
@@ -1793,3 +1832,11 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (v2.10). Authority: #298 comment 6892189972, decision 1 (no placeholder in our code, no
   dependency upgrade) and decision 2 (a portrait follows its focal point), and #298 comment 6893006429
   (the sentence for staff in `05`).
+- **v1.3 the list heading on three more lists (2026-11-15, Feature 010 #312):** `/activities`,
+  `/announcements` and `/documents` open on the deep field with the list heading (§7.8): the
+  labels "ภาพกิจกรรม", "แจ้งให้ทราบ" and "เข้าถึงข้อมูล" and the icons `heart`, `file-text` and
+  `folder-open` are new, and the H1s, the leads, the titles in the head, the menu and the
+  breadcrumbs stay. What follows the heading lies over the field's edge: on `/documents` the filter
+  form first (§7.7), then today's cards or rows, empty states and pager, which keep their look until
+  #313 to #315. §2, §4, §5, §7.7, §7.8 and §8.12 name the three lists. Authority: spec #311
+  "Decisions", 3, 4 and 5, and #311 comment 6895825492.
