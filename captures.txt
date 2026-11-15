@@ -1,0 +1,12 @@
+focal-activity-card-1440.png	/activities@1440>article:has-text("[ตัวอย่าง] รณรงค์ตรวจคัดกรองสุขภาพเชิงรุกในชุมชน")
+focal-activity-card-375.png	/activities@375>article:has-text("[ตัวอย่าง] รณรงค์ตรวจคัดกรองสุขภาพเชิงรุกในชุมชน")
+focal-activity-photos-1440.png	/activities/songhealth-f002-synthetic-shot-d8036273-a8e1@1440>#activity-photos
+focal-activity-photos-375.png	/activities/songhealth-f002-synthetic-shot-d8036273-a8e1@375>#activity-photos
+focal-home-activity-tile-1440.png	/@1440>article:has-text("[ตัวอย่าง] รณรงค์ตรวจคัดกรองสุขภาพเชิงรุกในชุมชน")
+focal-home-activity-tile-375.png	/@375>article:has-text("[ตัวอย่าง] รณรงค์ตรวจคัดกรองสุขภาพเชิงรุกในชุมชน")
+focal-home-health-card-1440.png	/@1440>article:has-text("[ตัวอย่าง] ดูแลสุขภาพช่วงอากาศเปลี่ยน")
+focal-home-health-card-375.png	/@375>article:has-text("[ตัวอย่าง] ดูแลสุขภาพช่วงอากาศเปลี่ยน")
+focal-home-leadership-1440.png	/@1440>li:has-text("[ตัวอย่าง] ธนพล รักษ์ดี")
+focal-home-leadership-375.png	/@375>li:has-text("[ตัวอย่าง] ธนพล รักษ์ดี")
+focal-person-card-1440.png	/about/leadership@1440>article:has-text("[ตัวอย่าง] ธนพล รักษ์ดี")
+focal-person-card-375.png	/about/leadership@375>article:has-text("[ตัวอย่าง] ธนพล รักษ์ดี")
