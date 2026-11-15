@@ -1621,6 +1621,12 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 }
 
 /**
+ * When `ListOnField`'s items are published: before any real item and any other test's, so they
+ * end a list.
+ */
+export const LIST_END = "2001-01-01T03:00:00.000Z";
+
+/**
  * A list page that opens on the deep field with the items it showed before Feature 010's cards and
  * rows (Feature 010 #312; spec #311 "Decisions", 3 and 4): the Activities, the Announcements and
  * the Documents lists, the last with its filter form before its rows.
@@ -1640,7 +1646,10 @@ export interface ListOnField extends HeadingOnField {
 	form?: { name: string; unmatched: string; empty: FilteredEmptyState };
 	/** The actor whose fixtures the suite makes, once its `beforeAll` has run. */
 	admin: () => CmsActor;
-	/** A new item of the list, published now. */
+	/**
+	 * A new item of the list, published at `LIST_END`, before every other item, so it follows them
+	 * and the suite's other tests still find their own on the first page.
+	 */
 	publishItem: (label: string) => Promise<DraftFixture>;
 }
 
@@ -1727,9 +1736,9 @@ export function testListOnField(list: ListOnField): void {
 	test(`on ${path} the keyboard goes from the breadcrumb, on the field with its accent-warm focus ring drawn whole, to ${list.form ? "the filter form's first field" : "the first item"}`, async ({
 		page,
 	}) => {
-		const item = await list.publishItem("keyboard");
+		await list.publishItem("keyboard");
 		await page.goto(path);
-		await expect(listedItem(page, item.title)).toBeVisible();
+		await expect(cardList(page).cards.first()).toBeVisible();
 		const crumbs = page.getByRole("navigation", { name: "เส้นทางนำทาง" }).getByRole("link");
 		await crumbs.first().focus();
 		for (const [index, [label]] of list.crumbs.entries()) {
@@ -1776,9 +1785,9 @@ export function testListOnField(list: ListOnField): void {
 		test(`${path} shows its heading with its label, its lead${list.form ? ", its filter form" : ""} and its items`, async ({
 			page,
 		}) => {
-			const item = await list.publishItem("no-js");
+			await list.publishItem("no-js");
 			await page.goto(path);
-			await expect(listedItem(page, item.title)).toBeVisible();
+			await expect(cardList(page).cards.first()).toBeVisible();
 			await expect(page.getByRole("heading", { level: 1 })).toHaveText(text.title);
 			await expect(page.getByRole("main").getByText(text.lead, { exact: true })).toBeVisible();
 			if (list.form) await expect(formOf(page).getByRole("combobox").first()).toBeVisible();

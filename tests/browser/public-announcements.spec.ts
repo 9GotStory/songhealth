@@ -47,6 +47,7 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	LIST_END,
 	SECTION_CRUMBS,
 	detailOf,
 	expect,
@@ -135,8 +136,9 @@ testListOnField({
 	pastLast: "ไม่พบประกาศในหน้านี้",
 	admin: () => admin,
 	publishItem: async (label) => {
-		const announcement = await createAnnouncement(label);
-		await publish(announcement);
+		// Closed too, since the closed ones follow every current one.
+		const announcement = await createAnnouncement(label, { data: { closes_at: LIST_END } });
+		await publish(announcement, LIST_END);
 		return announcement;
 	},
 });

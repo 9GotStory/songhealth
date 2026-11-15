@@ -42,6 +42,7 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	LIST_END,
 	OFF_CENTRE_CROP,
 	OFF_CENTRE_FOCAL_POINT,
 	SECTION_CRUMBS,
@@ -101,7 +102,7 @@ testListOnField({
 	admin: () => admin,
 	publishItem: async (label) => {
 		const activity = await createActivity(label);
-		await publish(activity);
+		await publish(activity, LIST_END);
 		return activity;
 	},
 });

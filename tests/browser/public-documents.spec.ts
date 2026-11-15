@@ -49,6 +49,7 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	LIST_END,
 	SECTION_CRUMBS,
 	detailOf,
 	expect,
@@ -126,7 +127,7 @@ testListOnField({
 	admin: () => admin,
 	publishItem: async (label) => {
 		const document = await createDocument(label);
-		await publish(document);
+		await publishEntryAt(admin, "documents", document.id, LIST_END);
 		return document;
 	},
 });
