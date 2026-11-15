@@ -3,6 +3,17 @@
     "context7": {
       "type": "http",
       "url": "https://mcp.context7.com/mcp/oauth"
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@0.0.85",
+        "--config",
+        "playwright-mcp.config.json"
+      ],
+      "env": {}
     }
   }
 }
