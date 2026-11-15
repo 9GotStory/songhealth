@@ -6,7 +6,9 @@
 // links to its successor. A Document whose file is gone shows "ไฟล์ไม่พร้อมให้บริการ" and nothing
 // about storage. Drafts, unpublished and trashed Documents never show anywhere, and their
 // addresses answer the site 404. Each filter offers only the terms or fiscal years that published
-// Documents carry (spec #174 "Public list filters").
+// Documents carry (spec #174 "Public list filters"). The list opens on the deep field under the
+// label เข้าถึงข้อมูล, with its filter form and then its rows over the field's lower edge (Feature 010
+// #312; public.helpers.ts testListOnField).
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -47,6 +49,7 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	LIST_END,
 	SECTION_CRUMBS,
 	detailOf,
 	expect,
@@ -61,11 +64,15 @@ import {
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
+	testListOnField,
 	thaiDate,
 } from "./public.helpers";
 
 /** The fixed number of Documents a list page shows. */
 const PAGE_SIZE = 20;
+
+/** The lead of /documents, under its heading. */
+const DOCUMENTS_LEAD = "แบบฟอร์ม คู่มือ แผนงาน รายงาน และเอกสารอื่นของสำนักงานสาธารณสุขอำเภอสอง";
 
 /** What /documents shows when its filters match nothing (#55's decision 3). */
 const FILTERED_EMPTY = {
@@ -101,6 +108,29 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
+
+// First in the suite, while the runtime holds only its own Documents (Feature 010 #312).
+testListOnField({
+	path: "/documents",
+	crumbs: [HOME_CRUMB],
+	heading: { label: "เข้าถึงข้อมูล", title: "เอกสารเผยแพร่", lead: DOCUMENTS_LEAD },
+	icon: "folder-open",
+	collection: "documents",
+	pageSize: PAGE_SIZE,
+	noneYet: "ยังไม่มีเอกสาร",
+	pastLast: "ไม่พบเอกสารในหน้านี้",
+	form: {
+		name: "กรองเอกสาร",
+		unmatched: `type=${syntheticSlug("no-such-type")}`,
+		empty: FILTERED_EMPTY,
+	},
+	admin: () => admin,
+	publishItem: async (label) => {
+		const document = await createDocument(label);
+		await publishEntryAt(admin, "documents", document.id, LIST_END);
+		return document;
+	},
+});
 
 test("/documents lists only published Documents, newest first, each row with its type, date, fiscal year, file type and size", async ({
 	page,
@@ -388,6 +418,8 @@ test("a Document page shows its details, its file for download at EmDash's media
 	expect(response?.status(), "GET the Document page").toBe(200);
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(document.title);
+	// Its heading stays as it is until its own ticket (Feature 010 #316, #317).
+	await expect(page.getByTestId("deep-field"), "no deep field under the heading").toHaveCount(0);
 	await expect(main.getByText(summary)).toBeVisible();
 	await expect(detailOf(page, "ประเภทเอกสาร")).toHaveText(type.label);
 	await expect(detailOf(page, "วันที่เอกสาร")).toHaveText("24 ก.ย. 2569");
