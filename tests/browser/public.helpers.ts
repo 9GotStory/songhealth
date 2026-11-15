@@ -1089,11 +1089,69 @@ export async function expectStartsOverFieldEdge(
 }
 
 /**
+ * The parts of `block` that take the keyboard's focus and whose focus ring meets `field` past their
+ * own surface, the nearest box that holds them with an opaque background inside `block` (a
+ * select's own white does not count), each without the `surfaceBase` band of `focus-ring-banded`:
+ * such a ring lies on the deep field beside its card, where `brand-primary` reads under 3:1
+ * (CODING_STANDARDS "Public pages"). Each is named by its tag and the first words of its name. In
+ * #281 and #312 such a card passed every suite, and only scripts/measure-focus-contrast.ts found
+ * it (#312 retro).
+ */
+async function ringsOverFieldUnbanded(
+	block: Locator,
+	field: Locator,
+	surfaceBase: string,
+): Promise<string[]> {
+	const fieldElement = await field.elementHandle();
+	return block.evaluate(
+		(root, [fieldElement, band]) => {
+			const fieldBottom = fieldElement!.getBoundingClientRect().bottom;
+			const opaque = (element: Element) =>
+				!/^rgba\(.*,\s*0\)$|^transparent$/.test(getComputedStyle(element).backgroundColor);
+			const unbanded: string[] = [];
+			for (const part of root.querySelectorAll<HTMLElement>(
+				"a[href], button, input, select, textarea, [tabindex]",
+			)) {
+				if (part.tabIndex < 0 || part.getClientRects().length === 0) continue;
+				part.focus({ preventScroll: true });
+				const style = getComputedStyle(part);
+				const reach =
+					Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth);
+				const box = part.getBoundingClientRect();
+				if (style.outlineStyle === "none" || box.top - reach >= fieldBottom) continue;
+				let surface: Element | null = part.parentElement;
+				while (surface && root.contains(surface) && !opaque(surface)) {
+					surface = surface.parentElement;
+				}
+				const own = surface && root.contains(surface) ? surface.getBoundingClientRect() : undefined;
+				const onItsSurface =
+					own !== undefined &&
+					box.left - reach >= own.left &&
+					box.right + reach <= own.right &&
+					box.top - reach >= own.top &&
+					box.bottom + reach <= own.bottom;
+				if (onItsSurface || style.boxShadow.includes(`${band} 0px 0px 0px`)) continue;
+				const labelledBy = part.getAttribute("aria-labelledby");
+				const name =
+					part.getAttribute("aria-label") ??
+					(labelledBy ? document.getElementById(labelledBy)?.textContent : part.textContent) ??
+					"";
+				const words = name.trim().replace(/\s+/g, " ").slice(0, 30);
+				unbanded.push(`<${part.tagName.toLowerCase()}> "${words}"`);
+			}
+			(document.activeElement as HTMLElement | null)?.blur();
+			return unbanded;
+		},
+		[fieldElement, surfaceBase] as const,
+	);
+}
+
+/**
  * Fail unless, on both sides of 640 px, `blocks`, what follows a list's heading, lie 32 px one
  * under another and the first of them starts over the lower edge of `field` by that width's
  * measure, where the field's own content, which the lowest of `fieldContent` ends, stops that
- * width's room
- * above the edge. The viewport ends at the desktop width.
+ * width's room above the edge, and no part of them with a focus ring meets the field without
+ * its white band (ringsOverFieldUnbanded). The viewport ends at the desktop width.
  */
 export async function expectBlocksOverFieldEdge(
 	page: Page,
@@ -1101,6 +1159,7 @@ export async function expectBlocksOverFieldEdge(
 	fieldContent: Locator[],
 	blocks: Array<[name: string, block: Locator]>,
 ): Promise<void> {
+	const surfaceBase = await tokenColor(page, "surface-base");
 	for (const [width, { room, overlap }] of [
 		[375, FIELD_EDGE.phone],
 		[639, FIELD_EDGE.phone],
@@ -1133,6 +1192,12 @@ export async function expectBlocksOverFieldEdge(
 			edge - Math.max(...ends),
 			`the field's content ends ${room} px above its edge at ${width} px`,
 		).toBeCloseTo(room, 0);
+		for (const [name, block] of blocks) {
+			expect(
+				await ringsOverFieldUnbanded(block, field, surfaceBase),
+				`${name}: what meets the deep field with focus, without a white band, at ${width} px`,
+			).toEqual([]);
+		}
 	}
 }
 
