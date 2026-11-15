@@ -8,7 +8,9 @@
 // open yet, open or closed (ยังไม่เปิด, เปิดอยู่, ปิดแล้ว), by the Bangkok day. Each Announcement's page
 // at /announcements/{slug} shows its type, its announcement, open and close dates, its details and
 // the Documents attached to it, each linking to its Document page. Drafts, unpublished and trashed
-// Announcements never show, and attached Documents that are not published are left out.
+// Announcements never show, and attached Documents that are not published are left out. The list
+// opens on the deep field under the label แจ้งให้ทราบ, with its rows over the field's lower edge
+// (Feature 010 #312; public.helpers.ts testListOnField).
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -57,11 +59,15 @@ import {
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
+	testListOnField,
 	thaiDate,
 } from "./public.helpers";
 
 /** The fixed number of Announcements a list page shows. */
 const PAGE_SIZE = 20;
+
+/** The lead of /announcements, under its heading. */
+const ANNOUNCEMENTS_LEAD = "ประกาศของสำนักงานสาธารณสุขอำเภอสองที่ประชาชนควรทราบหรือต้องดำเนินการ";
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
@@ -116,6 +122,24 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
+
+// First in the suite, while the runtime holds only its own Announcements (Feature 010 #312).
+testListOnField({
+	path: "/announcements",
+	crumbs: [HOME_CRUMB, SECTION_CRUMBS.news],
+	heading: { label: "แจ้งให้ทราบ", title: "ประกาศ", lead: ANNOUNCEMENTS_LEAD },
+	icon: "file-text",
+	collection: "announcements",
+	pageSize: PAGE_SIZE,
+	noneYet: "ยังไม่มีประกาศ",
+	pastLast: "ไม่พบประกาศในหน้านี้",
+	admin: () => admin,
+	publishItem: async (label) => {
+		const announcement = await createAnnouncement(label);
+		await publish(announcement);
+		return announcement;
+	},
+});
 
 test("/announcements lists current Announcements first and closed ones after, each newest first by announcement date with the publication as the fallback, and states their status in text", async ({
 	page,
@@ -354,6 +378,8 @@ test("an Announcement page shows its type, dates, details and its published atta
 	expect(response?.status(), "GET the Announcement page").toBe(200);
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(announcement.title);
+	// Its heading stays as it is until its own ticket (Feature 010 #316, #317).
+	await expect(page.getByTestId("deep-field"), "no deep field under the heading").toHaveCount(0);
 	await expect(detailOf(page, "ประเภทประกาศ")).toHaveText(type.label);
 	await expect(detailOf(page, "วันที่ประกาศ")).toHaveText("24 ก.ย. 2569");
 	await expect(detailOf(page, "วันที่เริ่มต้น")).toHaveText("1 ต.ค. 2569");

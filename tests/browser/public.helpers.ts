@@ -1176,22 +1176,25 @@ export interface MovingCards {
 /**
  * Fail unless the list page at `path` moves only when motion is allowed. With motion allowed its
  * heading block rises in as the page opens and its lead after it, while its breadcrumb and each of
- * `atOnce` show at once; each of its `cards` reveals as it comes into the window and shows whole
- * while it holds the keyboard's focus; a picture's box shimmers as the page opens while a missing
- * picture's visual does not; and nothing runs by itself for more than five seconds (WCAG 2.2 SC
- * 2.2.2). The empty state that `empty.path` shows, reading `empty.message`, shows at once too.
- * With reduced motion preferred, and on paper, nothing moves. The page's height and each part's
- * place are the same either way, at the desktop width, 375 px and 320 px. The page ends on a screen
- * with motion allowed.
+ * `atOnce` show at once; each of its `cards`, where `moving` names them, reveals as it comes into
+ * the window and shows whole while it holds the keyboard's focus, and a picture's box shimmers as
+ * the page opens while a missing picture's visual does not; and nothing runs by itself for more
+ * than five seconds (WCAG 2.2 SC 2.2.2). A list whose items do not move yet, such as the
+ * Activities, Announcements and Documents lists until Feature 010's cards and rows (#312), names
+ * its `grid` alone. The empty state that `empty.path` shows, reading `empty.message`, shows at once
+ * too. With reduced motion preferred, and on paper, nothing moves. The page's height and each
+ * part's place are the same either way, at the desktop width, 375 px and 320 px. The page ends on a
+ * screen with motion allowed.
  */
 export async function expectListMovesOnlyWhenAllowed(
 	page: Page,
 	path: string,
 	heading: ListHeadingParts,
 	atOnce: Array<[name: string, part: Locator]>,
-	{ grid, cards, pictured, plain }: MovingCards,
+	moving: MovingCards | Pick<MovingCards, "grid">,
 	empty: { path: string; message: string },
 ): Promise<void> {
+	const { grid } = moving;
 	const main = page.getByRole("main");
 	const running = () => page.evaluate(() => document.getAnimations().length);
 	const parts: Array<[name: string, part: Locator]> = [
@@ -1270,6 +1273,26 @@ export async function expectListMovesOnlyWhenAllowed(
 		await page.emulateMedia({ media: "screen" });
 	});
 
+	await test.step("Nothing moves by itself for long", async () => {
+		// Read as the page opens, while the entrance and a loading picture's shimmer run: each is
+		// over within five seconds (WCAG 2.2 SC 2.2.2), and the field's decorations stand still.
+		await page.goto(path, { waitUntil: "commit" });
+		await expect(heading.title).toBeVisible();
+		const ends = await selfRunningEnds(page.locator("html"));
+		expect(Math.max(0, ...ends), "the last effect to end, in ms").toBeLessThanOrEqual(5_000);
+		if (!("cards" in moving)) return;
+		expect(
+			(await selfRunningEnds(moving.pictured)).length,
+			"the box of a card's picture shimmers as the page opens",
+		).toBeGreaterThan(0);
+		expect(
+			await selfRunningEnds(moving.plain),
+			"a missing picture's visual does not shimmer",
+		).toEqual([]);
+	});
+
+	if (!("cards" in moving)) return;
+	const { cards } = moving;
 	await test.step("Each card's reveal", async () => {
 		await page.setViewportSize(DESKTOP_VIEWPORT);
 		await page.goto(path);
@@ -1294,20 +1317,6 @@ export async function expectListMovesOnlyWhenAllowed(
 			})
 			.toBe(1);
 	});
-
-	await test.step("Nothing moves by itself for long", async () => {
-		// Read as the page opens, while the entrance and a loading picture's shimmer run: each is
-		// over within five seconds (WCAG 2.2 SC 2.2.2), and the field's decorations stand still.
-		await page.goto(path, { waitUntil: "commit" });
-		await expect(heading.title).toBeVisible();
-		const ends = await selfRunningEnds(page.locator("html"));
-		expect(Math.max(0, ...ends), "the last effect to end, in ms").toBeLessThanOrEqual(5_000);
-		expect(
-			(await selfRunningEnds(pictured)).length,
-			"the box of a card's picture shimmers as the page opens",
-		).toBeGreaterThan(0);
-		expect(await selfRunningEnds(plain), "a missing picture's visual does not shimmer").toEqual([]);
-	});
 }
 
 /**
@@ -1330,49 +1339,24 @@ export async function whileNonePublished(
 	}
 }
 
-/**
- * A list page that opens on the deep field with a filter form before its cards (Feature 009 #282;
- * spec #280 "List heading", "What follows a list's heading"): Health News and Health Content.
- */
-export interface FilteredListOnField {
+/** What a list's heading on the deep field reads, and where the list is. */
+interface HeadingOnField {
 	path: string;
 	/** The crumbs before the list's own, root first. */
 	crumbs: ReadonlyArray<readonly [label: string, href: string]>;
 	heading: ListHeadingText;
 	/** The Lucide icon in the heading's tile. */
 	icon: string;
-	/** The filter form's accessible name. */
-	form: string;
-	/** The fixed number of items a page of the list shows. */
-	pageSize: number;
-	/** What a page past the last one says. */
-	pastLast: string;
-	/** What the list shows when its Health Topic matches nothing. */
-	filteredEmpty: FilteredEmptyState;
-	/** A new synthetic Health Topic. */
-	createTopic: (label: string) => Promise<SyntheticTerm>;
-	/**
-	 * A new item of the list that carries `topic`, published now, with the picture of the media item
-	 * `picture` when one is given.
-	 */
-	publishItem: (label: string, topic: SyntheticTerm, picture?: string) => Promise<DraftFixture>;
-	/** A new synthetic picture in the media library: its media item's id. */
-	uploadPicture: () => Promise<string>;
 }
 
 /**
- * Declare the tests of a list's heading on the deep field and of what follows it: the heading's
- * parts, their sizes on both sides of 640 and 1,024 px, the filter form before the cards over the
- * field's lower edge, the large card on the unfiltered first page alone (Feature 009 #284), the
- * empty states where the cards would be, the keyboard's order with each
- * surface's focus ring, the motion case, and the page without JavaScript. The list's suite calls
- * it after the tests whose fixtures must lead the list, and tests the list with no item at all
- * itself (`whileNonePublished`, `expectEmptyStateUnderForm`).
+ * Declare the tests of a list's heading on the deep field (Feature 009 #281, #282; Feature 010
+ * #312): its breadcrumb, label, H1 and lead in that order and in surface-base, the icon in its
+ * tile, no link on the field but the breadcrumb's, and the H1's size, the field's corners and the
+ * room under the breadcrumb on both sides of 640 and 1,024 px.
  */
-export function testFilteredListOnField(list: FilteredListOnField): void {
+function testHeadingOnField(list: HeadingOnField): void {
 	const { path, heading: text } = list;
-	const formOf = (page: Page) => page.getByRole("form", { name: list.form });
-	const topicFieldOf = (page: Page) => formOf(page).getByLabel("ประเด็นสุขภาพ");
 
 	test(`${path} opens on the deep field with its breadcrumb, the label ${text.label}, the H1 ${text.title} and its lead, one under another on a phone and each in surface-base, with the ${list.icon} icon in the heading's tile and no link on the field but the breadcrumb's`, async ({
 		page,
@@ -1406,6 +1390,47 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 		const heading = listHeading(page, text);
 		for (const row of LIST_HEADING_WIDTHS) await expectHeadingAtWidth(page, path, heading, row);
 	});
+}
+
+/**
+ * A list page that opens on the deep field with a filter form before its cards (Feature 009 #282;
+ * spec #280 "List heading", "What follows a list's heading"): Health News and Health Content.
+ */
+export interface FilteredListOnField extends HeadingOnField {
+	/** The filter form's accessible name. */
+	form: string;
+	/** The fixed number of items a page of the list shows. */
+	pageSize: number;
+	/** What a page past the last one says. */
+	pastLast: string;
+	/** What the list shows when its Health Topic matches nothing. */
+	filteredEmpty: FilteredEmptyState;
+	/** A new synthetic Health Topic. */
+	createTopic: (label: string) => Promise<SyntheticTerm>;
+	/**
+	 * A new item of the list that carries `topic`, published now, with the picture of the media item
+	 * `picture` when one is given.
+	 */
+	publishItem: (label: string, topic: SyntheticTerm, picture?: string) => Promise<DraftFixture>;
+	/** A new synthetic picture in the media library: its media item's id. */
+	uploadPicture: () => Promise<string>;
+}
+
+/**
+ * Declare the tests of a list's heading on the deep field and of what follows it: the heading's
+ * parts, their sizes on both sides of 640 and 1,024 px, the filter form before the cards over the
+ * field's lower edge, the large card on the unfiltered first page alone (Feature 009 #284), the
+ * empty states where the cards would be, the keyboard's order with each
+ * surface's focus ring, the motion case, and the page without JavaScript. The list's suite calls
+ * it after the tests whose fixtures must lead the list, and tests the list with no item at all
+ * itself (`whileNonePublished`, `expectEmptyStateUnderForm`).
+ */
+export function testFilteredListOnField(list: FilteredListOnField): void {
+	const { path, heading: text } = list;
+	const formOf = (page: Page) => page.getByRole("form", { name: list.form });
+	const topicFieldOf = (page: Page) => formOf(page).getByLabel("ประเด็นสุขภาพ");
+
+	testHeadingOnField(list);
 
 	test(`what follows the heading of ${path} starts over the field's lower edge, 64 px above it below 640 px and 88 px from 640 px, where the field's own content ends 96 px and 128 px above it: the filter form, the cards 32 px under it and the pager 32 px under them`, async ({
 		page,
@@ -1590,6 +1615,173 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 			await expect(page.getByRole("main").getByText(text.lead, { exact: true })).toBeVisible();
 			await expect(topicFieldOf(page)).toBeVisible();
 			await expect(formOf(page).getByRole("button", { name: "แสดงผล" })).toBeVisible();
+			await expect(listHeading(page, text).label, "the label above the H1").toBeVisible();
+		});
+	});
+}
+
+/**
+ * A list page that opens on the deep field with the items it showed before Feature 010's cards and
+ * rows (Feature 010 #312; spec #311 "Decisions", 3 and 4): the Activities, the Announcements and
+ * the Documents lists, the last with its filter form before its rows.
+ */
+export interface ListOnField extends HeadingOnField {
+	/** The collection the list shows. */
+	collection: string;
+	/** The fixed number of items a page of the list shows. */
+	pageSize: number;
+	/** What the list says with no published item. */
+	noneYet: string;
+	/** What a page past the last one says. */
+	pastLast: string;
+	/**
+	 * The filter form, where the list has one: its accessible name and a query that matches nothing.
+	 */
+	form?: { name: string; unmatched: string; empty: FilteredEmptyState };
+	/** The actor whose fixtures the suite makes, once its `beforeAll` has run. */
+	admin: () => CmsActor;
+	/** A new item of the list, published now. */
+	publishItem: (label: string) => Promise<DraftFixture>;
+}
+
+/**
+ * Declare the tests of a list's heading on the deep field and of what follows it, for a list whose
+ * items keep their look (Feature 010 #312): the list with no item at all, the heading's parts and
+ * sizes (`testHeadingOnField`), the filter form where the list has one and then the items and the
+ * pager over the field's lower edge, each empty state there, the keyboard from the breadcrumb with
+ * the field's focus ring, the motion case and the page without JavaScript. The suite calls it
+ * first, while the runtime holds only its own items: the list with no item returns each to draft
+ * and publishes it again at its own date (`whileNonePublished`).
+ */
+export function testListOnField(list: ListOnField): void {
+	const { path, heading: text } = list;
+	const formOf = (page: Page) => page.getByRole("form", { name: list.form?.name });
+	/** The parts that follow the heading before the items: the form, where the list has one. */
+	const formPart = (page: Page): Array<[name: string, part: Locator]> =>
+		list.form ? [["the filter form", formOf(page)]] : [];
+	/** Fail unless the empty state reading `message` lies where the items would be, with no pager. */
+	const expectEmptyOverEdge = async (page: Page, message: string) => {
+		if (list.form) return expectEmptyStateUnderForm(page, formOf(page), message);
+		const state = page.getByRole("main").getByText(message, { exact: true });
+		await expect(state).toBeVisible();
+		await expect(cardList(page).pager).toHaveCount(0);
+		// The message's white card is the block that follows the heading.
+		await expectStartsOverFieldEdge(page, state.locator("xpath=.."), "the message's card");
+	};
+	/** Publish one more item than a page holds, so the page is full and the pager shows. */
+	const fillPastOnePage = async (label: string) => {
+		for (let index = 0; index <= list.pageSize; index += 1) {
+			await list.publishItem(`${label}-${String(index).padStart(2, "0")}`);
+		}
+	};
+
+	test(`with nothing published, ${path} shows ${list.noneYet}${list.form ? " 32 px under its filter form" : ""} over the field's lower edge, with no item and no pager`, async ({
+		page,
+	}) => {
+		test.setTimeout(90_000);
+		await whileNonePublished(list.admin(), list.collection, async () => {
+			const response = await page.goto(path);
+			expect(response?.status(), `GET ${path}`).toBe(200);
+			await expect(cardList(page).cards).toHaveCount(0);
+			await expectEmptyOverEdge(page, list.noneYet);
+		});
+	});
+
+	testHeadingOnField(list);
+
+	test(`what follows the heading of ${path} starts over the field's lower edge, 64 px above it below 640 px and 88 px from 640 px, where the field's own content ends 96 px and 128 px above it: ${list.form ? "the filter form, then " : ""}the items and the pager, 32 px apart`, async ({
+		page,
+	}) => {
+		test.setTimeout(90_000);
+		await fillPastOnePage("edge");
+		await page.goto(path);
+		const heading = listHeading(page, text);
+		const { cards, grid, pager } = cardList(page);
+		await expect(cards).toHaveCount(list.pageSize);
+		await expect(pager.getByRole("link", { name: "หน้าถัดไป" })).toBeVisible();
+		await expectBlocksOverFieldEdge(
+			page,
+			heading.field,
+			[heading.lead],
+			[...formPart(page), ["the items", grid], ["the pager", pager]],
+		);
+	});
+
+	test(`${path} shows each empty state where its items would be, over the field's lower edge, with its way back and no pager: ${list.pastLast} for a page past the last${list.form ? `, ${list.form.empty.message} for a filter that matches nothing` : ""}`, async ({
+		page,
+	}) => {
+		const states: Array<[address: string, empty: FilteredEmptyState]> = [
+			[
+				`${path}?page=10000`,
+				{ message: list.pastLast, back: { label: "กลับไปหน้าแรกของรายการ", href: path } },
+			],
+		];
+		if (list.form) states.push([`${path}?${list.form.unmatched}`, list.form.empty]);
+		for (const [address, empty] of states) {
+			await page.setViewportSize(DESKTOP_VIEWPORT);
+			await expectFilteredEmpty(page, address, empty);
+			await expectEmptyOverEdge(page, empty.message);
+		}
+	});
+
+	test(`on ${path} the keyboard goes from the breadcrumb, on the field with its accent-warm focus ring drawn whole, to ${list.form ? "the filter form's first field" : "the first item"}`, async ({
+		page,
+	}) => {
+		const item = await list.publishItem("keyboard");
+		await page.goto(path);
+		await expect(listedItem(page, item.title)).toBeVisible();
+		const crumbs = page.getByRole("navigation", { name: "เส้นทางนำทาง" }).getByRole("link");
+		await crumbs.first().focus();
+		for (const [index, [label]] of list.crumbs.entries()) {
+			await expect(crumbs.nth(index), `the ${label} crumb`).toBeFocused();
+			await page.keyboard.press("Tab");
+		}
+		const next = list.form
+			? formOf(page).getByRole("combobox").first()
+			: cardList(page).cards.first().getByRole("link").first();
+		await expect(next, "what follows the breadcrumb").toBeFocused();
+
+		// The crumbs' ring is read after the order, which today's page already holds, so a red run
+		// reaches it before it fails here (CODING_STANDARDS "Tests").
+		const accentWarm = await tokenColor(page, "accent-warm");
+		for (const [index, [label]] of list.crumbs.entries()) {
+			const crumb = listHeading(page, text).breadcrumb.getByRole("link").nth(index);
+			await expectFocusRingWhole(crumb, `the ${label} crumb`);
+			await expect(crumb, `the ${label} crumb: the field's focus ring`).toHaveCSS(
+				"outline-color",
+				accentWarm,
+			);
+		}
+	});
+
+	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, ${list.form ? "the filter form, " : ""}the items, the pager and an empty state show at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
+		page,
+	}) => {
+		test.setTimeout(120_000);
+		await fillPastOnePage("motion");
+		const { grid, pager } = cardList(page);
+		await expectListMovesOnlyWhenAllowed(
+			page,
+			path,
+			listHeading(page, text),
+			[...formPart(page), ["the items", grid], ["the pager", pager]],
+			{ grid },
+			{ path: `${path}?page=10000`, message: list.pastLast },
+		);
+	});
+
+	test.describe(`${path} without JavaScript`, () => {
+		test.use({ javaScriptEnabled: false });
+
+		test(`${path} shows its heading with its label, its lead${list.form ? ", its filter form" : ""} and its items`, async ({
+			page,
+		}) => {
+			const item = await list.publishItem("no-js");
+			await page.goto(path);
+			await expect(listedItem(page, item.title)).toBeVisible();
+			await expect(page.getByRole("heading", { level: 1 })).toHaveText(text.title);
+			await expect(page.getByRole("main").getByText(text.lead, { exact: true })).toBeVisible();
+			if (list.form) await expect(formOf(page).getByRole("combobox").first()).toBeVisible();
 			await expect(listHeading(page, text).label, "the label above the H1").toBeVisible();
 		});
 	});

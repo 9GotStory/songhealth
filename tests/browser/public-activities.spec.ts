@@ -6,7 +6,8 @@
 // and its summary (Product Owner, 2026-10-30: #64 comment 6526131459). Each Activity's page at
 // /activities/{slug} shows its date, place, description, participants and a captioned gallery
 // whose pictures carry their alt text. Drafts, unpublished and trashed Activities never show, and
-// their addresses answer the site 404.
+// their addresses answer the site 404. The list opens on the deep field under the label ภาพกิจกรรม,
+// with its cards over the field's lower edge (Feature 010 #312; public.helpers.ts testListOnField).
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -56,11 +57,15 @@ import {
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
+	testListOnField,
 	thaiDate,
 } from "./public.helpers";
 
 /** The fixed number of Activities a list page shows. */
 const PAGE_SIZE = 12;
+
+/** The lead of /activities, under its heading. */
+const ACTIVITIES_LEAD = "กิจกรรม การประชุม และการลงพื้นที่ของสำนักงานสาธารณสุขอำเภอสองและเครือข่าย";
 
 let admin: CmsActor;
 let origin: string;
@@ -82,6 +87,24 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(() => removeSuiteFixtures(admin));
+
+// First in the suite, while the runtime holds only its own Activities (Feature 010 #312).
+testListOnField({
+	path: "/activities",
+	crumbs: [HOME_CRUMB, SECTION_CRUMBS.news],
+	heading: { label: "ภาพกิจกรรม", title: "กิจกรรม", lead: ACTIVITIES_LEAD },
+	icon: "heart",
+	collection: "activities",
+	pageSize: PAGE_SIZE,
+	noneYet: "ยังไม่มีกิจกรรม",
+	pastLast: "ไม่พบกิจกรรมในหน้านี้",
+	admin: () => admin,
+	publishItem: async (label) => {
+		const activity = await createActivity(label);
+		await publish(activity);
+		return activity;
+	},
+});
 
 test("/activities lists only published Activities, the most recently held first, an undated one placed by its publication", async ({
 	page,
