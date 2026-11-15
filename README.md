@@ -47,7 +47,16 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   `docs/design/DESIGN.md` v1.2 records it with the code, and
   `docs/evidence/250-homepage-redesign-evidence-round.md` its evidence and what that does not
   cover. The Product Owner gave it Final Acceptance on 2026-11-13 (#239 comment 6841960594), and it
-  was merged into `main`. Every other page keeps its design until its own feature.
+  was merged into `main`.
+- **Feature 009 `news-post-redesign`:** complete: the News, Health News and Health Content lists
+  and the Post page of a News, Activity or Health Content item redesigned after the Homepage as
+  built, in the look the Product Owner picked from a prototype: a list's heading on the deep green
+  field with its cards over the field's edge and the newest item large, and a post's header on the
+  field with its picture in a white frame and its text on the page's colour. Every address, read
+  and behaviour stays (spec #280, tickets #281–#287). `docs/design/DESIGN.md` v1.3 records it with
+  the code, and `docs/evidence/287-news-post-redesign-evidence-round.md` its evidence and what
+  that does not cover. The Product Owner accepted it on 2026-11-15 (#280 comment 6891402807), and
+  it was merged into `main`. Every other page keeps its design until its own feature.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
@@ -298,9 +307,15 @@ Administrator, an Editor or an Author sees it, comes from
 `scripts/dev-runtime-env.sh node scripts/capture-admin.ts <out-dir> [<role>]`.
 
 Text on a gradient or over a decoration is read with
-`node scripts/measure-text-contrast.ts [--fixtures <module>] <path> <selector>...` before the
-suites run: axe leaves such text unmeasured. It prints the lowest contrast under the text's own
-pixels at five widths; its header says how.
+`node scripts/measure-text-contrast.ts [--fixtures <module>] [--all-text] <path> <selector>...`
+before the suites run: axe leaves such text unmeasured. It prints the lowest contrast under the
+text's own pixels at five widths, then each text's lowest reading; its header says how. With
+`--all-text` a selector is a surface, such as `'main .deep-field'`, and every text on it is read,
+which is what a spec's or a hand-off's "every text" asks for. A page a fixtures module makes is
+named `fixture:<capture's name>`. A focus ring over two surfaces, such as a card over
+the deep field's edge, is read the same way with
+`node scripts/measure-focus-contrast.ts [--fixtures <module>] [--style <css>] <path> <selector>...`
+(CODING_STANDARDS "Public pages").
 
 The runtime holds the demo dataset: content marked `[ตัวอย่าง]` that fills every page for the
 Product Owner's review. `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` installs it

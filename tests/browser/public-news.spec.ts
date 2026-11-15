@@ -6,6 +6,12 @@
 // and their addresses answer the site 404. The topic filter of /news/health offers only the
 // Health Topics that published News carries (spec #174 "Public list filters").
 //
+// /news opens on the deep field (Feature 009 #281; spec #280 "The field under a heading", "List
+// heading"): its breadcrumb, the label ข่าวสาร, the H1 ข่าวประชาสัมพันธ์, its lead and a pill link to
+// Health News, and what follows starts over the field's lower edge. /news/health opens on it too
+// (#282), under the label ข่าวสาร and the H1 ข่าวสุขภาพ, with its filter form first over the edge
+// (public.helpers.ts testFilteredListOnField).
+//
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
 // widths). Fixtures are synthetic News, topic and category terms and media made through the
@@ -13,7 +19,8 @@
 // The runtime may hold other News (the demo dataset, the Product Owner's own), so assertions
 // look only at this suite's uniquely titled fixtures, and tests about "newest first" publish
 // their fixtures last. A synthetic Health Content item stands for another list that carries a
-// topic.
+// topic. One test needs a list with no News at all: it returns every published News to draft and
+// publishes each again at its own date (public.helpers.ts BorrowedEntries).
 //
 // Platform behaviour relied on (emdash 1.1.0):
 // - POST …/publish accepts `publishedAt` to backdate a publication; the development PAT's
@@ -48,6 +55,7 @@ import {
 	unpublishEntry,
 	updateEntry,
 	uploadSyntheticMedia,
+	uploadSyntheticPicture,
 	type CmsActor,
 	type DraftFields,
 	type DraftFixture,
@@ -56,30 +64,58 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	LIST_HEADING_WIDTHS,
 	SECTION_CRUMBS,
+	boxOf,
+	cardList,
 	expect,
+	expectBlocksOverFieldEdge,
 	expectBreadcrumb,
+	expectEmptyStateUnderForm,
 	expectFilteredEmpty,
+	expectFocusRingWhole,
+	expectHeadingAtWidth,
+	expectHeadingOnField,
 	expectImageLoaded,
+	expectNoHorizontalScroll,
+	expectListMovesOnlyWhenAllowed,
 	expectPreviewRenders,
 	expectSiteNotFound,
+	expectStartsOverFieldEdge,
+	itemsPerRow,
+	listHeading,
+	listedItem,
 	listedTitles,
 	offeredLabels,
 	ownTitles,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
+	testFilteredListOnField,
+	testListCards,
 	thaiDate,
+	tokenColor,
+	whileNonePublished,
 } from "./public.helpers";
 
 /** The fixed number of News a list page shows. */
 const PAGE_SIZE = 12;
+
+/** The lead of /news, under its heading. */
+const NEWS_LEAD = "ข่าวและประชาสัมพันธ์จากสำนักงานสาธารณสุขอำเภอสอง";
+
+/** The lead of /news/health, under its heading. */
+const HEALTH_NEWS_LEAD =
+	"ข่าวสารด้านสุขภาพจากสำนักงานสาธารณสุขอำเภอสอง เลือกประเด็นสุขภาพที่สนใจได้";
 
 /** What /news/health shows when its Health Topic matches nothing. */
 const HEALTH_FILTERED_EMPTY = {
 	message: "ไม่พบข่าวสุขภาพในประเด็นนี้",
 	back: { label: "ดูข่าวสุขภาพทุกประเด็น", href: "/news/health" },
 };
+
+/** The name of the filter form of /news/health. */
+const HEALTH_FILTER_FORM = "กรองข่าวสุขภาพ";
 
 let admin: CmsActor;
 let origin: string;
@@ -126,6 +162,15 @@ async function headOf(page: Page) {
 	};
 }
 
+/** The parts of the heading /news opens with, on its deep field. */
+function newsHeading(page: Page) {
+	const heading = listHeading(page, { label: "ข่าวสาร", lead: NEWS_LEAD });
+	return {
+		...heading,
+		link: heading.field.getByRole("link", { name: "ข่าวสุขภาพ", exact: true }),
+	};
+}
+
 test.use({ viewport: DESKTOP_VIEWPORT });
 
 test.beforeAll(async () => {
@@ -134,6 +179,35 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms, movedSlugs }));
+
+// First in the suite, while the runtime holds only its own News: each one is returned to draft
+// for this test and published again at its own date.
+test("with no published News, /news shows ยังไม่มีข่าว over the field's lower edge and /news/health shows ยังไม่มีข่าวสุขภาพ under its filter form, each with no card and no pager", async ({
+	page,
+}) => {
+	test.setTimeout(90_000);
+	await whileNonePublished(admin, "news", async () => {
+		const response = await page.goto("/news");
+		expect(response?.status(), "GET /news").toBe(200);
+		const { cards, pager } = cardList(page);
+		await expect(cards).toHaveCount(0);
+		await expect(pager).toHaveCount(0);
+		const message = page.getByRole("main").getByText("ยังไม่มีข่าว", { exact: true });
+		await expect(message).toBeVisible();
+		// The message's white card is the block that follows the heading.
+		await expectStartsOverFieldEdge(page, message.locator("xpath=.."), "the message's card");
+
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+		const health = await page.goto("/news/health");
+		expect(health?.status(), "GET /news/health").toBe(200);
+		await expect(cards).toHaveCount(0);
+		await expectEmptyStateUnderForm(
+			page,
+			page.getByRole("form", { name: HEALTH_FILTER_FORM }),
+			"ยังไม่มีข่าวสุขภาพ",
+		);
+	});
+});
 
 test("/news lists only published News, newest first, each with its date and its own address", async ({
 	page,
@@ -152,7 +226,7 @@ test("/news lists only published News, newest first, each with its date and its 
 
 	const response = await page.goto("/news");
 	expect(response?.status(), "GET /news").toBe(200);
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText("ข่าวสาร");
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText("ข่าวประชาสัมพันธ์");
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "ข่าวสาร" }),
 	).toHaveAttribute("aria-current", "page");
@@ -228,6 +302,350 @@ test("/news pages through older News with the page number in the address, and ig
 	).toHaveAttribute("href", "/news");
 });
 
+test("/news opens on the deep field with its breadcrumb, the label ข่าวสาร, the H1 ข่าวประชาสัมพันธ์, its lead and a link ข่าวสุขภาพ to Health News, one under another on a phone and each in surface-base, while the head's title, the menu and the breadcrumb still read ข่าวสาร", async ({
+	page,
+}) => {
+	const { siteTitle, separator } = await siteTitleParts(admin);
+	const main = page.getByRole("main");
+
+	await page.goto("/news");
+	expect(await page.title(), "the head's title").toBe(`ข่าวสาร${separator}${siteTitle}`);
+	await expect(
+		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "ข่าวสาร" }),
+	).toHaveAttribute("aria-current", "page");
+	await expectBreadcrumb(page, [HOME_CRUMB], "ข่าวสาร");
+	await expect(main.getByText(NEWS_LEAD, { exact: true })).toBeVisible();
+
+	await expect(main.getByRole("heading", { level: 1 })).toHaveText("ข่าวประชาสัมพันธ์");
+	const heading = newsHeading(page);
+	await expect(heading.label, "the label above the H1").toBeVisible();
+	await expect(heading.link).toHaveAttribute("href", "/news/health");
+	await expect(main.getByRole("link", { name: "ดูเฉพาะข่าวสุขภาพ" })).toHaveCount(0);
+
+	await expectHeadingOnField(page, "/news", heading, [["the link to Health News", heading.link]]);
+	await expect(heading.link, "the link is a white pill").toHaveCSS(
+		"background-color",
+		await tokenColor(page, "surface-base"),
+	);
+	await expect(heading.link, "the link's words").toHaveCSS(
+		"color",
+		await tokenColor(page, "brand-primary"),
+	);
+	const arrow = await boxOf(heading.link.locator("svg"), "the link's arrow");
+	expect([arrow.width, arrow.height], "the link's arrow is 16 px").toEqual([16, 16]);
+});
+
+test("from 640 px the link ข่าวสุขภาพ sits at the heading's right, level with its top, and below 640 px it follows the lead; the H1 is 26 px below 640 px, 36 px from 640 px and 42 px from 1,024 px, the field's lower corners 24 px and from 640 px 32 px, the link 44 px high and from 640 px 52 px, the heading 24 px under the breadcrumb and from 640 px 32 px, and nothing is past the window at any of these widths", async ({
+	page,
+}) => {
+	await page.goto("/news");
+	const heading = newsHeading(page);
+	for (const row of LIST_HEADING_WIDTHS) {
+		const [width] = row;
+		const { label, title, lead, column } = await expectHeadingAtWidth(page, "/news", heading, row);
+		const link = await boxOf(heading.link, "the link");
+		const linkHeight = width < 640 ? 44 : 52;
+		expect(link.height, `the link is ${linkHeight} px high at ${width} px`).toBeCloseTo(
+			linkHeight,
+			0,
+		);
+		if (width < 640) {
+			expect(link.y, `the link follows the lead at ${width} px`).toBeGreaterThanOrEqual(
+				lead.y + lead.height,
+			);
+			expect(link.x, `the link starts where the lead starts at ${width} px`).toBeCloseTo(lead.x, 0);
+		} else {
+			// Level with the heading's top, where the label is (Product Owner, 2026-11-13: #281 comment
+			// 6846855734), not on the lead's line.
+			expect(link.y, `the link is level with the heading's top at ${width} px`).toBeCloseTo(
+				label.y,
+				0,
+			);
+			expect(link.x, `the link is right of the H1 at ${width} px`).toBeGreaterThanOrEqual(
+				title.x + title.width,
+			);
+			expect(link.x + link.width, `the link ends at the column's right at ${width} px`).toBeCloseTo(
+				column.x + column.width,
+				0,
+			);
+		}
+	}
+});
+
+test("what follows the heading of /news starts over the field's lower edge, 64 px above it below 640 px and 88 px from 640 px, where the field's own content ends 96 px and 128 px above it: the cards, with the pager 32 px under them", async ({
+	page,
+}) => {
+	const fixtures: DraftFixture[] = [];
+	for (let index = 0; index <= PAGE_SIZE; index += 1) {
+		fixtures.push(await createNews(`edge-${String(index).padStart(2, "0")}`));
+	}
+	for (const news of fixtures) await publish(news);
+
+	await page.goto("/news");
+	const heading = newsHeading(page);
+	const { cards, grid, pager } = cardList(page);
+	await expect(cards).toHaveCount(PAGE_SIZE);
+	await expect(pager.getByRole("link", { name: "หน้าถัดไป" })).toBeVisible();
+	await expectBlocksOverFieldEdge(
+		page,
+		heading.field,
+		[heading.lead, heading.link],
+		[
+			["the cards", grid],
+			["the pager", pager],
+		],
+	);
+});
+
+/** The widths the first page's layout is read at, on both sides of 640 and 1,024 px. */
+const LAYOUT_WIDTHS = [1440, 1024, 1023, 768, 640, 639, 375, 320];
+
+/** `count` cards in rows of `perRow`, the last row holding what is left. */
+function rowsOf(count: number, perRow: number): number[] {
+	const rows: number[] = [];
+	for (let left = count; left > 0; left -= perRow) rows.push(Math.min(perRow, left));
+	return rows;
+}
+
+/**
+ * Fail unless the first page of /news, showing `count` News, leads with the large card laid out by
+ * the count at each of `LAYOUT_WIDTHS` (spec #280 "The first page"): from 1,024 px across the row
+ * and 440 px high or more with one News, two columns wide and as high as the card beside it, 380 px
+ * or more, with two, and two columns wide and two rows high, 520 px or more, beside the next two
+ * with three or more, the rest three to a row; from 640 px across the row, 380 px or more, the rest
+ * two to a row; below 640 px 300 px or more, then rows. Nothing is past the window.
+ */
+async function expectFirstPageLayout(page: Page, count: number): Promise<void> {
+	const { grid } = cardList(page);
+	const cells = grid.getByRole("listitem");
+	await expect(cells, `a cell holds each of ${count} News`).toHaveCount(count);
+	for (const width of LAYOUT_WIDTHS) {
+		await page.setViewportSize({ width, height: 900 });
+		await expectNoHorizontalScroll(page, `/news with ${count} News at ${width} px`);
+		const at = `with ${count} News at ${width} px`;
+		const gap = width >= 640 ? 24 : 14;
+		const row = await boxOf(grid, "the cards");
+		const boxes = await Promise.all(
+			Array.from({ length: count }, (_, index) => boxOf(cells.nth(index), `card ${index + 1}`)),
+		);
+		const [large, next, third] = boxes;
+		const beside = width >= 1024 && count >= 2;
+		if (beside) {
+			const column = next!.width;
+			expect(large!.width, `the large card is two columns wide ${at}`).toBeCloseTo(
+				2 * column + gap,
+				0,
+			);
+			expect(next!.x - (large!.x + large!.width), `the next card beside it ${at}`).toBeCloseTo(
+				gap,
+				0,
+			);
+			expect(next!.y, `the next card level with it ${at}`).toBeCloseTo(large!.y, 0);
+			if (count === 2) {
+				expect(large!.height, `as high as the card beside it ${at}`).toBeCloseTo(next!.height, 0);
+				expect(large!.height, `380 px or more ${at}`).toBeGreaterThanOrEqual(380);
+			} else {
+				expect(third!.x, `the third card under the second ${at}`).toBeCloseTo(next!.x, 0);
+				expect(third!.y - (next!.y + next!.height), `the second and third ${at}`).toBeCloseTo(
+					gap,
+					0,
+				);
+				expect(large!.y + large!.height, `two rows high ${at}`).toBeCloseTo(
+					third!.y + third!.height,
+					0,
+				);
+				expect(large!.height, `520 px or more ${at}`).toBeGreaterThanOrEqual(520);
+			}
+		} else {
+			expect(large!.width, `the large card spans the row ${at}`).toBeCloseTo(row.width, 0);
+			const least = width >= 1024 ? 440 : width >= 640 ? 380 : 300;
+			expect(large!.height, `${least} px or more ${at}`).toBeGreaterThanOrEqual(least);
+			if (next) {
+				expect(
+					next.y - (large!.y + large!.height),
+					`the next row ${gap} px under it ${at}`,
+				).toBeCloseTo(gap, 0);
+			}
+		}
+		const expected =
+			width >= 1024
+				? count >= 3
+					? [2, 1, ...rowsOf(count - 3, 3)]
+					: [1 + Math.min(count - 1, 1)]
+				: [1, ...rowsOf(count - 1, width >= 640 ? 2 : 1)];
+		expect(await itemsPerRow(cells), `the rows ${at}`).toEqual(expected);
+		// Every small card takes one column, a last row's alone too.
+		const column =
+			(row.width - (width >= 1024 ? 2 : width >= 640 ? 1 : 0) * gap) /
+			(width >= 1024 ? 3 : width >= 640 ? 2 : 1);
+		for (const [index, box] of boxes.slice(1).entries()) {
+			expect(box.width, `card ${index + 2} takes one column ${at}`).toBeCloseTo(column, 0);
+		}
+	}
+}
+
+test("the first page of /news leads with its newest News as the large card, shown once before the others in the list's order, laid out by the number of News: one, two, three and a full page of twelve, which ends with one card alone at two columns; nothing is past the window, and the second page has no large card", async ({
+	page,
+}) => {
+	test.setTimeout(240_000);
+	await whileNonePublished(admin, "news", async () => {
+		const published: DraftFixture[] = [];
+		const { cards, large } = cardList(page);
+		for (const [count, label] of [
+			[1, "count-01"],
+			[2, "count-02"],
+			[3, "count-03"],
+			[12, "count-12"],
+		] as const) {
+			while (published.length < count) {
+				const news = await createNews(`${label}-${String(published.length).padStart(2, "0")}`);
+				await publish(news);
+				published.push(news);
+			}
+			await page.setViewportSize(DESKTOP_VIEWPORT);
+			await page.goto("/news");
+			const newestFirst = published.toReversed().map((news) => news.title);
+			await expect(large, `one large card with ${count} News`).toHaveCount(1);
+			await expect(large.getByRole("heading", { level: 2 }), "the newest is large").toHaveText(
+				newestFirst[0]!,
+			);
+			expect(await listedTitles(page), `each News once, newest first, with ${count}`).toEqual(
+				newestFirst,
+			);
+			await expect(cards, `the large card and ${count - 1} small ones`).toHaveCount(count);
+			await expectFirstPageLayout(page, count);
+		}
+
+		// A thirteenth, the newest, moves the oldest to the second page.
+		await publish(await createNews("count-13"));
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+		await page.goto("/news?page=2");
+		await expect(cards, "the second page shows the oldest News").toHaveCount(1);
+		await expect(large, "no large card on the second page").toHaveCount(0);
+		expect(await listedTitles(page)).toEqual([published[0]!.title]);
+	});
+});
+
+test("a page past the last of /news shows ไม่พบข่าวในหน้านี้ with its way back over the field's lower edge, and no pager", async ({
+	page,
+}) => {
+	await page.goto("/news?page=10000");
+	const main = page.getByRole("main");
+	const message = main.getByText("ไม่พบข่าวในหน้านี้", { exact: true });
+	await expect(message).toBeVisible();
+	await expect(main.getByRole("link", { name: "กลับไปหน้าแรกของรายการ" })).toHaveAttribute(
+		"href",
+		"/news",
+	);
+	await expect(cardList(page).pager).toHaveCount(0);
+	// The message's white card is the block that follows the heading.
+	await expectStartsOverFieldEdge(page, message.locator("xpath=.."), "the message's card");
+});
+
+test("on /news the keyboard goes from the breadcrumb to the link ข่าวสุขภาพ to the first card, the two on the field with its accent-warm focus ring and the card with the page's ring banded in white, and under the pointer ข่าวสุขภาพ turns accent-warm with brand-dark words while a crumb stays as it is", async ({
+	page,
+}) => {
+	const news = await createNews("keyboard");
+	await publish(news);
+	await page.goto("/news");
+	const { cards } = cardList(page);
+	await expect(cards.first().getByRole("link")).toHaveAccessibleName(news.title);
+
+	const heading = newsHeading(page);
+	const accentWarm = await tokenColor(page, "accent-warm");
+	const home = heading.breadcrumb.getByRole("link", { name: "หน้าแรก" });
+	await expectFocusRingWhole(home, "the breadcrumb's link");
+	await expect(home, "the field's focus ring").toHaveCSS("outline-color", accentWarm);
+	await page.keyboard.press("Tab");
+	await expect(heading.link).toBeFocused();
+	await expect(heading.link, "the field's focus ring").toHaveCSS("outline-color", accentWarm);
+	await expect(heading.link, "the link's focus ring").toHaveCSS("outline-width", "3px");
+	await page.keyboard.press("Tab");
+	await expect(cards.first().getByRole("link")).toBeFocused();
+	await expect(cards.first().getByRole("link"), "a card's focus ring").toHaveCSS(
+		"outline-width",
+		"3px",
+	);
+	// The card lies over the field's edge, so its ring has a white band on both sides (Product
+	// Owner, 2026-11-13: #283 comment 6854670042).
+	await expect(cards.first().getByRole("link"), "the band beside a card's ring").toHaveCSS(
+		"box-shadow",
+		new RegExp(`${RegExp.escape(await tokenColor(page, "surface-base"))} 0px 0px 0px 7px`),
+	);
+
+	await heading.link.hover();
+	await expect(heading.link, "the link under the pointer").toHaveCSS(
+		"background-color",
+		accentWarm,
+	);
+	await expect(heading.link, "the link's words under the pointer").toHaveCSS(
+		"color",
+		await tokenColor(page, "brand-dark"),
+	);
+	// accent-warm is no small text on the field, so a crumb keeps its colour and its underline.
+	await home.hover();
+	await expect(home, "the breadcrumb's link under the pointer").toHaveCSS(
+		"color",
+		await tokenColor(page, "surface-base"),
+	);
+	await expect(home, "the breadcrumb's link under the pointer").toHaveCSS(
+		"text-decoration-line",
+		"underline",
+	);
+});
+
+test("/news moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, the link ข่าวสุขภาพ, the pager and an empty state show at once; each card reveals as it comes into the window and shows whole while it holds the keyboard's focus, a picture's box shimmers as the page opens and a missing picture's visual does not, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
+	page,
+}) => {
+	test.setTimeout(120_000);
+	// One more than a page, so the pager shows (Product Owner, 2026-11-13: #282 comment 6851937209);
+	// the newest has a picture.
+	const fixtures: DraftFixture[] = [];
+	for (let index = 0; index < PAGE_SIZE; index += 1) {
+		fixtures.push(await createNews(`motion-${String(index).padStart(2, "0")}`));
+	}
+	const pictured = await createNews("motion-picture", {
+		data: { featured_image: { id: await uploadSyntheticPicture(admin, "ภาพข่าวสำหรับทดสอบ") } },
+	});
+	for (const news of [...fixtures, pictured]) await publish(news);
+	const heading = newsHeading(page);
+	const { cards, grid, pager } = cardList(page);
+	await expectListMovesOnlyWhenAllowed(
+		page,
+		"/news",
+		heading,
+		[
+			["the link to Health News", heading.link],
+			["the pager", pager],
+		],
+		{
+			grid,
+			cards,
+			pictured: listedItem(page, pictured.title),
+			plain: listedItem(page, fixtures.at(-1)!.title),
+		},
+		{ path: "/news?page=10000", message: "ไม่พบข่าวในหน้านี้" },
+	);
+});
+
+test.describe("without JavaScript", () => {
+	test.use({ javaScriptEnabled: false });
+
+	test("/news shows its heading, its lead and its News, and ข่าวสุขภาพ opens Health News", async ({
+		page,
+	}) => {
+		const news = await createNews("no-js");
+		await publish(news);
+		await page.goto("/news");
+		await expect(page.getByRole("article").filter({ hasText: news.title })).toBeVisible();
+		await expect(page.getByRole("main").getByText(NEWS_LEAD, { exact: true })).toBeVisible();
+		await expect(page.getByRole("heading", { level: 1 })).toHaveText("ข่าวประชาสัมพันธ์");
+		await newsHeading(page).link.click();
+		await expect(page).toHaveURL(/\/news\/health$/);
+		await expect(page.getByRole("heading", { level: 1 })).toHaveText("ข่าวสุขภาพ");
+	});
+});
+
 test("/news/health lists News with any topic, ?topic= narrows it, and an unknown topic shows the empty state", async ({
 	page,
 }) => {
@@ -252,7 +670,7 @@ test("/news/health lists News with any topic, ?topic= narrows it, and an unknown
 	]);
 
 	// The filter is a plain GET form: it works without JavaScript and keeps the topic in the address.
-	const filter = page.getByRole("form", { name: "กรองข่าวสุขภาพ" });
+	const filter = page.getByRole("form", { name: HEALTH_FILTER_FORM });
 	await filter.getByLabel("ประเด็นสุขภาพ").selectOption({ label: vaccine.label });
 	await filter.getByRole("button", { name: "แสดงผล" }).click();
 	await expect(page).toHaveURL(`/news/health?topic=${vaccine.slug}`);
@@ -288,7 +706,7 @@ test("the /news/health topic filter offers only the Health Topics that published
 	await page.goto("/news/health");
 	expect(
 		await offeredLabels(
-			page.getByRole("form", { name: "กรองข่าวสุขภาพ" }).getByLabel("ประเด็นสุขภาพ"),
+			page.getByRole("form", { name: HEALTH_FILTER_FORM }).getByLabel("ประเด็นสุขภาพ"),
 			[offered, draftOnly, contentOnly],
 		),
 		"a topic that only a draft or another list carries is not offered",
@@ -297,6 +715,63 @@ test("the /news/health topic filter offers only the Health Topics that published
 	for (const term of [draftOnly, contentOnly]) {
 		await expectFilteredEmpty(page, `/news/health?topic=${term.slug}`, HEALTH_FILTERED_EMPTY);
 	}
+});
+
+testFilteredListOnField({
+	path: "/news/health",
+	crumbs: [HOME_CRUMB, SECTION_CRUMBS.news],
+	heading: { label: "ข่าวสาร", title: "ข่าวสุขภาพ", lead: HEALTH_NEWS_LEAD },
+	icon: "heart-pulse",
+	form: HEALTH_FILTER_FORM,
+	pageSize: PAGE_SIZE,
+	pastLast: "ไม่พบข่าวในหน้านี้",
+	filteredEmpty: HEALTH_FILTERED_EMPTY,
+	createTopic: (label) => createTerm("topic", label),
+	publishItem: async (label, topic, picture) => {
+		const news = await createNews(label, {
+			...(picture ? { data: { featured_image: { id: picture } } } : {}),
+			taxonomies: { topic: [topic.slug] },
+		});
+		await publish(news);
+		return news;
+	},
+	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพข่าวสุขภาพสำหรับทดสอบ"),
+});
+
+/** A News item with the parts a list's card shows, labelled by `taxonomy`. */
+async function publishCardNews(
+	taxonomy: string,
+	label: string,
+	{ term, summary, picture }: { term?: SyntheticTerm; summary?: string; picture?: string },
+) {
+	const item = await createNews(label, {
+		data: {
+			...(summary ? { summary } : {}),
+			...(picture ? { featured_image: { id: picture } } : {}),
+		},
+		...(term ? { taxonomies: { [taxonomy]: [term.slug] } } : {}),
+	});
+	return { item, at: await publish(item) };
+}
+
+testListCards({
+	path: "/news",
+	icon: "message-square",
+	unlabelled: true,
+	createLabel: (label) => createTerm("news_category", label),
+	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพข่าวสำหรับทดสอบการ์ด"),
+	pageSize: PAGE_SIZE,
+	publishItem: (label, parts) => publishCardNews("news_category", label, parts),
+});
+
+testListCards({
+	path: "/news/health",
+	icon: "heart-pulse",
+	unlabelled: false,
+	createLabel: (label) => createTerm("topic", label),
+	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพข่าวสุขภาพสำหรับทดสอบการ์ด"),
+	pageSize: PAGE_SIZE,
+	publishItem: (label, parts) => publishCardNews("topic", label, parts),
 });
 
 test("a News page shows its title, Thai date, category, topics, image with its alt text, body and breadcrumb", async ({
@@ -364,12 +839,18 @@ test("a News item whose featured image was deleted from the media library shows 
 	const removed = await deleteMedia(admin, media.mediaId!);
 	expect(removed.ok, `deleting the media item: ${nativeRefusalOf(removed)}`).toBe(true);
 
-	for (const list of ["/news", `/news/health?topic=${topic.slug}`]) {
+	for (const [list, icon] of [
+		["/news", "message-square"],
+		[`/news/health?topic=${topic.slug}`, "heart-pulse"],
+	]) {
 		await page.goto(list);
 		const card = page.getByRole("article").filter({ hasText: news.title });
 		await expect(card, `${list} still lists the News`).toHaveCount(1);
 		await expect(card.locator("img"), `${list} shows no picture for it`).toHaveCount(0);
-		await expect(card.getByTestId("card-visual"), `${list} shows the plain visual`).toHaveCount(1);
+		await expect(
+			card.getByTestId("news-visual").locator(`svg.lucide-${icon}`),
+			`${list} shows the plain visual with its icon`,
+		).toHaveCount(1);
 	}
 
 	const response = await page.goto(`/news/${news.slug}`);

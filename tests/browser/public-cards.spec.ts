@@ -1,6 +1,10 @@
 // Shared single-destination cards (#193; spec #190, PO comment 6707205912), and the Homepage's own
 // Service card, News cards and Announcement rows, which open from their whole surface as they do
-// (Feature 008 #242, #244, #245).
+// (Feature 008 #242, #244, #245). The News, Health News and Health Content lists' cards are the
+// Homepage's small News card (Feature 009 #283; spec #280 "The cards"): they rise under the pointer
+// with no ring, and their focus ring has a white band on both sides. A first page leads with the
+// newest item as the Homepage's large card (#284), whose picture grows under the pointer while the
+// card stays.
 // The public HTTP/browser seam checks native activation across each card's surface, independent
 // of its markup/classes. Fixtures belong to this suite; Homepage menus restore in finally.
 import type { Locator, Page } from "@playwright/test";
@@ -24,10 +28,14 @@ import {
 	expectImageLoaded,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
+	expectRisesUnderPointer,
 	expectVisibleFocusOnEveryStop,
 	homepageSection,
 	HOMEPAGE_HEADINGS,
+	boxOf,
 	listedItem,
+	shownLines,
+	shownOpacity,
 	test,
 	tokenColor,
 } from "./public.helpers";
@@ -39,6 +47,14 @@ let activity: DraftFixture;
 let health: DraftFixture;
 let announcement: DraftFixture;
 const SUMMARY = "สรุปสำหรับทดสอบพื้นที่ลิงก์ โดยไม่ใช้สรุปเป็นชื่อลิงก์";
+/** A title and a summary longer than a list's card shows: three lines of one, two of the other. */
+const LONG_TITLE =
+	"ข่าวที่มีชื่อเรื่องยาวมากเพื่อทดสอบว่าการ์ดของรายการแสดงชื่อเรื่องได้ไม่เกินสามบรรทัด ส่วนที่เหลือจะถูกตัดออกโดยไม่ทำให้การ์ดในแถวเดียวกันสูงไม่เท่ากัน และยังต่อด้วยข้อความอีกช่วงหนึ่งเพื่อให้ยาวเกินสามบรรทัดแน่นอนแม้บนจอกว้าง";
+const LONG_SUMMARY =
+	"สรุปที่ยาวกว่าสองบรรทัดของการ์ด เพื่อทดสอบว่าการ์ดแสดงสรุปได้ไม่เกินสองบรรทัดบนจอกว้าง และซ่อนสรุปทั้งหมดบนจอแคบ โดยข้อความส่วนนี้ต่อยาวออกไปอีกเพื่อให้เกินสองบรรทัดแน่นอน";
+/** A summary longer than the large card's two lines, on a card two columns wide. */
+const LARGE_SUMMARY = `${LONG_SUMMARY} ${LONG_SUMMARY}`;
+const longEntries: Partial<Record<"news" | "health_content", DraftFixture>> = {};
 const ownedTerms: SyntheticTerm[] = [];
 const extraActivities: DraftFixture[] = [];
 const pictureEntries: Partial<Record<"news" | "health_content" | "activities", DraftFixture>> = {};
@@ -75,6 +91,8 @@ test.beforeAll(async () => {
 				featured_image: { id: imageId },
 				...(collection === "activities" ? { activity_at: "2035-01-03T03:00:00.000Z" } : {}),
 			},
+			// A Health Topic puts the News on Health News too.
+			...(collection === "activities" ? {} : { taxonomies: { topic: [topic.slug] } }),
 		});
 		pictureEntries[collection] = entry;
 		await publishEntryAt(admin, collection, entry.id, "2034-01-01T03:00:00.000Z");
@@ -87,6 +105,14 @@ test.beforeAll(async () => {
 		await publishEntryAt(admin, "activities", entry.id);
 		extraActivities.push(entry);
 	}
+	for (const collection of ["news", "health_content"] as const) {
+		const entry = await createSyntheticDraft(admin, collection, LONG_TITLE, "lines", {
+			data: { summary: LONG_SUMMARY },
+			taxonomies: { topic: [topic.slug] },
+		});
+		longEntries[collection] = entry;
+		await publishEntryAt(admin, collection, entry.id, "2034-01-02T03:00:00.000Z");
+	}
 });
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
@@ -96,6 +122,15 @@ async function clickCardSurface(page: Page, target: Locator) {
 	const box = await target.boundingBox();
 	expect(box).not.toBeNull();
 	await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+}
+
+/**
+ * Rest the pointer on the visible part a citizen points at, whether the link wraps it or covers it.
+ */
+async function pointAtCardSurface(page: Page, target: Locator) {
+	await target.scrollIntoViewIfNeeded();
+	const box = await boxOf(target, "the part pointed at");
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 }
 
 /** One title-named native target over the card's whole surface, and one keyboard stop. */
@@ -145,6 +180,42 @@ async function expectCardInteraction(page: Page, card: Locator, title: string, l
 	return link;
 }
 
+/**
+ * A News, Health News or Health Content list's card (spec #280 "The cards"): the whole-card link,
+ * no ring and no change to the title under the pointer, nothing that moves with reduced motion
+ * preferred, and keyboard focus as the global 3 px outline with a white band on both sides (Product
+ * Owner, 2026-11-13: #283 comment 6854670042).
+ */
+async function expectListCardInteraction(page: Page, card: Locator, title: string) {
+	const link = await expectWholeCardLink(page, card, title, 2);
+	const heading = card.getByRole("heading", { name: title, level: 2, exact: true });
+	const surface = card.getByTestId("news-surface");
+	// The link holds the keyboard's focus from the whole-card check; its band is focus's, not the
+	// pointer's.
+	await link.blur();
+	await page.mouse.move(0, 0);
+	const resting = {
+		surface: await boxOf(surface, "the card's surface"),
+		color: await heading.evaluate((el) => getComputedStyle(el).color),
+	};
+	await link.hover();
+	await expect(link, "no ring under the pointer").toHaveCSS("box-shadow", "none");
+	await expect(heading, "the title keeps its colour").toHaveCSS("color", resting.color);
+	await expect(heading, "the title takes no underline").toHaveCSS("text-decoration-line", "none");
+	expect(await boxOf(surface, "the card's surface"), "with reduced motion the card stays").toEqual(
+		resting.surface,
+	);
+	await page.mouse.move(0, 0);
+	await link.focus();
+	await expect(link).toHaveCSS("outline-width", "3px");
+	await expect(link).toHaveCSS("outline-color", await tokenColor(page, "brand-primary"));
+	await expect(link, "the white band beside the ring").toHaveCSS(
+		"box-shadow",
+		new RegExp(`${RegExp.escape(await tokenColor(page, "surface-base"))} 0px 0px 0px 7px`),
+	);
+	return link;
+}
+
 /** Every changed card surface must perform real native navigation to the complete titled page. */
 async function expectCardDestination(page: Page, path: string, fixture: DraftFixture) {
 	await expect(page).toHaveURL(path);
@@ -159,21 +230,34 @@ async function expectCardDestination(page: Page, path: string, fixture: DraftFix
 	).toHaveAttribute("href", "/");
 }
 
+/**
+ * The lists whose cards open from their whole surface. A News list's small card (`news`) is a row
+ * below 640 px with a 4:3 picture and shows no summary there; its picture is 16:9 from 640 px. The
+ * suite's newest News and Health Content, `news` and `health`, are each list's large card (Feature
+ * 009 #284), so a small card's case reads the pictured item after them, and its visual is its
+ * picture.
+ */
 const listCases = [
-	{ name: "News", list: "/news", fixture: () => news, visual: "card-visual", ratio: 1.6 },
+	{
+		name: "News",
+		list: "/news",
+		fixture: () => pictureEntries.news!,
+		visual: "picture",
+		news: true,
+	},
 	{
 		name: "Health News",
 		list: "/news/health",
-		fixture: () => news,
-		visual: "card-visual",
-		ratio: 1.6,
+		fixture: () => pictureEntries.news!,
+		visual: "picture",
+		news: true,
 	},
 	{
 		name: "Health Content",
 		list: "/health/content",
-		fixture: () => health,
-		visual: "card-visual",
-		ratio: 1.6,
+		fixture: () => pictureEntries.health_content!,
+		visual: "picture",
+		news: true,
 	},
 	{ name: "Services", list: "/services", fixture: () => service, visual: "service-icon" },
 	{
@@ -184,6 +268,17 @@ const listCases = [
 		ratio: 16 / 9,
 	},
 ];
+
+/** A card's picture, or the visual in its place. */
+function visualOf(context: (typeof listCases)[number], card: Locator): Locator {
+	return context.visual === "picture" ? card.locator("img") : card.getByTestId(context.visual);
+}
+
+/** The shape of a card's picture, or the visual in its place, at `width`. */
+function ratioOf(context: (typeof listCases)[number], width: number): number | undefined {
+	if (!context.news) return context.ratio;
+	return width < 640 ? 4 / 3 : 16 / 9;
+}
 
 for (const width of [320, 375, 1440]) {
 	for (const context of listCases) {
@@ -198,13 +293,16 @@ for (const width of [320, 375, 1440]) {
 					: `${context.list}/${fixture.slug}`;
 			await page.goto(context.list);
 			const card = listedItem(page, fixture.title);
-			const link = await expectCardInteraction(page, card, fixture.title, 2);
+			const link = context.news
+				? await expectListCardInteraction(page, card, fixture.title)
+				: await expectCardInteraction(page, card, fixture.title, 2);
 			await expect(card).toContainText(SUMMARY);
-			const visual = card.getByTestId(context.visual);
+			const visual = visualOf(context, card);
 			await expect(visual).toBeVisible();
-			if (context.ratio) {
+			const ratio = ratioOf(context, width);
+			if (ratio) {
 				const box = await visual.boundingBox();
-				expect(box!.width / box!.height).toBeCloseTo(context.ratio, 1);
+				expect(box!.width / box!.height).toBeCloseTo(ratio, 1);
 			}
 			await expectNoAxeViolations(page, `${context.name} ${width}`);
 			await expectNoHorizontalScroll(page, context.name);
@@ -216,6 +314,8 @@ for (const width of [320, 375, 1440]) {
 			await expectCardDestination(page, path, fixture);
 			for (const target of ["visual", "summary", "metadata", "padding", "title"]) {
 				if (target === "metadata" && context.name === "Services") continue;
+				// A News list's card shows no summary below 640 px.
+				if (target === "summary" && context.news && width < 640) continue;
 				await page.goto(context.list);
 				if (target === "visual") await clickCardSurface(page, visual);
 				else if (target === "title")
@@ -353,41 +453,112 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 	});
 }
 
-for (const collection of ["news", "health_content", "activities"] as const) {
-	test(`${collection} card retains its decorative loaded picture and crop`, async ({ page }) => {
-		const fixture = pictureEntries[collection]!;
-		const list = { news: "/news", health_content: "/health/content", activities: "/activities" }[
-			collection
-		];
-		await page.goto(list);
-		const card = listedItem(page, fixture.title);
-		const picture = card.locator("img");
-		await picture.scrollIntoViewIfNeeded();
-		await expectImageLoaded(picture, collection);
-		await expect(picture).toHaveAttribute("alt", "");
-		await expect(picture).toHaveCSS("object-fit", "cover");
-		const box = await picture.boundingBox();
-		expect(box!.width / box!.height).toBeCloseTo(collection === "activities" ? 16 / 9 : 1.6, 1);
-		await clickCardSurface(page, picture);
-		await expectCardDestination(page, `${list}/${fixture.slug}`, fixture);
-	});
+test("an Activity card retains its decorative loaded picture and 16:9 crop", async ({ page }) => {
+	const fixture = pictureEntries.activities!;
+	await page.goto("/activities");
+	const card = listedItem(page, fixture.title);
+	const picture = card.locator("img");
+	await picture.scrollIntoViewIfNeeded();
+	await expectImageLoaded(picture, "activities");
+	await expect(picture).toHaveAttribute("alt", "");
+	await expect(picture).toHaveCSS("object-fit", "cover");
+	const box = await picture.boundingBox();
+	expect(box!.width / box!.height).toBeCloseTo(16 / 9, 1);
+	await clickCardSurface(page, picture);
+	await expectCardDestination(page, `/activities/${fixture.slug}`, fixture);
+});
+
+const newsLists = [
+	{ name: "News", list: "/news", collection: "news" },
+	{ name: "Health News", list: "/news/health", collection: "news" },
+	{ name: "Health Content", list: "/health/content", collection: "health_content" },
+] as const;
+
+for (const width of [375, 1440]) {
+	for (const { name, list, collection } of newsLists) {
+		test(`a ${name} card's decorative picture covers its box at ${width === 375 ? "4:3" : "16:9"} at ${width} px; under the pointer, with motion allowed, the picture grows by 6 % and the card rises 6 px, and with reduced motion neither moves`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height: 900 });
+			const fixture = pictureEntries[collection]!;
+			const path = `${collection === "news" ? "/news" : "/health/content"}/${fixture.slug}`;
+			await page.goto(list);
+			const card = listedItem(page, fixture.title);
+			const picture = card.locator("img");
+			await picture.scrollIntoViewIfNeeded();
+			await expectImageLoaded(picture, name);
+			await expect(picture).toHaveAttribute("alt", "");
+			await expect(picture).toHaveCSS("object-fit", "cover");
+			const box = (await picture.boundingBox())!;
+			expect(box.width / box.height).toBeCloseTo(width < 640 ? 4 / 3 : 16 / 9, 1);
+			await pointAtCardSurface(page, picture);
+			expect(await picture.boundingBox(), "with reduced motion the picture stays").toEqual(box);
+			await clickCardSurface(page, picture);
+			await expectCardDestination(page, path, fixture);
+
+			await page.goto(list);
+			await expectRisesUnderPointer(page, card, card.getByTestId("news-surface"));
+			await expectCardDestination(page, path, fixture);
+			await page.goto(list);
+			await card.scrollIntoViewIfNeeded();
+			const resting = await boxOf(picture, "the picture at rest");
+			const heading = card.getByRole("heading", { level: 2 });
+			const color = await heading.evaluate((el) => getComputedStyle(el).color);
+			await pointAtCardSurface(page, picture);
+			await expect
+				.poll(async () => (await boxOf(picture, "the picture")).width / resting.width, {
+					message: "the picture grows by 6 % under the pointer",
+				})
+				.toBeCloseTo(1.06, 2);
+			await expect(
+				card.getByRole("link"),
+				"no ring under the pointer, with motion allowed",
+			).toHaveCSS("box-shadow", "none");
+			await expect(heading, "the title keeps its colour, with motion allowed").toHaveCSS(
+				"color",
+				color,
+			);
+		});
+
+		test(`a ${name} card's title shows three lines at most and its summary two, at ${width} px${width < 640 ? ", where the summary does not show" : ""}`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height: 900 });
+			await page.goto(list);
+			const card = listedItem(page, longEntries[collection]!.title);
+			expect(await shownLines(card.getByRole("heading", { level: 2 })), "the title").toEqual({
+				lines: 3,
+				clamped: true,
+			});
+			const summary = card.getByText(LONG_SUMMARY, { exact: true });
+			if (width < 640) await expect(summary).toBeHidden();
+			else expect(await shownLines(summary), "the summary").toEqual({ lines: 2, clamped: true });
+		});
+	}
 }
 
 test("native modified click opens a card in a new tab", async ({ page }) => {
-	await page.goto("/services");
-	const link = listedItem(page, service.title).getByRole("link", {
-		name: service.title,
-		exact: true,
-	});
-	const [opened] = await Promise.all([
-		page.context().waitForEvent("page"),
-		link.click({ modifiers: ["ControlOrMeta"] }),
-	]);
-	try {
-		await expectCardDestination(opened, `/services/${service.slug}`, service);
-		await expect(page).toHaveURL("/services");
-	} finally {
-		await opened.close();
+	for (const [list, fixture, path] of [
+		["/services", service, `/services/${service.slug}`],
+		["/news", news, `/news/${news.slug}`],
+		["/news/health", news, `/news/${news.slug}`],
+		["/health/content", health, `/health/content/${health.slug}`],
+	] as const) {
+		await page.goto(list);
+		const link = listedItem(page, fixture.title).getByRole("link", {
+			name: fixture.title,
+			exact: true,
+		});
+		const [opened] = await Promise.all([
+			page.context().waitForEvent("page"),
+			link.click({ modifiers: ["ControlOrMeta"] }),
+		]);
+		try {
+			await expectCardDestination(opened, path, fixture);
+			await expect(page).toHaveURL(list);
+		} finally {
+			await opened.close();
+		}
 	}
 });
 
@@ -402,7 +573,7 @@ test.describe("native navigation without JavaScript", () => {
 					: `${context.list}/${fixture.slug}`;
 			await page.goto(context.list);
 			const card = listedItem(page, fixture.title);
-			await clickCardSurface(page, card.getByTestId(context.visual));
+			await clickCardSurface(page, visualOf(context, card));
 			await expectCardDestination(page, path, fixture);
 			await page.goto(context.list);
 			await card.getByRole("link", { name: fixture.title, exact: true }).press("Enter");
@@ -427,4 +598,159 @@ test.describe("native navigation without JavaScript", () => {
 			},
 		);
 	});
+});
+
+/**
+ * Fail unless a press on `card`'s lower corner, and Enter on its link, each open `fixture` at
+ * `path`, from the page at `list`.
+ */
+async function expectLowerCornerAndEnter(
+	page: Page,
+	list: string,
+	card: Locator,
+	fixture: DraftFixture,
+	path: string,
+) {
+	await page.goto(list);
+	await card.scrollIntoViewIfNeeded();
+	const box = await boxOf(card, "the card");
+	await card.click({ position: { x: box.width - 8, y: box.height - 8 } });
+	await expectCardDestination(page, path, fixture);
+	await page.goto(list);
+	await card.getByRole("link", { name: fixture.title, exact: true }).press("Enter");
+	await expectCardDestination(page, path, fixture);
+}
+
+// Until the describe below, the suite's newest News and Health Content, `news` and `health`, lead
+// the lists as the large card, without a picture (Feature 009 #284).
+for (const width of [375, 1440]) {
+	for (const { name, list, collection } of newsLists) {
+		test(`the large card of ${name} without a picture opens by one link named by its title from the tile of its visual, its lower corner and Enter, at ${width} px`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height: 900 });
+			const fixture = collection === "news" ? news : health;
+			const path = `${collection === "news" ? "/news" : "/health/content"}/${fixture.slug}`;
+			await page.goto(list);
+			const card = listedItem(page, fixture.title);
+			await expect(page.getByRole("main").getByRole("article").first()).toHaveText(
+				new RegExp(RegExp.escape(fixture.title)),
+			);
+			await expect(card.getByTestId("news-surface"), "no small card's surface").toHaveCount(0);
+			await expectWholeCardLink(page, card, fixture.title, 2);
+			await clickCardSurface(page, card.getByTestId("news-visual").locator("span"));
+			await expectCardDestination(page, path, fixture);
+			await expectLowerCornerAndEnter(page, list, card, fixture, path);
+		});
+	}
+}
+
+// Last in the suite: these items are newer than every other fixture, so from here on they lead the
+// News lists and Health Content as the large card (Feature 009 #284; spec #280 "The cards").
+test.describe("the large card", () => {
+	const largeEntries: Partial<Record<"news" | "health_content", DraftFixture>> = {};
+
+	test.beforeAll(async () => {
+		const topic = await createOwnedTerm(admin, "topic", "หัวข้อการ์ดใหญ่", ownedTerms);
+		const imageId = await uploadSyntheticPicture(admin, "ภาพสังเคราะห์สำหรับการ์ดใหญ่");
+		for (const collection of ["news", "health_content"] as const) {
+			const entry = await createSyntheticDraft(admin, collection, LONG_TITLE, "large", {
+				// A focal point off the middle, which the picture's crop centres on.
+				data: {
+					summary: LARGE_SUMMARY,
+					featured_image: { id: imageId, focalX: 0.25, focalY: 0.75 },
+				},
+				taxonomies: { topic: [topic.slug] },
+			});
+			largeEntries[collection] = entry;
+			await publishEntryAt(admin, collection, entry.id, "2036-01-01T03:00:00.000Z");
+		}
+	});
+
+	for (const width of [375, 1440]) {
+		for (const { name, list, collection } of newsLists) {
+			test(`the large card of ${name} opens from its whole surface by one link named by its title, its picture covers it around its focal point, its title shows three lines at most and ${width < 640 ? "its summary does not show" : "its summary two"} at ${width} px; under the pointer, with motion allowed, the picture grows by 6 % and the card stays in its place, and with reduced motion nothing moves; its focus ring has a white band on both sides`, async ({
+				page,
+			}) => {
+				await page.setViewportSize({ width, height: 900 });
+				const fixture = largeEntries[collection]!;
+				const path = `${collection === "news" ? "/news" : "/health/content"}/${fixture.slug}`;
+				await page.goto(list);
+				const card = listedItem(page, fixture.title);
+				await expect(page.getByRole("main").getByRole("article").first()).toHaveText(
+					new RegExp(RegExp.escape(fixture.title)),
+				);
+				await expect(card.getByTestId("news-surface"), "no small card's surface").toHaveCount(0);
+				const link = await expectWholeCardLink(page, card, fixture.title, 2);
+				await expect(link).toHaveCSS("outline-width", "3px");
+				await expect(link, "the white band beside the ring").toHaveCSS(
+					"box-shadow",
+					new RegExp(`${RegExp.escape(await tokenColor(page, "surface-base"))} 0px 0px 0px 7px`),
+				);
+				await link.blur();
+
+				const picture = card.locator("img");
+				await expectImageLoaded(picture, name);
+				await expect(picture).toHaveAttribute("alt", "");
+				await expect(picture).toHaveCSS("object-fit", "cover");
+				await expect(picture, "the crop around the focal point").toHaveCSS(
+					"object-position",
+					"25% 75%",
+				);
+				const place = await boxOf(card, "the large card");
+				const box = await boxOf(picture, "the picture");
+				expect(
+					[box.x, box.y, box.width, box.height].map(Math.round),
+					"the picture covers the card",
+				).toEqual([place.x, place.y, place.width, place.height].map(Math.round));
+				expect(await shownLines(card.getByRole("heading", { level: 2 })), "the title").toEqual({
+					lines: 3,
+					clamped: true,
+				});
+				const summary = card.getByText(LARGE_SUMMARY, { exact: true });
+				if (width < 640) await expect(summary).toBeHidden();
+				else expect(await shownLines(summary), "the summary").toEqual({ lines: 2, clamped: true });
+
+				await pointAtCardSurface(page, picture);
+				expect(
+					await boxOf(picture, "the picture"),
+					"with reduced motion the picture stays",
+				).toEqual(box);
+				for (const part of [
+					picture,
+					card.locator("time"),
+					card.getByRole("heading", { level: 2 }),
+				]) {
+					await page.goto(list);
+					await clickCardSurface(page, part);
+					await expectCardDestination(page, path, fixture);
+				}
+				await expectLowerCornerAndEnter(page, list, card, fixture, path);
+
+				await page.emulateMedia({ reducedMotion: "no-preference" });
+				await page.goto(list);
+				// The card, 800 px high at 1,440 px, reveals as it scrolls into the window, and pointing at
+				// it scrolls no further.
+				await picture.scrollIntoViewIfNeeded();
+				await expect.poll(() => shownOpacity(card), { message: "the card has come in" }).toBe(1);
+				const resting = await boxOf(picture, "the picture at rest");
+				const cardAtRest = await boxOf(card, "the card at rest");
+				await pointAtCardSurface(page, picture);
+				await expect
+					.poll(async () => (await boxOf(picture, "the picture")).width / resting.width, {
+						message: "the picture grows by 6 % under the pointer",
+					})
+					.toBeCloseTo(1.06, 2);
+				expect(await boxOf(card, "the card under the pointer"), "the card stays").toEqual(
+					cardAtRest,
+				);
+				await expect(link, "no ring under the pointer").toHaveCSS("box-shadow", "none");
+				const clip = await boxOf(picture.locator(".."), "the picture's box");
+				expect(
+					[clip.width, clip.height].map(Math.round),
+					"the picture grows inside its box",
+				).toEqual([cardAtRest.width, cardAtRest.height].map(Math.round));
+			});
+		}
+	}
 });

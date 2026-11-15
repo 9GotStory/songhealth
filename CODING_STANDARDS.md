@@ -53,7 +53,8 @@ and why, and `.jscpd-baseline.json` records them.
 - Icons are Lucide's (Product Owner, 2026-10-31: #51 comments 6536026977, 6536052180). An onward
   link on this site ends in `chevron-right` and a link that leaves it in `arrow-up-right`; on the
   Homepage a round button, a section heading's link and a card take `arrow-right` (Product Owner,
-  2026-11-11: #241 comment 6791096480). An icon
+  2026-11-11: #241 comment 6791096480), and so does the link of a list's heading on the deep field
+  (spec #280 "List heading"). An icon
   is decorative: Lucide hides it from assistive technology, and the text names the link or button
   (`docs/agents/lucide-astro-1.59.0.md`). Its size follows its role (Product Owner, 2026-10-31:
   #105 comment 6536890963): 16 px for a direction icon beside label or small text, 20 px for an
@@ -85,9 +86,19 @@ and why, and `.jscpd-baseline.json` records them.
   element's edge (`tests/node/public-hover.test.ts`). A card that rises still opens from every part
   of its resting place: its link reaches over the strip its surface left, as
   `src/components/HomeServiceCard.astro` does (#242 retro).
-- `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the Homepage's deep
-  field it is 4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2;
-  Product Owner, 2026-11-11: #242 comment 6797113372, item 1). One measured exception: the month
+- A piece that takes the keyboard's focus and lies over two surfaces, such as a card over the deep
+  field's edge, has its focus ring's contrast read against each (3:1, WCAG 2.2 SC 1.4.11), and
+  its pull request states the readings of `scripts/measure-focus-contrast.ts`: the ring against
+  the page under it, and against what lies beside it with focus. The suites check that a ring
+  shows and is whole, and axe does not measure it against what lies behind: in #281 a card's
+  `brand-primary` ring passed every suite at 1.89:1 on the field (#281 retro; Product Owner,
+  2026-11-13: #281 comment 6848893055). Such a card takes `focus-ring-banded`, a white band on
+  both sides of the ring (#283 comment 6854670042).
+- `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
+  the Homepage's and the one under a list's heading or a Post page's header (spec #280 "The field
+  under a heading"), it is
+  4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product
+  Owner, 2026-11-11: #242 comment 6797113372, item 1). One measured exception: the month
   and year on a Current Announcement's date tile, 5.45:1 or more where they sit on its gradient
   (`docs/design/DESIGN.md` §8.7; Product Owner, 2026-11-12: #245 comment 6812837231). A change
   to the tile's size or gradient needs a new measure.
@@ -101,9 +112,15 @@ and why, and `.jscpd-baseline.json` records them.
   piece that two pages need moves into `src/components/` or `src/lib/`. So does a page's title
   that another page shows as a crumb or link: one constant in its section's module, as
   `HEALTH_CONTENT_TITLE` is.
-- CMS images go through EmDash's `Image` with a `sizes` that matches their box. Image size
-  evidence from the development runtime shows renditions that production does not serve
-  (ADR 0003).
+- CMS images go through EmDash's `Image` with a `sizes` that matches their box, in plain lengths
+  (rem, px, vw), the ones the suites' `expectPictureFillsBox` reads (#285 retro: a `calc()` read
+  as NaN). Image size evidence from the development runtime shows renditions that production does
+  not serve (ADR 0003).
+- A utility that changes with the width steps up with min-width variants alone, such as
+  `pb-20 lg:pb-12`. Tailwind 4.3.3 writes a `max-*` variant's rules before the breakpoint
+  variants' rules in the built stylesheet, so on one property a `max-lg:` loses to a `sm:` (#285
+  retro: `pb-10 sm:pb-12 max-lg:pb-20` gave 48 px at 1,023 px where 80 was meant). A `max-*` variant fits a property no breakpoint variant also
+  sets, such as `max-sm:hidden`.
 - A CMS image or file is shown only while `src/lib/media.ts` (`availableMedia`,
   `downloadableFile`) says its media can be served, because Admin can delete a media item that
   content still uses. A rich-text body goes through `availableBody` before EmDash's
@@ -162,6 +179,23 @@ and why, and `.jscpd-baseline.json` records them.
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage
   line stays beside these (#147 and #148 retros: in both, review found an edge untested).
+- A spec sentence that lists parts, such as "the filter form, the empty state and the pager show
+  at once", gets an assertion for each part, on a fixture that shows it: a pager needs more items
+  than a page holds, an empty state a page past the last (#282 retro: #281's motion case for
+  `/news` published too few News for a pager and opened no empty page, and its review passed it).
+- A criterion that places parts, such as "on one line", "beside", "under" or "above", is asserted
+  by the parts' boxes, not by their text, at the narrowest width the rule covers and with the
+  longest content the runtime holds, such as its longest Health Topic (#283 retro: a card's "date,
+  a dot and its label on one line" was asserted by its text and passed while every labelled card at
+  320 px ran onto two lines). The assertion reads the spec's own word: "at its foot" is less room
+  under the text than above it, where a stricter stand-in such as "in the lower half" fails at
+  320 px on a card the spec allows (#284 retro: it cost a 24-minute repeat run).
+- A fixture's label carries `SYNTHETIC_FIXTURE_MARK` before its words and a suffix after them,
+  some 33 characters more than a real label, so a row of such labels can wrap where real ones
+  would not. A
+  measure between parts that a wrap may separate, such as the space between two chips, reads
+  across rows as well as along one (#286 retro: two chips wrapped at 640 px and a "share a row"
+  assertion failed).
 - The migration script is temporary and reads one known export (ADR 0008). A shape the export does
   not hold needs no rule or edge test of its own: it reaches the report or stops the plan, so no
   content disappears unreported. Review lists any other edge that only such a shape reaches as
@@ -244,7 +278,10 @@ A record in `docs/evidence/` says what its evidence log shows, and no more. Each
 line of the log or a run's output. Each cell of a coverage table names the check it rests on and
 how far that check goes: a status code shows a status code, and what a log cannot show stays
 unclaimed. A check reads as its result at its commit, never as a promise. In #151 four claims were
-not in the log, and in #184 five went wider than their checks.
+not in the log, and in #184 five went wider than their checks. A table of heights is the one
+`scripts/evidence-branch.sh` printed and a text's lowest contrast a closing line of
+`scripts/measure-text-contrast.ts`: review reads that each was taken whole and what its rows are
+called, not each cell (#287 retro: 45 typed rows held one page under another's name).
 
 A runbook in `docs/operations/` can be followed as written. Everything a step uses comes from an
 earlier step or its Setup, and a step's check reads something its command prints. In #185 no step

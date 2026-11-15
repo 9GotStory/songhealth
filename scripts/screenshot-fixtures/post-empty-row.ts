@@ -2,10 +2,12 @@
 // #190 "Empty trailing content on News/Health Content Post pages"): a News item with a landscape
 // picture shorter than its header, where the empty row showed from lg; a News item with a portrait
 // One Page taller than its header; and a Health Content item without a picture, with its review
-// date. Captures each post page whole at the capture script's widths, and the landscape News post
-// at 1024 px, where lg's two columns are narrowest, as news-landscape-1024.
+// date. Captures each post page whole at the five widths Feature 009's tickets name, as
+// news-landscape-<width>, news-one-page-<width> and health-content-plain-<width> (#285); 1,024 px
+// is where lg's two columns are narrowest.
 
 import type { Fixtures } from "../capture-with-fixtures.ts";
+import { HOMEPAGE_WIDTHS } from "./homepage-widths.ts";
 
 const fixtures: Fixtures = async ({ admin, helpers, picture }) => {
 	const publish = async (collection: string, slug: string, data: Record<string, unknown>) => {
@@ -55,12 +57,11 @@ const fixtures: Fixtures = async ({ admin, helpers, picture }) => {
 		reviewed_at: "2026-09-15T03:00:00.000Z",
 	});
 
-	return [
-		{ name: "news-landscape", path: `/news/${landscapeSlug}` },
-		{ name: "news-one-page", path: `/news/${onePageSlug}` },
-		{ name: "health-content-plain", path: `/health/content/${contentSlug}` },
-		{ name: "news-landscape-1024", path: `/news/${landscapeSlug}@1024` },
-	];
+	return HOMEPAGE_WIDTHS.flatMap((width) => [
+		{ name: `news-landscape-${width}`, path: `/news/${landscapeSlug}@${width}` },
+		{ name: `news-one-page-${width}`, path: `/news/${onePageSlug}@${width}` },
+		{ name: `health-content-plain-${width}`, path: `/health/content/${contentSlug}@${width}` },
+	]);
 };
 
 export default fixtures;

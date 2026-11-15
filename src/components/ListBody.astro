@@ -1,0 +1,11 @@
+---
+// What follows a list page's heading on the deep field (Feature 009 #281; spec #280 "What follows
+// a list's heading"; ListHeading.astro): the filter form where the list has one, the cards or the
+// empty state, and the pager, 32 px apart. The block starts 64 px above the field's lower edge
+// below `sm` and 88 px from `sm`, in the room the heading leaves there, so it lies over the edge.
+// It is positioned, so it is drawn in front of the field, which is positioned too.
+---
+
+<div class="page-container relative -mt-16 flex flex-col gap-8 pb-16 sm:-mt-22 lg:pb-20">
+	<slot />
+</div>

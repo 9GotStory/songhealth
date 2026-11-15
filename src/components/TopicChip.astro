@@ -1,0 +1,25 @@
+---
+// A Health Topic chip (Feature 008 #246; spec #239 "Health Information"): a pill link to a list
+// narrowed to the topic, brand-primary words on surface-base with a 1.5 px border-default edge,
+// surface-base words on brand-primary under the pointer. The Homepage's Health Information shows a
+// row of them, and a News or Health Content post shows its Health Topics as them at 44 px high,
+// through `class` (Feature 009 #286; spec #280 "Post page: the text"; TopicPills.astro).
+interface Props {
+	href: string;
+	label: string;
+	/** The chip's own classes, such as a post's 44 px target. */
+	class?: string;
+}
+
+const { href, label, class: className } = Astro.props;
+---
+
+<a
+	href={href}
+	class:list={[
+		"rounded-pill border-[1.5px] border-border-default bg-surface-base px-3 py-1 text-small font-medium wrap-anywhere text-brand-primary hover:border-brand-primary hover:bg-brand-primary hover:text-surface-base motion-safe:transition-colors sm:px-4 sm:py-1.5 sm:text-label",
+		className,
+	]}
+>
+	{label}
+</a>

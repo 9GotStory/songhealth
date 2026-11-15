@@ -2,10 +2,12 @@
 // Content"): a News, an Activity and a Health Content item, each with a summary and a portrait A4
 // stand-in for a One Page as its picture. The Activity has its details and six captioned photos;
 // the News and the Health Content have a body, a source and a Health Topic. Captures the three post
-// pages, and the News post at 1024 px, where lg's two columns are narrowest, as news-post-1024.
+// pages at the five widths Feature 009's tickets name, as news-post-<width>, activity-post-<width>
+// and health-content-post-<width> (#286).
 
 import type { SyntheticEntryResult } from "../../tests/browser/cms.helpers.ts";
 import type { Fixtures } from "../capture-with-fixtures.ts";
+import { HOMEPAGE_WIDTHS } from "./homepage-widths.ts";
 
 const fixtures: Fixtures = async ({ admin, helpers, term, picture, block }) => {
 	const publish = async (collection: string, created: SyntheticEntryResult) => {
@@ -113,12 +115,11 @@ const fixtures: Fixtures = async ({ admin, helpers, term, picture, block }) => {
 		}),
 	);
 
-	return [
-		{ name: "news-post", path: `/news/${newsSlug}` },
-		{ name: "activity-post", path: `/activities/${activitySlug}` },
-		{ name: "health-content-post", path: `/health/content/${contentSlug}` },
-		{ name: "news-post-1024", path: `/news/${newsSlug}@1024` },
-	];
+	return HOMEPAGE_WIDTHS.flatMap((width) => [
+		{ name: `news-post-${width}`, path: `/news/${newsSlug}@${width}` },
+		{ name: `activity-post-${width}`, path: `/activities/${activitySlug}@${width}` },
+		{ name: `health-content-post-${width}`, path: `/health/content/${contentSlug}@${width}` },
+	]);
 };
 
 export default fixtures;

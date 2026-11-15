@@ -6,28 +6,48 @@
 // decorative (docs/agents/lucide-astro-1.59.0.md). The shell derives the items from the page's
 // section (src/lib/navigation.ts breadcrumbTrail). Below 640 px only the current label is one line
 // with ellipsis; its full text and the H1 remain (#192; #190 comment 6707205912, Breadcrumb B).
+//
+// On the deep field under a page's heading, `onField`, its links and its current page are
+// surface-base and its separators lighter (Feature 009 #281; spec #280 "Accessibility"). A page
+// with such a heading shows the breadcrumb itself, on its field (ListHeading.astro).
 import ChevronRight from "@lucide/astro/icons/chevron-right";
 import type { Crumb } from "../lib/navigation";
 
 interface Props {
 	items: Crumb[];
+	/** The breadcrumb lies on the deep field (DeepField.astro). */
+	onField?: boolean;
 }
 
-const { items } = Astro.props;
+const { items, onField = false } = Astro.props;
 ---
 
 <nav aria-label="เส้นทางนำทาง">
-	<ol class="flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-text-secondary">
+	<ol
+		class:list={[
+			"flex flex-wrap items-center gap-x-2 gap-y-1 text-small",
+			onField ? "text-surface-base/75" : "text-text-secondary",
+		]}
+	>
 		{items.map((item, index) => (
 			<li class="flex min-w-0 items-center gap-2">
 				{index > 0 && <ChevronRight class="shrink-0" size={16} />}
 				{item.href === undefined ? (
-					<span aria-current="page" class="wrap-anywhere text-text-primary max-sm:truncate">
+					<span
+						aria-current="page"
+						class:list={[
+							"wrap-anywhere max-sm:truncate",
+							onField ? "text-surface-base" : "text-text-primary",
+						]}
+					>
 						{item.label}
 					</span>
 				) : (
 					<a
-						class="text-brand-primary underline underline-offset-4 hover:text-brand-dark"
+						class:list={[
+							"underline underline-offset-4",
+							onField ? "text-surface-base" : "text-brand-primary hover:text-brand-dark",
+						]}
 						href={item.href}
 					>
 						{item.label}

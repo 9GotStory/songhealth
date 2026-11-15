@@ -1,11 +1,13 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.2, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.3, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
-> 6841960594).
-> **Updated:** 2026-11-13 (Feature 008 #250); first drafted 2026-10-30
+> 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
+> implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
+> 6891402807).
+> **Updated:** 2026-11-15 (Feature 009 #287); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -44,6 +46,17 @@
 > history, and #250 the direction, the measures and the limits (§2, §6, §8.2, §10). Every other
 > page keeps its content's design under the new shell until its own feature.
 
+> **Feature 009 decision (Product Owner, 2026-11-13; spec #280):** the News, Health News and Health
+> Content lists and the Post page of a News, Activity or Health Content item are redesigned after
+> the Homepage as it is built, "เราจะต้องเป็นไปแนวทางเดียวกันของหน้าแรกนะ", in the look the Product
+> Owner picked from a prototype's variant C. A page's heading lies on the deep green field with its
+> breadcrumb in white, and what follows starts over the field's lower edge (§7.8). `/news` is headed
+> "ข่าวประชาสัมพันธ์" under the label "ข่าวสาร"; its title in the head, the menu and the breadcrumb
+> stay "ข่าวสาร". Every address, read and behaviour stays, and no colour, type size, radius or
+> shadow joins the tokens. #281 to #286 implement the three lists and the Post page (§7.3, §7.8,
+> §9), each with its own decisions in §13's change history, and #287 the documents, the measures
+> and the limits (§2, §3.2, §6, §10). Every page outside the feature keeps its design.
+
 ## 1. Scope, authority and status
 
 This document records the public presentation of Songhealth: its tokens, its components, the
@@ -76,8 +89,13 @@ health-service network.
 - **A redesign, page by page, the Homepage first** (spec #239). The Product Owner found the site
   too plain, "ตอนนี้ฉันอยากปรับปรุง design frontend ทั้งหมด เนื่องจากมันดูเรียบง่ายเกินไป" (2026-11-10),
   and asked for a new design: "รอบนี้ออกแบบใหม่เลย". The Homepage and the shell every page shares
-  have it (§7.4, §8). Every other page keeps the design of §7 and §9 under the new shell until its
-  own feature.
+  have it (§7.4, §8). Feature 009 brings it to the News, Health News and Health Content lists and
+  the Post page of a News, Activity or Health Content item (spec #280): a list has its heading on
+  the deep field (§7.8), and over the field's edge, after the filter form on Health News and
+  Health Content (§7.7), the Homepage's News cards, the newest large on a first page that no
+  Health Topic narrows (§7.3); a Post page has its header on the field, its picture in a white
+  frame and its text on the page's colour (§9). Every other page, the Activities list and the
+  other detail pages among them, keeps its design under the new shell until its own feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
   "มันยังดูธรรมดา เรียบง่ายเกินไป ไม่ได้ดูทันสมัย หรือ สมัยใหม่เลย", and naming two sites as the look
@@ -88,9 +106,10 @@ health-service network.
   design token ของเราดีอยู่แล้ว", "ใช้ Noto Sans Thai และมุมโค้งตาม token เดิม"). A colour or a type
   size the look needs beyond them is a named token or utility with its source (§3 rule 6, §3.1).
 - **Brand-colour fields and layered cards.** Green is a surface as well as an accent: the deep
-  green field under the hero and the Services, the green bands and the footer. White cards with
-  soft shadows lie on them and over a section's edge, and a section opens with an icon tile and a
-  large heading (§8). Buttons, badges and chips are pills.
+  green field under the hero and the Services and under a list's heading or a post's header, the
+  green bands and the footer. White cards with soft shadows lie on them and over a section's edge,
+  and a section opens with an icon tile and a large heading (§7.8, §8). Buttons, badges and chips
+  are pills.
 - **The page moves, and never to say something:** an entrance, a reveal, a hover and a loading
   state, all off under the visitor's reduced-motion setting, and nothing that moves without end
   (§8.12).
@@ -113,11 +132,16 @@ health-service network.
    colours, type scale, radii and shadows, so a template can use only these tokens (§3.1).
 3. Templates style with utility classes in Astro components. The global stylesheet holds only the
    tokens, the base styles (the page gutter and the focus ring), the utilities (`page-container`;
-   `focus-ring-on-dark` and `focus-ring-on-light`; the header's `header-title` and
+   `focus-ring-on-dark`, `focus-ring-on-light` and `focus-ring-banded`; the header's `header-title` and
    `header-nav-item`; the Homepage's `deep-field`, `deep-band`, `deep-visual`, `plain-visual`, `hero-headline`,
    `hero-headline-alone` and `section-title`; the Homepage's motion, §8.12: `hero-enter`,
    `featured-card-enter`, `featured-sheet-enter`, `scroll-reveal` and `picture-shimmer`, with the keyframes they run) and the `.rich-text` typography of Portable Text
-   bodies, which EmDash renders as plain HTML that takes no utility classes.
+   bodies, which EmDash renders as plain HTML that takes no utility classes. A list's heading
+   uses `deep-field`, `section-title` and `hero-enter` too (§7.8), a Post page's header and frame
+   `deep-field` and `hero-enter` (§9.1), the heading of an Activity's
+   photos `section-title` (§9.2), and a list's cards
+   `plain-visual`, `deep-visual` (the large card's, on a first page), `scroll-reveal` and
+   `picture-shimmer` (§7.3).
 4. No other plain CSS selectors for component styling, no CSS Modules, Astro `<style>` blocks or
    CSS-in-JS, and no Tailwind v3 setup or `tailwind.config.js`. An inline `style` carries only a
    value computed from content: the shell's `--menu-height` from its number of menu items (§7.4).
@@ -137,7 +161,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and in the Current Announcements the month and year on a date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and in the Current Announcements the month and year on a date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's header, the pill of "เผยแพร่" and the date (§9.1) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -158,14 +182,18 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 The Homepage's hero uses `deep-highlight`, in the `deep-field` utility's gradient, and
 `plain-visual-to`, in the `plain-visual` utility that stands in for a missing picture (§8.1).
 Latest News uses both again (§8.6): `plain-visual` on a small card without a picture, and
-`deep-highlight` in the `deep-visual` utility on the large one. The
+`deep-highlight` in the `deep-visual` utility on the large one; so do the cards of the News,
+Health News and Health Content lists (§7.3). The
 Current Announcements use `procurement-text` and `procurement-border` on the procurement badge
 (§8.7). `status-closed` is the fill of the dotted status label's closed state, which no page shows
 yet: the Homepage lists current Announcements only. Some fills are a token at an opacity, not a token of their own: the hero's decorations and
 chip (`accent-warm` at 28 %, 30 %, 38 % and 50 %, `surface-soft` at 16 %, `surface-base` at 18 %
 and 22 %), the header's
-surface, `surface-base` at 90 %, and the footer's quiet text, pills and rule, `surface-base` at
-70 %, 85 %, 20 %, 15 % and 10 %.
+surface, `surface-base` at 90 %, the footer's quiet text, pills and rule, `surface-base` at
+70 %, 85 %, 20 %, 15 % and 10 %, the label pill on a list's large card, its outline
+`surface-base` at 40 % and its fill `brand-dark` at 40 % (§7.3), the category pill on a Post
+page's header, its outline `surface-base` at 40 % (§9.1), and the breadcrumb's separators on the
+deep field, `surface-base` at 75 % (§7.5).
 
 Type, Noto Sans Thai, as size / line height / weight in px:
 
@@ -186,12 +214,13 @@ Three Homepage styles are utilities beyond the scale too (spec #239 "Tokens"), e
 `hero-headline`, 29 / 42 below 640 px, 34 / 48 from 640 px, and from 1,024 px 34 to 44 px with the
 window on a line of 1.42; `hero-headline-alone`, the headline with nothing Featured, 29 / 42, then
 38 / 54 from 640 px and 52 / 74 from 1,024 px; and `section-title`, a Homepage section's H2, 26 /
-38, then 36 / 48 from 640 px and 42 / 54 from 1,024 px.
+38, then 36 / 48 from 640 px and 42 / 54 from 1,024 px. A list page's H1 on the deep field is
+`section-title` too (§7.8), and so is the H2 over an Activity's photos (§9.2).
 
 Radii are named by their size in px: 14, 16, 18, 20, 22, 24, 26 and 32, and `pill` (999 px). Four
 shadows: `card`, `0 10px 15px rgb(13 46 36 / 0.08)`; `header`, the sticky header's lower edge,
 a 1 px `border-default` hairline with `0 8px 24px -16px rgb(13 46 36 / 0.25)`; `deep`, a card on
-the deep green field, `0 30px 60px -20px rgb(13 46 36 / 0.35)`; and `tile`, a section heading's
+the deep green field or a Post page's frame over it, `0 30px 60px -20px rgb(13 46 36 / 0.35)`; and `tile`, a section heading's
 icon tile on a light surface, `0 14px 26px -12px rgb(11 107 87 / 0.7)`. One container,
 `content`: 75 rem (1,200 px). One length, `--header-offset`: the room the sticky header takes at
 the top of the window, 88 px below 640 px and 84 px from 640 px (§7.4).
@@ -223,6 +252,11 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-primary` on `status-closed` (the dotted label's closed state, which no page shows yet) | 13.85:1 |
 | `text-secondary-on-soft` on `surface-base`, the lightest the Current Announcements' glow makes the band under its lead | 5.66:1 |
 | `surface-base` (the label, the lead and the counts' words) on the Health Service Discovery band's gradient: measured (§8.9) | 5.20:1 or more |
+| `surface-base` (the breadcrumb, the label, the H1 and the lead) on the field under a list's heading (`/news`, Health News, Health Content): measured at `fb11b3e` with `scripts/measure-text-contrast.ts` at the five widths (§7.8, #287) | 6.45:1 or more |
+| `surface-base` (the breadcrumb, the H1, the summary, a category's words in its outlined pill and Health Content's review date) on the field under a Post page's header, and `brand-dark` on the `accent-warm` pill of "เผยแพร่" and the date: measured at `fb11b3e` with `scripts/measure-text-contrast.ts` on seven demo posts and one synthetic post at the five widths (§9.1, #287) | 5.34:1 or more (the breadcrumb's current page); the date pill 7.75:1 |
+| `brand-primary` focus ring of a list's card against what lies beside it, its `surface-base` band, over the field's lower edge or the page (`focus-ring-banded`, §7.3): measured at `fb11b3e` with `scripts/measure-focus-contrast.ts` on `/news` at the five widths (#283, #287) | 5.09:1 or more; a few blended pixels at the cards' fractional edges at 1,024 and 768 px down to 2.77:1, under 0.5 % of the ring's neighbours |
+| `surface-base` text on a list's large card over a white picture, the least gradient behind it: the title, the summary and the label's words on its `brand-dark` 40 % fill, measured at `fb11b3e` with `scripts/measure-text-contrast.ts` and `scripts/screenshot-fixtures/news-list-light-picture.ts` on `/news` at the five widths (§7.3, #284, #287) | the title 6.74:1, the summary 8.98:1, the label 6.35:1 or more; on a large card without a picture, over its `deep-visual`, 11.12:1 or more |
+| `brand-primary` focus ring of a list's large card on `/news`, over the field's edge, against what lies beside it with its band: measured at `fb11b3e` with `scripts/measure-focus-contrast.ts` at the five widths (#284, #287) | 4.06:1 or more (1,024 px; 5.47:1 or more at the others), none of the ring's neighbours under 3:1; the field's edge under the ring alone reads down to 1.00:1, which the band is for |
 | `accent-warm` (the counts' numbers, large text) on the band's gradient, over its glow: measured (§8.9) | 3.22:1 or more |
 | `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
@@ -232,17 +266,22 @@ There is no alert colour: a status is stated in text, and colour supports it.
 
 - **Typeface:** Noto Sans Thai, self-hosted through Astro's Fonts API (`astro.config.mjs`,
   `src/assets/fonts/README.md`).
-- **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`. A
-  Homepage section's H2 is `section-title` (§3.1), under a label at label size between slashes. The
+- **Headings:** a page's H1 is H3 size below `sm`, H2 size from `sm` and H1 size from `lg`; the H1
+  of a list page on the deep field (the News, Health News and Health Content lists) is
+  `section-title` instead, under its label (§7.8). A Homepage section's H2 is `section-title` (§3.1), under a label at label size between slashes, and so is
+  the H2 over an Activity's photos (§9.2). The
   Homepage's H1, the site title, is out of sight: the hero's headline shows in its place (§8.1).
   The Leadership strip's H2 is H3 size in bold, its compact heading (§8.5). Keep the `h1` → `h2`
   → `h3` order whatever the visual size.
-- **Sizes beyond the scale** are the Homepage's alone (§3.1): `hero-headline` and
+- **Sizes beyond the scale** are the Homepage's (§3.1), and one of them a list heading's:
+  `hero-headline` and
   `hero-headline-alone` for the hero's headline, up to 44 px beside a Featured card and 52 px
-  without one; `section-title`, up to 42 / 54; and `telephone`, 40 / 52, on the contact card from 640 px. The
+  without one; `section-title`, up to 42 / 54, also a list page's H1 on the deep field (§7.8) and the H2 over an Activity's photos (§9.2); and `telephone`, 40 / 52, on the contact card from 640 px. The
   header's title and navigation items scale with the window from 1,024 px (§7.4).
-- **Copy:** concise, natural Thai. Dates and categories sit below the title in emphasis, and colour
-  is never the only cue. No hard-coded dates, opening hours, news, phone numbers or service status.
+- **Copy:** concise, natural Thai. Dates and categories sit below the title in emphasis, wherever
+  they come: on the News cards and a Post page's header the publication date and the category
+  come before it, and Health Content's review date after the summary (§7.3, §8.6, §9.1).
+  Colour is never the only cue. No hard-coded dates, opening hours, news, phone numbers or service status.
 
 ### 4.1 Thai titles keep compound words whole
 
@@ -288,9 +327,10 @@ own module.
 - **Direction:** an onward link on this site ends in `chevron-right`, and a link that leaves it in
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
-  2026-11-11: #241 comment 6791096480, item 1): 16 px in the heading's link, 20 px in the search's
+  2026-11-11: #241 comment 6791096480, item 1), and so does the link of a list's heading on the
+  deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link, 20 px in the search's
   submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The hero's search field opens with a 20 px `search`
-  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's). A Service card shows
+  icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's cards, small and large, `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3). A Service card shows
   the Service's icon (below).
 - **Service icons** (Product Owner, 2026-11-12: #248 comment 6826430670): a Service card's tile
   shows the icon staff chose for the Service in the Service editor, on the Homepage (§8.4) and in
@@ -337,17 +377,25 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
   - below `sm` (640 px): phones;
   - `sm`, from 640 px: wider phones and tablets. On the Homepage the Featured card sits beside
     the hero's headline (§8.1), the Services, the small News cards and the Health Content cards
-    go two to a row, and the Services' grid overlaps the deep field's edge (§8.4);
+    go two to a row, and the Services' grid overlaps the deep field's edge (§8.4). A list's
+    heading has its link at its right, and the field under it or under a post's header the small
+    glow in its corner (§7.8, §9.1); a list's small cards go two to a row, each with its picture
+    above its text and its summary, and its large card spans the row (§7.3);
   - `lg`, from 1,024 px: desktop, with the main navigation in the header (§7.4), the two-column
     layouts (the post pages, the MOIT page's table of contents) and, on the Homepage, up to
     three Services and four Health Content cards to a row, the Leadership strip in one row, the large
     News card and the large Activity tile beside their small ones, and the Current Announcements'
-    heading beside their rows (§8.4 to §8.11).
+    heading beside their rows (§8.4 to §8.11). The field under a list's heading has its ring
+    (§7.8), a list's small cards go three to a row and its large card takes two columns or the
+    whole row by the number of items (§7.3), and a
+    Post page's frame starts on the field beside the text and stays in view while the text is the
+    longer (§9.1, §10).
   - `md` and `xl` are not used.
 - **Widths checked:** 1,440 px (desktop), 375 px (a common phone) and 320 px (reflow, WCAG 2.2
   SC 1.4.10). A rule from a breakpoint is checked on both sides of it, as at 1,023 and 1,024 px
   (CODING_STANDARDS "Tests"). The Homepage and the shell are also measured and captured at
-  1,024 and 768 px, the five widths of Feature 008 (spec #239 "Testing Decisions"; §8.2).
+  1,024 and 768 px, the five widths of Feature 008 (spec #239 "Testing Decisions"; §8.2), and so
+  are Feature 009's pages (spec #280 "Testing Decisions"; §7.8).
 - **Container:** the 1,200 px content column, centred (`page-container`), with a gutter of 16 px
   below `sm` and 24 px from `sm`, so a 1,440 px window has 120 px either side.
 - **Spacing:** the 4/8/12/16/24/32/48/64/80 px rhythm. Between two Homepage sections after the deep
@@ -366,10 +414,12 @@ this document names:
 | Area | Components |
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
-| Headings | `PageHeading`, `SectionHeading`, `ThaiTitle` |
-| Cards | `ContentCard` (News, Health Content), `ActivityCard`, `ServiceCard`, `QuickLinkCard`, `PersonCard` |
+| Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
+| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News and Health Content lists, in `ContentCardGrid`, §7.3), `ActivityCard`, `ServiceCard`, `QuickLinkCard`, `PersonCard` |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
-| Posts | `PostHeader`, `PostColumns`, `PostBody`, `ActivityPhotos`, `RichText` |
+| Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8) and a Post page's header (§9.1) |
+| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText` |
+| Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
 | Lists | `FilterForm` |
 
@@ -387,21 +437,79 @@ this document names:
 ### 7.3 Cards and their pictures
 
 - **Whole-card navigation** (#193; Product Owner, #190 comment 6707205912): each shared
-  ContentCard (News, Health News and Health Content lists), ServiceCard (the catalog)
+  ContentCard (the News, Health News and Health Content lists), ServiceCard (the catalog)
   and ActivityCard (the Activities list) has one native link named by its title alone. The
   picture/fallback, icon, metadata, summary and padding all open its original destination.
   H2 titles on lists and H3 under Homepage sections name a full-surface native link through
   `aria-labelledby`. Other content stays outside the link's visible label and remains readable,
   with no nested anchors or another focus stop. Enter, modified clicks and new-tab actions work.
-- **Interaction:** hover adds a 2 px `brand-primary` ring without moving/resizing the card and
-  makes its title green and underlined. The resting border/shadow remains; keyboard focus uses
-  the global 3 px outline around the whole card. The Homepage's own
-  Service cards (§8.4), News cards (§8.6), Health Content cards (§8.8) and Activity tiles
-  (§8.10), and multi-action cards, keep their own interactions.
+- **Interaction:** on a ServiceCard and an ActivityCard, hover adds a 2 px `brand-primary` ring
+  without moving/resizing the card and makes its title green and underlined. The resting
+  border/shadow remains; keyboard focus uses the global 3 px outline around the whole card. The
+  Homepage's own Service cards (§8.4), News cards (§8.6), Health Content cards (§8.8) and Activity
+  tiles (§8.10), and multi-action cards, keep their own interactions.
+- **The News, Health News and Health Content lists' card** (Feature 009 #283; spec #280 "The
+  cards", decisions 4, 10 and 15) is the Homepage's small News card (§8.6), `ContentCard` with
+  `kind="list"`: white, radius 22, the `card` shadow. From `sm` a 16:9 picture above its text;
+  below `sm` a row with a 120 px picture at 4:3, radius 14, 10 px inside the card, which leaves
+  the title 130 px at 320 px. Under the picture one line with the date (13 / 20 semibold,
+  `brand-primary`), a dot and the label (regular, `text-secondary`): the News category on `/news`
+  and the first Health Topic on Health News and Health Content, the date alone without one. Below
+  `sm`, where the row holds no label beside the date, the whole label goes on the next line
+  without the dot (Product Owner, 2026-11-13: #283 comment 6855983271); from `sm` a label longer
+  than its column runs onto the next line. Then
+  the title, an H2, body size semibold below `sm` and body-large from `sm`, three lines at most;
+  from `sm` the summary at label size in `text-secondary`, two lines at most, and none below `sm`.
+  Without a picture, or when its media item was deleted, the `plain-visual` with the 48 px
+  gradient tile and the list's 24 px icon: `message-square` on `/news`, `heart-pulse` on the other
+  two. The cards go three to a row from `lg`, two from `sm` and in rows below, 24 px apart from
+  `sm` and 14 px below; a last row may hold fewer, and no cell is filled. Under the pointer, with
+  motion allowed, the picture grows by 6 % inside its box and the card lifts 6 px with the `deep`
+  shadow, with no ring and the title in its colour; the link still covers the card's
+  resting place. Each card reveals as it comes into the window, and its picture's box shimmers as
+  the page opens (§8.12). Keyboard focus is the global 3 px outline with a `surface-base` band
+  2 px wide on both sides (`focus-ring-banded`): a card of `/news`'s first row lies over the deep
+  field's lower edge (§7.8), where the ring alone reads 1.00:1 on half its length at 375 px, and
+  with the band what lies beside the ring reads 5.09:1 or more (Product Owner, 2026-11-13: #283
+  comment 6854670042; measured at `fb11b3e` with `scripts/measure-focus-contrast.ts`, §3.2). On
+  the page's colour the band hardly
+  shows.
+- **The large card on a list's first page** (Feature 009 #284; spec #280 "The cards", "The
+  first page", decisions 2 and 11): on a first page of `/news`, Health News or Health Content
+  that no Health Topic narrows, the newest item is the Homepage's large News card (§8.6),
+  `ContentCard` with `kind="list"` and `large`. Its picture covers it, radius 24, from its middle
+  or around its focal point, under the `brand-dark` gradient from its foot. Over the gradient: the
+  date in an `accent-warm` pill and, when the item has one, its label in an outlined pill
+  (`surface-base` words, a 1 px `surface-base` outline at 40 % and a `brand-dark` fill at 40 %, so
+  its words keep 4.5:1 where the gradient is lightest: Product Owner, 2026-11-14: #284 comment
+  6870867641, item 1), beside the date or, when it is too long for the line, under it where the
+  date starts, never cut (Product Owner, 2026-11-14, #284 comment 6871942671); the title,
+  an H2, in `surface-base` at H3 size and body-large semibold below `sm`, three lines at most; and
+  from `sm` the summary in `surface-base` at body size, two lines at most. Without a picture, or
+  when its media item was deleted, the
+  `deep-visual` with the 72 px `accent-warm` tile and the list's 24 px icon. One link named by the
+  title covers it, with the lists' `focus-ring-banded`. Under the pointer, with motion allowed,
+  the picture grows by 6 % inside its box and the card stays in its place; it reveals as it comes
+  into the window and its picture's box shimmers as the page opens (§8.12). The layout by the
+  number of items the page shows (`src/lib/list-first-page.ts`):
+
+  | Items | From `lg` (three columns) | From `sm` (two columns) | Below `sm` |
+  | --- | --- | --- | --- |
+  | 1 | across the row, 440 px high or more | across the row, 380 px or more | 300 px or more |
+  | 2 | two columns wide, as high as the card beside it and 380 px or more | across the row, the other under it | the large card, then a row |
+  | 3 or more | two columns wide and two rows high, 520 px or more, beside the next two; the rest three to a row | across the row; the rest two to a row | the large card, then rows |
+
+  A full page of twelve at two columns ends with one card alone (decision 11). A later page, and
+  a list narrowed by a Health Topic, show the small cards alone. Its picture's `sizes` is two of
+  the container's three columns from `lg` (all three with one item) and the row below.
 - **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
-  Health Content card in a list to 16:10 (`ContentCard.astro`); the Homepage's News
-  and Health Content cards and its Activity tiles have their own boxes (§8.6, §8.8, §8.10). Every crop centres on the middle, or around the focal point
-  that the field's value carries. A One Page in a card therefore shows its middle, where its photo
+  Health Content card in a list to 16:9 from `sm` and 4:3 below (`ContentCard.astro`), as the
+  Homepage's small News card does; the Homepage's Health Content
+  cards and its Activity tiles have their own boxes (§8.8, §8.10). Every crop centres on the middle, or around the focal point
+  that the field's value carries; EmDash's placeholder drops the focal point, so only
+  `ContentCard`, whose pictures take none, crops around one today, and the other cards on the
+  middle until #298 (#284 comment 6870867641, item 2). A One Page in a card therefore shows its
+  middle, where its photo
   collage is (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144 names the 16:9 crop, exact
   for Activity cards only).
 - Without a picture, or when its media item was deleted, a card shows a plain visual that keeps
@@ -480,6 +588,10 @@ the focus rings, axe, and the configured and fallback identities, restoring sett
   as before. Breadcrumb labels remain outside ThaiTitle's word-keeping scope (§4.1).
 - The public-browser suite covers long and short labels at 320/375/639/640/1440 px, ancestor
   destinations, H1, clipping, keyboard navigation, axe, reflow and JavaScript-disabled pages.
+- On the deep field under a page's heading (§7.8) or a post's header (§9.1) the links and the current page are
+  `surface-base` and the separators `surface-base` at 75 %, with the field's `accent-warm` focus
+  ring. The page shows the breadcrumb on its field in place of the shell's, with the same items,
+  markup and one-line rule; a link there keeps its underline and does not change under the pointer.
 
 ### 7.6 Pagination
 
@@ -522,11 +634,95 @@ Health Service Directory:
   the list from its first page.
 - Below 640 px the fields stack above the actions, each as wide as the form. From 640 px a field is
   288 px wide, and fields and actions wrap inside the form.
+- On Health News and Health Content the form is the first block over the deep field's lower edge,
+  under the list's heading, with the cards or the empty state 32 px under it (§7.8). It keeps its
+  look there: its white card carries its own text and the page's `brand-primary` focus ring.
 - The public-browser suite goes through all five lists, with Documents' three selects and the
   directory's Area and name fields. The applied and draft states, the first-page restart and the
   keyboard run at 320 px, and JavaScript-disabled pages at 320 and 1,440 px. Target height, look and
   fit run at 320, 375, 639, 640, 768, 1,023, 1,024 and 1,440 px, hover at 1,440 px, and axe, focus
   and reflow at 320, 375 and 1,440 px.
+
+### 7.8 List heading on the deep field
+
+`ListHeading` (Feature 009 #281, #282; spec #280 "The field under a heading", "List heading")
+heads `/news`, Health News (`/news/health`) and the Health Content list (`/health/content`).
+
+- **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
+  `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
+  the `accent-warm` focus ring. What lies on it differs, each from a measure on the prototype (spec
+  #280 "Measured in the prototype": with the Homepage's glows and rings a list's lead read 3.42:1
+  and an outlined link's words 2.47:1):
+  - from `sm` its glow is small, 28 % of the field's width by 12 rem at the upper right corner;
+    below `sm` it is the utility's phone glow;
+  - it has the large ring alone, from `lg`;
+  - it has no `accent-warm` glow and no small ring, and no `surface-soft` glow either, as the
+    prototype's field (Product Owner, 2026-11-13: #281 comment 6847783611, item 2).
+- **On it, in this order:** the breadcrumb (§7.5), 24 px under the header; the Homepage's section
+  heading block (§8) with the page's H1 in `section-title` (§4), an `accent-warm` icon tile with a
+  `brand-dark` 24 px icon and the slashed label; and the lead at body-large, 16 px under the
+  heading. The breadcrumb and the heading are 24 px apart below `sm` and 32 px from `sm`. Every
+  text is solid `surface-base`: `scripts/measure-text-contrast.ts` cannot read text at 90 % white,
+  which Tailwind writes as `color-mix`.
+- **`/news`** is headed as the Homepage's Latest News (`NEWS_HEADING`, `src/lib/news.ts`): the
+  label "ข่าวสาร", the H1 "ข่าวประชาสัมพันธ์" and the `message-square` icon. Its title in the head,
+  its menu item and its breadcrumb read "ข่าวสาร" (spec #280 "Decisions", 3).
+- **The link.** `/news` has one, to Health News: a white pill, 52 px high from `sm` and 44 px
+  below, with "ข่าวสุขภาพ" in `brand-primary` at body size, semibold, and a 16 px `arrow-right`;
+  under the pointer it is `accent-warm` with `brand-dark` words. From `sm` it sits at the
+  heading's right, level with the heading's top; below `sm` it follows the lead, 20 px under it.
+  That is the prototype's place for it, where spec #280 says "on the lead's baseline" (Product
+  Owner, 2026-11-13: #281 comment 6846855734).
+- **Health News** is labelled "ข่าวสาร", the News section's label (`NEWS_HEADING`), over its H1
+  "ข่าวสุขภาพ"; **Health Content** is labelled "สุขภาพ", the Homepage's Health Information label,
+  over its H1 "ความรู้สุขภาพ". Each has the `heart-pulse` icon and no link, and keeps its lead, its
+  title in the head and its breadcrumb (spec #280 "Decisions", 3).
+- **What follows the heading** lies over the field's lower edge: the field's content ends 128 px
+  above the edge from `sm` and 96 px below, and the block that follows (`ListBody`) starts 88 px
+  above it from `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state,
+  then the pager (§7.6); on Health News and Health Content the filter form (§7.7) comes first. They
+  are 32 px apart, and each keeps its content and behaviour. The cards are the Homepage's News
+  cards: the small one, and on a first page that no Health Topic narrows the large one first
+  (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
+  ring alone was faint, so a card's ring has a `surface-base` band on both sides
+  (`focus-ring-banded`, §7.3; Product Owner, 2026-11-13: #281 comment 6847783611, item 1, and
+  #283 comment 6854670042).
+- **Motion** (§8.12): with motion allowed the heading block rises in as the page opens, and the
+  lead 0.1 s after it. Each card reveals as it comes into the window (§7.3). The breadcrumb, the
+  link, the filter form, the empty state and the pager show at once.
+- **Measured** on the development runtime at `fb11b3e`, the head of `009-news-post-redesign`,
+  with the demo dataset's six News and five Health Content (#287,
+  `docs/evidence/287-news-post-redesign-evidence-round.md`):
+  - `scripts/measure-text-contrast.ts` on `/news`, `/news/health` and `/health/content` at 1,440,
+    1,024, 768, 375 and 320 px, the lowest reading of each text over the three lists: the lead
+    6.45:1 (Health News at 768, 375 and 320 px, Health Content at 375 and 320 px; `/news` 6.63:1 at
+    375 px), the H1 6.99:1 (`/news`, 320 px), the breadcrumb's current page 7.00:1 (Health
+    Content, 320 px), the label 8.72:1 (Health Content, 320 px) and the breadcrumb's links 9.34:1
+    (Health Content, 320 px). The link's words are `brand-primary` on `surface-base`, 6.45:1
+    (§3.2). The large card's text over the demo pictures: the date pill 7.75:1, the label's words
+    7.17:1 or more, the title 7.06:1 or more and the summary 8.84:1 or more; over a white picture,
+    §3.2's row; and without a picture, over its `deep-visual`, the label's words 11.15:1, the title
+    11.12:1 and the summary 11.59:1 or more.
+  - `scripts/capture-screenshots.mjs`, the pages' heights in px at 1,440, 1,024, 768, 375 and
+    320 px: `/news` 1,801, 1,765, 2,242, 1,791 and 1,917, where it was 1,501, 1,494, 2,030, 3,447
+    and 3,449 at `668d3e5` (#281's before screenshots); Health News 1,945, 1,909, 1,969, 1,777 and
+    1,973, where it was 1,607, 1,600, 2,110, 3,131 and 3,217; Health Content 1,885, 1,819, 1,939,
+    1,673 and 1,943, where it was 1,551, 1,540, 2,024, 2,929 and 3,011. A first page at the widths
+    below 640 px is shorter than it was, since a card is a compact row there (§7.3).
+  - `scripts/capture-with-fixtures.ts` with `scripts/screenshot-fixtures/news-list.ts`, `/news`
+    with synthetic News, the same five widths: a first page of twelve with a second page after it 2,703,
+    2,583, 3,462, 2,709 and 2,835 px, and that second page 2,345, 2,237, 3,078, 2,549 and 2,675;
+    twelve News alone, with no pager, 2,627, 2,507, 3,386, 2,595 and 2,721; three 1,373, 1,289, 1,437, 1,309 and 1,435; two 1,015, 981, 1,437, 1,155 and
+    1,281; one 1,041, 1,041, 1,019, 1,021 and 1,147.
+- `tests/browser/public-news.spec.ts` reads the heading's parts, their order and colours, the
+  head's title, the link's place and height on both sides of 640 px, the H1's size on both sides
+  of 640 and 1,024 px, what follows the heading with each empty state, the keyboard's order with
+  the focus ring, the motion (the pager and an empty state show at once too) and the page without
+  JavaScript. Health News, there, and Health Content, in `public-health.spec.ts`, take the same
+  cases but the head's title and the link, which they lack, from `testFilteredListOnField`
+  (`tests/browser/public.helpers.ts`): it adds the heading's icon, the filter form first over the
+  edge with its ring on its white card, and a page past the last and a Health Topic that matches
+  nothing 32 px under the form. Each suite's own first test reads the list with no item at all.
 
 ## 8. Homepage
 
@@ -574,7 +770,7 @@ to Latest News (§8.5).
 ### 8.1 Hero and Featured
 
 The hero (`HomeHero`; spec #239 "Hero and Featured") opens the page on the deep green field
-(`HomeDeepField`), which it shares with the Frequently Used Services (§8.4) and whose lower
+(`DeepField`), which it shares with the Frequently Used Services (§8.4) and whose lower
 corners are radius 32 (24 below `sm`):
 
 - **The chip** reads "เว็บไซต์ทางการ · กระทรวงสาธารณสุข".
@@ -740,7 +936,7 @@ in the page colour:
 
 ### 8.6 Latest News
 
-Latest News (`HomeNewsCard`; spec #239 "Latest News") follows the Leadership strip, under the
+Latest News (`ContentCard` with `kind="home"`; spec #239 "Latest News") follows the Leadership strip, under the
 section heading "ข่าวประชาสัมพันธ์" with its "ทั้งหมด" link to `/news`:
 
 - **The News** are the five newest published News in the lists' order, after the Featured item is
@@ -840,7 +1036,8 @@ Announcements on the page's colour:
   `brand-primary` on `surface-base` with a 1.5 px `border-default` edge at 14 / 22 medium (13 / 20
   below `sm`), `surface-base` on `brand-primary` under the pointer; 36 px high, 30 px below `sm` (measured),
   above the 24 px a link's target needs (spec #239 "Accessibility").
-  The row wraps, 10 px apart (8 px below `sm`). With no topic offered the row is left out.
+  The row wraps, 10 px apart (8 px below `sm`). With no topic offered the row is left out. The
+  chip is `TopicChip`, which a post's Health Topics share at 44 px high (§9.1).
 - **The cards** are the latest 4 Health Content items, four to a row from `lg` and two from `sm`,
   24 px apart. A card is white, radius 22, with the `card` shadow and 10 px of padding:
   - the picture, radius 14, at 4:3 from `lg` and 16:9 from `sm`, covering its box from its middle
@@ -1016,6 +1213,17 @@ stays the submit state (§8.9).
   box behind it. A missing picture's visual has no shimmer, nor has the Featured picture, which
   has its blurred copy behind it (§8.1), or a Leadership portrait in its ring (§8.5) (Product
   Owner: the same comment, item 2).
+- **A list's motion.** On `/news`, Health News and Health Content the heading block rises in as
+  the hero's parts do, starting at 0 s, and the lead at 0.1 s (§7.8). Each card reveals as a
+  section's card does and shows whole while it holds the keyboard's focus, and its picture's box
+  shimmers as the page opens; a missing picture's visual does not (§7.3; Feature 009 #283). The
+  breadcrumb, the link, the filter form, the empty state and the pager show at once
+  (`public-news.spec.ts` "/news moves only when motion is allowed: …", and
+  `testFilteredListOnField`'s motion case for the other two).
+- **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
+  as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
+  (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
+  show at once (`public-posts.spec.ts` "a post moves only when motion is allowed: …").
 - **Hover** ships with each section (§8.1, §8.4, §8.6 to §8.10).
 - **Reduced motion and paper.** All of it runs only on a screen under
   `prefers-reduced-motion: no-preference`. With reduced motion preferred, and in print, nothing
@@ -1034,36 +1242,101 @@ stays the submit state (§8.9).
 
 ## 9. Post pages: News, Activity and Health Content
 
-### 9.1 The header and two columns
+### 9.1 The header on the field, the frame and the text
 
-- **The header** (`PostHeader.astro`): a News item's category, the title as the page's one H1, the
-  summary under it with the line breaks staff typed, and the publication date; Health Content's
-  review date follows. Every News and Activity states its story in words, at least its summary,
-  as a One Page's text is an image (grill Q14; `05` §5.1).
-- **From `lg`, a post with a picture reads in two columns** (`PostColumns.astro`):
-  - on the left, the page's text in its order: the header, then an Activity's details card, or a
-    News or Health Content post's body, source and topics, each only when the post has it, 2 rem
-    under the header;
-  - on the right, a 28 rem column, 48 px from the text, with the picture whole and
-    "เปิดภาพขนาดเต็ม", a link to the file as it was uploaded;
-  - the picture is sticky 1.5 rem below the header (`--header-offset` plus 1.5 rem from the top, §7.4): it stays in view while the left column scrolls and
-    stops at the end of the two columns. Anything full width, such as an Activity's photos, comes
-    after them, so the picture never covers it.
-- **Below `lg`**, one column in the page's order: the header, the picture, then the body, source
-  and topics the post has, 2 rem apart (News, Health Content); the header, the details, the
-  picture, then the photos (Activity). "เปิดภาพขนาดเต็ม" shows at every width (Product Owner, #147
-  comment 6634124888 item 1). A post without a picture keeps one column.
-- **A News or Health Content post with no body, source or topics** ends with whichever of its
-  header and its picture's link ends lower; below `lg` that is the link, which follows the header.
-  No empty row or 2 rem gap follows (#190 comment 6707205912, Empty Post page row B). A difference
-  in height between the picture and the text, and the shell's minimum page height, still leave
-  their own space.
+Feature 009 #285 (spec #280 "Post page: the header", "Post page: the picture", "Post page: the
+text"; Product Owner, #285 comment 6877659654).
+
+- **The field** is the Homepage's deep green field (`DeepField` with `kind="post"`, the
+  `deep-field` utility; §8.1) across the window, with lower corners of radius 32 (24 below `sm`),
+  `surface-base` text and the `accent-warm` focus ring. As under a list's heading (§7.8) its glow
+  is small, 28 % of its width by 12 rem at the upper right corner from `sm`, and the utility's
+  phone glow below; it has no ring and no other decoration, since the ring crossed the summary of
+  a post without a picture at 4.35:1 (spec #280 "Measured in the prototype"). It is as high as the
+  header: it reaches 40 px under it below `sm` and 48 px from `sm`, and 80 px below `lg` where the
+  frame follows.
+- **The header** (`PostHeader.astro`), on the field, in the text column, 48 rem wide at most: the
+  breadcrumb in white (§7.5), 24 px under the shell's header; 24 px under it a row with "เผยแพร่"
+  and the publication date in an `accent-warm` pill with `brand-dark` words at 13 / 20 semibold,
+  and for a News item with a category the category in a pill outlined in `surface-base` at 40 %;
+  the title as the page's one H1, H3 below `sm`, H2 from `sm` and H1 from `lg`; the summary at
+  body-large with the line breaks staff typed; and Health Content's "ทบทวนล่าสุด" date at small
+  size, all 12 px apart and in `surface-base`. A part the post lacks is left out, and so is the row
+  with neither pill, as on a draft's preview. Every News and Activity states its story in words, at
+  least its summary, as a One Page's text is an image (grill Q14; `05` §5.1). The page gives the
+  shell no crumbs and shows its breadcrumb here, as a list's heading does.
+- **The frame** (`PostColumns.astro`): the picture whole, at its own aspect ratio with corners of
+  radius 18, in a white frame of radius 24 with 10 px of padding and the `deep` shadow, with
+  "เปิดภาพขนาดเต็ม" and its `chevron-right` inside the frame under the picture at every width
+  (Product Owner, #147 comment 6634124888 item 1), a link to the file as it was uploaded. The link
+  keeps the page's `brand-primary` focus ring on the white frame.
+- **From `lg`, a post with a picture reads in two columns:** the text column, 44 rem at most, a
+  3 rem gap and the frame's column, 28 rem, at the right of the page's column. The frame starts on
+  the field, 4.25 rem under its top, level with the row of pills while the breadcrumb takes one
+  line (a breadcrumb that wraps moves the row down, and the frame keeps its place), and runs over
+  the field's lower edge when it is the taller. It is sticky 1.5 rem below the header (`--header-offset` plus 1.5 rem
+  from the top, §7.4): it stays in view while the text scrolls and stops at the end of the two
+  columns. Anything full width, such as an Activity's photos, comes after them, so the frame never
+  covers it.
+- **Below `lg`**, one column: the header on the field, the frame, 48 rem wide at most, starting
+  48 px above the field's lower edge, then the text (an Activity's details card after the frame:
+  #285 comment 6877659654, item 1). A post without a picture keeps one column, its field as high as
+  its header.
+- **The text**, on the page's colour in the text column, starts 32 px under the field below `lg`
+  and 40 px from `lg`, or 32 px under the frame where the frame comes before it (#285 comment
+  6877659654, item 2). Its parts are 2 rem apart, each only when the post has it: an Activity's
+  details card, white with the `card` shadow; or a News or Health Content post's body in the
+  body's typography, its source line and its Health Topics.
+- **A post's Health Topics** (`TopicPills`) follow its body and source under "ประเด็นสุขภาพ" at
+  label size and a `divider` rule, as Homepage chips (`TopicChip`, §8.8): `brand-primary` words on
+  `surface-base` with a 1.5 px `border-default` edge, at 13 / 20 medium below `sm` and 14 / 22 from
+  `sm`, `surface-base` on `brand-primary` under the pointer, 44 px high, in a row 8 px apart and
+  10 px from `sm`. Each opens Health News narrowed to its topic from a News item, and the Health
+  Content list narrowed to it from Health Content. They show at once, with no effect (Feature 009
+  #286; spec #280 "Post page: the text"; Product Owner, #286 comment 6876267675, item 1).
+- **A post with a picture and no text** ends with whichever of its field and its frame ends
+  lower; one without a picture ends with its field. No empty row or gap follows (#190 comment
+  6707205912, Empty Post page row B). A difference in height between the frame and the text, and
+  the shell's minimum page height, still leave their own space.
+- **Motion** (§8.12): with motion allowed the header's text rises in as the page opens, as the
+  hero's does, and the frame 0.25 s after it, as the Featured card follows the hero's text. The
+  breadcrumb, the text, the details card and the photos show at once.
+- `tests/browser/public-posts.spec.ts` reads the header's parts, their order, colours and the
+  title's sizes on both sides of 640 and 1,024 px; the field's glow, corners and room under the
+  header; the frame, its columns at 1,024 and 1,440 px and its one column at 320, 375, 768 and
+  1,023 px; the frame in view while the text scrolls; the text's parts and spaces; the motion; and
+  the pages without JavaScript.
+- **Measured** on the development runtime at `fb11b3e`, the head of `009-news-post-redesign`
+  (#287, `docs/evidence/287-news-post-redesign-evidence-round.md`):
+  - `scripts/measure-text-contrast.ts` at 1,440, 1,024, 768, 375 and 320 px on seven demo posts
+    (four News, one of them without a picture; the Activity; two Health Content, one with its
+    review date) and one synthetic Health Content post without a picture, the lowest reading of
+    each text: the breadcrumb's current page 5.34:1 (a News post without a picture, 375 px) and
+    its links 7.28:1 (the third link of a Health Content post, 320 px); the H1 6.19:1 (the synthetic post, 375 px; 6.27:1 on the demo posts); the
+    summary 6.45:1 (at 768 px and below, and at 1,024 px on the News post without a picture); a category's words 6.71:1 (320 px); the review date 6.45:1
+    (the synthetic post, 320 px; 6.63:1 on the demo post); and `brand-dark` on the date's
+    `accent-warm` pill 7.75:1.
+  - `scripts/capture-screenshots.mjs`, the pages' heights in px at 1,440, 1,024, 768, 375 and
+    320 px: the News post `/news/demo-news-flu-vaccine` 1,196, 1,278, 1,612, 1,544 and 1,636, where
+    it was 1,168, 1,226, 1,634, 1,566 and 1,658 at `668d3e5`; the Activity
+    `/activities/demo-activity-health-fair` 1,974, 1,923, 2,983, 2,345 and 2,372, where it was
+    1,893, 1,781, 2,901, 2,293 and 2,320; the Health Content post `/health/content/demo-health-dengue`
+    1,018, 1,102, 1,476, 1,360 and 1,538, where it was 956, 1,016, 1,464, 1,348 and 1,526. A News
+    post with a picture alone (`scripts/screenshot-fixtures/post-empty-row.ts`, a landscape
+    picture) is 900, 929, 1,183, 1,163 and 1,261 px, and a Health Content post without a picture
+    900, 900, 900, 900 and 913 px, the shell's minimum height.
 - The other detail templates, such as Announcement, Document and Service, keep their layout.
 
 ### 9.2 An Activity's photos
 
-`src/components/ActivityPhotos.astro`, under the heading "ภาพกิจกรรม" (Product Owner's decisions:
-#148 comment 6649367649):
+`src/components/ActivityPhotos.astro` (Product Owner's decisions: #148 comment 6649367649):
+
+- **The heading** is the Homepage's section heading (`SectionHeading`, §8): the gradient tile with
+  a 24 px `images` icon, the label "กิจกรรม" and the H2 "ภาพกิจกรรม" in `section-title`, 24 px
+  above the photos and 28 px from `sm`, as Latest News is above its cards. The section starts
+  48 px under the columns and 64 px from `sm`, and shows at once, with no effect. An Activity
+  without photos has neither (Feature 009 #286; spec #280 "Post page: the text"; Product Owner,
+  #286 comment 6876267675, item 2).
 
 - Square thumbnails, four to a row from `lg` and three below, each a link to the photo's file,
   with its caption under it on at most two lines and in full to a screen reader.
@@ -1073,10 +1346,11 @@ stays the submit state (§8.9).
 - No JavaScript: a native `<details>` and a `:has()` rule. A browser without `:has()` shows every
   photo and no control.
 - A link is named by the photo's alt text from the media library, else its caption, else "ภาพที่ N".
-- The crop is the middle of the photo, or the part around a focal point that the field's value
-  carries (`05` §5.1).
-- An Activity page with twenty photos is 2,266 px tall on a 375 px phone while they are folded
-  (#148's pull request).
+- The crop is the middle of the photo. A focal point that the field's value carries does not move
+  it while `Image` keeps its placeholder (§7.3; #298).
+- An Activity page with twenty photos is 2,259 px tall on a 375 px phone while they are folded,
+  under its section heading, and 2,903 px with them open (`scripts/screenshot-fixtures/activity-photos.ts`
+  at `fb11b3e`, #287).
 
 ### 9.3 A gallery in a News body
 
@@ -1108,6 +1382,48 @@ The prototype's variant H, on the branch `prototype/home-redesign`, is the visua
 §13. The Product Owner accepted the feature on #239 (comment 6841960594),
 with the evidence round of #250 (`docs/evidence/250-homepage-redesign-evidence-round.md`), which
 names what the evidence does not cover.
+
+**What the Product Owner picked for the News lists and the Post page** on the Feature 009
+prototype, after the Homepage as it is built and not its prototype ("design หน้าแรก (ปัจจุบัน)"),
+each answered "ตามที่แนะนำ" or picked from offered options on 2026-11-13 (spec #280 "Decisions the
+Product Owner made", whose numbers these are):
+
+- the scope: the three lists and the Post page of all three kinds, `/activities` and every other
+  page left for their own features; every earlier behaviour, address and read as it is; no new
+  field, address or section; and the Homepage's motion with no new effect;
+- the lists' heading on the deep field with the cards over its edge (1, 12), and the newest item
+  large on a first page that no Health Topic narrows, laid out by the number of items (2, 13);
+- `/news` headed as the Homepage's section, "ข่าวสาร" and "ข่าวประชาสัมพันธ์", its head, menu and
+  breadcrumb still "ข่าวสาร" (3), with a pill link to Health News (5);
+- a small card's date, dot and label on one line (4), titles in three lines at most and summaries
+  in two from 640 px (10), a full page at two columns ending with one card alone (11), and the
+  Homepage's hover in place of #193's ring and green underlined title (15);
+- the Post page's header on the field and its picture in a white frame over the field's edge (6),
+  its text on the page's colour (7), its Health Topics as the Homepage's chips (8), an Activity's
+  photos under a section heading (9), and "เผยแพร่" before the date (16);
+- what moves (14): a heading and a Post page's frame rise in, a list's cards reveal and lift.
+
+**What the Product Owner decided while the tickets were built,** each on its ticket:
+
+- the link to Health News at the heading's upper right from 640 px, as the prototype has it
+  (#281 comment 6846855734), and no `surface-soft` glow on the field (#281 comment 6847783611);
+- a list card's focus ring with a white band (#283 comment 6854670042), the label under the date
+  below 640 px (#283 comment 6855983271), and `05` §5.1's crop amended for staff (#283 comment
+  6855158989);
+- the large card's label pill filled `brand-dark` at 40 % and `ContentCard`'s pictures without a
+  placeholder (#284 comment 6870867641), and a long label under the date, never cut (#284 comment
+  6871942671);
+- a post's chips as the Homepage's chip whole, 44 px high, and the photos' heading 24 / 28 px
+  above them (#286 comment 6876267675);
+- an Activity's details card after the frame below 1,024 px and the text 32 px under the frame
+  (#285 comment 6877659654), and the frame 4.25 rem under the field's top when the breadcrumb wraps
+  and the breadcrumb shown at once (#285 comment 6878495201).
+
+The prototype's variant C, on the branch `prototype/news-post-redesign` at `427f5c8`, is the
+visual reference (`docs/prototypes/news-post-redesign.md` there). Each ticket's decisions are on
+#281 to #286 and in §13. The evidence round of #287
+(`docs/evidence/287-news-post-redesign-evidence-round.md`) measures the pages and names what the
+evidence does not cover. The Product Owner accepted the feature on #280 (comment 6891402807).
 
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
@@ -1145,8 +1461,12 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   - a loading picture's shimmer runs on the page's clock, so a picture that loads later has the
     resting box behind it.
 - **Post pages** (#147 comment 6634124888 item 2):
-  - the picture follows only while the left column is the longer;
-  - a picture taller than the window shows its lower part as the block ends.
+  - the frame follows only while the text is the longer;
+  - a frame taller than the window shows its lower part as the block ends;
+  - from 1,024 px the frame is level with the row of pills only while the breadcrumb takes one
+    line; a breadcrumb that wraps moves the row down 24 px (#285 comment 6878495201, item 1).
+- **The News lists** (spec #280, decision 11): a full first page of twelve that no Health Topic
+  narrows, at two columns from 640 px to 1,023 px, ends with one card alone, after the large card across the row (§7.3).
 - **A gallery in a News body** does not fold, and EmDash's Edit mode shows it as a placeholder
   (§9.3).
 - **A focal point or alt text** set in the media library after staff picked a picture may not
@@ -1175,8 +1495,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - The public suites check each template at 1,440 and 320 px with axe (WCAG 2.2 AA tags), focus on
   every stop and no sideways scrolling at 320 px, and at 375 px where a spec names it
   (CODING_STANDARDS "Tests"). There are no pixel tests: the look is the Product Owner's review of
-  each pull request's screenshots at 1,440, 375 and 320 px, and for the Homepage and the shell at
-  1,024 and 768 px too (§6).
+  each pull request's screenshots at 1,440, 375 and 320 px, and for the Homepage, the shell and
+  Feature 009's pages at 1,024 and 768 px too (§6).
 
 ## 12. Developer and agent handoff rules
 
@@ -1206,6 +1526,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - Decisions: ADR 0001 (Tailwind CSS v4), ADR 0003 (CMS images in production), ADR 0007 (the
   design's source).
 - Feature 006: spec #144 and tickets #145 to #151.
+- Feature 009: spec #280 and tickets #281 to #287.
 - Figma, as history: [Songhealth — Homepage Concept v1](https://www.figma.com/design/Lxdfd1dBgNNO28Rx62zGYO),
   described in `docs/design/homepage-concept-v1.md`.
 - Tailwind official: [Astro installation](https://tailwindcss.com/docs/installation/framework-guides/astro),
@@ -1366,3 +1687,88 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   tickets. `04` v2.7 and `03` v2.7 now place "ค้นหา" in the header and "ติดต่อเรา" in the footer
   (`04` §4, `03` §2). Authority: spec #239 "Documents" and "Decisions the Product Owner made",
   #239 comments 6786536858 and 6786631899, and the notes on #250. No page changed.
+
+- **v1.3 list heading on the deep field (2026-11-13, Feature 009 #281):** `/news` opens on the deep
+  green field (§7.8): its breadcrumb in white, the label "ข่าวสาร", the H1 "ข่าวประชาสัมพันธ์" in the
+  section title's type, its lead, and a white pill link "ข่าวสุขภาพ"; its cards, empty states and
+  pager start over the field's lower edge, and the heading rises in as the page opens (§8.12). It
+  replaces the page heading on the page's colour, with the H1 "ข่าวสาร" and the text link
+  "ดูเฉพาะข่าวสุขภาพ", under the shell's breadcrumb. `DeepField` takes the place of
+  `HomeDeepField` and serves both fields, and §2, §3, §3.2, §5, §6, §7.1 and §7.5 name the list
+  heading. Authority: spec #280 "The field under a heading", "List heading" and "Motion", and #281
+  comment 6846855734 (the link at the heading's upper right from 640 px, as the prototype has it)
+  and comment 6847783611 (a card's ring over the field waits for the cards; no `surface-soft` glow).
+  What the page lists, its order, its cards, its empty states' messages, its pager, its head and
+  its addresses remain, and so does every other page.
+- **v1.3 list heading on Health News and Health Content (2026-11-13, Feature 009 #282):** Health
+  News and the Health Content list open on the deep field as `/news` does (§7.8), under the labels
+  "ข่าวสาร" and "สุขภาพ", each with the `heart-pulse` icon and no link, and their filter form is the
+  first block over the field's lower edge, before the cards or the empty state and the pager (§7.7).
+  They replace `PageHeading` on the page's colour under the shell's breadcrumb. Their H1s, leads,
+  heads, forms, cards, empty states' messages, pagers and addresses remain. §2, §3.2, §4, §7.7, §7.8,
+  §8.12 and §10 name the two lists. Authority: spec #280 "List heading" and "What follows a list's
+  heading".
+- **v1.3 the lists' card (2026-11-13, Feature 009 #283):** the cards of `/news`, Health News and
+  Health Content are the Homepage's small News card (§7.3): a 16:9 picture from 640 px and a row
+  with a 120 px picture at 4:3 below, the date with a dot and the label on one line from 640 px
+  and the label under the date below, the title in
+  three lines at most and from 640 px the summary in two, the list's icon on a missing picture's
+  visual, the Homepage's hover in place of #193's ring and green underlined title, a reveal and a
+  shimmer (§8.12), and a focus ring with a white band, `focus-ring-banded` (§3). `ContentCard`
+  takes `HomeNewsCard`'s place on the Homepage, with `kind="home"`, and the Homepage's cards show
+  as before. The crop was 16:10, the label came before the date, the summary showed three lines at
+  every width and the visual was a plain `surface-soft` box. What each list reads, its order, its
+  page size, its whole-card link and its addresses remain. Authority: spec #280 "The cards",
+  "Motion" and decisions 4, 10 and 15, #283 comment 6854670042 (the ring's band) and #283 comment
+  6855983271 (the label under the date below 640 px).
+- **v1.3 the lists' large card (2026-11-14, Feature 009 #284):** on a first page of `/news`, Health
+  News or Health Content that no Health Topic narrows, the newest item is the Homepage's large
+  card (§7.3), with its label in an outlined pill filled `brand-dark` at 40 % beside the date and
+  from 640 px its summary,
+  laid out by the number of items: across the row with one, two columns wide with two, and two
+  columns wide and two rows high beside the next two with three or more, from 1,024 px. The first
+  page had shown the small cards alone. A later page, a narrowed list, what each list reads, its
+  order and its page size remain. `ContentCard`'s pictures, on the lists and in Latest News,
+  take no placeholder, so they crop around a focal point, which EmDash's placeholder had dropped
+  (the other cards: #298). Authority: spec #280 "The cards", "The first page" and decisions 2 and
+  11, #283 comment 6854670042 (the ring's band), #284 comment 6870867641 (the pill's fill, the
+  placeholder).
+- **v1.3 a post's Health Topics and an Activity's photos (2026-11-14, Feature 009 #286):** a News
+  or Health Content post's Health Topics are the Homepage's chips (`TopicChip`, shared with Health
+  Information) at 44 px high, in place of `surface-soft` pills with `brand-dark` words underlined
+  under the pointer; an Activity's photos open under the Homepage's section heading, the
+  gradient tile with `images`, the label "กิจกรรม" and the H2 "ภาพกิจกรรม" in `section-title`,
+  48 px under the columns and 64 px from 640 px, in place of an H3-size heading 2 rem under them
+  (§9.1, §9.2). Where the chips link, the photos' fold and every word remain. Authority: spec #280
+  "Post page: the text" and decisions 8 and 9, #286 comment 6876267675 (the chip's sizes, the
+  heading's space above the photos).
+- **v1.3 the Post page on the deep field (2026-11-14, Feature 009 #285):** a News, Activity or
+  Health Content post opens on the deep field (`DeepField` with `kind="post"`): its breadcrumb in
+  white, a row of "เผยแพร่" and the date in an `accent-warm` pill beside a News item's category in an
+  outlined pill, the title, the summary and Health Content's review date in `surface-base`; its
+  picture is in a white frame that starts on the field and stays in view from 1,024 px, and over
+  the field's lower edge below; its text lies on the page's colour, 32 px under the field below
+  1,024 px and 40 px from it, or 32 px under the frame below 1,024 px; the header rises in and the
+  frame after it (§9.1, §8.12). The date and the category came after and before the title in
+  secondary text on the page's colour, the shell showed the breadcrumb, the picture had no frame,
+  and below 1,024 px an Activity's details card came before the picture. The two columns, the
+  frame in view while the text scrolls, "เปิดภาพขนาดเต็ม" at every width, no empty row after a post
+  without text and every word remain. Authority: spec #280 "Post page: the header", "Post page: the
+  picture", "Post page: the text", "Motion" and decisions 6, 7 and 16, #285 comment 6877659654 (the
+  details card after the frame, the text under the frame).
+- **v1.3 documents, measures and limits (2026-11-15, Feature 009 #287):** the Status line and the
+  Feature 009 banner name every ticket and the acceptance due on #280. §2 names the lists and the
+  Post page as built, where it had said "so far" and that every other page kept the design of §7
+  and §9; §4 says that the publication date and the category lead the title on the News cards and a Post
+  page, where it had them below the title; §6 says what each breakpoint changes on the lists and the
+  Post page; §7.1 names `ContentCardGrid` and `DeepField`; §3.1 names the Post page's pills and
+  the breadcrumb's separators on the field. §3.2, §7.3, §7.8, §9.1 and §9.2 hold the heights and
+  the contrast read at the integration head `fb11b3e`, where they had held each ticket's own
+  commit: §7.8's at `3fe6f6b` and `fcbba51`, the card's ring at `5fb6b4a`, the large card's text
+  and ring at `f4ba6fb`, whose readings the new ones equal, and §9.2's Activity with twenty photos,
+  2,263 px at 375 px at #286's head and 2,259 px now. §3.2 gains a row for the Post page's field
+  and the large card without a picture. §9.2 says that a focal point does not reach an Activity's
+  photos, where it had said the crop went around one (§7.3; #284 comment 6870867641, item 2; #298). §10 lists what the Product Owner picked for Feature 009,
+  with each decision's source, and two kept limits. Authority: spec #280 "Documents" and
+  "Decisions the Product Owner made", the decisions on #281 to #286, and the notes on #287. No page
+  changed.

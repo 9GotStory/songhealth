@@ -16,7 +16,12 @@
 // PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are read anonymously, with no credential.
 // It prints each file with its size in pixels, so a pull request can quote a page's height from it
 // (#146 retro). A close-up also prints its element's layout size, the one to quote: its PNG covers
-// every pixel the element touches, so it can come out a pixel larger (#194 retro).
+// every pixel the element touches, so it can come out a pixel larger (#194 retro). It records each
+// file's target in <out-dir>/captures.txt, a line of the file's name, a tab and its path at its
+// width, then its selector, its click and an open menu, keeping the lines of earlier runs into the
+// same folder for other files. scripts/evidence-branch.sh keeps that record beside the images, so a
+// later ticket that captures the same pages again reads their paths there (#282 retro: a
+// feature's before screenshots named no `?topic=`, and a guessed slug matched nothing).
 //
 // While a window holds the runtime (docs/operations/development-quadlet.md "A window") its pages
 // show the window's content in place of the demo dataset, so the script stops and names the
@@ -32,9 +37,9 @@
 // and embed them.
 
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { chromium } from "@playwright/test";
 
 const WIDTHS = [
@@ -93,7 +98,8 @@ const pages = targets.map((target) => {
 
 await mkdir(outDir, { recursive: true });
 const browser = await chromium.launch();
-const written = [];
+/** Each file written, with its target as captures.txt records it. */
+const written = new Map();
 /** Each close-up's element size in CSS px, by its file. */
 const elementSizes = new Map();
 
@@ -139,7 +145,8 @@ try {
 				const box = await element.boundingBox();
 				elementSizes.set(file, `${box.width}×${box.height}`);
 			}
-			written.push(file);
+			const closeUp = selector === undefined ? "" : `>${selector}`;
+			written.set(file, `${path}@${width}${closeUp}${click === undefined ? "" : `!${click}`}`);
 			await page.close();
 			continue;
 		}
@@ -147,12 +154,13 @@ try {
 			const page = await openPage(path, viewport, click);
 			const file = join(outDir, `${base}-${name}.png`);
 			await page.screenshot({ path: file, fullPage: true });
-			written.push(file);
+			const target = `${path}@${viewport.width}${click === undefined ? "" : `!${click}`}`;
+			written.set(file, target);
 			if (index === 0 && name !== "desktop") {
 				await page.locator("summary").filter({ hasText: "เปิดเมนู" }).click();
 				const menuFile = join(outDir, `${base}-${name}-menu.png`);
 				await page.screenshot({ path: menuFile, fullPage: true });
-				written.push(menuFile);
+				written.set(menuFile, `${target} menu open`);
 			}
 			await page.close();
 		}
@@ -160,7 +168,24 @@ try {
 } finally {
 	await browser.close();
 }
-for (const file of written) {
+const record = join(outDir, "captures.txt");
+const lines = new Map(
+	existsSync(record)
+		? readFileSync(record, "utf8")
+				.split("\n")
+				.filter((line) => line !== "")
+				.map((line) => line.split("\t", 2))
+		: [],
+);
+for (const [file, target] of written) lines.set(basename(file), target);
+await writeFile(
+	record,
+	[...lines]
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([file, target]) => `${file}\t${target}\n`)
+		.join(""),
+);
+for (const file of written.keys()) {
 	const element = elementSizes.has(file) ? ` (element ${elementSizes.get(file)})` : "";
 	console.log(`${file} ${await pngSize(file)}${element}`);
 }

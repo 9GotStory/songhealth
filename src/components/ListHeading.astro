@@ -1,0 +1,65 @@
+---
+// A list page's heading on the deep field (Feature 009 #281; spec #280 "List heading", "The field
+// under a heading"): the page's breadcrumb in white, the Homepage's section heading block with the
+// page's H1 (SectionHeading: an accent-warm icon tile, the slashed label and the title in the
+// section title's type), the lead, and, where the page has one, a pill link to a related list.
+// The page passes no `crumbs` to the shell, which then shows no breadcrumb above the page
+// (src/layouts/SiteLayout.astro), and gives them here with its section.
+//
+// The field's content ends 96 px above the field's lower edge below `sm` and 128 px from `sm`:
+// the room ListBody.astro lies over. That block, what follows the heading, starts 64 px and 88 px
+// above the edge.
+//
+// The link is a white pill with brand-primary words, 6.45:1, and a 16 px arrow-right, the
+// Homepage's arrow for a heading's link (CODING_STANDARDS "Public pages"); an outlined pill's words
+// read 2.47:1 on this field (spec #280 "Measured in the prototype"). From `sm` it sits at the
+// heading's right, level with the heading's top, as the prototype the look was picked from has it
+// (Product Owner, 2026-11-13: #281 comment 6846855734); below `sm` it follows the lead.
+//
+// With motion allowed the heading block and then the lead rise in as the page opens, as the
+// hero's text does (`hero-enter`, src/styles/global.css; spec #280 "Motion"). The breadcrumb and
+// the link show at once, so nothing the keyboard reaches is held back.
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+import { breadcrumbTrail, type Crumb, type NavigationSection } from "../lib/navigation";
+import Breadcrumb from "./Breadcrumb.astro";
+import DeepField from "./DeepField.astro";
+import SectionHeading from "./SectionHeading.astro";
+
+interface Props {
+	/** The main-navigation section the page belongs to, which its breadcrumb goes through. */
+	section: NavigationSection;
+	/** The page's own crumbs, as the shell takes them (src/layouts/SiteLayout.astro). */
+	crumbs: Crumb[];
+	/** The small label above the H1. */
+	label: string;
+	title: string;
+	lead: string;
+	/** A related list the heading links to, such as Health News from /news. */
+	link?: { href: string; label: string };
+}
+
+const { section, crumbs, label, title, lead, link } = Astro.props;
+---
+
+<DeepField kind="list">
+	<div class="page-container relative flex flex-col gap-6 pt-6 pb-24 sm:gap-8 sm:pb-32">
+		<Breadcrumb onField items={breadcrumbTrail(section, crumbs)} />
+		<div class="flex flex-col gap-5 sm:flex-row sm:justify-between sm:gap-6">
+			<div class="flex min-w-0 flex-col gap-4">
+				<SectionHeading level={1} surface="field" label={label} title={title} class="hero-enter">
+					<slot name="icon" slot="icon" />
+				</SectionHeading>
+				<p class="hero-enter max-w-prose text-body-large [--hero-enter-delay:0.1s]">{lead}</p>
+			</div>
+			{link && (
+				<a
+					href={link.href}
+					class="inline-flex h-11 shrink-0 items-center justify-center gap-2 self-start rounded-pill border-[1.5px] border-surface-base bg-surface-base px-5 text-body font-semibold text-brand-primary hover:border-accent-warm hover:bg-accent-warm hover:text-brand-dark motion-safe:transition-colors sm:h-13 sm:px-7"
+				>
+					{link.label}
+					<ArrowRight class="shrink-0" size={16} />
+				</a>
+			)}
+		</div>
+	</div>
+</DeepField>

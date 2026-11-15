@@ -2,15 +2,15 @@
 // A Health Content item in the Homepage's Health Information (Feature 008 #246; spec #239 "Health
 // Information"): a white card with its picture, its first Health Topic as an accent-warm badge
 // over the picture's lower edge, the title, the summary in three lines at most, and "อ่านต่อ". The
-// Homepage has its own card, and the Health Content list keeps ContentCard (spec #239 "Scope of
-// the change").
+// Homepage has its own card, and the Health Content list has ContentCard's list card (spec #239
+// "Scope of the change"; spec #280 "The cards").
 //
 // Below `sm` it is a compact row: a 112 px picture at 4:3 with the badge and the title beside it,
 // and neither the summary nor "อ่านต่อ". That leaves 142 px for the title at 320 px, enough for
 // "ความดันโลหิตสูง" (107 px). The badge wraps at every width, so a long Health Topic is fully
 // readable; the prototype cut it with an ellipsis. Without a picture the card shows the plain
 // visual in the picture's place, with a green tile and its 24 px icon, as a small Latest News
-// card does (HomeNewsCard).
+// card does (ContentCard).
 //
 // The title is an H3 under the section's H2, and a native link named by it covers the whole card;
 // the topic and the summary stay readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190
@@ -23,7 +23,7 @@
 //
 // The card's lift and the arrow's shift under the pointer move only under
 // `prefers-reduced-motion: no-preference` (spec #239 "Motion and loading"). The article keeps its
-// place and its surface lifts inside it, as HomeNewsCard's does; the link covers the article, so
+// place and its surface lifts inside it, as ContentCard's does; the link covers the article, so
 // a press on the strip the surface left still opens the Health Content. As the page opens a
 // picture's box shimmers, and stands plain with reduced motion preferred (`picture-shimmer`,
 // src/styles/global.css; Feature 008 #249).

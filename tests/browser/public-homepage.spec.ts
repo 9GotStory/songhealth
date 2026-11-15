@@ -77,19 +77,24 @@ import {
 	VIEWPORTS,
 	boxOf,
 	detailOf,
+	entersAfter,
 	expect,
 	expectAccessibleAtEachWidth,
 	expectFocusRingWhole,
 	expectImageLoaded,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
+	expectRisesUnderPointer,
 	expectVisibleFocusOnEveryStop,
 	expectVisuallyHidden,
+	heldBack,
 	homepageSection,
 	itemsPerRow,
 	listedItem,
 	listedTitles,
 	ownTitles,
+	selfRunningEnds,
+	shownLines,
 	shownOpacity,
 	siteTitleParts,
 	test,
@@ -292,30 +297,6 @@ async function clipsNothing(part: Locator, within: Locator): Promise<boolean> {
 	);
 }
 
-/**
- * Move the pointer to just above the resting lower edge of `card`, whose `surface` then rises 6 px,
- * and press there. The card rises only where motion is allowed.
- */
-async function expectRisesUnderPointer(page: Page, card: Locator, surface: Locator): Promise<void> {
-	await page.emulateMedia({ reducedMotion: "no-preference" });
-	await card.scrollIntoViewIfNeeded();
-	// With motion the card's reveal is over a frame after the scroll.
-	await expect.poll(() => shownOpacity(card), { message: "the card has come in" }).toBe(1);
-	const place = await boxOf(card, "the card's place");
-	expect((await boxOf(surface, "the card's surface")).y, "the card at rest").toBeCloseTo(
-		place.y,
-		0,
-	);
-	const edge = { x: place.x + place.width / 2, y: place.y + place.height - 3 };
-	await page.mouse.move(edge.x, edge.y);
-	await expect
-		.poll(async () => (await boxOf(surface, "the card's surface")).y, {
-			message: "the card under the pointer has risen 6 px",
-		})
-		.toBeCloseTo(place.y - 6, 0);
-	await page.mouse.click(edge.x, edge.y);
-}
-
 /** The Announcements section's lead, beside its heading. */
 const ANNOUNCEMENTS_LEAD = "ข้อมูลที่อาจมีวันสิ้นสุดหรือการดำเนินการ";
 
@@ -324,16 +305,6 @@ const ANNOUNCEMENT_CATEGORIES = {
 	procurement: "จัดซื้อจัดจ้าง",
 	recruitment: "รับสมัครงาน",
 } as const;
-
-/** How many lines a title shows, and whether more of it lies below them. */
-function shownLines(title: Locator): Promise<{ lines: number; clamped: boolean }> {
-	return title.evaluate((heading) => ({
-		lines: Math.round(
-			heading.getBoundingClientRect().height / parseFloat(getComputedStyle(heading).lineHeight),
-		),
-		clamped: heading.scrollHeight > heading.clientHeight,
-	}));
-}
 
 /** The Latest News' cards, in order: the large card, then the small ones. */
 function newsCards(page: Page) {
@@ -2062,36 +2033,6 @@ test("with every section showing, the sections follow the Figma order on a deskt
 });
 
 /**
- * The parts of `scope` an effect holds back as the page is now: any that is not fully opaque or
- * lies away from its place. Decorations, hidden from assistive technology, are left out.
- */
-function heldBack(scope: Locator): Promise<string[]> {
-	return scope.evaluate((root) =>
-		[root, ...root.querySelectorAll("*")]
-			.filter((part) => part.closest('[aria-hidden="true"]') === null)
-			.filter((part) => {
-				const style = getComputedStyle(part);
-				return style.opacity !== "1" || style.translate !== "none";
-			})
-			.map((part) => `<${part.localName}> ${part.textContent?.trim().slice(0, 40)}`),
-	);
-}
-
-/**
- * After how many seconds `part` starts to enter when the page opens: the delay of the entrance
- * that it, or what holds it, has. -1 with no entrance.
- */
-function entersAfter(part: Locator): Promise<number> {
-	return part.evaluate((element) => {
-		for (let node: Element | null = element; node; node = node.parentElement) {
-			const style = getComputedStyle(node);
-			if (style.animationName !== "none") return parseFloat(style.animationDelay);
-		}
-		return -1;
-	});
-}
-
-/**
  * The page's height and each section's place and size at the desktop width, 375 px and 320 px, at
  * the page's top. The viewport ends at the desktop width.
  */
@@ -2112,20 +2053,6 @@ async function pageLayouts(page: Page) {
 		);
 	}
 	return layouts;
-}
-
-/**
- * When each effect that runs by itself, on the page's clock, is over, in milliseconds after it
- * began; Infinity for one that never ends. A reveal runs on the visitor's scrolling and is left
- * out. `scope` is the part of the page to read.
- */
-function selfRunningEnds(scope: Locator): Promise<number[]> {
-	return scope.evaluate((root) =>
-		root
-			.getAnimations({ subtree: true })
-			.filter((animation) => animation.timeline instanceof DocumentTimeline)
-			.map((animation) => Number(animation.effect?.getComputedTiming().endTime)),
-	);
 }
 
 /** Scroll to each of the Homepage's sections in turn and fail on any part of it held back. */
