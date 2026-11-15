@@ -6,7 +6,7 @@ Feature 009's evidence round (spec #280), run on 2026-11-14 and 2026-11-15 by Cl
 acceptance, which the Product Owner gives on #280.
 
 - **Runtime:** the single development runtime at `http://127.0.0.1:4324`. It already served
-  `fb11b3e`, promoted after #285's retro, so this round promoted nothing. No window held it.
+  `fb11b3e`, the merge of #285's retro (PR #304), so this round promoted nothing. No window held it.
   `dev-runtime-verify.sh` reported VERIFY: PASS at `fb11b3e5776f64ab9116844ea51dda44364ad28a`
   before the round (2026-11-14 15:04Z), after the captures (04:13Z) and after the walkthrough
   (04:49Z).
@@ -17,9 +17,10 @@ acceptance, which the Product Owner gives on #280.
 
 ## Checks
 
-The browser suites ran at `fb11b3e` between 15:04Z and 15:31Z on 2026-11-14, the captures and
-the measures between 04:01Z and 04:11Z on 2026-11-15, and the local checks on #287's working tree
-at about 04:14Z, before the record was written, and again at the commit that holds this record.
+The browser suites ran at `fb11b3e` between 15:04Z and 15:31Z on 2026-11-14, T021, the captures
+and the measures between 04:01Z and 04:11Z on 2026-11-15, the local checks on #287's working tree
+at about 04:14Z, before the record was written, and the measures the review asked for between
+05:05Z and 05:08Z. The pull request states the checks at its head.
 
 | Check | Command | Result |
 | --- | --- | --- |
@@ -33,7 +34,7 @@ at about 04:14Z, before the record was written, and again at the commit that hol
 | 404 log | `scripts/dev-runtime-residue.sh --clear-404-log` | cleared before the walkthrough (04:14Z) |
 
 The 14 skipped tests are T021's `cms-public-reads.spec.ts`, which skips outside its coordinator;
-the coordinator ran those 14 next. No test of the full run failed. The run's near-timeout report
+the coordinator ran those 14 at 04:01Z on 2026-11-15. No test of the full run failed. The run's near-timeout report
 named three tests at 60 % or more of their 30 s: two Homepage tests whose "Return the runtime's
 content to draft" step took up to 18.5 s, and the Health Reports pager; each passed.
 
@@ -67,7 +68,7 @@ gradient can have behind the text:
 
 The white-picture readings equal #284's at `f4ba6fb`.
 
-**On the field under a Post page's header**, six demo posts and one synthetic post:
+**On the field under a Post page's header**, seven demo posts and one synthetic post:
 
 | Post | Breadcrumb's current page | H1 | Summary | Category | Review date |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -80,14 +81,23 @@ The white-picture readings equal #284's at `f4ba6fb`.
 | `/health/content/demo-health-flu-vaccine` | 5.55 (320) | 6.45 (768) | 6.45 | — | 6.63 (320) |
 | A synthetic Health Content post without a picture | 6.44 (320) | 6.19 (375) | 6.45 | — | 6.45 (320) |
 
-The breadcrumb's links read 10.70:1 or more and the date pill's `brand-dark` words 7.75:1 on
-every post. The selectors are #285's (the note from #285 on #287); the synthetic post is
+The date pill's `brand-dark` words read 7.75:1 on every post. Every breadcrumb link, each of a
+trail's two or three, was read on the seven demo posts and on Health News and Health Content
+(`main nav a >> nth=0`, `1` and `2`): the lowest is 7.28:1, the third link of the two Health
+Content posts at 320 px; on the lists 9.34:1, Health Content's second link at 320 px. `/news` has
+one link, in the first table.
+
+**A large card without a picture**, on its `deep-visual` (a scratch fixture: the white-picture
+fixture's News without its picture, the newest on `/news`): the date pill's words 7.75, the
+label's words 11.15 (768), the title 11.12 (768) and the summary 11.59 (768).
+
+On the posts, the selectors are #285's (the note from #285 on #287); the synthetic post is
 `scripts/screenshot-fixtures/post-empty-row.ts`'s Health Content item, published under a fixed
 slug for the run and removed after it.
 
 **Focus rings**, `scripts/measure-focus-contrast.ts` at `fb11b3e`, the lowest contrast of what
-lies beside the ring with focus (WCAG 2.2 SC 1.4.11, 3:1), equal to #283's at `5fb6b4a` and
-#284's at `f4ba6fb`:
+lies beside the ring with focus (WCAG 2.2 SC 1.4.11, 3:1), equal to #283's at `5fb6b4a` (PR #296)
+and #284's at `f4ba6fb` (PR #299):
 
 - a small card over the field's edge (`--fixtures scripts/screenshot-fixtures/news-list.ts
   "/news?page=2"`, the first card): 5.40 (1,440), 2.77 (1,024, blended pixels at a fractional
@@ -185,16 +195,17 @@ which the run takes back:
 | The same, open, before | `activity-photos`, `activity-photos-open` | 2,936 | 2,676 | 4,053 | 2,851 | 2,831 |
 | The same, open, after | `activity-photos`, `activity-photos-open` | 3,018 | 2,758 | 4,134 | 2,903 | 2,882 |
 
-The news-list before set was taken with 24 News at every count, so `news-list-24` and
-`news-list-24-page-2` before share one height. The prototype's page of twelve (spec #280
-"Measured in the prototype") was 2,643, 2,523, 3,362, 2,599 and 2,855 px; the built page with
-twelve synthetic News is 2,627, 2,507, 3,386, 2,595 and 2,721 px, with different titles and
-pictures.
+`news-list-12` and `news-list-3` have no before: #281's set holds 24, two and one News. In
+#281's files the two pages of 24 are equally high. The prototype's page of twelve with the pager
+(spec #280 "Measured in the prototype") was 2,643, 2,523, 3,362, 2,599 and 2,855 px; the built
+first page of twelve with its pager (`news-list-24`) is 2,703, 2,583, 3,462, 2,709 and 2,835 px,
+with different titles and pictures.
 
 ## Spec #280's decisions and the decisions made while the tickets were built
 
 Spec #280 listed no pending confirmation. Every decision made while the tickets were built has a
-recorded answer on its ticket, each cited in `docs/design/DESIGN.md` §10 and §13:
+recorded answer on its ticket. `docs/design/DESIGN.md` §10 and §13 cite each one that decides
+what a page shows; #282's decides a test, and #287's is this record's:
 
 | Ticket | Decision | Answer |
 | --- | --- | --- |
@@ -209,14 +220,16 @@ recorded answer on its ticket, each cited in `docs/design/DESIGN.md` §10 and §
 | #286 | A post's chips; the photos' heading space | The Homepage's chip whole at 44 px; 24 / 28 px above the photos (comment 6876267675) |
 | #285 | The details card below 1,024 px; the text under the frame; the posts' before screenshots | After the frame; 32 px under it; #286's at `50402c1` (comment 6877659654) |
 | #285 | The frame when the breadcrumb wraps; the breadcrumb's motion | 4.25 rem kept; shown at once (comment 6878495201) |
-| #287 | The walkthrough's coverage gaps | Accepted as listed below (the walkthrough) |
+| #287 | The walkthrough's result and its eight coverage gaps | Nothing to fix; the gaps accepted, five in the walkthrough's question and three after the review (comment 6890845699) |
 
-Still open, outside this feature's scope:
+Still open:
 
 - **#298**, a picture's focal point in the components that keep EmDash's placeholder
   (`ActivityCard`, `ActivityPhotos`, `HomeActivityTile`, `HomeHealthCard`, `HomeLeadershipStrip`,
-  `PersonCard`, `PostColumns`): it affects where those pictures crop, not the pages in scope, whose
-  `ContentCard` crops around a focal point and whose `PostColumns` shows the picture whole.
+  `PersonCard`, `PostColumns`). Of the pages in scope it affects an Activity's photos
+  (`ActivityPhotos` on `/activities/{slug}`), which crop on their middle whatever focal point staff
+  set; `ContentCard` crops around a focal point and `PostColumns` shows the picture whole. The
+  other components are on pages outside the feature.
 - **#277**, the redesigned pages on a real phone and in browsers other than Chromium, inside
   #238's UAT window (#277 comment 6842148724): Feature 009's pages join that visit.
 
@@ -236,8 +249,8 @@ list under "What the evidence does not cover" and the coverage gaps as one quest
 7. the before and after screenshots of the synthetic cases.
 
 The Product Owner chose all four groups (steps 1 and 2, 3 to 5, 6, 7) as opened, answered
-"ผ่าน ไม่มีอะไรต้องแก้ (แนะนำถ้าไม่เจอปัญหา)", and accepted the coverage gaps below, "A รับตามนี้
-(แนะนำ)". The app's log then held no request for `/health/content`, so the Product Owner was asked
+"ผ่าน ไม่มีอะไรต้องแก้ (แนะนำถ้าไม่เจอปัญหา)", and accepted the first five coverage gaps below,
+"A รับตามนี้ (แนะนำ)" (#287 comment 6890845699). The app's log then held no request for `/health/content`, so the Product Owner was asked
 to open the list and the Health Content post and did, answering "ผ่าน ไม่มีอะไรต้องแก้".
 
 **What the app's log shows of the walkthrough** (`scripts/dev-runtime-opened.ts`, from 04:14:58Z,
@@ -248,9 +261,11 @@ read at 04:47Z and 04:49Z): 31 page requests, every one 200: `/news` (three time
 the one post with a review date, and no query string, so it shows neither a Health Topic chosen
 nor a window width; those rest on the Product Owner's answer. After the answers residue reported
 RESIDUE: NONE with 0 unmarked misses and the 56 demo entries published, and verify VERIFY: PASS at
-`fb11b3e`. The steps were public pages, read anonymously.
+`fb11b3e`.
 
 ## What the evidence does not cover
+
+The five the Product Owner accepted in the walkthrough's question:
 
 - Browsers other than Chromium, and a real phone or touch: every suite, capture and measure ran
   in Playwright's Chromium, and the runtime answers on `127.0.0.1` only, so the phone steps were
@@ -263,18 +278,24 @@ RESIDUE: NONE with 0 unmarked misses and the 56 demo entries published, and veri
   suites and the walkthrough read it there. `npm run build:check` read the built stylesheets and
   passed (`check-built-styles: PASS`); the look at a built page with motion allowed is due with the
   first production image of this feature (`scripts/production-image-check.sh`, #276).
-- A picture's focal point in the components outside the feature's cards (#298).
+- A picture's focal point in the components that keep EmDash's placeholder (#298).
 - The before screenshots as a control of this round: they are #281's at `668d3e5`, #286's at
-  `50402c1` and #285's at `fc5dbc0`, and the demo dataset was reworded between them and the after.
+  `50402c1` and #285's at `fc5dbc0`. Between `668d3e5` and the after, `7ad1208` (#289) changed three
+  lines of the demo dataset's texts.
+
+Three more, noted while the record was written and accepted in a second question after the
+review, "A รับตามนี้ (แนะนำ)" (the same comment, item 5):
+
 - A Health Content post with a review date in the walkthrough: the log shows the Product Owner
-  opened four Health Content posts, none of them the one with "ทบทวนล่าสุด"; its header was
-  measured and captured in this round (`after-health-content-post` shows `demo-health-dengue`,
-  without one; the review date's contrast is in the table above).
+  opened four Health Content posts, none of them the one with "ทบทวนล่าสุด". This round's screenshots
+  show a review date on the synthetic post without a picture (`after-health-content-plain`), and
+  its contrast is in the table above.
 - A large card over a real One Page poster: the demo's newest News has a poster whose own words
   show faintly under the gradient behind the title and summary (the note from #284); the contrast
   over a white picture is the measured floor.
-- Reduced motion in the walkthrough: the Product Owner's browser had motion allowed; the suites
-  read every page with reduced motion preferred.
+- Reduced motion in the walkthrough: its steps asked for a browser with motion allowed, and the
+  log shows no motion setting. The suites prefer reduced motion on every page but the tests of
+  motion (`DESIGN.md` §8.12).
 
 ## The prototype
 
