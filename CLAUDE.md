@@ -85,6 +85,48 @@ The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready
 
 Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+## Frontend Design & Quality
+
+For a ticket that changes the public UI. The design contract is `docs/design/DESIGN.md` with the
+code (ADR 0007): Feature 008's Bold Modern direction on the existing tokens, Noto Sans Thai,
+spacing, radii, type and component patterns; Tailwind CSS v4 utilities, plain CSS only where
+`DESIGN.md` §3 lists it; Lucide icons. `CODING_STANDARDS.md` holds the engineering and public-UI
+rules. Product Owner decisions and the current documents rank above both (Authority).
+
+- **The contract wins.** A skill's suggestion is input, and the build stays inside the existing
+  design system. A change to tokens, layout, visual direction or behaviour beyond the ticket goes
+  to the Product Owner first; once approved, the code and `DESIGN.md` change in the same pull
+  request. EmDash's Admin keeps its own look (`DESIGN.md` §3 rule 7).
+- **`/frontend-design`** (plugin): building a new page or an approved redesign, within the contract.
+- **`/impeccable`** (project skill): `critique` for the visual design, `audit` for UI defects;
+  `distill`, `layout` and `polish` only on the ticket's own scope. It looks for `PRODUCT.md` and
+  `DESIGN.md` at the root, so hand it `docs/design/DESIGN.md` as the contract. Commands that write
+  design documents or set a new direction (`init`, `document`, `extract`, `bolder`, `overdrive`,
+  `live`) and its design hook (`impeccable hooks on`) are Product Owner decisions.
+- **`/web-design-guidelines`** (Vercel): the files the ticket changed, each finding with its file
+  and line.
+- **Playwright MCP** (`playwright` in `.mcp.json`, set in `playwright-mcp.config.json`): rendered
+  pages, responsive widths and interactions on the development runtime, read against the commit
+  `dev-runtime-verify.sh` reports. Like the suites it runs with reduced motion
+  (`browser_emulate_media` to see motion) and the synthetic referrer, so a miss it causes counts as
+  the tests' in `scripts/dev-runtime-residue.sh`. A screenshot's `filename` resolves against the
+  repository root: name it under `.tmp/playwright-mcp/`. Its screenshots are before/after evidence
+  for the Product Owner's review (`DESIGN.md` §11 has no pixel tests); the browser suites and their
+  axe checks stay the tests.
+
+**Frontend quality gate**, inside `/implement` before `/code-review`:
+
+1. Read the spec, the ticket and the contract (`DESIGN.md` §12).
+2. Build test-first through `/tdd`, with `/frontend-design` when the ticket creates or changes UI.
+3. On the promoted commit: `/impeccable critique` and `audit`, `/web-design-guidelines` on the
+   changed files, Playwright MCP on the rendered pages.
+4. Sort every finding: a provable defect inside the ticket's scope (accessibility, contrast,
+   overflow, a broken interaction) gets its fix and test; a taste suggestion or out-of-scope change
+   becomes a pending confirmation for the Product Owner; a finding against the contract is reported
+   as a conflict.
+5. Rerun the checks the fixes touch, then `/code-review` and `/pr` as before. The gate's results
+   are self-review.
+
 ## Current documentation (Context7)
 
 Model memory goes stale. Verify version-sensitive behavior of frameworks, libraries, SDKs, APIs and

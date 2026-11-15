@@ -1,0 +1,14 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "isolated": true,
+    "launchOptions": { "channel": "chrome", "headless": true },
+    "contextOptions": {
+      "reducedMotion": "reduce",
+      "extraHTTPHeaders": {
+        "referer": "http://songhealth-unknown-referrer.invalid/"
+      }
+    }
+  },
+  "outputDir": ".tmp/playwright-mcp"
+}
