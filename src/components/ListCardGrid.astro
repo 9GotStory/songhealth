@@ -1,0 +1,74 @@
+---
+// A page of a list as a grid of list cards (Feature 009 #283, #284; spec #280 "The cards"): the
+// News, Health News and Health Content lists' (ContentCardGrid) and, since Feature 010 #313, the
+// Activities list's (ActivityCardGrid; spec #311 "The Activities list"). Each card is ContentCard
+// with `kind="list"`, shows `icon` in place of a missing picture and, with `clampLabel`, holds its
+// label to its lines, as an Activity's place. The cards go three to a row from `lg`, two from `sm`
+// and in rows below, 24 px apart from `sm` and 14 px below; a last row may hold fewer, and no cell
+// is filled. A first page that no Health Topic narrows leads with its newest item as the large
+// card, laid out by the number of items (Feature 009 #284; spec #280 "The first page";
+// src/lib/list-first-page.ts). The first row is in view when the page opens, so its pictures load
+// at once; the rest load lazily. Each card reveals as it comes into the window (`scroll-reveal`,
+// src/styles/global.css; spec #280 "Motion").
+import type { ComponentProps } from "astro/types";
+import { firstPageLargeCard, largeCardPictureSizes } from "../lib/list-first-page";
+import ContentCard from "./ContentCard.astro";
+
+type CardProps = ComponentProps<typeof ContentCard>;
+
+interface Props {
+	/** What each card shows, in the list's order. */
+	cards: Array<Pick<CardProps, "href" | "title" | "date" | "label" | "summary" | "image">>;
+	/** The list's icon: `message-square` on `/news`, `heart-pulse` on the two health lists. */
+	icon: CardProps["icon"];
+	/** The page's number, from 1. */
+	page: number;
+	/** Whether a Health Topic narrows the list. */
+	narrowed: boolean;
+	/** Hold each card's label to its lines, as an Activity's place (ContentCard). */
+	clampLabel?: boolean;
+}
+
+const { cards, icon, page, narrowed, clampLabel = false } = Astro.props;
+/** Cards in the first row at the widest layout: three, or the large card and the two beside it. */
+const FIRST_ROW = 3;
+const large = firstPageLargeCard(cards.length, { page, narrowed });
+/**
+ * The large card, when the page leads with one: its cell, which spans the row from `sm` and from
+ * `lg` its columns and rows; its picture's width; and its least height, 300 px, 380 px from `sm`
+ * and from `lg` by the count.
+ */
+const largeCell = large && {
+	cell: [
+		"sm:col-span-2",
+		large.columnsFromLg === 3 && "lg:col-span-3",
+		large.rowsFromLg === 2 && "lg:row-span-2",
+	],
+	sizes: largeCardPictureSizes(large),
+	height: {
+		380: "min-h-75 sm:min-h-95",
+		440: "min-h-75 sm:min-h-95 lg:min-h-110",
+		520: "min-h-75 sm:min-h-95 lg:min-h-130",
+	}[large.minHeight.lg],
+};
+---
+
+<ul class="grid gap-3.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+	{cards.map((card, index) => {
+		const cell = index === 0 ? largeCell : undefined;
+		return (
+			<li class:list={["scroll-reveal min-w-0", cell?.cell]}>
+				<ContentCard
+					{...card}
+					kind="list"
+					large={cell !== undefined}
+					icon={icon}
+					clampLabel={clampLabel}
+					eager={index < FIRST_ROW}
+					sizes={cell?.sizes}
+					class={cell?.height}
+				/>
+			</li>
+		);
+	})}
+</ul>

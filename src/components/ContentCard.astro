@@ -1,10 +1,12 @@
 ---
 // The News card of the Homepage's Latest News (Feature 008 #244; spec #239 "Latest News") and the
-// card of the News, Health News and Health Content lists (Feature 009 #283; spec #280 "The cards"),
-// one piece for both (spec #280 "Scope of the change"). `kind` says where it stands: "home" under a
-// Homepage section's H2, its title an H3; "list" on a list page, its title an H2 under the page's
-// H1. A list's card shows three lines of title where the Homepage's small card shows two, and adds
-// its label and its summary.
+// card of the News, Health News and Health Content lists (Feature 009 #283; spec #280 "The cards")
+// and of the Activities list (Feature 010 #313; spec #311 "The Activities list"), one piece for all
+// (spec #280 "Scope of the change"). `kind` says where it stands: "home" under a Homepage section's
+// H2, its title an H3; "list" on a list page, its title an H2 under the page's H1. A list's card
+// shows three lines of title where the Homepage's small card shows two, and adds its label and its
+// summary. An Activity's label is its place, held to its lines (`clampLabel`), where a News label
+// runs onto the next line and is never cut.
 //
 // The large card, the Homepage's newest News and the newest item of a list's first page (Feature
 // 009 #284; spec #280 "The cards"), is its picture with the date in an accent-warm pill and the
@@ -89,6 +91,12 @@ interface Props {
 	summary?: string;
 	/** The icon of the visual that stands in for a missing picture. */
 	icon: keyof typeof ICONS;
+	/**
+	 * Hold the label to its lines, as an Activity's place (Feature 010 #313; spec #311 "The
+	 * Activities list"): on a small card the date's line two lines at most from `sm` and the label
+	 * one line below `sm`, and on the large card its pill one line, each cut with an ellipsis.
+	 */
+	clampLabel?: boolean;
 	/** The large card, for the Homepage's newest News and a list's first page's newest item. */
 	large?: boolean;
 	/** The picture's `sizes`, where the card is wider than its kind's: a list's large card. */
@@ -132,6 +140,7 @@ const {
 	date,
 	label,
 	summary,
+	clampLabel = false,
 	large = false,
 	eager = false,
 	class: className,
@@ -182,7 +191,12 @@ const zoom =
 								<DateText value={date} />
 							</span>
 						)}
-						<span class="rounded-pill border border-surface-base/40 bg-brand-dark/40 px-3 py-0.5 wrap-anywhere">
+						<span
+							class:list={[
+								"rounded-pill border border-surface-base/40 bg-brand-dark/40 px-3 py-0.5 wrap-anywhere",
+								clampLabel && "line-clamp-1",
+							]}
+						>
 							{label}
 						</span>
 					</p>
@@ -239,14 +253,24 @@ const zoom =
 			</div>
 			<div class="min-w-0 py-2.5 pr-3.5 pl-1 sm:px-5 sm:pt-4 sm:pb-5">
 				{date && (
-					<p class="text-small font-semibold text-brand-primary">
+					<p
+						class:list={[
+							"text-small font-semibold text-brand-primary",
+							clampLabel && "sm:line-clamp-2",
+						]}
+					>
 						<DateText value={date} />
 						{label && (
 							<>
 								<span aria-hidden="true" class="mx-1.5 text-text-secondary max-sm:hidden">
 									·
 								</span>
-								<span class="font-normal wrap-anywhere text-text-secondary max-sm:block">
+								<span
+									class:list={[
+										"font-normal wrap-anywhere text-text-secondary",
+										clampLabel ? "max-sm:line-clamp-1" : "max-sm:block",
+									]}
+								>
 									{label}
 								</span>
 							</>

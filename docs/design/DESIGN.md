@@ -8,7 +8,7 @@
 > implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
 > 6891402807). Feature 010's redesign of the Activities, Announcements and Documents pages follows
 > spec #311, implemented by #312–#318.
-> **Updated:** 2026-11-15 (#312); first drafted 2026-10-30
+> **Updated:** 2026-11-16 (#313); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -107,9 +107,10 @@ health-service network.
   Health Content (§7.7), the Homepage's News cards, the newest large on a first page that no
   Health Topic narrows (§7.3); a Post page has its header on the field, its picture in a white
   frame and its text on the page's colour (§9). Feature 010 brings the list's heading to the
-  Activities, Announcements and Documents lists (spec #311; §7.8), each with today's cards or rows
-  over the field's edge, after the filter form on `/documents`, until its own ticket (#313 to
-  #315). An Announcement's and a Document's page keep their design until their own tickets (#316,
+  Activities, Announcements and Documents lists (spec #311; §7.8), and over the field's edge
+  `/activities` shows the News lists' cards, its newest large on a first page, each with its date
+  and place (§7.3; #313), while `/announcements` and `/documents` keep today's rows, after the
+  filter form on `/documents`, until their own tickets (#314, #315). An Announcement's and a Document's page keep their design until their own tickets (#316,
   #317), and every page outside the two features keeps its design under the new shell until its
   own feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -185,9 +186,8 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | `surface-base` | `#ffffff` | cards, white bands |
 | `surface-soft` | `#eaf5f0` | soft bands, the Current Announcements' band and its general category badge |
 | `border-default` | `#dce7e2` | borders |
-| `topic-blue` | `#f0f5fc` | the procurement Announcement badge's fill (§8.7); `topic-green`, the old Health Information cards' other fill, left the tokens with them (#246) |
+| `topic-blue` | `#f0f5fc` | the procurement Announcement badge's fill (§8.7); `topic-green`, the old Health Information cards' other fill, left the tokens with them (#246), `contact-visual-from` and `-to`, the map stand-in's fill, with it (#247), and `activity-visual-from` and `-to`, the old Activity card's fill without a picture, with that card (#313) |
 | `divider` | `#dbe8e3` | separators inside a white box: the ITA year's rows, the line above a post's topics |
-| `activity-visual-from`, `-to` | `#bfdcce`, `#e8f0d9` | an Activity card without a picture, on the Activities list; `contact-visual-from` and `-to`, the map stand-in's fill, left the tokens with it (#247) |
 | `hero-chip`, `hero-secondary-fill`, `hero-secondary-border` | white at 12 %, 6 %, 28 % | the hero's chip; a secondary link on a dark surface |
 | `text-secondary-on-soft` | `#5d6a64` | secondary text on `surface-soft` (contrast fix, #51) |
 | `border-input` | `#7a8a83` | input boundaries (contrast fix, #51) |
@@ -435,7 +435,7 @@ this document names:
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
 | Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
-| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News and Health Content lists, in `ContentCardGrid`, §7.3), `ActivityCard`, `ServiceCard`, `QuickLinkCard`, `PersonCard` |
+| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `ServiceCard`, `QuickLinkCard`, `PersonCard` |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
 | Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8) and a Post page's header (§9.1) |
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText` |
@@ -457,55 +457,60 @@ this document names:
 ### 7.3 Cards and their pictures
 
 - **Whole-card navigation** (#193; Product Owner, #190 comment 6707205912): each shared
-  ContentCard (the News, Health News and Health Content lists), ServiceCard (the catalog)
-  and ActivityCard (the Activities list) has one native link named by its title alone. The
+  ContentCard (the News, Health News, Health Content and Activities lists) and ServiceCard (the
+  catalog) has one native link named by its title alone. The
   picture/fallback, icon, metadata, summary and padding all open its original destination.
   H2 titles on lists and H3 under Homepage sections name a full-surface native link through
   `aria-labelledby`. Other content stays outside the link's visible label and remains readable,
   with no nested anchors or another focus stop. Enter, modified clicks and new-tab actions work.
-- **Interaction:** on a ServiceCard and an ActivityCard, hover adds a 2 px `brand-primary` ring
+- **Interaction:** on a ServiceCard, hover adds a 2 px `brand-primary` ring
   without moving/resizing the card and makes its title green and underlined. The resting
-  border/shadow remains; keyboard focus uses the global 3 px outline around the whole card, and on
-  an ActivityCard a `surface-base` band on both sides of it (`focus-ring-banded`), since its first
-  row lies over the deep field's edge (§7.8; Feature 010 #312). The
+  border/shadow remains; keyboard focus uses the global 3 px outline around the whole card. The
+  Activities list's card had the same ring until it took the list card (Feature 010 #313). The
   Homepage's own Service cards (§8.4), News cards (§8.6), Health Content cards (§8.8) and Activity
   tiles (§8.10), and multi-action cards, keep their own interactions.
-- **The News, Health News and Health Content lists' card** (Feature 009 #283; spec #280 "The
-  cards", decisions 4, 10 and 15) is the Homepage's small News card (§8.6), `ContentCard` with
-  `kind="list"`: white, radius 22, the `card` shadow. From `sm` a 16:9 picture above its text;
+- **The list card**, on the News, Health News and Health Content lists (Feature 009 #283; spec
+  #280 "The cards", decisions 4, 10 and 15) and the Activities list (Feature 010 #313; spec #311
+  "The Activities list", decisions 6 and 12), is the Homepage's small News card (§8.6),
+  `ContentCard` with `kind="list"`: white, radius 22, the `card` shadow. From `sm` a 16:9 picture above its text;
   below `sm` a row with a 120 px picture at 4:3, radius 14, 10 px inside the card, which leaves
   the title 130 px at 320 px. Under the picture one line with the date (13 / 20 semibold,
   `brand-primary`), a dot and the label (regular, `text-secondary`): the News category on `/news`
   and the first Health Topic on Health News and Health Content, the date alone without one. Below
   `sm`, where the row holds no label beside the date, the whole label goes on the next line
   without the dot (Product Owner, 2026-11-13: #283 comment 6855983271); from `sm` a label longer
-  than its column runs onto the next line. Then
+  than its column runs onto the next line. On `/activities` the date is when the Activity was
+  held, else its publication, the date the list orders by, and the label is its place
+  (`location_text`), held to its lines (`clampLabel`): from `sm` the line is two lines at most,
+  and below `sm` the place one line, each cut with an ellipsis. Then
   the title, an H2, body size semibold below `sm` and body-large from `sm`, three lines at most;
   from `sm` the summary at label size in `text-secondary`, two lines at most, and none below `sm`.
   Without a picture, or when its media item was deleted, the `plain-visual` with the 48 px
-  gradient tile and the list's 24 px icon: `message-square` on `/news`, `heart-pulse` on the other
-  two. The cards go three to a row from `lg`, two from `sm` and in rows below, 24 px apart from
+  gradient tile and the list's 24 px icon: `message-square` on `/news`, `heart-pulse` on Health
+  News and Health Content, `heart` on `/activities`. The cards go three to a row from `lg`, two from `sm` and in rows below, 24 px apart from
   `sm` and 14 px below; a last row may hold fewer, and no cell is filled. Under the pointer, with
   motion allowed, the picture grows by 6 % inside its box and the card lifts 6 px with the `deep`
   shadow, with no ring and the title in its colour; the link still covers the card's
   resting place. Each card reveals as it comes into the window, and its picture's box shimmers as
   the page opens (§8.12). Keyboard focus is the global 3 px outline with a `surface-base` band
-  2 px wide on both sides (`focus-ring-banded`): a card of `/news`'s first row lies over the deep
-  field's lower edge (§7.8), where the ring alone reads 1.00:1 on half its length at 375 px, and
+  2 px wide on both sides (`focus-ring-banded`): a card of the first row of `/news` and of
+  `/activities` lies over the deep field's lower edge (§7.8), where the ring alone reads 1.00:1 on half its length at 375 px, and
   with the band what lies beside the ring reads 5.09:1 or more (Product Owner, 2026-11-13: #283
   comment 6854670042; measured at `fb11b3e` with `scripts/measure-focus-contrast.ts`, §3.2). On
   the page's colour the band hardly
   shows.
 - **The large card on a list's first page** (Feature 009 #284; spec #280 "The cards", "The
   first page", decisions 2 and 11): on a first page of `/news`, Health News or Health Content
-  that no Health Topic narrows, the newest item is the Homepage's large News card (§8.6),
+  that no Health Topic narrows, and on every first page of `/activities`, which has no filter
+  (Feature 010 #313), the newest item is the Homepage's large News card (§8.6),
   `ContentCard` with `kind="list"` and `large`. Its picture covers it, radius 24, from its middle
   or around its focal point, under the `brand-dark` gradient from its foot. Over the gradient: the
   date in an `accent-warm` pill and, when the item has one, its label in an outlined pill
   (`surface-base` words, a 1 px `surface-base` outline at 40 % and a `brand-dark` fill at 40 %, so
   its words keep 4.5:1 where the gradient is lightest: Product Owner, 2026-11-14: #284 comment
   6870867641, item 1), beside the date or, when it is too long for the line, under it where the
-  date starts, never cut (Product Owner, 2026-11-14, #284 comment 6871942671); the title,
+  date starts, never cut (Product Owner, 2026-11-14, #284 comment 6871942671), but for an
+  Activity's place, one line at most, cut with an ellipsis (spec #311 "The Activities list"); the title,
   an H2, in `surface-base` at H3 size and body-large semibold below `sm`, three lines at most; and
   from `sm` the summary in `surface-base` at body size, two lines at most. Without a picture, or
   when its media item was deleted, the
@@ -524,9 +529,9 @@ this document names:
   A full page of twelve at two columns ends with one card alone (decision 11). A later page, and
   a list narrowed by a Health Topic, show the small cards alone. Its picture's `sizes` is two of
   the container's three columns from `lg` (all three with one item) and the row below.
-- **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
-  Health Content card in a list to 16:9 from `sm` and 4:3 below (`ContentCard.astro`), as the
-  Homepage's small News card does; the Homepage's Health Content
+- **Crops:** a list's card, a News, Health Content or Activity card, crops its picture to 16:9
+  from `sm` and 4:3 below (`ContentCard.astro`), as the Homepage's small News card does, where the
+  Activities list's own card cropped to 16:9 at every width until #313; the Homepage's Health Content
   cards and its Activity tiles have their own boxes (§8.8, §8.10), an Activity's photos are
   squares (§9.2), and a person's portrait is a circle, on a personnel card (`PersonCard.astro`)
   and in the Homepage's Leadership strip (§8.5). Every picture a
@@ -536,7 +541,7 @@ this document names:
   6892189972, decisions 1 and 2). EmDash's placeholder would drop the focal point, so every
   cropped picture takes none, which `tests/node/public-media.test.ts` checks. A One Page in a
   card therefore shows its middle, where its photo collage is, unless staff set a focal point
-  (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144 names the 16:9 crop, exact for
+  (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144 names the 16:9 crop, exact then for
   Activity cards only).
 - Without a picture, or when its media item was deleted, a card shows a plain visual that keeps
   the grid even.
@@ -715,12 +720,10 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
   above the edge from `sm` and 96 px below, and the block that follows (`ListBody`) starts 88 px
   above it from `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state,
   then the pager (§7.6); on Health News, Health Content and `/documents` the filter form (§7.7)
-  comes first. They are 32 px apart, and each keeps its content and behaviour. On `/activities`,
-  `/announcements` and `/documents` the block holds today's Activity cards (§7.3), Announcement
-  rows and Document rows until Feature 010 #313, #314 and #315. On `/activities` the first row of
-  cards lies over the field, where the card's `brand-primary` ring alone read under 3:1 on 27 to
-  34 % of its length, so its link takes `focus-ring-banded`, as a News list's card does (§7.3;
-  `scripts/measure-focus-contrast.ts` at `73efb0d`). An Announcement row's and a Document row's
+  comes first. They are 32 px apart, and each keeps its content and behaviour. On `/activities`
+  the block is the list cards, as on `/news` (§7.3; Feature 010 #313), whose first row lies over
+  the field with the lists' `focus-ring-banded`; on `/announcements` and `/documents` it holds
+  today's Announcement rows and Document rows until Feature 010 #314 and #315. An Announcement row's and a Document row's
   only links are their titles, whose ring lies on the row's white, 6.45:1; on `/documents` the
   filter form is the block over the edge, its ring on its own white card. The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
@@ -1278,8 +1281,9 @@ stays the submit state (§8.9).
   breadcrumb, the link, the filter form, the empty state and the pager show at once
   (`public-news.spec.ts` "/news moves only when motion is allowed: …",
   `testFilteredListOnField`'s motion case for the other two, and `testListOnField`'s for the
-  Activities, Announcements and Documents lists, whose cards and rows do not move until Feature
-  010 #313 to #315).
+  Activities, Announcements and Documents lists: the Activities list's cards move as `/news`'s
+  since Feature 010 #313, and the Announcements' and Documents' rows do not until #314 and
+  #315).
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
@@ -1845,6 +1849,19 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (v2.10). Authority: #298 comment 6892189972, decision 1 (no placeholder in our code, no
   dependency upgrade) and decision 2 (a portrait follows its focal point), and #298 comment 6893006429
   (the sentence for staff in `05`).
+- **v1.4 the Activities list's cards (2026-11-16, Feature 010 #313):** `/activities` shows the
+  list card in place of the Activity card (§7.3): on a first page the newest Activity large, laid
+  out by the count as on `/news`, and on a later page even cards; each card's line is the date the
+  list orders by, a dot and the Activity's place, the date alone without one, the place held to
+  two lines from `sm` and one below, and to one line in the large card's pill, each cut with an
+  ellipsis, where a News label is never cut; the `heart` icon on a missing picture's visual; the
+  crop 16:9 from `sm` and 4:3 below, where it was 16:9 at every width; the list card's hover, reveal
+  and shimmer in place of the ring and the green underlined title (§7.3, §7.8, §8.12). The card
+  no longer says "กิจกรรม" before its date. `ListCardGrid` holds the grid for both lists, and
+  `ActivityCard` and the tokens `activity-visual-from` and `-to`, its fill without a picture, are
+  gone (§3.1, §7.1). §2 names the Activities list's cards. An Activity's page and its photos keep
+  their look. Authority: spec #311 "The Activities list", decisions 6 and 12, and #311 comment
+  6895825492.
 - **v1.4 the list heading on three more lists (2026-11-15, Feature 010 #312):** `/activities`,
   `/announcements` and `/documents` open on the deep field with the list heading (§7.8): the
   labels "ภาพกิจกรรม", "แจ้งให้ทราบ" and "เข้าถึงข้อมูล" and the icons `heart`, `file-text` and

@@ -1,25 +1,28 @@
 ---
-// A page of Activities as a grid of Activity cards (Feature 003 #56, #64; spec #51 "Shared building
-// blocks"): each card dated by when the Activity was held, else its publication, the order the
-// list follows, with its summary. The card is the Homepage's, Figma Card/Activity 4:48 (Product
-// Owner, 2026-10-30: #64 comment 6526131459). The first row is in view when the page opens, so its
-// pictures load at once; the rest load lazily.
-import type { ActivityEntry } from "../lib/activities";
-import ActivityCard from "./ActivityCard.astro";
+// A page of Activities as a grid of list cards (Feature 003 #56; Feature 010 #313; spec #311 "The
+// Activities list", decisions 6 and 12): the News lists' cards, each dated by when the Activity
+// was held, else its publication, the order the list follows, with its place (`location_text`)
+// after the date and its summary, and the `heart` visual in place of a missing picture. The list
+// has no filter, so every first page leads with the large card. The grid, the large card and the
+// motion are ListCardGrid's; the place is held to its lines (`clampLabel`).
+import { activityDate, activityPath, type ActivityEntry } from "../lib/activities";
+import ListCardGrid from "./ListCardGrid.astro";
 
 interface Props {
 	entries: ActivityEntry[];
+	/** The page's number, from 1. */
+	page: number;
 }
 
-const { entries } = Astro.props;
-/** Cards per row at the widest layout (lg:grid-cols-3). */
-const FIRST_ROW = 3;
+const { entries, page } = Astro.props;
+const cards = entries.map(({ id, data }) => ({
+	href: activityPath(id),
+	title: data.title,
+	label: data.location_text ?? undefined,
+	date: activityDate(data),
+	summary: data.summary ?? undefined,
+	image: data.featured_image ?? undefined,
+}));
 ---
 
-<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-	{entries.map((entry, index) => (
-		<li>
-			<ActivityCard activity={entry} showSummary eager={index < FIRST_ROW} />
-		</li>
-	))}
-</ul>
+<ListCardGrid cards={cards} icon="heart" page={page} narrowed={false} clampLabel />
