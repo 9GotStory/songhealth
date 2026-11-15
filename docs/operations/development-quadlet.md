@@ -109,7 +109,8 @@ the real state first and only adds what is missing:
     formatter on the host while one runs (#247 retro: four cases timed out beside
     `npm run format` and `npm run typecheck`). After a run, the list ends with the tests that
     passed close to their timeout or ran past it, each with its two slowest steps
-    (`tests/browser/near-timeout-reporter.ts`).
+    (`tests/browser/near-timeout-reporter.ts`), and with the failed tests that left assertions
+    unrun, "stopped short" (`tests/browser/stopped-short-reporter.ts`; CODING_STANDARDS "Tests").
   - **Ordinary suites:**
 
     ```bash
