@@ -93,7 +93,8 @@ and why, and `.jscpd-baseline.json` records them.
   shows and is whole, and axe does not measure it against what lies behind: in #281 a card's
   `brand-primary` ring passed every suite at 1.89:1 on the field (#281 retro; Product Owner,
   2026-11-13: #281 comment 6848893055). Such a card takes `focus-ring-banded`, a white band on
-  both sides of the ring (#283 comment 6854670042).
+  both sides of the ring (#283 comment 6854670042). `expectBlocksOverFieldEdge` (`tests/browser/public.helpers.ts`) fails a part over the
+  field's edge whose ring meets the field past its own card without that band (#312 retro).
 - `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
   the Homepage's and the one under a list's heading or a Post page's header (spec #280 "The field
   under a heading"), it is
