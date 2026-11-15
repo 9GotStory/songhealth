@@ -7,6 +7,12 @@
 //
 // The picture is decorative, because the name beside it says who it is. A picture whose media item
 // was deleted in Admin is left out for a plain visual (src/lib/media.ts), as ContentCard does.
+//
+// The picture covers its circle from its top, where a portrait's face is, or around the focal
+// point its field's value carries (Product Owner, 2026-11-15: #298 comment 6892189972, decision 2).
+// EmDash's Image writes that focal point as the picture's inline `object-position`, which wins over
+// the class's top, and only while it takes no placeholder (emdash 1.1.0
+// src/components/EmDashImage.astro resolveImage; src/components/ContentCard.astro says why).
 import { Image } from "emdash/ui";
 import { availableMedia } from "../lib/media";
 import type { PersonnelEntry } from "../lib/personnel";
@@ -36,6 +42,7 @@ const PICTURE_SIZES = "(min-width: 40rem) 5rem, 4rem";
 			image={image}
 			alt=""
 			sizes={PICTURE_SIZES}
+			placeholder={false}
 			class="size-16 shrink-0 rounded-full object-cover object-top sm:size-20"
 		/>
 	) : (

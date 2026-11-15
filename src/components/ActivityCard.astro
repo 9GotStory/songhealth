@@ -7,7 +7,8 @@
 // 6526131459); the Homepage has its own tile (HomeActivityTile, Feature 008 #247). The title is
 // an H2, one level below the list's H1.
 //
-// The picture goes through EmDash's Image with a `sizes` for the card's box, as ContentCard's does
+// The picture goes through EmDash's Image with a `sizes` for the card's box and no placeholder, so
+// it covers its box from its middle, or around its focal point, as ContentCard's does
 // (src/components/ContentCard.astro says why). A `loading` attribute overrides the component's lazy
 // default, which emdash 1.1.0 src/components/EmDashImage.astro sets before the attributes it is
 // given. It is decorative, because the title names the link. A picture whose media item was
@@ -45,6 +46,7 @@ const titleId = `activitycard-${crypto.randomUUID()}`;
 				alt=""
 				sizes={CARD_PICTURE_SIZES}
 				loading={eager ? "eager" : "lazy"}
+				placeholder={false}
 				class="aspect-16/9 w-full object-cover"
 			/>
 		) : (

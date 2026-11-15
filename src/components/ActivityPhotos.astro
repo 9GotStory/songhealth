@@ -32,10 +32,10 @@
 //
 // A thumbnail crops its photo around the middle, or around the focal point the photo had in the
 // media library when staff picked it in the Admin, which the field's value keeps and EmDash's Image
-// applies (emdash 1.1.0 src/components/EmDashImage.astro, src/media/focal-point.ts;
-// docs/agents/emdash-1.1.0.md "Media"), as src/components/ContentCard.astro and
-// src/components/ActivityCard.astro crop their pictures, where the spec says "centre crop" (Product
-// Owner, 2026-11-05: #148 comment 6649367649).
+// applies while it takes no placeholder (emdash 1.1.0 src/components/EmDashImage.astro,
+// src/media/focal-point.ts; docs/agents/emdash-1.1.0.md "Media"), as
+// src/components/ContentCard.astro and src/components/ActivityCard.astro crop their pictures, where
+// the spec says "centre crop" (Product Owner, 2026-11-05: #148 comment 6649367649).
 import Images from "@lucide/astro/icons/images";
 import { Image } from "emdash/ui";
 import type { ActivityData } from "../lib/activities";
@@ -91,6 +91,7 @@ const folded = photos.length - SHOWN;
 									image={photo.image}
 									alt={photo.image.alt || photo.caption || `ภาพที่ ${index + 1}`}
 									sizes={THUMBNAIL_SIZES}
+									placeholder={false}
 									class="aspect-square w-full bg-surface-soft object-cover"
 								/>
 							</a>

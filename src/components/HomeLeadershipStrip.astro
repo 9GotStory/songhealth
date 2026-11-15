@@ -9,7 +9,9 @@
 // and public contact stay on the About pages. The first person's picture has an accent-warm ring.
 // Personnel has no page of its own (`03` §5), so no person is a link. The picture is decorative,
 // because the name beside it says who it is, and one whose media item was deleted in Admin is left
-// out for the plain visual (src/lib/media.ts), as PersonCard does.
+// out for the plain visual (src/lib/media.ts), as PersonCard does. It covers its circle from its
+// top, or around its focal point, and takes no placeholder, as PersonCard's does
+// (src/components/PersonCard.astro says why).
 //
 // From `lg` the strip is one row: the heading at the left, then the people, who divide the rest of
 // the row equally. From `sm` the heading lies above, the first person takes a row and the others
@@ -90,6 +92,7 @@ const picture = "size-15 rounded-full sm:size-19";
 							image={image}
 							alt=""
 							sizes={PICTURE_SIZES}
+							placeholder={false}
 							class:list={[picture, "object-cover object-top"]}
 						/>
 					) : (

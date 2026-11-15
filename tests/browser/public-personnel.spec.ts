@@ -35,9 +35,11 @@ import {
 import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
+	OFF_CENTRE_FOCAL_POINT,
 	expect,
 	expectAboutSubpage,
 	expectAccessibleAtEachWidth,
+	expectCrop,
 	expectImageLoaded,
 	expectSiteNotFound,
 	listedItem,
@@ -202,7 +204,7 @@ test("/about/personnel groups the publicly visible Personnel by unit in Thai ord
 	await expect(page.getByRole("main").getByText(draft.title)).toHaveCount(0);
 });
 
-test("each person shows their profile image, prefix and name, position and unit, and their public contact only when set; nothing links to a per-person address", async ({
+test("each person shows their profile image, cropped around its top or around its focal point, prefix and name, position and unit, and their public contact only when set; nothing links to a per-person address", async ({
 	page,
 }) => {
 	const run = crypto.randomUUID().slice(0, 6);
@@ -224,7 +226,11 @@ test("each person shows their profile image, prefix and name, position and unit,
 		organizational_unit: unit,
 		leadership_order: 2,
 	});
-	await publish(withContact, withoutContact);
+	const focused = await createPerson("สมใจ", {
+		profile_image: { id: media.mediaId, ...OFF_CENTRE_FOCAL_POINT },
+		leadership_order: 3,
+	});
+	await publish(withContact, withoutContact, focused);
 
 	for (const { path } of PAGES) {
 		await page.goto(path);
@@ -234,6 +240,12 @@ test("each person shows their profile image, prefix and name, position and unit,
 			`นาย${withContact.displayName}`,
 		);
 		await expectImageLoaded(card.locator("img"), `${path}: the profile image`);
+		await expectCrop(card.locator("img"), "50% 0%", `${path}: a portrait without a focal point`);
+		await expectCrop(
+			listedItem(page, focused.title).locator("img"),
+			"25% 75%",
+			`${path}: a portrait with a focal point`,
+		);
 		await expect(card).toContainText(position);
 		await expect(card).toContainText(CONTACT_LABEL);
 		for (const line of contact) await expect(card.getByText(line)).toBeVisible();

@@ -16,9 +16,10 @@
 // the topic and the summary stay readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190
 // comment 6707205912). "อ่านต่อ" and its arrow are decoration, hidden from assistive technology:
 // the title already names the link. The picture is decorative, because the title names the link,
-// and covers its box from its middle, as cards show pictures (docs/design/DESIGN.md §7.3). It goes
-// through EmDash's Image with a `sizes` for the card's box in the row of four
-// (src/components/ContentCard.astro says why). A picture whose media item was deleted in Admin is
+// and covers its box from its middle, or around its focal point, as cards show pictures
+// (docs/design/DESIGN.md §7.3). It goes through EmDash's Image with a `sizes` for the card's box in
+// the row of four and no placeholder (src/components/ContentCard.astro says why for both). A
+// picture whose media item was deleted in Admin is
 // left out for the visual (src/lib/media.ts).
 //
 // The card's lift and the arrow's shift under the pointer move only under
@@ -65,6 +66,7 @@ const titleId = `home-health-${crypto.randomUUID()}`;
 					image={image}
 					alt=""
 					sizes={PICTURE_SIZES}
+					placeholder={false}
 					class="absolute inset-0 size-full object-cover"
 				/>
 			) : (

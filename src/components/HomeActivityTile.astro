@@ -20,9 +20,10 @@
 // The title is an H3 under the section's H2, and a native link named by it covers the whole tile;
 // the date stays readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190 comment
 // 6707205912). The picture is decorative, because the title names the link, and covers its box
-// from its middle (docs/design/DESIGN.md §7.3). It goes through EmDash's Image with the `sizes`
-// of the tile's box in the grid (src/lib/homepage-activities.ts activityPictureSizes;
-// src/components/ContentCard.astro says why). A picture whose media item was deleted in Admin is
+// from its middle, or around its focal point (docs/design/DESIGN.md §7.3). It goes through EmDash's
+// Image with the `sizes` of the tile's box in the grid and no placeholder
+// (src/lib/homepage-activities.ts activityPictureSizes; src/components/ContentCard.astro says why
+// for both). A picture whose media item was deleted in Admin is
 // left out for the visual (src/lib/media.ts).
 //
 // The picture's zoom under the pointer moves only under `prefers-reduced-motion: no-preference`
@@ -65,6 +66,7 @@ const titleId = `home-activity-${crypto.randomUUID()}`;
 				image={image}
 				alt=""
 				sizes={sizes}
+				placeholder={false}
 				class="absolute inset-0 size-full object-cover motion-safe:transition-transform motion-safe:duration-600 motion-safe:group-hover:scale-106"
 			/>
 		) : (

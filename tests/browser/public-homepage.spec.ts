@@ -73,6 +73,7 @@ import {
 	HOMEPAGE_HEADINGS,
 	HOMEPAGE_HEADLINE,
 	MOBILE_VIEWPORT,
+	OFF_CENTRE_FOCAL_POINT,
 	PHONE_VIEWPORT,
 	VIEWPORTS,
 	boxOf,
@@ -80,6 +81,7 @@ import {
 	entersAfter,
 	expect,
 	expectAccessibleAtEachWidth,
+	expectCrop,
 	expectFocusRingWhole,
 	expectImageLoaded,
 	expectNoAxeViolations,
@@ -516,7 +518,7 @@ test("the page's H1 is the site title from the site settings, and the hero shows
 	});
 });
 
-test("the Leadership strip shows the first three Leadership in Leadership order with ties by name, each by shown name and current assignment, the first ringed in accent-warm, and links to the Leadership page alone", async ({
+test("the Leadership strip shows the first three Leadership in Leadership order with ties by name, each by shown name and current assignment, a picture cropped around its top or around its focal point, the first ringed in accent-warm, and links to the Leadership page alone", async ({
 	page,
 }) => {
 	await borrowPersonnel();
@@ -535,7 +537,13 @@ test("the Leadership strip shows the first three Leadership in Leadership order 
 		public_contact: contact,
 		leadership_order: 1,
 	});
-	const khwan = await createSyntheticPerson(admin, "ขวัญ", { leadership_order: 2 });
+	const khwan = await createSyntheticPerson(admin, "ขวัญ", {
+		profile_image: {
+			id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพที่มีจุดโฟกัส`),
+			...OFF_CENTRE_FOCAL_POINT,
+		},
+		leadership_order: 2,
+	});
 	const ked = await createSyntheticPerson(admin, "เกด", { leadership_order: 2 });
 	const fourth = await createSyntheticPerson(admin, "กมล", { leadership_order: 3 });
 	const staff = await createSyntheticPerson(admin, "อรุณ");
@@ -565,6 +573,8 @@ test("the Leadership strip shows the first three Leadership in Leadership order 
 	await expect(strip, "no unit").not.toContainText(unit);
 	await expect(strip, "no public contact").not.toContainText(contact);
 	await expectImageLoaded(first.locator("img"), "the first person's picture");
+	await expectCrop(first.locator("img"), "50% 0%", "a portrait without a focal point");
+	await expectCrop(people.nth(2).locator("img"), "25% 75%", "a portrait with a focal point");
 	const plain = people.nth(1);
 	await expect(plain.locator("img"), "no picture without an image").toHaveCount(0);
 	await expect(plain.getByTestId("person-visual"), "the plain visual").toHaveCount(1);
@@ -1143,7 +1153,7 @@ test("under the pointer an Announcement's row moves 10 px to the right, and a pr
 	await expect(page).toHaveURL(`/announcements/${announcement.slug}`);
 });
 
-test("Health Information shows the latest 4 published Health Content, each with its picture or the visual in its place, its first Health Topic as a badge, its title, its summary and อ่านต่อ, four to a row from 1,024 px and two from 640 px, and below 640 px as compact rows without the summary, the badge whole", async ({
+test("Health Information shows the latest 4 published Health Content, each with its picture, cropped around its middle or around its focal point, or the visual in its place, its first Health Topic as a badge, its title, its summary and อ่านต่อ, four to a row from 1,024 px and two from 640 px, and below 640 px as compact rows without the summary, the badge whole", async ({
 	page,
 }) => {
 	const firstTopic = await createTerm("topic", "ก วัคซีนและการสร้างเสริมภูมิคุ้มกันโรค");
@@ -1155,6 +1165,12 @@ test("Health Information shows the latest 4 published Health Content, each with 
 		taxonomies: { topic: [secondTopic.slug] },
 	});
 	const third = await create("health_content", "third", {
+		data: {
+			featured_image: {
+				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพที่มีจุดโฟกัส`),
+				...OFF_CENTRE_FOCAL_POINT,
+			},
+		},
 		taxonomies: { topic: [firstTopic.slug] },
 	});
 	const untopical = await create("health_content", "no-topic");
@@ -1201,6 +1217,8 @@ test("Health Information shows the latest 4 published Health Content, each with 
 	}
 	await card(newest).scrollIntoViewIfNeeded();
 	await expectImageLoaded(card(newest).locator("img"), "the newest Health Content's picture");
+	await expectCrop(card(newest).locator("img"), "50% 50%", "a picture without a focal point");
+	await expectCrop(card(third).locator("img"), "25% 75%", "a picture with a focal point");
 	await expect(card(newest).getByTestId("health-visual")).toHaveCount(0);
 	await expect(card(untopical).locator("img")).toHaveCount(0);
 	await expect(card(untopical).getByTestId("health-visual")).toBeVisible();
@@ -1580,7 +1598,7 @@ test.describe("without JavaScript", () => {
 	}
 });
 
-test("the Activities show the latest five by Activity date at every width, each as its picture or the visual with its date and its title over it, one link named by the title, the newest large at the right of the others two by two from 1,024 px and across the row above them below, where a small tile shows no date under 640 px", async ({
+test("the Activities show the latest five by Activity date at every width, each as its picture, cropped around its middle or around its focal point, or the visual with its date and its title over it, one link named by the title, the newest large at the right of the others two by two from 1,024 px and across the row above them below, where a small tile shows no date under 640 px", async ({
 	page,
 }) => {
 	const heldAt = (day: number) => `2032-03-${String(day).padStart(2, "0")}T03:00:00.000Z`;
@@ -1594,9 +1612,18 @@ test("the Activities show the latest five by Activity date at every width, each 
 			},
 		},
 	});
+	// The fifth tile's picture has a focal point off its middle.
+	const focused = {
+		id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพที่มีจุดโฟกัส`),
+		...OFF_CENTRE_FOCAL_POINT,
+	};
 	const others: DraftFixture[] = [];
 	for (const day of [5, 4, 3, 2, 1]) {
-		others.push(await create("activities", `day-${day}`, { data: { activity_at: heldAt(day) } }));
+		others.push(
+			await create("activities", `day-${day}`, {
+				data: { activity_at: heldAt(day), ...(day === 2 && { featured_image: focused }) },
+			}),
+		);
 	}
 	const sixth = others[4]!;
 	// Published last, without an Activity date: placed by its publication, today, behind 2032.
@@ -1631,8 +1658,12 @@ test("the Activities show the latest five by Activity date at every width, each 
 			`the tile in place ${index + 1}`,
 		);
 	}
-	await expect(large.getByTestId("activity-visual")).toHaveCount(0);
-	for (const index of [1, 2, 3, 4]) {
+	await expectCrop(large.locator("img"), "50% 50%", "a picture without a focal point");
+	await expectCrop(tiles.nth(4).locator("img"), "25% 75%", "a picture with a focal point");
+	for (const index of [0, 4]) {
+		await expect(tiles.nth(index).getByTestId("activity-visual")).toHaveCount(0);
+	}
+	for (const index of [1, 2, 3]) {
 		await expect(tiles.nth(index).locator("img")).toHaveCount(0);
 		await expect(tiles.nth(index).getByTestId("activity-visual")).toBeVisible();
 	}

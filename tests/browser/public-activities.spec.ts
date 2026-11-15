@@ -41,10 +41,12 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	OFF_CENTRE_FOCAL_POINT,
 	SECTION_CRUMBS,
 	detailOf,
 	expect,
 	expectBreadcrumb,
+	expectCrop,
 	expectPreviewRenders,
 	expectSiteNotFound,
 	listedItem,
@@ -142,7 +144,7 @@ test("/activities lists only published Activities, the most recently held first,
 	}
 });
 
-test("an Activity card shows its picture, or the Activity visual when it has none or its picture is gone, and its summary", async ({
+test("an Activity card shows its picture, cropped around its middle or around its focal point, or the Activity visual when it has none or its picture is gone, and its summary", async ({
 	page,
 }) => {
 	const pictured = await createActivity("card-picture", {
@@ -150,6 +152,15 @@ test("an Activity card shows its picture, or the Activity visual when it has non
 			activity_at: "2030-03-03T03:00:00.000Z",
 			featured_image: {
 				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพการประชุม`),
+			},
+		},
+	});
+	const focused = await createActivity("card-picture-focal-point", {
+		data: {
+			activity_at: "2030-03-04T03:00:00.000Z",
+			featured_image: {
+				id: await uploadSyntheticPicture(admin, `${SYNTHETIC_FIXTURE_MARK} ภาพที่มีจุดโฟกัส`),
+				...OFF_CENTRE_FOCAL_POINT,
 			},
 		},
 	});
@@ -161,7 +172,7 @@ test("an Activity card shows its picture, or the Activity visual when it has non
 	const pictureGone = await createActivity("card-picture-gone", {
 		data: { activity_at: "2030-03-01T03:00:00.000Z", featured_image: { id: goneId } },
 	});
-	for (const activity of [pictured, plain, pictureGone]) await publish(activity);
+	for (const activity of [pictured, focused, plain, pictureGone]) await publish(activity);
 	expect((await deleteMedia(admin, goneId)).ok, "deleting the media item").toBe(true);
 
 	await page.goto("/activities");
@@ -173,6 +184,16 @@ test("an Activity card shows its picture, or the Activity visual when it has non
 	).toBeVisible();
 	await expect(listedItem(page, pictured.title).locator("img")).toHaveCount(1);
 	await expect(listedItem(page, pictured.title).getByTestId("activity-visual")).toHaveCount(0);
+	await expectCrop(
+		listedItem(page, pictured.title).locator("img"),
+		"50% 50%",
+		"a picture without a focal point",
+	);
+	await expectCrop(
+		listedItem(page, focused.title).locator("img"),
+		"25% 75%",
+		"a picture with a focal point",
+	);
 	for (const activity of [plain, pictureGone]) {
 		await expect(listedItem(page, activity.title).locator("img"), activity.title).toHaveCount(0);
 		await expect(

@@ -7,7 +7,7 @@
 > 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
 > implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
 > 6891402807).
-> **Updated:** 2026-11-15 (Feature 009 #287); first drafted 2026-10-30
+> **Updated:** 2026-11-15 (#298); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -505,13 +505,16 @@ this document names:
 - **Crops:** an Activity card crops its picture to 16:9 (`ActivityCard.astro`), and a News or
   Health Content card in a list to 16:9 from `sm` and 4:3 below (`ContentCard.astro`), as the
   Homepage's small News card does; the Homepage's Health Content
-  cards and its Activity tiles have their own boxes (§8.8, §8.10). Every crop centres on the middle, or around the focal point
-  that the field's value carries; EmDash's placeholder drops the focal point, so only
-  `ContentCard`, whose pictures take none, crops around one today, and the other cards on the
-  middle until #298 (#284 comment 6870867641, item 2). A One Page in a card therefore shows its
-  middle, where its photo
-  collage is (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144 names the 16:9 crop, exact
-  for Activity cards only).
+  cards and its Activity tiles have their own boxes (§8.8, §8.10), an Activity's photos are
+  squares (§9.2), and a person's portrait is a circle (`PersonCard.astro`, §8.5). Every picture a
+  page crops keeps in view the focal point that its field's value carries: its `object-position`
+  is that point. Without a focal point a card, a tile and a photo show the picture's middle, and
+  a portrait its top, where the face is (#284 comment 6870867641, item 2; #298 comment
+  6892189972, decisions 1 and 2). EmDash's placeholder would drop the focal point, so every
+  cropped picture takes none, which `tests/node/public-media.test.ts` checks. A One Page in a
+  card therefore shows its middle, where its photo collage is, unless staff set a focal point
+  (Product Owner: "คงครอปกลางภาพแบบเดิม (แนะนำ)"; spec #144 names the 16:9 crop, exact for
+  Activity cards only).
 - Without a picture, or when its media item was deleted, a card shows a plain visual that keeps
   the grid even.
 - **The Homepage's Quick Access card** (`HomeQuickLink`; §8.11) is compact below 640 px:
@@ -919,7 +922,8 @@ in the page colour:
   6809325869, item 1): the H2, "ผู้บริหาร", at H3 size in bold, and a
   text link that reads "ทั้งหมด" with a 16 px `arrow-right`, named "ดูผู้บริหารทั้งหมด", to
   `/about/leadership`, 44 px high. From `lg` the label "บุคลากร" between slashes shows above the H2.
-- **A person** shows the picture in a circle of 76 px (60 px below `sm`), the shown name as an H3
+- **A person** shows the picture in a circle of 76 px (60 px below `sm`), cropped from its top or
+  around its focal point (§7.3), the shown name as an H3
   at 16 / 26 semibold and the current assignment at 14 / 22 in `text-secondary`. Unit and public
   contact are not shown, and no person is a link. Around the picture, 4 px away, the first person
   has a 3 px `accent-warm` ring, its only mark (#243 comment 6809325869, item 2), and the others a
@@ -962,7 +966,8 @@ section heading "ข่าวประชาสัมพันธ์" with its "
   checks.
   Without a picture it shows the plain visual with a 48 px tile, the section heading's gradient,
   and its 24 px icon.
-- **Every picture** covers its box from its middle (§7.3) and is decorative. The title is an H3
+- **Every picture** covers its box from its middle, or around its focal point (§7.3), and is
+  decorative. The title is an H3
   that names one link over the whole card; the date stays outside the link's name.
 - **The grid, five News:** from `lg` the large card at the left, 520 px high or more, in a column
   1.25 times the others, beside the four small cards two by two, 24 px apart. From `sm` the large
@@ -1040,8 +1045,9 @@ Announcements on the page's colour:
   chip is `TopicChip`, which a post's Health Topics share at 44 px high (§9.1).
 - **The cards** are the latest 4 Health Content items, four to a row from `lg` and two from `sm`,
   24 px apart. A card is white, radius 22, with the `card` shadow and 10 px of padding:
-  - the picture, radius 14, at 4:3 from `lg` and 16:9 from `sm`, covering its box from its middle
-    (§7.3) and decorative; without one, the `plain-visual` with a green tile and a 24 px
+  - the picture, radius 14, at 4:3 from `lg` and 16:9 from `sm`, covering its box from its middle,
+    or around its focal point (§7.3), and decorative; without one, the `plain-visual` with a green
+    tile and a 24 px
     `heart-pulse`;
   - the first Health Topic as a pill badge at 13 / 20 semibold, `brand-dark` on `accent-warm`
     (7.75:1), 13 px over the picture's lower edge. It wraps, so a long topic is fully readable (the
@@ -1107,8 +1113,9 @@ submit as plain forms. Forms on other pages are unchanged.
 The Activities (`HomeActivityTile`; spec #239 "Activities") show the latest five by when they were
 held, at every width, fewer when fewer exist; with none the section is left out.
 
-- **A tile** is its picture, radius 22 with the `card` shadow, covering its box from its middle
-  (§7.3) and decorative. Over its lower part lies a `brand-dark` gradient, 96 % at the lower edge
+- **A tile** is its picture, radius 22 with the `card` shadow, covering its box from its middle,
+  or around its focal point (§7.3), and decorative. Over its lower part lies a `brand-dark`
+  gradient, 96 % at the lower edge
   and 85 % up to 65 % of its height, with the date in an `accent-warm` pill (13 / 20 semibold,
   `brand-dark`) and the title in `surface-base`, semibold, in two lines at most: 16 / 26 on a
   small tile (14 / 22 below `sm`), 24 / 34 on the large one from `lg` (18 / 30 below). The date
@@ -1346,8 +1353,8 @@ text"; Product Owner, #285 comment 6877659654).
 - No JavaScript: a native `<details>` and a `:has()` rule. A browser without `:has()` shows every
   photo and no control.
 - A link is named by the photo's alt text from the media library, else its caption, else "ภาพที่ N".
-- The crop is the middle of the photo. A focal point that the field's value carries does not move
-  it while `Image` keeps its placeholder (§7.3; #298).
+- The crop is the middle of the photo, or around the focal point that the field's value carries
+  (§7.3).
 - An Activity page with twenty photos is 2,259 px tall on a 375 px phone while they are folded,
   under its section heading, and 2,903 px with them open (`scripts/screenshot-fixtures/activity-photos.ts`
   at `fb11b3e`, #287).
@@ -1772,3 +1779,14 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   with each decision's source, and two kept limits. Authority: spec #280 "Documents" and
   "Decisions the Product Owner made", the decisions on #281 to #286, and the notes on #287. No page
   changed.
+- **v1.3 a focal point on every cropped picture (2026-11-15, #298):** every picture a public page
+  crops keeps its focal point in view: an Activity's card, its photos and its Homepage tile, a
+  Health Content card on the Homepage and a person's portrait in the Leadership strip and on a
+  personnel card, as the News cards and the lists' large card already did. Those six had cropped
+  on the picture's middle, or a portrait's top, whatever the focal point, because EmDash's
+  placeholder dropped it; they now take no placeholder. Without a focal point each crops as
+  before, a portrait from its top (§7.3, §8.5, §8.6, §8.8, §8.10, §9.2). No box, size or layout
+  changed, and nothing a page showed is gone: the placeholder never showed
+  (`docs/agents/emdash-1.1.0.md` "Media"). Authority: #298 comment 6892189972, decision 1 (no
+  placeholder in our code, no dependency upgrade) and decision 2 (a portrait follows its focal
+  point).
