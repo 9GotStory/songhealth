@@ -1152,8 +1152,13 @@ test.describe("a Document's page on the field", () => {
 					(box) => box.y >= field.y && box.y + box.height <= field.y + field.height,
 				),
 				pillsUnderCrumbs: Math.round(typeBox.y - crumbs.y - crumbs.height),
+				// The status follows the type on its row, or, with no room left on it, starts the next
+				// row 8 px under it at the row's start.
 				statusAfterType:
-					Math.abs(statusBox.y - typeBox.y) <= 1 && statusBox.x > typeBox.x + typeBox.width,
+					Math.abs(statusBox.y - typeBox.y) <= 1
+						? statusBox.x > typeBox.x + typeBox.width
+						: Math.round(statusBox.x - typeBox.x) === 0 &&
+							Math.round(statusBox.y - typeBox.y - typeBox.height) === 8,
 				titleUnderPills: title.y >= typeBox.y + typeBox.height,
 				headerWidth: Math.round((await boxOf(parts.header, `${at}: the header`)).width),
 				pills: { type: await pillStyle(type), status: await pillStyle(status) },
