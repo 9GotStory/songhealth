@@ -2531,11 +2531,107 @@ export async function expectServiceIcon(card: Locator, icon: string, title: stri
 	);
 }
 
-/** A Post page's and an Announcement's header's widest, 48 rem, the breadcrumb's with it. */
+/** The widest header on the field (a Post's, an Announcement's, a Document's page), 48 rem. */
 export const HEADER_WIDEST = 768;
 
 /** The page's gutter beside its column, below `sm` and from `sm`. */
 export const gutterAt = (width: number) => (width < 640 ? 16 : 24);
+
+/**
+ * An Announcement's or a Document's page as it lies on the deep field: the field, the breadcrumb,
+ * the header, the title, and the white card over the field's edge, a part with no role.
+ */
+export function fieldParts(page: Page) {
+	const field = deepField(page);
+	return {
+		field,
+		breadcrumb: field.getByRole("navigation", { name: "เส้นทางนำทาง" }),
+		header: field.locator("header"),
+		title: field.getByRole("heading", { level: 1 }),
+		card: page.getByTestId("field-card"),
+	};
+}
+
+/** Where the field's lower edge lies in the window, as the page is laid out now. */
+export async function fieldEdge(field: Locator, label: string): Promise<number> {
+	const box = await boxOf(field, `${label}: the field`);
+	return box.y + box.height;
+}
+
+/** A pill's fill, words' colour, type (size, line, weight) and edge, as the page is now. */
+export function pillStyle(pill: Locator) {
+	return pill.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return {
+			fill: style.backgroundColor,
+			colour: style.color,
+			type: [style.fontSize, style.lineHeight, style.fontWeight],
+			edge: style.borderTopStyle === "solid" ? style.borderTopWidth : "none",
+		};
+	});
+}
+
+/**
+ * Where the page's card lies against the field's lower edge and the header at each of `widths`,
+ * and how it looks; "no card" when the page has none. `cardOverFieldEdgeAsSpecified` gives what
+ * spec #311 "The card over the field's edge" sets.
+ */
+export async function cardOverFieldEdge(page: Page, widths: number[]) {
+	const parts = fieldParts(page);
+	if ((await parts.card.count()) === 0) return "no card";
+	const places: Record<number, unknown> = {};
+	for (const width of widths) {
+		await page.setViewportSize({ width, height: 900 });
+		const at = `at ${width} px`;
+		const edge = await fieldEdge(parts.field, at);
+		const card = await boxOf(parts.card, `${at}: the card`);
+		const header = await boxOf(parts.header, `${at}: the header`);
+		const crumbs = await boxOf(parts.breadcrumb, `${at}: the breadcrumb`);
+		places[width] = {
+			cardOverEdge: Math.round(edge - card.y),
+			headerAboveEdge: Math.round(edge - header.y - header.height),
+			cardStart: Math.round(card.x - crumbs.x),
+			cardWidth: Math.round(card.width),
+		};
+	}
+	const look = await parts.card.evaluate((card) => {
+		const style = getComputedStyle(card);
+		return {
+			fill: style.backgroundColor,
+			corners: style.borderTopLeftRadius,
+			shadow: style.boxShadow,
+			inside: [style.paddingTop, style.paddingLeft],
+		};
+	});
+	return { places, look };
+}
+
+/**
+ * The card over the field's edge as spec #311 sets it: the header ends 80 px above the edge below
+ * `sm` and 96 px from `sm`, and the card starts 48 px above it below `sm` and 56 px from `sm`, at
+ * the breadcrumb's start, 48 rem wide at most; white, radius 24, the `deep` shadow, 20 px inside.
+ */
+export async function cardOverFieldEdgeAsSpecified(page: Page, widths: number[]) {
+	return {
+		places: Object.fromEntries(
+			widths.map((width) => [
+				width,
+				{
+					cardOverEdge: width < 640 ? 48 : 56,
+					headerAboveEdge: width < 640 ? 80 : 96,
+					cardStart: 0,
+					cardWidth: Math.min(HEADER_WIDEST, width - 2 * gutterAt(width)),
+				},
+			]),
+		),
+		look: {
+			fill: await tokenColor(page, "surface-base"),
+			corners: "24px",
+			shadow: expect.stringMatching(/rgba\(13, 46, 36, 0\.35\) 0px 30px 60px -20px$/),
+			inside: ["20px", "20px"],
+		},
+	};
+}
 
 /** The value a record page states for one of its details, by the detail's Thai name. */
 export function detailOf(page: Page, name: string) {

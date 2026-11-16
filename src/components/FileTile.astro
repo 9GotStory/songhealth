@@ -1,0 +1,25 @@
+---
+// A Document's file as a tile (Feature 010 #315, #317; spec #311 "The Document repository", "The
+// card over the field's edge"): the Announcement row's date tile in size and gradient (§8.7), 68 px
+// below `sm` and 92 px from `sm`, with the 24 px file-text and the file's type ("PDF") in
+// accent-warm, or "ไฟล์" when the file cannot be served or its name and stored key carry no type
+// (src/lib/media.ts). It is decorative, since the words beside it name the type too. A Document row
+// and a Document's page show it; the type's accent-warm is a measured exception at these sizes and
+// on this gradient (docs/design/DESIGN.md §3.2), so a change to either needs a new measure.
+import FileText from "@lucide/astro/icons/file-text";
+
+interface Props {
+	/** The file's type, such as "PDF"; none for a file that cannot be served or has no type. */
+	type?: string;
+}
+
+const { type } = Astro.props;
+---
+
+<p
+	aria-hidden="true"
+	class="flex size-17 shrink-0 flex-col items-center justify-center gap-1 rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-surface-base sm:size-23 sm:rounded-18"
+>
+	<FileText class="shrink-0" size={24} />
+	<span class="text-small font-semibold text-accent-warm">{type ?? "ไฟล์"}</span>
+</p>

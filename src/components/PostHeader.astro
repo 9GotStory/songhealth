@@ -5,12 +5,14 @@
 // an outlined white pill, both with a 1 px edge so they are as high and share a line, the title as
 // the page's one H1, and the summary under it, so a story told only in its One Page is in words too
 // (grill Q14). A page's other dates, such as when Health Content was last reviewed, follow in the
-// default slot. An Announcement's page takes the same header, though it is not a Post page
-// (Feature 010 #316; spec #311 "An Announcement's page and a Document's page: the header",
-// decision 9): its type in the outlined pill, and no summary
-// (src/pages/announcements/[slug].astro).
+// default slot. An Announcement's and a Document's page take the same header, though neither is a
+// Post page (Feature 010 #316, #317; spec #311 "An Announcement's page and a Document's page: the
+// header", decision 9): an Announcement's type in the outlined pill, and no summary
+// (src/pages/announcements/[slug].astro); a Document's type in the outlined pill, then
+// "ถูกแทนที่แล้ว" or "หมดอายุแล้ว" in an accent-warm pill, and no publication date
+// (src/pages/documents/[slug].astro).
 // The summary keeps the line breaks staff typed. A part the post lacks is left out, and so is the
-// row when it holds neither pill, as a draft's preview has no publication date. Its
+// row when it holds no pill, as a draft's preview has no publication date. Its
 // text takes the field's surface-base (DeepField.astro).
 //
 // The page passes no `crumbs` to the shell, which then shows no breadcrumb above the page
@@ -35,18 +37,23 @@ interface Props {
 	publishedAt?: Instant;
 	/** The outlined pill's words beside the date: a News item's category, an Announcement's type. */
 	outlined?: string;
+	/** An accent-warm pill's words after the outlined one, such as a Document's status. */
+	attention?: string;
 }
 
-const { section, crumbs, title, summary, publishedAt, outlined } = Astro.props;
+const { section, crumbs, title, summary, publishedAt, outlined, attention } = Astro.props;
+/** An accent-warm pill, its edge transparent so it is as high as the outlined one. */
+const warmPill =
+	"rounded-pill border border-transparent bg-accent-warm px-3 py-0.5 text-brand-dark";
 ---
 
 <header class="flex max-w-3xl flex-col gap-6">
 	<Breadcrumb onField items={breadcrumbTrail(section, crumbs)} />
 	<div class="hero-enter flex flex-col gap-3">
-		{(publishedAt || outlined) && (
+		{(publishedAt || outlined || attention) && (
 			<p class="flex flex-wrap items-center gap-2 text-small font-semibold">
 				{publishedAt && (
-					<span class="rounded-pill border border-transparent bg-accent-warm px-3 py-0.5 text-brand-dark">
+					<span class={warmPill}>
 						เผยแพร่ <DateText value={publishedAt} />
 					</span>
 				)}
@@ -55,6 +62,7 @@ const { section, crumbs, title, summary, publishedAt, outlined } = Astro.props;
 						{outlined}
 					</span>
 				)}
+				{attention && <span class={warmPill}>{attention}</span>}
 			</p>
 		)}
 		<h1 class="text-h3 wrap-anywhere sm:text-h2 lg:text-h1">
