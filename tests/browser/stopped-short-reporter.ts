@@ -9,8 +9,9 @@
 // fails, it only says how much of the test the failure hid. It never changes the run's result.
 //
 // It reads the test's own file as Prettier leaves it: a test ends at the first line that closes a
-// block at the indentation of its `test(` line, and the blocks around a line are the lines above
-// it with less indentation.
+// block at the indentation of its `test(` line without opening another, so a header broken over
+// lines, whose `}) => {` opens the body, is read past (#329), and the blocks around a line are the
+// lines above it with less indentation.
 
 import { readFileSync } from "node:fs";
 
@@ -25,6 +26,7 @@ const LOOP = /^\s*(?:for\s*(?:await\s*)?\(|while\s*\()|\.forEach\(/;
 const indentOf = (line: string) => /^\s*/.exec(line)![0].length;
 const isComment = (line: string) => /^\s*(?:\/\/|\/?\*)/.test(line);
 const closesBlock = (line: string) => /^\s*[\])}]/.test(line);
+const opensBlock = (line: string) => /[[({]\s*$/.test(line);
 
 /**
  * What the test at `testLine` of `source` left unrun when it failed at `failedLine`, both counted
@@ -41,7 +43,8 @@ export function stoppedShort(
 	const failed = failedLine - 1;
 	const indent = indentOf(lines[start] ?? "");
 	const closing = lines.findIndex(
-		(line, index) => index > start && indentOf(line) === indent && closesBlock(line),
+		(line, index) =>
+			index > start && indentOf(line) === indent && closesBlock(line) && !opensBlock(line),
 	);
 	const end = closing === -1 ? lines.length - 1 : closing;
 	if (failed <= start || failed >= end) return undefined;
