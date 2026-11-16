@@ -50,6 +50,7 @@ import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
 	LIST_END,
+	LeadingEntries,
 	SECTION_CRUMBS,
 	boxOf,
 	detailOf,
@@ -310,25 +311,15 @@ const in2031 = (month: number, day: number) =>
 	`2031-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
 
 /** The 2031 Announcements a test published, returned to draft after it (`publishLeading`). */
-const leading: DraftFixture[] = [];
+const leading = new LeadingEntries();
 
-/**
- * Publish `fixture`, dated 2031, until the test ends: left published, the rows that lead the list
- * would push a later test's own off the first page (#313 note on #314).
- */
+/** Publish `fixture`, dated 2031, until the test ends (`LeadingEntries`). */
 async function publishLeading(fixture: DraftFixture): Promise<void> {
 	await publish(fixture);
-	leading.push(fixture);
+	leading.hold("announcements", fixture);
 }
 
-test.afterEach(async () => {
-	// Each is unpublished before any result is judged, so one refusal leaves no other published.
-	const refused: string[] = [];
-	for (const fixture of leading.splice(0)) {
-		if (!(await unpublishEntry(admin, "announcements", fixture.id)).ok) refused.push(fixture.title);
-	}
-	expect(refused, "every leading Announcement unpublished").toEqual([]);
-});
+test.afterEach(() => leading.release(admin));
 
 /**
  * Open the page of /announcements that lists `title`: closed rows follow every current one, which

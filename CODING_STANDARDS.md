@@ -23,6 +23,10 @@ and why, and `.jscpd-baseline.json` records them.
   comment cites the fact in `docs/agents/emdash-1.1.0.md` that shows EmDash lacks it, and a
   missing fact is added there with its source path (CLAUDE.md "Platform-native first";
   `src/lib/navigation.ts` breadcrumbTrail is an example).
+- A measured figure, such as a contrast ratio or a height, lives in `docs/design/DESIGN.md`; a
+  comment, a rule or an ignore entry cites its section instead of repeating the number, so a new
+  measure is one edit (#314 retro: the date tile's month, measured again, sat in six places). A
+  figure an older comment repeats goes when a change touches that comment.
 - Code that departs from the spec or the current docs on a Product Owner decision cites the
   decision (issue and comment) where it departs, so a later change does not "fix" it back.
 - Accepted Feature 001 and 002 files carry long historical headers. Trim them when a change
@@ -100,10 +104,9 @@ and why, and `.jscpd-baseline.json` records them.
   under a heading"), it is
   4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product
   Owner, 2026-11-11: #242 comment 6797113372, item 1). One measured exception: the month
-  and year on a current Announcement's date tile, 5.45:1 or more on the Homepage and 5.37:1 or
-  more on the Announcements list (#314), where they sit on its gradient
-  (`docs/design/DESIGN.md` §8.7; Product Owner, 2026-11-12: #245 comment 6812837231). A change
-  to the tile's size or gradient needs a new measure.
+  and year on a current Announcement's date tile, where they sit on its gradient (its readings in
+  `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12: #245 comment 6812837231). A
+  change to the tile's size or gradient needs a new measure.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
   state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`
@@ -164,8 +167,11 @@ and why, and `.jscpd-baseline.json` records them.
   role or name, such as a decorative mark.
 - A test that changes shared runtime state (site settings, menus, plugin settings) saves it first
   and restores it in `finally`, and says what the native API cannot restore.
-- A suite's fixtures stay until the suite ends, so a test that needs its fixtures to lead an
-  ordered list (newest first, a page boundary) dates them after every earlier test's fixtures.
+- A test whose fixtures lead an ordered list (newest first, a page boundary) dates them after
+  every earlier test's fixtures and returns them to draft when it ends, so a later test's own
+  fixtures lead in turn: `LeadingEntries` in `tests/browser/public.helpers.ts` holds them for the
+  suite's `test.afterEach` (#314 retro: 2031 Announcements left published pushed the paging
+  test's own off the first page, as #313's left `testFirstPageByCount`'s).
 - A test of a precedence rule, such as the longest listed word first or the newest entry first,
   gives its input in an order the rule must overturn, so the test fails without the rule (#145
   retro: a list already sorted longest first passed with the sort removed).
