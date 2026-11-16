@@ -553,9 +553,11 @@ this document names:
   an H2, `text-primary`, semibold, body size below `sm` and body-large from `sm`, two lines at
   most (Product Owner, 2026-11-16: #315 comment 6908747140, item 1), linking to the Document's
   page; and from `sm` the summary at label size in `text-secondary`, two lines at most. Then the
-  download: a `brand-primary` pill 44 px high, with the 20 px `download` icon, "ดาวน์โหลด"
-  semibold and the file's type and size in parentheses in regular weight, linking to the file at
-  EmDash's media URL under the uploaded file's name, as the Document's page does. Its
+  download, the same for a superseded or expired Document, whose label above the title states its
+  status (Product Owner, 2026-11-16: #315 comment 6909993217): a `brand-primary` pill 44 px high,
+  with the 20 px `download` icon, "ดาวน์โหลด" semibold and the file's type and size in parentheses
+  in regular weight, linking to the file at EmDash's media URL under the uploaded file's name, as
+  the Document's page does. Its
   accessible name adds the Document's title after the visible words, for assistive technology
   only, so the downloads of a page are told apart (WCAG 2.2 SC 2.4.4, 2.5.3). A file that cannot
   be served shows "ไฟล์ไม่พร้อมให้บริการ" at small size, semibold, in `text-secondary`, in its
