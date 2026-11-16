@@ -1,0 +1,10 @@
+after-announcement-closed-1024.png	/announcements/demo-announcement-quit-smoking-1@1024
+after-announcement-closed-1440.png	/announcements/demo-announcement-quit-smoking-1@1440
+after-announcement-closed-320.png	/announcements/demo-announcement-quit-smoking-1@320
+after-announcement-closed-375.png	/announcements/demo-announcement-quit-smoking-1@375
+after-announcement-closed-768.png	/announcements/demo-announcement-quit-smoking-1@768
+after-announcement-open-1024.png	/announcements/demo-announcement-vhv-recruitment@1024
+after-announcement-open-1440.png	/announcements/demo-announcement-vhv-recruitment@1440
+after-announcement-open-320.png	/announcements/demo-announcement-vhv-recruitment@320
+after-announcement-open-375.png	/announcements/demo-announcement-vhv-recruitment@375
+after-announcement-open-768.png	/announcements/demo-announcement-vhv-recruitment@768
