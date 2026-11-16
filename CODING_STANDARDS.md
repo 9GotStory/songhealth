@@ -100,7 +100,8 @@ and why, and `.jscpd-baseline.json` records them.
   under a heading"), it is
   4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product
   Owner, 2026-11-11: #242 comment 6797113372, item 1). One measured exception: the month
-  and year on a Current Announcement's date tile, 5.45:1 or more where they sit on its gradient
+  and year on a current Announcement's date tile, 5.45:1 or more on the Homepage and 5.37:1 or
+  more on the Announcements list (#314), where they sit on its gradient
   (`docs/design/DESIGN.md` §8.7; Product Owner, 2026-11-12: #245 comment 6812837231). A change
   to the tile's size or gradient needs a new measure.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the

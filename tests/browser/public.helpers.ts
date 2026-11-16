@@ -1244,19 +1244,19 @@ export interface MovingCards {
  * `atOnce` show at once; each of its `cards`, where `moving` names them, reveals as it comes into
  * the window and shows whole while it holds the keyboard's focus, and a picture's box shimmers as
  * the page opens while a missing picture's visual does not; and nothing runs by itself for more
- * than five seconds (WCAG 2.2 SC 2.2.2). A list whose items do not move yet, such as the
- * Activities, Announcements and Documents lists until Feature 010's cards and rows (#312), names
- * its `grid` alone. The empty state that `empty.path` shows, reading `empty.message`, shows at once
- * too. With reduced motion preferred, and on paper, nothing moves. The page's height and each
- * part's place are the same either way, at the desktop width, 375 px and 320 px. The page ends on a
- * screen with motion allowed.
+ * than five seconds (WCAG 2.2 SC 2.2.2). A list of rows, which have no picture, names its `grid`
+ * and `cards` alone (Feature 010 #314). A list whose items do not move yet, such as the
+ * Documents list until Feature 010's rows (#315), names its `grid` alone. The empty state that
+ * `empty.path` shows, reading `empty.message`, shows at once too. With reduced motion preferred,
+ * and on paper, nothing moves. The page's height and each part's place are the same either way, at
+ * the desktop width, 375 px and 320 px. The page ends on a screen with motion allowed.
  */
 export async function expectListMovesOnlyWhenAllowed(
 	page: Page,
 	path: string,
 	heading: ListHeadingParts,
 	atOnce: Array<[name: string, part: Locator]>,
-	moving: MovingCards | Pick<MovingCards, "grid">,
+	moving: MovingCards | Pick<MovingCards, "grid" | "cards"> | Pick<MovingCards, "grid">,
 	empty: { path: string; message: string },
 ): Promise<void> {
 	const { grid } = moving;
@@ -1373,7 +1373,7 @@ export async function expectListMovesOnlyWhenAllowed(
 		await expect(heading.title).toBeVisible();
 		const ends = await selfRunningEnds(page.locator("html"));
 		expect(Math.max(0, ...ends), "the last effect to end, in ms").toBeLessThanOrEqual(5_000);
-		if (!("cards" in moving)) return;
+		if (!("pictured" in moving)) return;
 		expect(
 			(await selfRunningEnds(moving.pictured)).length,
 			"the box of a card's picture shimmers as the page opens",
@@ -1866,9 +1866,9 @@ export function testFilteredListOnField(list: FilteredListOnField): void {
 export const LIST_END = "2001-01-01T03:00:00.000Z";
 
 /**
- * A list page that opens on the deep field with the items it showed before Feature 010's cards and
- * rows (Feature 010 #312; spec #311 "Decisions", 3 and 4): the Activities, the Announcements and
- * the Documents lists, the last with its filter form before its rows.
+ * A Feature 010 list page that opens on the deep field (Feature 010 #312; spec #311 "Decisions", 3
+ * and 4): the Activities, the Announcements and the Documents lists, the last with its filter form
+ * before its rows.
  */
 export interface ListOnField extends HeadingOnField {
 	/** The collection the list shows. */
@@ -1896,11 +1896,16 @@ export interface ListOnField extends HeadingOnField {
 	 * shimmer of a picture's box.
 	 */
 	publishPictured?: (label: string) => Promise<DraftFixture>;
+	/**
+	 * For a list whose rows move (Feature 010 #314): the motion case reads each row's reveal. Rows
+	 * have no picture, so it reads no shimmer.
+	 */
+	rowsMove?: boolean;
 }
 
 /**
- * Declare the tests of a list's heading on the deep field and of what follows it, for a list whose
- * items keep their look (Feature 010 #312): the list with no item at all, the heading's parts and
+ * Declare the tests of a list's heading on the deep field and of what follows it, for Feature
+ * 010's lists (#312): the list with no item at all, the heading's parts and
  * sizes (`testHeadingOnField`), the filter form where the list has one and then the items and the
  * pager over the field's lower edge, each empty state there, the keyboard from the breadcrumb with
  * the field's focus ring, the motion case and the page without JavaScript. The suite calls it
@@ -2011,30 +2016,39 @@ export function testListOnField(list: ListOnField): void {
 		}
 	});
 
-	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, ${list.form ? "the filter form, " : ""}${list.publishPictured ? "" : "the items, "}the pager and an empty state show at once${list.publishPictured ? "; each card reveals as it comes into the window and shows whole while it holds the keyboard's focus, and a picture's box shimmers as the page opens while a missing picture's visual does not" : ""}, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
+	/** What the motion case says the items do. */
+	const itemsMotion = list.publishPictured
+		? "; each card reveals as it comes into the window and shows whole while it holds the keyboard's focus, and a picture's box shimmers as the page opens while a missing picture's visual does not"
+		: list.rowsMove
+			? "; each row reveals as it comes into the window and shows whole while it holds the keyboard's focus"
+			: "";
+	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, ${list.form ? "the filter form, " : ""}${itemsMotion ? "" : "the items, "}the pager and an empty state show at once${itemsMotion}, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
 		page,
 	}) => {
 		test.setTimeout(120_000);
 		await fillPastOnePage("motion");
 		const pictured = await list.publishPictured?.("motion-picture");
 		const { cards, grid, pager } = cardList(page);
+		const moving = pictured
+			? {
+					grid,
+					cards,
+					pictured: listedItem(page, pictured.title),
+					plain: cards.filter({ hasNot: page.locator("img") }).last(),
+				}
+			: list.rowsMove
+				? { grid, cards }
+				: { grid };
 		await expectListMovesOnlyWhenAllowed(
 			page,
 			path,
 			listHeading(page, text),
 			[
 				...formPart(page),
-				...(pictured ? [] : [["the items", grid] as [string, Locator]]),
+				...(itemsMotion ? [] : [["the items", grid] as [string, Locator]]),
 				["the pager", pager],
 			],
-			pictured
-				? {
-						grid,
-						cards,
-						pictured: listedItem(page, pictured.title),
-						plain: cards.filter({ hasNot: page.locator("img") }).last(),
-					}
-				: { grid },
+			moving,
 			{ path: `${path}?page=10000`, message: list.pastLast },
 		);
 	});
