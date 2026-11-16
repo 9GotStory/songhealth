@@ -1066,6 +1066,26 @@ function typeOf(part: Locator) {
 	});
 }
 
+/**
+ * How a download's words lie in it: on how many lines its type and size in parentheses run, and
+ * whether its words keep 8 px or more from its upper and lower edges.
+ */
+function wordsIn(download: Locator) {
+	return download.evaluate((link) => {
+		const size = [...link.querySelectorAll("span")].find((span) =>
+			span.textContent?.trim().startsWith("("),
+		);
+		const words = size?.parentElement;
+		if (!size || !words) return "no type and size";
+		const box = link.getBoundingClientRect();
+		const text = words.getBoundingClientRect();
+		return {
+			sizeLines: size.getClientRects().length,
+			inset: Math.min(text.top - box.top, box.bottom - text.bottom) >= 8 - 0.5,
+		};
+	});
+}
+
 test.describe("a Document's page on the field", () => {
 	/** A type, the summary, every detail, current: its type's pill alone. */
 	let full: DocumentFixture & { type: SyntheticTerm };
@@ -1093,6 +1113,8 @@ test.describe("a Document's page on the field", () => {
 		});
 		full = { ...created, type };
 		superseded = await createDocument("field-superseded", {
+			// 11.8 KB, a size whose words take two lines of the download at 320 px.
+			file: await uploadSyntheticPdf(admin, undefined, 12_083),
 			data: { domain_status: "superseded" },
 			taxonomies: { document_type: [type.slug] },
 		});
@@ -1267,8 +1289,11 @@ test.describe("a Document's page on the field", () => {
 		const card = fieldParts(page).card;
 		const tile = card.locator("svg.lucide-file-text").locator("xpath=..");
 		const heading = card.getByRole("heading", { level: 2, name: "ไฟล์เอกสาร" });
-		const typeAndSize = card.getByText("PDF, 2 KB", { exact: true });
-		const download = card.getByRole("link", { name: "ดาวน์โหลดเอกสาร (PDF, 2 KB)", exact: true });
+		const typeAndSize = card.getByText("PDF, 11.8 KB", { exact: true });
+		const download = card.getByRole("link", {
+			name: "ดาวน์โหลดเอกสาร (PDF, 11.8 KB)",
+			exact: true,
+		});
 		const rule = card.getByRole("separator");
 		const details = card.locator("dl");
 		const found = (await download.count()) === 1 && (await rule.count()) === 1;
@@ -1285,7 +1310,7 @@ test.describe("a Document's page on the field", () => {
 				download: {
 					fill: await download.evaluate((link) => getComputedStyle(link).backgroundColor),
 					words: await typeOf(download),
-					typeAndSize: (await typeOf(download.getByText("(PDF, 2 KB)", { exact: true })))[1],
+					typeAndSize: (await typeOf(download.getByText("(PDF, 11.8 KB)", { exact: true })))[1],
 					icon: await download.locator("svg.lucide-download").evaluate((icon) => {
 						const box = icon.getBoundingClientRect();
 						return [box.width, box.height];
@@ -1348,7 +1373,7 @@ test.describe("a Document's page on the field", () => {
 						}
 					: {
 							across: [Math.round(downloadBox.x - inner.left), Math.round(downloadBox.width)],
-							height: Math.round(downloadBox.height),
+							tall: downloadBox.height >= 44,
 							under: Math.round(
 								downloadBox.y - Math.max(tileBox.y + tileBox.height, textBox.y + textBox.height),
 							),
@@ -1359,6 +1384,7 @@ test.describe("a Document's page on the field", () => {
 					Math.round(ruleBox.width),
 				],
 				detailsUnderRule: Math.round(detailsBox.y - ruleBox.y - ruleBox.height),
+				words: await wordsIn(download),
 			};
 			expected[width] = {
 				tileFirst: [0, 0],
@@ -1367,9 +1393,12 @@ test.describe("a Document's page on the field", () => {
 				sizeUnderHeading: 0,
 				download: wide
 					? { right: 0, height: 52, besideText: true }
-					: { across: [0, Math.round(inner.width)], height: 44, under: 16 },
+					: { across: [0, Math.round(inner.width)], tall: true, under: 16 },
 				rule: [20, 1, Math.round(inner.width)],
 				detailsUnderRule: 20,
+				// The type and size stay on one line, and the words keep 8 px from the pill's edges
+				// when they take two lines.
+				words: { sizeLines: 1, inset: true },
 			};
 		}
 		expect(seen, "the card's file block, rule and details").toEqual(expected);

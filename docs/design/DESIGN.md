@@ -1589,7 +1589,9 @@ card (`PostHeader`, `CardOverField`).
   "ดาวน์โหลดเอกสาร" semibold and the type and size in regular weight, linking to the file at
   EmDash's media URL under the uploaded file's name. From `sm` the download sits at the card's
   right, beside the text, 52 px high; below `sm` it runs across the card 16 px under the tile and
-  the text, 44 px high. It is the same for a superseded or expired Document (#315 comment
+  the text, 44 px high, or, where its words do not fit one line (as "ดาวน์โหลดเอกสาร (PDF, 11.8
+  KB)" at 320 px), on two lines centred 8 px inside it, the type and size kept whole on one
+  (`FileDownloadLink`, the row's too). It is the same for a superseded or expired Document (#315 comment
   6909993217). **A file that cannot be served** shows the H2 and today's notice
   (`UnavailableNotice`: "ไฟล์ไม่พร้อมให้บริการ", "หากต้องการเอกสารนี้ โปรดติดต่อสำนักงาน", "ติดต่อเรา"
   to `/contact`), and no tile. Then, 20 px apart, a 1 px `border-default` rule and today's details
