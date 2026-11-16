@@ -2527,6 +2527,12 @@ export async function expectServiceIcon(card: Locator, icon: string, title: stri
 	);
 }
 
+/** A Post page's and an Announcement's header's widest, 48 rem, the breadcrumb's with it. */
+export const HEADER_WIDEST = 768;
+
+/** The page's gutter beside its column, below `sm` and from `sm`. */
+export const gutterAt = (width: number) => (width < 640 ? 16 : 24);
+
 /** The value a record page states for one of its details, by the detail's Thai name. */
 export function detailOf(page: Page, name: string) {
 	return page

@@ -182,7 +182,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents`, the file's type on its tile (§7.3); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's header, the pill of "เผยแพร่" and the date (§9.1) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, the file's type on its tile (§7.3, §9.4); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -445,7 +445,7 @@ this document names:
 | Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
 | Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `ServiceCard`, `QuickLinkCard`, `PersonCard` |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
-| Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8) and a Post page's header (§9.1) |
+| Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1) and an Announcement's (§9.4) |
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's page under a Post page's header (§9.4) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
@@ -1158,7 +1158,7 @@ News as a section of their own. Their row is also the Announcements list's (belo
   `scripts/measure-focus-contrast.ts` read the first row's ring, over the field's edge, at 5.40:1
   or more beside it with its band, none of it under 3:1, at every width; without the band, about
   half of the ring's pixels lie on the field under 3:1. An
-  Announcement's page shows the dotted label in its details card since #316 (§9.4), and a search
+  Announcement's page shows the dotted label in its details card (§9.4), and a search
   result keeps the earlier label, closed in `brand-dark` on `accent-warm` (`StatusLabel`). `tests/browser/public-announcements.spec.ts` reads the row's
   parts, a closed row against a current one, the hover, the keyboard and the order across pages;
   `public-homepage.spec.ts` reads the Homepage's rows.
@@ -1524,12 +1524,12 @@ A Document's page takes the same header and card in #317.
   (every type's label, as the details row joins them) in the outlined white pill, 13 / 20
   semibold, each with its 1 px edge; then the title as the page's one H1, H3 below `sm`, H2 from
   `sm` and H1 from `lg`. A pill the Announcement lacks is left out, and so is the row without a
-  pill, as on a draft's preview without a type. The "เผยแพร่" line that was under the title is now
-  the pill. The page gives the shell no crumbs.
+  pill, as on a draft's preview without a type; a typed draft's preview shows its type alone. The
+  page gives the shell no crumbs.
 - **The card over the field's edge** (`CardOverField`): the header ends 80 px above the field's
   lower edge below `sm` and 96 px from `sm`, and the card starts 48 px above the edge below `sm`
   and 56 px from `sm`, in the text column, 48 rem wide at most: white, radius 24, the `deep`
-  shadow, 20 px inside. It holds the details as before (type, announcement date, open date, close
+  shadow, 20 px inside. It holds the details (type, announcement date, open date, close
   date, status), each row only when set, with the status as the Announcements list's dotted label
   (§8.7): "เปิดอยู่" `surface-base` on `brand-primary`, "ยังไม่เปิด" `brand-dark` on `accent-warm`,
   "ปิดแล้ว" `text-primary` on `status-closed`, at small size. **An Announcement with no details
@@ -1553,6 +1553,16 @@ A Document's page takes the same header and card in #317.
   edge at 320, 375, 639, 640 and 1,440 px, its look and the three dotted labels; the page without
   a card; the text's and the related Documents' spaces at seven widths, their heading and their
   rows' H3s and downloads; and the motion.
+- **Measured** on the development runtime at `6e429c5` (#316), `scripts/measure-text-contrast.ts
+  --all-text` at 1,440, 1,024, 768, 375 and 320 px on `/announcements/demo-announcement-vhv-recruitment`
+  (open, one related Document) and `/announcements/demo-announcement-quit-smoking-1` (closed), the
+  lowest of each text: the breadcrumb's links 8.84:1 and its current page 5.27:1 (375 px); "เผยแพร่"
+  and the date 7.75:1; the type's words 7.60:1 (320 px); the H1 6.36:1 (320 px); the card's terms
+  4.97:1 and values 16.54:1; "เปิดอยู่" 6.45:1 and "ปิดแล้ว" 13.85:1; the label "เอกสารเผยแพร่"
+  6.09:1 and the H2 15.47:1; a related row's "PDF" 5.60:1, facts and summary 4.97:1, title 16.54:1
+  and download 6.45:1. `scripts/measure-focus-contrast.ts` read the row's title link and download
+  rings at 6.45:1 under them and 6.07:1 or more beside them, and the breadcrumb's `accent-warm` ring
+  on the field at 6.61:1 or more, none under 3:1.
 
 ## 10. Acceptance and known limits
 

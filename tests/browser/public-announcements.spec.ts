@@ -49,6 +49,7 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	HEADER_WIDEST,
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
@@ -61,6 +62,7 @@ import {
 	detailOf,
 	entersAfter,
 	expectStacked,
+	gutterAt,
 	heldBack,
 	expect,
 	expectBreadcrumb,
@@ -90,12 +92,6 @@ const RELATED = { label: "เอกสารเผยแพร่", title: "เ�
 /** The first and last paragraphs of an Announcement's details in the page's fixtures. */
 const DETAILS_TEXT = `${SYNTHETIC_FIXTURE_MARK} ผู้สนใจยื่นใบสมัครได้ที่สำนักงานสาธารณสุขอำเภอสอง`;
 const DETAILS_END = `${SYNTHETIC_FIXTURE_MARK} ยื่นใบสมัครพร้อมสำเนาบัตรประชาชน`;
-
-/** The header's and the card's widest, 48 rem. */
-const HEADER_WIDEST = 768;
-
-/** The page's gutter beside its column, below `sm` and from `sm`. */
-const gutterAt = (width: number) => (width < 640 ? 16 : 24);
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -996,8 +992,17 @@ test.describe("an Announcement's page on the field", () => {
 			`เผยแพร่ ${thaiDate(untyped.publishedAt)}`,
 		);
 
-		// A draft has no publication date, and without a type its preview has no row: its title
-		// follows the breadcrumb.
+		// A draft has no publication date: with a type its preview's row holds the type alone, and
+		// without one it has no row, its title following the breadcrumb.
+		const typedDraft = await createAnnouncement("field-typed-draft", {
+			taxonomies: { announcement_type: [full.type.slug] },
+		});
+		await page.goto((await mintPreviewLink(admin, "announcements", typedDraft.id)).toString());
+		const typedPill = fieldParts(page).field.getByText(full.type.label, { exact: true });
+		await expect(
+			typedPill.locator("xpath=.."),
+			"the typed draft's row holds its type alone",
+		).toHaveText(full.type.label);
 		const draft = await createAnnouncement("field-draft");
 		await page.goto((await mintPreviewLink(admin, "announcements", draft.id)).toString());
 		const drafted = fieldParts(page);
