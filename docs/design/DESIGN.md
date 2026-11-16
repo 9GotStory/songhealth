@@ -499,7 +499,7 @@ this document names:
   the page's colour the band hardly
   shows. On `/activities`, as on `/news` with the same layout, the band leaves none of a card's
   ring beside a colour under 3:1 at the five widths, but for a few blended pixels of the second
-  card at 1,024 px, 2.97:1 at the lowest on both lists; and with `--all-text` at the
+  card at 1,024 px, 2.97:1 at the lowest on both lists, which #322 follows up (Product Owner, 2026-11-16: #313 comment 6903865541); and with `--all-text` at the
   five widths every text of a card reads 4.97:1 or more, the place and the summary in
   `text-secondary` the lowest; the large card's text over a white picture 6.24:1 or more, its
   place the lowest, and over the deep visual 11.12:1 or more (#313; measured at `bf70e05` with
