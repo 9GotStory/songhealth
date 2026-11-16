@@ -309,6 +309,24 @@ test("an Announcement closing today is current and open, one that closed yesterd
 const in2031 = (month: number, day: number) =>
 	`2031-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
 
+/** The 2031 Announcements a test published, returned to draft after it (`publishLeading`). */
+const leading: DraftFixture[] = [];
+
+/**
+ * Publish `fixture`, dated 2031, until the test ends: left published, the rows that lead the list
+ * would push a later test's own off the first page (#313 note on #314).
+ */
+async function publishLeading(fixture: DraftFixture): Promise<void> {
+	leading.push(fixture);
+	await publish(fixture);
+}
+
+test.afterEach(async () => {
+	for (const fixture of leading.splice(0)) {
+		expect((await unpublishEntry(admin, "announcements", fixture.id)).ok, "unpublish").toBe(true);
+	}
+});
+
 /**
  * Open the page of /announcements that lists `title`: closed rows follow every current one, which
  * the suite's earlier tests leave published, so a closed row may be on a later page.
@@ -373,7 +391,7 @@ test("each /announcements row is the Homepage's row: the date tile with the day 
 	page,
 }) => {
 	const long =
-		"ซึ่งมีชื่อเรื่องยาวเกินกว่าสองบรรทัดของแถวในรายการประกาศทุกความกว้างของหน้าจอ เพื่อดูว่าชื่อเรื่องถูกตัดให้เหลือสองบรรทัดและยังอ่านได้ครบในหน้าประกาศเอง";
+		"ซึ่งมีชื่อเรื่องยาวเกินกว่าสองบรรทัดของแถวในรายการประกาศทุกความกว้างของหน้าจอ แม้บนจอกว้างที่สุดที่แถวมีพื้นที่มากที่สุด เพื่อดูว่าชื่อเรื่องถูกตัดให้เหลือสองบรรทัดเสมอ และยังอ่านได้ครบถ้วนในหน้าประกาศของตนเอง พร้อมรายละเอียด วันที่ และเอกสารที่เกี่ยวข้องทั้งหมด";
 	const other = await createTerm("announcement_type", "ประชาพิจารณ์");
 	const procurement = await createAnnouncement("row-procurement", {
 		data: { announcement_at: in2031(1, 4), closes_at: in2031(12, 31) },
@@ -389,7 +407,7 @@ test("each /announcements row is the Homepage's row: the date tile with the day 
 	});
 	const plain = await createAnnouncement("row-plain", { data: { announcement_at: in2031(1, 1) } });
 	const fixtures = [procurement, recruitment, general, plain];
-	for (const announcement of fixtures) await publish(announcement);
+	for (const announcement of fixtures) await publishLeading(announcement);
 	const badges = [
 		[procurement, "จัดซื้อจัดจ้าง", "procurement-text", "topic-blue"],
 		[recruitment, "รับสมัครงาน", "brand-dark", "accent-warm"],
@@ -511,8 +529,8 @@ test("a closed Announcement's row has its date tile and its ปิดแล้�
 	const closed = await createAnnouncement("tile-closed", {
 		data: { announcement_at: in2031(2, 2), closes_at: closes.yesterday },
 	});
-	await publish(current);
-	await publish(closed);
+	await publishLeading(current);
+	await publishLeading(closed);
 	const colour = (name: string) => tokenColor(page, name);
 
 	await page.goto("/announcements");
@@ -550,8 +568,8 @@ test("under the pointer a row moves 10 px to the right with the deep shadow only
 	const second = await createAnnouncement("hover-second", {
 		data: { announcement_at: in2031(3, 1) },
 	});
-	await publish(first);
-	await publish(second);
+	await publishLeading(first);
+	await publishLeading(second);
 	/** The row's white surface, which moves inside the row's place: its left edge and shadow. */
 	const surfaceOf = async (row: Locator) => {
 		const surface = row.getByTestId("announcement-surface");
