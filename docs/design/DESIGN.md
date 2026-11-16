@@ -466,7 +466,6 @@ this document names:
 - **Interaction:** on a ServiceCard, hover adds a 2 px `brand-primary` ring
   without moving/resizing the card and makes its title green and underlined. The resting
   border/shadow remains; keyboard focus uses the global 3 px outline around the whole card. The
-  Activities list's card had the same ring until it took the list card (Feature 010 #313). The
   Homepage's own Service cards (§8.4), News cards (§8.6), Health Content cards (§8.8) and Activity
   tiles (§8.10), and multi-action cards, keep their own interactions.
 - **The list card**, on the News, Health News and Health Content lists (Feature 009 #283; spec
@@ -498,7 +497,9 @@ this document names:
   with the band what lies beside the ring reads 5.09:1 or more (Product Owner, 2026-11-13: #283
   comment 6854670042; measured at `fb11b3e` with `scripts/measure-focus-contrast.ts`, §3.2). On
   the page's colour the band hardly
-  shows. On `/activities` the first row reads the same as `/news`'s, and with `--all-text` at the
+  shows. On `/activities`, as on `/news` with the same layout, the band leaves none of a card's
+  ring beside a colour under 3:1 at the five widths, but for a few blended pixels of the second
+  card at 1,024 px, 2.97:1 at the lowest on both lists; and with `--all-text` at the
   five widths every text of a card reads 4.97:1 or more, the place and the summary in
   `text-secondary` the lowest; the large card's text over a white picture 6.24:1 or more, its
   place the lowest, and over the deep visual 11.12:1 or more (#313; measured at `bf70e05` with
@@ -534,8 +535,8 @@ this document names:
   a list narrowed by a Health Topic, show the small cards alone. Its picture's `sizes` is two of
   the container's three columns from `lg` (all three with one item) and the row below.
 - **Crops:** a list's card, a News, Health Content or Activity card, crops its picture to 16:9
-  from `sm` and 4:3 below (`ContentCard.astro`), as the Homepage's small News card does, where the
-  Activities list's own card cropped to 16:9 at every width until #313; the Homepage's Health Content
+  from `sm` and 4:3 below (`ContentCard.astro`), as the Homepage's small News card does; the
+  Homepage's Health Content
   cards and its Activity tiles have their own boxes (§8.8, §8.10), an Activity's photos are
   squares (§9.2), and a person's portrait is a circle, on a personnel card (`PersonCard.astro`)
   and in the Homepage's Leadership strip (§8.5). Every picture a
@@ -1856,8 +1857,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - **v1.4 the Activities list's cards (2026-11-16, Feature 010 #313):** `/activities` shows the
   list card in place of the Activity card (§7.3): on a first page the newest Activity large, laid
   out by the count as on `/news`, and on a later page even cards; each card's line is the date the
-  list orders by, a dot and the Activity's place, the date alone without one, the place held to
-  two lines from `sm` and one below, and to one line in the large card's pill, each cut with an
+  list orders by, a dot and the Activity's place, the date alone without one, the line held to
+  two lines from `sm` and the place to one below, and to one line in the large card's pill, each cut with an
   ellipsis, where a News label is never cut; the `heart` icon on a missing picture's visual; the
   crop 16:9 from `sm` and 4:3 below, where it was 16:9 at every width; the list card's hover, reveal
   and shimmer in place of the ring and the green underlined title (§7.3, §7.8, §8.12). The card

@@ -25,6 +25,8 @@
 // - Deleting a media item removes its stored file and leaves the Activity that uses it unchanged
 //   (src/api/handlers/media.ts handleMediaDelete).
 
+import type { Locator } from "@playwright/test";
+
 import {
 	createSyntheticDraft,
 	deleteMedia,
@@ -498,8 +500,21 @@ test("an Activity card's place follows its date after a dot from 640 px, the lin
 			await shownLines(width >= 640 ? line : place),
 			`the small card's ${width >= 640 ? "line" : "place"} at ${width} px`,
 		).toEqual({ lines: width >= 640 ? 2 : 1, clamped: true });
+		// A line clamp ends its last line with an ellipsis (CSS Overflow 4 `line-clamp`).
+		expect(await lineClampOf(pill), `the pill cut with an ellipsis at ${width} px`).toBe("1");
+		expect(
+			await lineClampOf(width >= 640 ? line : place),
+			`the small card's ${width >= 640 ? "line" : "place"} cut with an ellipsis at ${width} px`,
+		).toBe(width >= 640 ? "2" : "1");
 	}
 });
+
+/** The number of lines `part` is clamped to, which its last shown line ends with an ellipsis. */
+function lineClampOf(part: Locator): Promise<string> {
+	return part.evaluate((element) =>
+		getComputedStyle(element).getPropertyValue("-webkit-line-clamp"),
+	);
+}
 
 testFirstPageByCount({
 	path: "/activities",

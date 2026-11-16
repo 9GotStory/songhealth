@@ -243,11 +243,11 @@ async function expectCardDestination(page: Page, path: string, fixture: DraftFix
 }
 
 /**
- * The lists whose cards open from their whole surface. A list card (`news`: the News lists' and,
- * since Feature 010 #313, the Activities list's) is a row below 640 px with a 4:3 picture and shows
- * no summary there; its picture is 16:9 from 640 px. The suite's newest News, Health Content and
- * Activity, `news`, `health` and `activity`, are each list's large card (Feature 009 #284), so a
- * small card's case reads the pictured item after them, and its visual is its picture.
+ * The lists whose cards open from their whole surface. A list card (`listCard`: the News lists'
+ * and, since Feature 010 #313, the Activities list's) is a row below 640 px with a 4:3 picture and
+ * shows no summary there; its picture is 16:9 from 640 px. The suite's newest News, Health Content
+ * and Activity, `news`, `health` and `activity`, are each list's large card (Feature 009 #284), so
+ * a small card's case reads the pictured item after them, and its visual is its picture.
  */
 const listCases = [
 	{
@@ -255,21 +255,21 @@ const listCases = [
 		list: "/news",
 		fixture: () => pictureEntries.news!,
 		visual: "picture",
-		news: true,
+		listCard: true,
 	},
 	{
 		name: "Health News",
 		list: "/news/health",
 		fixture: () => pictureEntries.news!,
 		visual: "picture",
-		news: true,
+		listCard: true,
 	},
 	{
 		name: "Health Content",
 		list: "/health/content",
 		fixture: () => pictureEntries.health_content!,
 		visual: "picture",
-		news: true,
+		listCard: true,
 	},
 	{ name: "Services", list: "/services", fixture: () => service, visual: "service-icon" },
 	{
@@ -277,7 +277,7 @@ const listCases = [
 		list: "/activities",
 		fixture: () => pictureEntries.activities!,
 		visual: "picture",
-		news: true,
+		listCard: true,
 	},
 ];
 
@@ -288,7 +288,7 @@ function visualOf(context: (typeof listCases)[number], card: Locator): Locator {
 
 /** The shape of a list card's picture at `width`; a Service card's icon has none. */
 function ratioOf(context: (typeof listCases)[number], width: number): number | undefined {
-	if (!context.news) return undefined;
+	if (!context.listCard) return undefined;
 	return width < 640 ? 4 / 3 : 16 / 9;
 }
 
@@ -305,7 +305,7 @@ for (const width of [320, 375, 1440]) {
 					: `${context.list}/${fixture.slug}`;
 			await page.goto(context.list);
 			const card = listedItem(page, fixture.title);
-			const link = context.news
+			const link = context.listCard
 				? await expectListCardInteraction(page, card, fixture.title)
 				: await expectCardInteraction(page, card, fixture.title, 2);
 			await expect(card).toContainText(SUMMARY);
@@ -327,7 +327,7 @@ for (const width of [320, 375, 1440]) {
 			for (const target of ["visual", "summary", "metadata", "padding", "title"]) {
 				if (target === "metadata" && context.name === "Services") continue;
 				// A News list's card shows no summary below 640 px.
-				if (target === "summary" && context.news && width < 640) continue;
+				if (target === "summary" && context.listCard && width < 640) continue;
 				await page.goto(context.list);
 				if (target === "visual") await clickCardSurface(page, visual);
 				else if (target === "title")

@@ -19,7 +19,10 @@ type CardProps = ComponentProps<typeof ContentCard>;
 interface Props {
 	/** What each card shows, in the list's order. */
 	cards: Array<Pick<CardProps, "href" | "title" | "date" | "label" | "summary" | "image">>;
-	/** The list's icon: `message-square` on `/news`, `heart-pulse` on the two health lists. */
+	/**
+	 * The list's icon: `message-square` on `/news`, `heart-pulse` on the two health lists, `heart`
+	 * on `/activities`.
+	 */
 	icon: CardProps["icon"];
 	/** The page's number, from 1. */
 	page: number;
