@@ -218,7 +218,11 @@ and why, and `.jscpd-baseline.json` records them.
   a dot and its label on one line" was asserted by its text and passed while every labelled card at
   320 px ran onto two lines). The assertion reads the spec's own word: "at its foot" is less room
   under the text than above it, where a stricter stand-in such as "in the lower half" fails at
-  320 px on a card the spec allows (#284 retro: it cost a 24-minute repeat run).
+  320 px on a card the spec allows (#284 retro: it cost a 24-minute repeat run). A synthetic
+  file's type and size read "PDF, 2 KB", shorter than the demo dataset's longest, "PDF, 12.8 KB",
+  so a test that places a download's words gives `uploadSyntheticPdf` a size in bytes as its third
+  argument whose label is as long, such as 12,083 for "PDF, 11.8 KB" (#317 retro: at 320 px the
+  download broke "(PDF, 11.8" from "KB)", and only the frontend gate saw it).
 - A fixture's label carries `SYNTHETIC_FIXTURE_MARK` before its words and a suffix after them,
   some 33 characters more than a real label, so a row of such labels can wrap where real ones
   would not. A

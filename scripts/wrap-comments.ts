@@ -10,6 +10,10 @@
 //
 //   node scripts/wrap-comments.ts
 //
+// Given paths, it rewraps only those, and `npm run format:files -- <path>...` formats a few files
+// with the rewrap in about a second, where `npm run format` takes some eight (#317 retro: a
+// one-file `npx prettier --write`, without the rewrap, failed the check three times).
+//
 // A line breaks only at a space outside a `code span`, so a Thai word stays whole. The words past
 // the width move to the start of the paragraph's next line, or onto a new line where the paragraph
 // ends: at a blank comment line, a list item, a JSDoc tag or code. A list item's next lines start
@@ -165,9 +169,22 @@ export function wrapComments(source: string, width = WIDTH): string {
 	return lines.join("\n");
 }
 
-/** Rewraps each file of the code Prettier formats in place, and names each file it changes. */
-async function main(): Promise<void> {
-	for (const file of await formattedCode()) {
+/**
+ * The files of `code` a rewrap takes: all of them, or only the given `paths`, written from the
+ * repository root.
+ */
+export function givenCode(code: string[], paths: string[]): string[] {
+	if (paths.length === 0) return code;
+	const given = new Set(paths.map((path) => path.replace(/^\.\//, "")));
+	return code.filter((file) => given.has(file));
+}
+
+/**
+ * Rewraps in place each file of the code Prettier formats, or of the paths given, and names each
+ * file it changes.
+ */
+async function main(paths: string[]): Promise<void> {
+	for (const file of givenCode(await formattedCode(), paths)) {
 		const url = new URL(file, ROOT);
 		const source = await readFile(url, "utf8");
 		const wrapped = wrapComments(source);
@@ -177,4 +194,4 @@ async function main(): Promise<void> {
 	}
 }
 
-if (import.meta.main) await main();
+if (import.meta.main) await main(process.argv.slice(2));
