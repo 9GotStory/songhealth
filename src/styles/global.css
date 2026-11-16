@@ -382,7 +382,8 @@
  * fades in, after --hero-enter-delay. The Featured card and the sheet behind it turn into their
  * tilt instead, the card after the hero's text and the sheet after the card. A list's heading and
  * its lead enter the same way (src/components/ListHeading.astro; spec #280 "Motion"), and so do a
- * Post page's header and then its frame (src/components/PostHeader.astro, PostColumns.astro).
+ * Post page's header and then its frame (src/components/PostHeader.astro, PostColumns.astro), and
+ * an Announcement's header and then its card (CardOverField.astro; spec #311 "Motion").
  */
 @utility hero-enter {
 	@media screen and (prefers-reduced-motion: no-preference) {

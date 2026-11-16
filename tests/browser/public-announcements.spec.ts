@@ -33,6 +33,7 @@ import {
 	createSyntheticDocument,
 	createSyntheticDraft,
 	devAdminActor,
+	mintPreviewLink,
 	portableTextBlock,
 	publishEntryAt,
 	removeSuiteFixtures,
@@ -48,13 +49,21 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	HEADER_WIDEST,
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
 	pressInside,
 	SECTION_CRUMBS,
+	MOBILE_VIEWPORT,
+	PHONE_VIEWPORT,
 	boxOf,
+	deepField,
 	detailOf,
+	entersAfter,
+	expectStacked,
+	gutterAt,
+	heldBack,
 	expect,
 	expectBreadcrumb,
 	expectPreviewRenders,
@@ -77,6 +86,13 @@ const PAGE_SIZE = 20;
 
 /** The lead of /announcements, under its heading. */
 const ANNOUNCEMENTS_LEAD = "ประกาศของสำนักงานสาธารณสุขอำเภอสองที่ประชาชนควรทราบหรือต้องดำเนินการ";
+/** The label and the heading over an Announcement's related Documents. */
+const RELATED = { label: "เอกสารเผยแพร่", title: "เอกสารที่เกี่ยวข้อง" };
+
+/** The first and last paragraphs of an Announcement's details in the page's fixtures. */
+const DETAILS_TEXT = `${SYNTHETIC_FIXTURE_MARK} ผู้สนใจยื่นใบสมัครได้ที่สำนักงานสาธารณสุขอำเภอสอง`;
+const DETAILS_END = `${SYNTHETIC_FIXTURE_MARK} ยื่นใบสมัครพร้อมสำเนาบัตรประชาชน`;
+
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
@@ -113,6 +129,40 @@ const createAnnouncement = (label: string, fields: DraftFields = {}) =>
 /** A synthetic Document draft with `file`, and the terms given. */
 const createDocument = (label: string, file: SyntheticPdf, taxonomies?: Record<string, string[]>) =>
 	createSyntheticDocument(admin, label, { file, taxonomies });
+
+/**
+ * An Announcement's page as it lies on the deep field: the field, the breadcrumb, the header, the
+ * title, and the white card over the field's edge, a part with no role.
+ */
+function fieldParts(page: Page) {
+	const field = deepField(page);
+	return {
+		field,
+		breadcrumb: field.getByRole("navigation", { name: "เส้นทางนำทาง" }),
+		header: field.locator("header"),
+		title: field.getByRole("heading", { level: 1 }),
+		card: page.getByTestId("field-card"),
+	};
+}
+
+/** Where the field's lower edge lies in the window, as the page is laid out now. */
+async function fieldEdge(field: Locator, label: string): Promise<number> {
+	const box = await boxOf(field, `${label}: the field`);
+	return box.y + box.height;
+}
+
+/** A pill's fill, words' colour, type (size, line, weight) and edge, as the page is now. */
+function pillStyle(pill: Locator) {
+	return pill.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return {
+			fill: style.backgroundColor,
+			colour: style.color,
+			type: [style.fontSize, style.lineHeight, style.fontWeight],
+			edge: style.borderTopStyle === "solid" ? style.borderTopWidth : "none",
+		};
+	});
+}
 
 /** Publish an entry of `collection` now, or backdated. Returns the stored publication instant. */
 function publish(
@@ -694,7 +744,7 @@ test("an Announcement page shows its type, dates, details and its published atta
 	for (const document of [first, second, unpublished, trashed]) {
 		await publish(document, undefined, "documents");
 	}
-	const detailsText = `${SYNTHETIC_FIXTURE_MARK} ผู้สนใจยื่นใบสมัครได้ที่สำนักงานสาธารณสุขอำเภอสอง`;
+	const detailsText = DETAILS_TEXT;
 	const announcement = await createAnnouncement("detail", {
 		data: {
 			details: [portableTextBlock(detailsText)],
@@ -714,8 +764,6 @@ test("an Announcement page shows its type, dates, details and its published atta
 	expect(response?.status(), "GET the Announcement page").toBe(200);
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(announcement.title);
-	// Its heading stays as it is until its own ticket (Feature 010 #316, #317).
-	await expect(page.getByTestId("deep-field"), "no deep field under the heading").toHaveCount(0);
 	await expect(detailOf(page, "ประเภทประกาศ")).toHaveText(type.label);
 	await expect(detailOf(page, "วันที่ประกาศ")).toHaveText("24 ก.ย. 2569");
 	await expect(detailOf(page, "วันที่เริ่มต้น")).toHaveText("1 ต.ค. 2569");
@@ -727,17 +775,11 @@ test("an Announcement page shows its type, dates, details and its published atta
 
 	const attached = main.getByRole("region", { name: "เอกสารที่เกี่ยวข้อง" });
 	expect(
-		(await attached.getByRole("article").getByRole("heading").allTextContents()).map((text) =>
-			text.trim(),
+		(await attached.getByRole("article").getByRole("heading", { level: 3 }).allTextContents()).map(
+			(text) => text.trim(),
 		),
-		"the published Documents, in the order they were attached",
+		"the published Documents, in the order they were attached, each titled with an H3",
 	).toEqual([second.title, first.title]);
-	for (const document of [first, second]) {
-		await expect(attached.getByRole("link", { name: document.title })).toHaveAttribute(
-			"href",
-			`/documents/${document.slug}`,
-		);
-	}
 	const firstRow = attached.getByRole("article").filter({ hasText: first.title });
 	await expect(firstRow, "a related Document's row names its type").toContainText(
 		documentType.label,
@@ -752,6 +794,37 @@ test("an Announcement page shows its type, dates, details and its published atta
 		[HOME_CRUMB, SECTION_CRUMBS.news, ["ประกาศ", "/announcements"]],
 		announcement.title,
 	);
+
+	// Each row is the Document row with its own download, named by its Document, and the title lies
+	// on the deep field (Feature 010 #316; spec #311 decisions 9, 16).
+	const rows = [];
+	for (const document of [second, first]) {
+		const download = attached.getByRole("link", {
+			name: `ดาวน์โหลด (PDF, 2 KB) ${document.title}`,
+			exact: true,
+		});
+		rows.push({
+			title: await attached
+				.getByRole("link", { name: document.title, exact: true })
+				.getAttribute("href"),
+			download:
+				(await download.count()) === 1
+					? {
+							href: await download.getAttribute("href"),
+							file: await download.getAttribute("download"),
+						}
+					: "no download",
+		});
+	}
+	expect(rows, "each row's title link and its download").toEqual(
+		[second, first].map((document) => ({
+			title: `/documents/${document.slug}`,
+			download: { href: `/_emdash/api/media/file/${file.storageKey}`, file: file.filename },
+		})),
+	);
+	await expect(fieldParts(page).title, "the title on the deep field").toHaveText(
+		announcement.title,
+	);
 });
 
 test("an Announcement page leaves out the details and Documents it does not have", async ({
@@ -764,10 +837,397 @@ test("an Announcement page leaves out the details and Documents it does not have
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(announcement.title);
 	await expect(main.getByText(`เผยแพร่ ${thaiDate(publishedAt)}`)).toBeVisible();
+	await expect(fieldParts(page).card, "no details card").toHaveCount(0);
 	for (const name of ["ประเภทประกาศ", "วันที่ประกาศ", "วันที่เริ่มต้น", "วันที่สิ้นสุด", "สถานะ"]) {
 		await expect(main.getByRole("term").filter({ hasText: name }), name).toHaveCount(0);
 	}
 	await expect(main.getByRole("region", { name: "เอกสารที่เกี่ยวข้อง" })).toHaveCount(0);
+});
+
+// An Announcement's page opens on the deep field with the Post page's header and lays its details
+// card over the field's lower edge (Feature 010 #316; spec #311 "An Announcement's page and a
+// Document's page: the header", "The card over the field's edge", "Motion").
+test.describe("an Announcement's page on the field", () => {
+	/** Type, three dates, details with a heading, and two attached Documents. */
+	let full: DraftFixture & { publishedAt: string; type: SyntheticTerm; documents: DraftFixture[] };
+	/** An announcement date and no type: its date's pill alone, and a card of one row. */
+	let untyped: DraftFixture & { publishedAt: string };
+	/** Neither a type nor a date: no card, its details under the field. */
+	let bare: DraftFixture;
+	/** Closed yesterday, and not open yet. */
+	let closed: DraftFixture;
+	let upcoming: DraftFixture;
+	const pathOf = (fixture: DraftFixture) => `/announcements/${fixture.slug}`;
+
+	test.beforeAll(async () => {
+		const type = await createTerm("announcement_type", "รับสมัคร");
+		const file = await uploadSyntheticPdf(admin);
+		const documents = [
+			await createDocument("field-first", file),
+			await createDocument("field-second", file),
+		];
+		for (const document of documents) await publish(document, undefined, "documents");
+		const created = await createAnnouncement("field-full", {
+			data: {
+				details: [
+					portableTextBlock(DETAILS_TEXT),
+					portableTextBlock("ขั้นตอนการสมัคร", "h2"),
+					portableTextBlock(DETAILS_END),
+				],
+				announcement_at: "2026-09-23T17:30:00.000Z",
+				opens_at: "2026-10-01T02:00:00.000Z",
+				closes_at: "2030-10-31T10:00:00.000Z",
+			},
+			taxonomies: { announcement_type: [type.slug] },
+			references: { documents: documents.map((document) => document.id) },
+		});
+		full = { ...created, publishedAt: await publish(created), type, documents };
+		const dated = await createAnnouncement("field-untyped", {
+			data: { announcement_at: "2026-09-23T17:30:00.000Z" },
+		});
+		untyped = { ...dated, publishedAt: await publish(dated) };
+		bare = await createAnnouncement("field-bare", {
+			data: { details: [portableTextBlock(DETAILS_TEXT)] },
+		});
+		closed = await createAnnouncement("field-closed", {
+			data: { closes_at: closeDates().yesterday },
+		});
+		upcoming = await createAnnouncement("field-upcoming", {
+			data: { opens_at: "2030-02-03T03:00:00.000Z" },
+		});
+		for (const fixture of [bare, closed, upcoming]) await publish(fixture);
+	});
+
+	test("the page opens on the deep field without a ring: the breadcrumb in white, 24 px under it เผยแพร่ and the publication date in an accent-warm pill and the type in an outlined white pill, then the title as the page's one H1 in today's sizes, each on the field, 48 rem wide at most; a pill the Announcement lacks is left out, and so is the row without a pill", async ({
+		page,
+	}) => {
+		await page.goto(pathOf(full));
+		const parts = fieldParts(page);
+		const date = parts.field.getByText(`เผยแพร่ ${thaiDate(full.publishedAt)}`, { exact: true });
+		const type = parts.field.getByText(full.type.label, { exact: true });
+		await expect(page.getByRole("heading", { level: 1 }), "one H1").toHaveCount(1);
+		await expect(
+			parts.field.locator(':scope > [aria-hidden="true"] > *'),
+			"the field has no ring or other decoration",
+		).toHaveCount(0);
+		const white = await tokenColor(page, "surface-base");
+		const expectedPills = {
+			date: {
+				fill: await tokenColor(page, "accent-warm"),
+				colour: await tokenColor(page, "brand-dark"),
+				type: ["13px", "20px", "600"],
+				edge: "1px",
+			},
+			type: { fill: "rgba(0, 0, 0, 0)", colour: white, type: ["13px", "20px", "600"], edge: "1px" },
+		};
+		for (const viewport of [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+			await page.setViewportSize(viewport);
+			const label = `at ${viewport.width} px`;
+			await expectStacked(label, [
+				["the breadcrumb", parts.breadcrumb],
+				["the date's pill", date],
+				["the title", parts.title],
+			]);
+			const field = await boxOf(parts.field, `${label}: the field`);
+			for (const [name, part] of [
+				["the breadcrumb", parts.breadcrumb],
+				["the date's pill", date],
+				["the type's pill", type],
+				["the title", parts.title],
+			] as const) {
+				const box = await boxOf(part, `${label}: ${name}`);
+				expect(box.y, `${label}: ${name} starts on the field`).toBeGreaterThanOrEqual(field.y);
+				expect(box.y + box.height, `${label}: ${name} ends on the field`).toBeLessThanOrEqual(
+					field.y + field.height,
+				);
+			}
+			const crumbs = await boxOf(parts.breadcrumb, `${label}: the breadcrumb`);
+			const dateBox = await boxOf(date, `${label}: the date's pill`);
+			const typeBox = await boxOf(type, `${label}: the type's pill`);
+			expect(
+				dateBox.y - crumbs.y - crumbs.height,
+				`${label}: the pills 24 px under the breadcrumb`,
+			).toBeCloseTo(24, 0);
+			// The type follows the date on its row, or, too long for what is left of it, starts the
+			// next row 8 px under it.
+			const sameRow = Math.abs(typeBox.y - dateBox.y) <= 1;
+			expect(
+				sameRow
+					? typeBox.x > dateBox.x + dateBox.width
+					: Math.round(typeBox.x - dateBox.x) === 0 &&
+							Math.round(typeBox.y - dateBox.y - dateBox.height) === 8,
+				`${label}: the type after the date, or 8 px under it at the row's start`,
+			).toBe(true);
+			expect(
+				(await boxOf(parts.header, `${label}: the header`)).width,
+				`${label}: the header 48 rem wide at most`,
+			).toBeCloseTo(Math.min(HEADER_WIDEST, viewport.width - 2 * gutterAt(viewport.width)), 0);
+			expect(
+				{ date: await pillStyle(date), type: await pillStyle(type) },
+				`${label}: the pills`,
+			).toEqual(expectedPills);
+			for (const [name, part] of [
+				["a breadcrumb's link", parts.breadcrumb.getByRole("link").first()],
+				["the breadcrumb's current page", parts.breadcrumb.locator('[aria-current="page"]')],
+				["the title", parts.title],
+			] as const) {
+				await expect(part, `${label}: ${name} in surface-base`).toHaveCSS("color", white);
+			}
+		}
+		// The title in today's sizes: H3 below 640 px, H2 from 640 px and H1 from 1,024 px.
+		for (const [width, size] of [
+			[639, "24px"],
+			[640, "34px"],
+			[1023, "34px"],
+			[1024, "46px"],
+		] as const) {
+			await page.setViewportSize({ width, height: 900 });
+			await expect(parts.title, `the title at ${width} px`).toHaveCSS("font-size", size);
+		}
+
+		// Without a type, the date's pill is alone on its row.
+		await page.goto(pathOf(untyped));
+		const alone = fieldParts(page).field.getByText(/^เผยแพร่ /);
+		await expect(alone.locator("xpath=.."), "the row holds the date alone").toHaveText(
+			`เผยแพร่ ${thaiDate(untyped.publishedAt)}`,
+		);
+
+		// A draft has no publication date: with a type its preview's row holds the type alone, and
+		// without one it has no row, its title following the breadcrumb.
+		const typedDraft = await createAnnouncement("field-typed-draft", {
+			taxonomies: { announcement_type: [full.type.slug] },
+		});
+		await page.goto((await mintPreviewLink(admin, "announcements", typedDraft.id)).toString());
+		const typedPill = fieldParts(page).field.getByText(full.type.label, { exact: true });
+		await expect(
+			typedPill.locator("xpath=.."),
+			"the typed draft's row holds its type alone",
+		).toHaveText(full.type.label);
+		const draft = await createAnnouncement("field-draft");
+		await page.goto((await mintPreviewLink(admin, "announcements", draft.id)).toString());
+		const drafted = fieldParts(page);
+		await expect(drafted.title, "the draft's title").toHaveText(draft.title);
+		await expect(drafted.field.getByText(/เผยแพร่/), "no publication date").toHaveCount(0);
+		const crumbs = await boxOf(drafted.breadcrumb, "the draft's breadcrumb");
+		expect(
+			(await boxOf(drafted.title, "the draft's title")).y - crumbs.y - crumbs.height,
+			"the draft's title 24 px under the breadcrumb, with no row of pills between",
+		).toBeCloseTo(24, 0);
+	});
+
+	test("the details card starts 48 px above the field's lower edge below 640 px and 56 px from 640 px, where the header ends 80 and 96 px above it: white, radius 24, the deep shadow, 20 px inside, in the text column at most 48 rem wide, with the status as the list's dotted label; an Announcement with no details row has no card, and its field reaches 40 px under the header below 640 px and 48 px from 640 px", async ({
+		page,
+	}) => {
+		const deepShadow = /rgba\(13, 46, 36, 0\.35\) 0px 30px 60px -20px$/;
+		for (const fixture of [full, untyped]) {
+			await page.goto(pathOf(fixture));
+			const parts = fieldParts(page);
+			for (const width of [320, 375, 639, 640, 1440]) {
+				await page.setViewportSize({ width, height: 900 });
+				const label = `${fixture.title} at ${width} px`;
+				const edge = await fieldEdge(parts.field, label);
+				const card = await boxOf(parts.card, `${label}: the card`);
+				const title = await boxOf(parts.title, `${label}: the title`);
+				const crumbs = await boxOf(parts.breadcrumb, `${label}: the breadcrumb`);
+				expect(
+					{
+						cardOverEdge: Math.round(edge - card.y),
+						headerAboveEdge: Math.round(edge - title.y - title.height),
+						cardStart: Math.round(card.x - crumbs.x),
+						cardWidth: Math.round(card.width),
+					},
+					`${label}: the card over the field's edge`,
+				).toEqual({
+					cardOverEdge: width < 640 ? 48 : 56,
+					headerAboveEdge: width < 640 ? 80 : 96,
+					cardStart: 0,
+					cardWidth: Math.min(HEADER_WIDEST, width - 2 * gutterAt(width)),
+				});
+			}
+			await expect(parts.card, "the white card").toHaveCSS(
+				"background-color",
+				await tokenColor(page, "surface-base"),
+			);
+			await expect(parts.card, "the card's corners").toHaveCSS("border-top-left-radius", "24px");
+			await expect(parts.card, "the card's deep shadow").toHaveCSS("box-shadow", deepShadow);
+			await expect(parts.card, "20 px inside").toHaveCSS("padding-top", "20px");
+			await expect(parts.card, "20 px inside").toHaveCSS("padding-left", "20px");
+		}
+
+		// The status as the list's dotted label, in its own fill.
+		for (const [fixture, words, fill, colour] of [
+			[full, "เปิดอยู่", "brand-primary", "surface-base"],
+			[closed, "ปิดแล้ว", "status-closed", "text-primary"],
+			[upcoming, "ยังไม่เปิด", "accent-warm", "brand-dark"],
+		] as const) {
+			await page.goto(pathOf(fixture));
+			const status = detailOf(page, "สถานะ");
+			const label = status.getByText(words, { exact: true });
+			await expect(status, `${words}: in words`).toHaveText(words);
+			await expect(status.getByTestId("status-dot"), `${words}: after a dot`).toHaveCount(1);
+			await expect(label, `${words}: its fill`).toHaveCSS(
+				"background-color",
+				await tokenColor(page, fill),
+			);
+			await expect(label, `${words}: its words`).toHaveCSS("color", await tokenColor(page, colour));
+			await expect(fieldParts(page).card, `${words}: the card over the field's edge`).toBeVisible();
+		}
+
+		// No type and no date: no card; the field is as high as the header, and the details follow it
+		// (Product Owner, #316 comment 6912742335).
+		await page.goto(pathOf(bare));
+		const parts = fieldParts(page);
+		await expect(parts.card, "no card").toHaveCount(0);
+		const details = page.getByRole("main").getByText(DETAILS_TEXT, { exact: true });
+		for (const width of [375, 639, 640, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			const label = `${bare.title} at ${width} px`;
+			const edge = await fieldEdge(parts.field, label);
+			const title = await boxOf(parts.title, `${label}: the title`);
+			expect(
+				{
+					fieldUnderHeader: Math.round(edge - title.y - title.height),
+					detailsUnderField: Math.round((await boxOf(details, `${label}: the details`)).y - edge),
+				},
+				`${label}: the field and the details without a card`,
+			).toEqual({
+				fieldUnderHeader: width < 640 ? 40 : 48,
+				detailsUnderField: width < 1024 ? 32 : 40,
+			});
+		}
+	});
+
+	test("under the card the details follow 32 px below 1,024 px and 40 px from 1,024 px, then เอกสารที่เกี่ยวข้อง 32 px under them with the Homepage's section heading (the folder-open tile, the label เอกสารเผยแพร่ and the H2), its rows 24 px under the heading below 640 px and 28 px from 640 px and 14 px apart, each titled with an H3", async ({
+		page,
+	}) => {
+		await page.goto(pathOf(full));
+		const main = page.getByRole("main");
+		const parts = fieldParts(page);
+		const detailsStart = main.getByText(DETAILS_TEXT, { exact: true });
+		const detailsEnd = main.getByText(DETAILS_END, { exact: true });
+		const related = main.getByRole("region", { name: RELATED.title });
+		const heading = related.getByRole("heading", { level: 2, name: RELATED.title });
+		const label = related.getByText(RELATED.label, { exact: true });
+		const tile = related.locator("svg.lucide-folder-open").locator("xpath=..");
+		const rows = related.getByRole("article");
+		await expect(rows, "a row for each attached Document").toHaveCount(2);
+		await expect(
+			rows.getByRole("heading", { level: 3 }),
+			"each row's title an H3 under the section's H2",
+		).toHaveCount(2);
+		await expect(tile, "the folder-open tile is decorative").toHaveAttribute("aria-hidden", "true");
+		await expect(label, "the label in brand-primary").toHaveCSS(
+			"color",
+			await tokenColor(page, "brand-primary"),
+		);
+		await expect(tile, "the tile's gradient, as a section heading on the page's colour").toHaveCSS(
+			"background-image",
+			/linear-gradient/,
+		);
+		for (const width of [320, 375, 639, 640, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			const at = `at ${width} px`;
+			const card = await boxOf(parts.card, `${at}: the card`);
+			const start = await boxOf(detailsStart, `${at}: the details`);
+			const end = await boxOf(detailsEnd, `${at}: the details' end`);
+			const region = await boxOf(related, `${at}: เอกสารที่เกี่ยวข้อง`);
+			const tileBox = await boxOf(tile, `${at}: the tile`);
+			const headingBox = await boxOf(heading, `${at}: the H2`);
+			const labelBox = await boxOf(label, `${at}: the label`);
+			const first = await boxOf(rows.first(), `${at}: the first row`);
+			const second = await boxOf(rows.nth(1), `${at}: the second row`);
+			expect(
+				{
+					detailsUnderCard: Math.round(start.y - card.y - card.height),
+					relatedUnderDetails: Math.round(region.y - end.y - end.height),
+					labelAboveHeading: labelBox.y < headingBox.y,
+					tileBeforeHeading: tileBox.x + tileBox.width <= headingBox.x,
+					rowsUnderHeading: Math.round(
+						first.y - Math.max(tileBox.y + tileBox.height, headingBox.y + headingBox.height),
+					),
+					rowsApart: Math.round(second.y - first.y - first.height),
+				},
+				`${at}: the details and เอกสารที่เกี่ยวข้อง`,
+			).toEqual({
+				detailsUnderCard: width < 1024 ? 32 : 40,
+				relatedUnderDetails: 32,
+				labelAboveHeading: true,
+				tileBeforeHeading: true,
+				rowsUnderHeading: width < 640 ? 24 : 28,
+				rowsApart: 14,
+			});
+		}
+	});
+
+	test("with motion allowed the header rises in as the page opens and the card after it, while the breadcrumb, the details and the related Documents show at once; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
+		page,
+	}) => {
+		const main = page.getByRole("main");
+		const parts = fieldParts(page);
+		const date = parts.field.getByText(/^เผยแพร่ /);
+		const details = main.getByText(DETAILS_TEXT, { exact: true });
+		const related = main.getByRole("region", { name: RELATED.title });
+		const atOnce: Array<[string, Locator]> = [
+			["the breadcrumb", parts.breadcrumb],
+			["the details", details],
+			["เอกสารที่เกี่ยวข้อง", related],
+			["a related Document's row", related.getByRole("article").first()],
+		];
+		const placed: Array<[string, Locator]> = [
+			["the field", parts.field],
+			["the title", parts.title],
+			["the card", parts.card],
+			...atOnce,
+		];
+		const running = () => page.evaluate(() => document.getAnimations().length);
+		const layouts = async () => {
+			const read = [];
+			for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+				await page.setViewportSize(viewport);
+				await page.evaluate(() => window.scrollTo(0, 0));
+				const places = [];
+				for (const [name, part] of placed) places.push([name, await boxOf(part, name)]);
+				read.push({
+					height: await page.evaluate(() => document.documentElement.scrollHeight),
+					places,
+				});
+			}
+			return read;
+		};
+
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await page.goto(pathOf(full));
+		expect(await running(), "reduced: nothing is mid-animation").toBe(0);
+		expect(await heldBack(main), "reduced: nothing waits for an effect").toEqual([]);
+		const still = await layouts();
+
+		await page.emulateMedia({ reducedMotion: "no-preference" });
+		await page.goto(pathOf(full), { waitUntil: "commit" });
+		await expect(parts.title).toBeVisible();
+		const headerEnters = await entersAfter(parts.title);
+		expect(
+			{
+				title: headerEnters,
+				date: await entersAfter(date),
+				cardAfterHeader: (await entersAfter(parts.card)) > headerEnters,
+			},
+			"the header rises in as the page opens, the card after it",
+		).toEqual({ title: 0, date: 0, cardAfterHeader: true });
+		for (const [name, part] of atOnce) {
+			expect(await entersAfter(part), `${name} shows at once`).toBe(-1);
+		}
+		await expect
+			.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
+			.toEqual([]);
+		expect(await layouts(), "the page with motion, after its entrance").toEqual(still);
+
+		await page.emulateMedia({ media: "print", reducedMotion: "no-preference" });
+		await page.goto(pathOf(full));
+		await expect(parts.title).toBeVisible();
+		expect(await running(), "on paper: nothing is mid-animation").toBe(0);
+		expect(await heldBack(main), "on paper: nothing waits for an effect").toEqual([]);
+		await page.emulateMedia({ media: "screen", reducedMotion: "reduce" });
+	});
 });
 
 test("a draft, unpublished or trashed Announcement answers the site 404 and stays out of the list", async ({

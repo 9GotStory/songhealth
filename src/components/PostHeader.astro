@@ -5,8 +5,12 @@
 // an outlined white pill, both with a 1 px edge so they are as high and share a line, the title as
 // the page's one H1, and the summary under it, so a story told only in its One Page is in words too
 // (grill Q14). A page's other dates, such as when Health Content was last reviewed, follow in the
-// default slot. The summary keeps the line breaks staff typed. A part the post lacks is left out,
-// and so is the row when it holds neither pill, as a draft's preview has no publication date. Its
+// default slot. An Announcement's page takes the same header, though it is not a Post page
+// (Feature 010 #316; spec #311 "An Announcement's page and a Document's page: the header",
+// decision 9): its type in the outlined pill, and no summary
+// (src/pages/announcements/[slug].astro).
+// The summary keeps the line breaks staff typed. A part the post lacks is left out, and so is the
+// row when it holds neither pill, as a draft's preview has no publication date. Its
 // text takes the field's surface-base (DeepField.astro).
 //
 // The page passes no `crumbs` to the shell, which then shows no breadcrumb above the page
@@ -29,26 +33,26 @@ interface Props {
 	title: string;
 	summary?: string | null;
 	publishedAt?: Instant;
-	/** A News item's category, in a pill beside the date. */
-	category?: string;
+	/** The outlined pill's words beside the date: a News item's category, an Announcement's type. */
+	outlined?: string;
 }
 
-const { section, crumbs, title, summary, publishedAt, category } = Astro.props;
+const { section, crumbs, title, summary, publishedAt, outlined } = Astro.props;
 ---
 
 <header class="flex max-w-3xl flex-col gap-6">
 	<Breadcrumb onField items={breadcrumbTrail(section, crumbs)} />
 	<div class="hero-enter flex flex-col gap-3">
-		{(publishedAt || category) && (
+		{(publishedAt || outlined) && (
 			<p class="flex flex-wrap items-center gap-2 text-small font-semibold">
 				{publishedAt && (
 					<span class="rounded-pill border border-transparent bg-accent-warm px-3 py-0.5 text-brand-dark">
 						เผยแพร่ <DateText value={publishedAt} />
 					</span>
 				)}
-				{category && (
+				{outlined && (
 					<span class="rounded-pill border border-surface-base/40 px-3 py-0.5 wrap-anywhere">
-						{category}
+						{outlined}
 					</span>
 				)}
 			</p>

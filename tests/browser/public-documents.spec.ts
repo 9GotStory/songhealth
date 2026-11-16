@@ -861,7 +861,7 @@ test("a Document page shows its details, its file for download at EmDash's media
 	expect(response?.status(), "GET the Document page").toBe(200);
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(document.title);
-	// Its heading stays as it is until its own ticket (Feature 010 #316, #317).
+	// Its heading stays as it is until its own ticket (Feature 010 #317).
 	await expect(page.getByTestId("deep-field"), "no deep field under the heading").toHaveCount(0);
 	await expect(main.getByText(summary)).toBeVisible();
 	await expect(detailOf(page, "ประเภทเอกสาร")).toHaveText(type.label);

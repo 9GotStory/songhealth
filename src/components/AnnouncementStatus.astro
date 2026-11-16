@@ -7,9 +7,10 @@
 // status-closed, not open yet in brand-dark on accent-warm (docs/design/DESIGN.md §3.2 has each
 // ratio). The text and the
 // dot state the status, and the colour supports them. The closed fill shows on the Announcements
-// list's rows alone (Feature 010 #314; spec #311 "The Announcements list"): the Homepage lists
-// current Announcements only. An Announcement's page and a search result show the label without
-// a dot, a closed one in its attention fill.
+// list's rows (Feature 010 #314; spec #311 "The Announcements list") and in an Announcement's
+// details card on its page (Feature 010 #316; spec #311 "The card over the field's edge"): the
+// Homepage lists current Announcements only. A search result shows the label without a dot, a
+// closed one in its attention fill.
 import { STATUS_LABELS, type AnnouncementStatus } from "../lib/announcements";
 import StatusLabel from "./StatusLabel.astro";
 
