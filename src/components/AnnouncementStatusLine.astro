@@ -1,10 +1,10 @@
 ---
 // An Announcement's status with the dates it turns on (Feature 003 #56, #64): the status as a label
 // (ยังไม่เปิด, เปิดอยู่ or ปิดแล้ว), its open date while it is not open yet, and its close date, or
-// nothing for an Announcement with neither date. The Announcements list's rows and the Homepage's
-// current Announcements show it. The caller passes the one instant it decides every Announcement
-// at, so the statuses agree with its order. The Homepage's rows take the label after a dot
-// (AnnouncementStatus `dotted`; Feature 008 #245).
+// nothing for an Announcement with neither date. An Announcement row shows it, on the Homepage and
+// on the Announcements list. The caller passes the one instant it decides every Announcement at,
+// so the statuses agree with its order. The label is the one after a dot (AnnouncementStatus
+// `dotted`; Feature 008 #245, Feature 010 #314).
 import { statusOf, type AnnouncementData } from "../lib/announcements";
 import AnnouncementStatus from "./AnnouncementStatus.astro";
 import DateText from "./DateText.astro";
@@ -12,12 +12,10 @@ import DateText from "./DateText.astro";
 interface Props {
 	data: AnnouncementData;
 	now: Date;
-	/** The Homepage's status label, after a dot. */
-	dotted?: boolean;
 	class?: string;
 }
 
-const { data, now, dotted = false, class: className } = Astro.props;
+const { data, now, class: className } = Astro.props;
 const status = statusOf(data, now);
 ---
 
@@ -28,7 +26,7 @@ const status = statusOf(data, now);
 			className,
 		]}
 	>
-		<AnnouncementStatus status={status} dotted={dotted} />
+		<AnnouncementStatus status={status} dotted />
 		{status === "upcoming" && data.opens_at && (
 			<span>
 				วันที่เริ่มต้น <DateText value={data.opens_at} />

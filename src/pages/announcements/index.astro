@@ -14,6 +14,11 @@
 // 3; ListHeading): headed as the Homepage's Current Announcements, the label "แจ้งให้ทราบ" with the
 // file-text icon, over its H1 "ประกาศ", and no link. The rows, the empty state and the pager lie
 // over the field's lower edge (ListBody).
+//
+// Each Announcement is the Homepage's row (Feature 010 #314; spec #311 "The Announcements list";
+// AnnouncementRow), its title an H2, a closed one's date tile and status label in status-closed.
+// The rows are 14 px apart, and each reveals as it comes into the window (`scroll-reveal`,
+// src/styles/global.css), as the Homepage's rows do.
 import FileText from "@lucide/astro/icons/file-text";
 import AnnouncementRow from "../../components/AnnouncementRow.astro";
 import EmptyState from "../../components/EmptyState.astro";
@@ -49,10 +54,10 @@ const listUrl = new URL(ANNOUNCEMENTS_PATH, Astro.url);
 	</ListHeading>
 	<ListBody>
 		{entries.length > 0 ? (
-			<ul class="flex flex-col gap-4">
+			<ul class="flex flex-col gap-3.5">
 				{entries.map((announcement) => (
-					<li>
-						<AnnouncementRow announcement={announcement} now={now} />
+					<li class="scroll-reveal">
+						<AnnouncementRow announcement={announcement} now={now} kind="list" />
 					</li>
 				))}
 			</ul>

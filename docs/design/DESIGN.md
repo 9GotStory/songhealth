@@ -8,7 +8,7 @@
 > implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
 > 6891402807). Feature 010's redesign of the Activities, Announcements and Documents pages follows
 > spec #311, implemented by #312–#318.
-> **Updated:** 2026-11-16 (#313); first drafted 2026-10-30
+> **Updated:** 2026-11-16 (#314); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -109,8 +109,9 @@ health-service network.
   frame and its text on the page's colour (§9). Feature 010 brings the list's heading to the
   Activities, Announcements and Documents lists (spec #311; §7.8), and over the field's edge
   `/activities` shows the News lists' cards, its newest large on a first page, each with its date
-  and place (§7.3; #313), while `/announcements` and `/documents` keep today's rows, after the
-  filter form on `/documents`, until their own tickets (#314, #315). An Announcement's and a Document's page keep their design until their own tickets (#316,
+  and place (§7.3; #313), `/announcements` the Homepage's Announcement rows, a closed one greyed
+  (§8.7; #314), while `/documents` keeps today's rows, after its filter form, until its own ticket
+  (#315). An Announcement's and a Document's page keep their design until their own tickets (#316,
   #317), and every page outside the two features keeps its design under the new shell until its
   own feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -179,7 +180,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and in the Current Announcements the month and year on a date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's header, the pill of "เผยแพร่" and the date (§9.1) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's header, the pill of "เผยแพร่" and the date (§9.1) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -192,7 +193,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | `text-secondary-on-soft` | `#5d6a64` | secondary text on `surface-soft` (contrast fix, #51) |
 | `border-input` | `#7a8a83` | input boundaries (contrast fix, #51) |
 | `procurement-text`, `procurement-border` | `#1d4f91`, `#c9dbf3` | the procurement Announcement badge's text and border, on `topic-blue` (Feature 008, #239) |
-| `status-closed` | `#e7ecea` | a closed Announcement status label's fill (Feature 008, #239) |
+| `status-closed` | `#e7ecea` | a closed Announcement's status label and date tile on the Announcements list (Feature 008, #239; Feature 010, #314) |
 | `deep-highlight` | `#0f8a70` | the highlight in the deep green field's gradient and in the deep visual's (Feature 008, #239) |
 | `plain-visual-to` | `#d6ece2` | the plain visual's second stop, after `surface-soft` (Feature 008, #239) |
 
@@ -202,8 +203,9 @@ Latest News uses both again (§8.6): `plain-visual` on a small card without a pi
 `deep-highlight` in the `deep-visual` utility on the large one; so do the cards of the News,
 Health News and Health Content lists (§7.3). The
 Current Announcements use `procurement-text` and `procurement-border` on the procurement badge
-(§8.7). `status-closed` is the fill of the dotted status label's closed state, which no page shows
-yet: the Homepage lists current Announcements only. Some fills are a token at an opacity, not a token of their own: the hero's decorations and
+(§8.7). `status-closed` is the fill of a closed Announcement's dotted status label and date tile,
+which the Announcements list shows (§8.7; Feature 010 #314): the Homepage lists current
+Announcements only. Some fills are a token at an opacity, not a token of their own: the hero's decorations and
 chip (`accent-warm` at 28 %, 30 %, 38 % and 50 %, `surface-soft` at 16 %, `surface-base` at 18 %
 and 22 %), the header's
 surface, `surface-base` at 90 %, the footer's quiet text, pills and rule, `surface-base` at
@@ -263,10 +265,10 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-secondary-on-soft` (the tagline) on the header's surface over `brand-dark`, the darkest fill a page scrolls under it (`text-secondary` there would be 4.15:1) | 4.73:1 |
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
-| `accent-warm` (the month and year) on a Current Announcement's date tile, where they sit on its `brand-primary` to `brand-dark` gradient: measured, the one exception to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more |
+| `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, the one exception to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
-| `text-primary` on `status-closed` (the dotted label's closed state, which no page shows yet) | 13.85:1 |
+| `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7) | 13.85:1 |
 | `text-secondary-on-soft` on `surface-base`, the lightest the Current Announcements' glow makes the band under its lead | 5.66:1 |
 | `surface-base` (the label, the lead and the counts' words) on the Health Service Discovery band's gradient: measured (§8.9) | 5.20:1 or more |
 | `surface-base` (the breadcrumb, the label, the H1 and the lead) on the field under a list's heading (`/news`, Health News, Health Content at `fb11b3e`, #287; `/activities`, `/announcements`, `/documents` at `8643ef1`, #312): measured with `scripts/measure-text-contrast.ts` at the five widths (§7.8) | 6.27:1 or more |
@@ -727,18 +729,20 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
   then the pager (§7.6); on Health News, Health Content and `/documents` the filter form (§7.7)
   comes first. They are 32 px apart, and each keeps its content and behaviour. On `/activities`
   the block is the list cards, as on `/news` (§7.3; Feature 010 #313), whose first row lies over
-  the field with the lists' `focus-ring-banded`; on `/announcements` and `/documents` it holds
-  today's Announcement rows and Document rows until Feature 010 #314 and #315. An Announcement row's and a Document row's
-  only links are their titles, whose ring lies on the row's white, 6.45:1; on `/documents` the
-  filter form is the block over the edge, its ring on its own white card. The cards are the Homepage's News
+  the field with the lists' `focus-ring-banded`; on `/announcements` the block is the Homepage's
+  Announcement rows (§8.7; Feature 010 #314), 14 px apart, each one link over the whole row, whose
+  ring lies around the row and over the field in the first row, with the same band; on
+  `/documents` it holds today's Document rows until Feature 010 #315. A Document row's only link
+  is its title, whose ring lies on the row's white, 6.45:1; on `/documents` the filter form is the
+  block over the edge, its ring on its own white card. The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
   ring alone was faint, so a card's ring has a `surface-base` band on both sides
   (`focus-ring-banded`, §7.3; Product Owner, 2026-11-13: #281 comment 6847783611, item 1, and
   #283 comment 6854670042).
 - **Motion** (§8.12): with motion allowed the heading block rises in as the page opens, and the
-  lead 0.1 s after it. Each card reveals as it comes into the window (§7.3); on `/activities`,
-  `/announcements` and `/documents` the cards and rows show at once until their own tickets. The
+  lead 0.1 s after it. Each card reveals as it comes into the window (§7.3), and on
+  `/announcements` each row (§8.7); on `/documents` the rows show at once until their own ticket. The
   breadcrumb, the link, the filter form, the empty state and the pager show at once.
 - **Measured** on the development runtime at `fb11b3e`, the head of `009-news-post-redesign`,
   with the demo dataset's six News and five Health Content (#287,
@@ -1040,8 +1044,8 @@ section heading "ข่าวประชาสัมพันธ์" with its "
 
 ### 8.7 Current Announcements
 
-The Current Announcements (`HomeAnnouncementRow`; spec #239 "Current Announcements") follow Latest
-News as a section of their own:
+The Current Announcements (`AnnouncementRow`; spec #239 "Current Announcements") follow Latest
+News as a section of their own. Their row is also the Announcements list's (below):
 
 - **The Announcements** are the four newest current ones by announcement date, in the
   Announcements list's order, after the Featured item is removed (`04` §7). Below `sm` the fourth
@@ -1073,17 +1077,35 @@ News as a section of their own:
     `brand-primary` on `surface-soft` (`src/lib/announcement-category.ts`, by the seed's slugs
     `procurement` and `recruitment`; §3.2). An Announcement without a category shows no badge;
   - the title at 18 / 30 semibold (16 / 26 below `sm`) in two lines at most;
-  - the Announcements list's status line, for an Announcement with open or close dates: the label
-    after a 7 px dot at 13 / 20 semibold, open in `surface-base` on `brand-primary`, not open yet
-    in `brand-dark` on `accent-warm`, then the dates. The words and the dot state the status; the
-    Announcements list keeps its own label. The label's closed state, `text-primary` on
-    `status-closed` (spec #239), does not show here: a closed Announcement is not current;
+  - the status line, for an Announcement with open or close dates: the label after a 7 px dot at
+    13 / 20 semibold, open in `surface-base` on `brand-primary`, not open yet in `brand-dark` on
+    `accent-warm`, then the dates. The words and the dot state the status. The label's closed
+    state, `text-primary` on `status-closed` (spec #239), does not show here: a closed
+    Announcement is not current;
   - from `sm`, a 40 px `surface-soft` circle with a 20 px `arrow-right`.
 - **The link:** the title is an H3 that names one link over the whole row; the date, the category
   and the status stay outside the link's name.
 - **Under the pointer** the circle turns `accent-warm` with a `brand-dark` arrow, and the row moves
   10 px to the right with the `deep` shadow, only under `prefers-reduced-motion: no-preference`.
   Keyboard focus is the global 3 px outline around the row.
+- **On the Announcements list** (`/announcements`; Feature 010 #314, spec #311 "The Announcements
+  list") the row is the same, over the field's lower edge (§7.8), with three differences:
+  - the title is an H2 under the page's H1;
+  - a closed Announcement, which the list shows after every current one, has its date tile in
+    `status-closed` with its day and its month and year in `text-primary` (13.85:1), and its
+    label "ปิดแล้ว" after the dot in `status-closed` with `text-primary`, so the closed rows read
+    grey where they begin (Product Owner, 2026-11-15: spec #311 "Decisions", 13, variant B); a
+    current one's tile keeps the gradient with the month and year in `accent-warm`;
+  - the link's focus ring has the lists' `surface-base` band on both sides (`focus-ring-banded`,
+    §7.3), since the first row's ring lies over the field (#283 comment 6854670042); the
+    Homepage's ring, on its band, has none.
+
+  The rows are 14 px apart, as here, in the list's order and page size (20), and each reveals as
+  it comes into the window and shows whole while it holds the keyboard's focus (§8.12). An
+  Announcement's page and a search result keep the earlier label, closed in `brand-dark` on
+  `accent-warm` (`StatusLabel`). `tests/browser/public-announcements.spec.ts` reads the row's
+  parts, a closed row against a current one, the hover, the keyboard and the order across pages;
+  `public-homepage.spec.ts` reads the Homepage's rows.
 
 ### 8.8 Health Information
 
@@ -1287,8 +1309,8 @@ stays the submit state (§8.9).
   (`public-news.spec.ts` "/news moves only when motion is allowed: …",
   `testFilteredListOnField`'s motion case for the other two, and `testListOnField`'s for the
   Activities, Announcements and Documents lists: the Activities list's cards move as `/news`'s
-  since Feature 010 #313, and the Announcements' and Documents' rows do not until #314 and
-  #315).
+  since Feature 010 #313, the Announcements' rows reveal as the Homepage's do since #314, without a
+  picture to shimmer, and the Documents' rows do not until #315).
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
@@ -1854,6 +1876,17 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (v2.10). Authority: #298 comment 6892189972, decision 1 (no placeholder in our code, no
   dependency upgrade) and decision 2 (a portrait follows its focal point), and #298 comment 6893006429
   (the sentence for staff in `05`).
+- **v1.4 the Announcements list's rows (2026-11-16, Feature 010 #314):** `/announcements` shows
+  the Homepage's Announcement row in place of its earlier row (§8.7): the date tile, the type's
+  badge in its colour, the title as an H2 in two lines at most, the status after a dot and from
+  `sm` the round arrow, one link over the row, 14 px apart, with the row's hover and its reveal;
+  a closed Announcement's tile and label are `status-closed` with `text-primary`, the first time
+  a page shows that token (§3.1, §3.2), and the first row's ring takes `focus-ring-banded` over
+  the field (§7.8). The type and date no longer show as a line of facts above the title, and the
+  closed label is no longer `accent-warm` on the list. `AnnouncementRow` is now the Homepage's
+  row, shared by both pages, and `HomeAnnouncementRow` is gone. §2 and §8.12 name the list's
+  rows. The Homepage's Current Announcements are unchanged. Authority: spec #311 "The
+  Announcements list", decisions 7 and 13, and #311 comment 6895825492.
 - **v1.4 the Activities list's cards (2026-11-16, Feature 010 #313):** `/activities` shows the
   list card in place of the Activity card (§7.3): on a first page the newest Activity large, laid
   out by the count as on `/news`, and on a later page even cards; each card's line is the date the

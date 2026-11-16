@@ -10,7 +10,8 @@
 // the Documents attached to it, each linking to its Document page. Drafts, unpublished and trashed
 // Announcements never show, and attached Documents that are not published are left out. The list
 // opens on the deep field under the label แจ้งให้ทราบ, with its rows over the field's lower edge
-// (Feature 010 #312; public.helpers.ts testListOnField).
+// (Feature 010 #312; public.helpers.ts testListOnField). Each row is the Homepage's Announcement
+// row, a closed one's date tile and status label in status-closed (Feature 010 #314).
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -26,6 +27,7 @@
 // - A reference field resolves a target only while it is published, in link order
 //   (src/query.ts attachReferences, src/references/resolve.ts).
 
+import type { Locator, Page } from "@playwright/test";
 import {
 	createOwnedTerm,
 	createSyntheticDocument,
@@ -49,6 +51,7 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	SECTION_CRUMBS,
+	boxOf,
 	detailOf,
 	expect,
 	expectBreadcrumb,
@@ -57,11 +60,14 @@ import {
 	listedItem,
 	listedTitles,
 	ownTitles,
+	shownLines,
+	shownOpacity,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
 	testListOnField,
 	thaiDate,
+	tokenColor,
 } from "./public.helpers";
 
 /** The fixed number of Announcements a list page shows. */
@@ -135,6 +141,7 @@ testListOnField({
 	noneYet: "ยังไม่มีประกาศ",
 	pastLast: "ไม่พบประกาศในหน้านี้",
 	admin: () => admin,
+	rowsMove: true,
 	publishItem: async (label) => {
 		// Closed too, since the closed ones follow every current one.
 		const announcement = await createAnnouncement(label, { data: { closes_at: LIST_END } });
@@ -298,6 +305,309 @@ test("an Announcement closing today is current and open, one that closed yesterd
 	);
 });
 
+/** The `day`th of `month` 2031, after any real Announcement, so the row leads its group. */
+const in2031 = (month: number, day: number) =>
+	`2031-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
+
+/**
+ * Open the page of /announcements that lists `title`: closed rows follow every current one, which
+ * the suite's earlier tests leave published, so a closed row may be on a later page.
+ */
+async function gotoListing(page: Page, title: string): Promise<Locator> {
+	for (let number = 1; number <= 5; number += 1) {
+		await page.goto(number === 1 ? "/announcements" : `/announcements?page=${number}`);
+		const row = listedItem(page, title);
+		if ((await row.count()) > 0) return row;
+	}
+	throw new Error(`no page of /announcements lists ${title}`);
+}
+
+/**
+ * What a citizen sees of an Announcement row as it is laid out now, read in one pass, so a part
+ * the row lacks reads as missing rather than stopping the read: whether its one link covers it,
+ * and its date tile's day, the day's place and size against the month and year under it, and the
+ * colours of the tile and of both.
+ */
+function readRow(row: Locator) {
+	return row.evaluate((article) => {
+		const link = article.querySelector("a")!.getBoundingClientRect();
+		const box = article.getBoundingClientRect();
+		const date = article.querySelector("time")!;
+		const [day, month] = [...date.children].map((part) => ({
+			text: part.textContent?.trim(),
+			size: parseFloat(getComputedStyle(part).fontSize),
+			top: part.getBoundingClientRect().top,
+			bottom: part.getBoundingClientRect().bottom,
+			color: getComputedStyle(part).color,
+		}));
+		const tile = getComputedStyle(date.parentElement!);
+		return {
+			linkCoversRow: (["x", "y", "width", "height"] as const).every(
+				(side) => Math.abs(link[side] - box[side]) < 1,
+			),
+			day: day?.text,
+			dayLarge: !!day && !!month && day.size > month.size,
+			monthUnderDay: !!day && !!month && month.top >= day.bottom - 1,
+			tile: {
+				gradient: tile.backgroundImage.includes("linear-gradient"),
+				fill: tile.backgroundColor,
+				day: day?.color,
+				monthAndYear: month?.color,
+			},
+		};
+	});
+}
+
+/** The fill and the words' colour of the part of `row` that reads `text`, if it shows one. */
+async function coloursOf(row: Locator, text: string) {
+	const part = row.getByText(text, { exact: true });
+	if ((await part.count()) === 0) return undefined;
+	return part.evaluate((element) => ({
+		fill: getComputedStyle(element).backgroundColor,
+		words: getComputedStyle(element).color,
+		dot: element.querySelector('[data-testid="status-dot"]') !== null,
+	}));
+}
+
+test("each /announcements row is the Homepage's row: the date tile with the day large and the month and year under it, the type's badge in its colour, the title as an H2 in two lines at most, the status after a dot when it has an open or close date, and from 640 px the round arrow; one link named by the title covers the row, and the rows are 14 px apart", async ({
+	page,
+}) => {
+	const long =
+		"ซึ่งมีชื่อเรื่องยาวเกินกว่าสองบรรทัดของแถวในรายการประกาศทุกความกว้างของหน้าจอ เพื่อดูว่าชื่อเรื่องถูกตัดให้เหลือสองบรรทัดและยังอ่านได้ครบในหน้าประกาศเอง";
+	const other = await createTerm("announcement_type", "ประชาพิจารณ์");
+	const procurement = await createAnnouncement("row-procurement", {
+		data: { announcement_at: in2031(1, 4), closes_at: in2031(12, 31) },
+		taxonomies: { announcement_type: ["procurement"] },
+	});
+	const recruitment = await createSyntheticDraft(admin, "announcements", `ประกาศ ${long}`, "row", {
+		data: { announcement_at: in2031(1, 3), opens_at: in2031(11, 1), closes_at: in2031(12, 31) },
+		taxonomies: { announcement_type: ["recruitment"] },
+	});
+	const general = await createAnnouncement("row-other", {
+		data: { announcement_at: in2031(1, 2) },
+		taxonomies: { announcement_type: [other.slug] },
+	});
+	const plain = await createAnnouncement("row-plain", { data: { announcement_at: in2031(1, 1) } });
+	const fixtures = [procurement, recruitment, general, plain];
+	for (const announcement of fixtures) await publish(announcement);
+	const badges = [
+		[procurement, "จัดซื้อจัดจ้าง", "procurement-text", "topic-blue"],
+		[recruitment, "รับสมัครงาน", "brand-dark", "accent-warm"],
+		[general, other.label, "brand-primary", "surface-soft"],
+	] as const;
+
+	await page.goto("/announcements");
+	// What today's rows already show: the order, the title as an H2 that names the row's one link,
+	// the date the list orders by, the type, and the status in words.
+	expect(ownTitles(await listedTitles(page), fixtures), "newest first").toEqual(
+		fixtures.map(({ title }) => title),
+	);
+	for (const [index, announcement] of fixtures.entries()) {
+		const row = listedItem(page, announcement.title);
+		const name = announcement.title;
+		await expect(row.getByRole("heading", { level: 2 }), name).toHaveText(name);
+		await expect(row.getByRole("link"), name).toHaveCount(1);
+		await expect(row.getByRole("link"), name).toHaveAccessibleName(name);
+		await expect(row.getByRole("link"), name).toHaveAttribute(
+			"href",
+			`/announcements/${announcement.slug}`,
+		);
+		await expect(row.locator("time").first(), name).toHaveText(thaiDate(in2031(1, 4 - index)));
+	}
+	for (const [announcement, label] of badges) {
+		await expect(listedItem(page, announcement.title), label).toContainText(label);
+	}
+	await expect(listedItem(page, plain.title)).not.toContainText(
+		new RegExp(badges.map(([, label]) => label).join("|")),
+	);
+	await expect(listedItem(page, procurement.title)).toContainText("เปิดอยู่");
+	await expect(listedItem(page, recruitment.title)).toContainText(
+		`วันที่เริ่มต้น ${thaiDate(in2031(11, 1))}`,
+	);
+	for (const announcement of [general, plain]) {
+		await expect(listedItem(page, announcement.title), "no status line").not.toContainText(
+			/ยังไม่เปิด|เปิดอยู่|ปิดแล้ว|วันที่/,
+		);
+	}
+
+	// What the Homepage's row adds, read whole and compared once.
+	/** An empty record of what the rows show at each part, by row, label, status or width. */
+	const record = () => ({
+		rows: [] as object[],
+		badges: {} as Record<string, unknown>,
+		dots: {} as Record<string, unknown>,
+		widths: {} as Record<number, unknown>,
+		arrows: {} as Record<number, boolean[]>,
+	});
+	const [seen, expected] = [record(), record()];
+	for (const [index, announcement] of fixtures.entries()) {
+		const { linkCoversRow, day, dayLarge, monthUnderDay } = await readRow(
+			listedItem(page, announcement.title),
+		);
+		seen.rows.push({ linkCoversRow, day, dayLarge, monthUnderDay });
+		expected.rows.push({
+			linkCoversRow: true,
+			day: String(4 - index),
+			dayLarge: true,
+			monthUnderDay: true,
+		});
+	}
+	for (const [announcement, label, words, fill] of badges) {
+		const colours = await coloursOf(listedItem(page, announcement.title), label);
+		seen.badges[label] = { fill: colours?.fill, words: colours?.words };
+		expected.badges[label] = {
+			fill: await tokenColor(page, fill),
+			words: await tokenColor(page, words),
+		};
+	}
+	for (const [announcement, status] of [
+		[procurement, "เปิดอยู่"],
+		[recruitment, "ยังไม่เปิด"],
+	] as const) {
+		seen.dots[status] = (await coloursOf(listedItem(page, announcement.title), status))?.dot;
+		expected.dots[status] = true;
+	}
+	for (const announcement of [general, plain]) {
+		seen.dots[announcement.title] = await listedItem(page, announcement.title)
+			.getByTestId("status-dot")
+			.count();
+		expected.dots[announcement.title] = 0;
+	}
+	const longTitle = listedItem(page, recruitment.title).getByRole("heading", { level: 2 });
+	for (const width of [1440, 1024, 768, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		const [upper, lower] = [
+			await boxOf(listedItem(page, procurement.title), "the first row"),
+			await boxOf(listedItem(page, recruitment.title), "the second row"),
+		];
+		seen.widths[width] = {
+			title: await shownLines(longTitle),
+			gap: Math.round(lower.y - (upper.y + upper.height)),
+		};
+		expected.widths[width] = { title: { lines: 2, clamped: true }, gap: 14 };
+	}
+	for (const [width, shown] of [
+		[640, true],
+		[639, false],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		seen.arrows[width] = [];
+		expected.arrows[width] = fixtures.map(() => shown);
+		for (const announcement of fixtures) {
+			const arrow = listedItem(page, announcement.title).locator("svg.lucide-arrow-right");
+			seen.arrows[width].push(await arrow.isVisible());
+		}
+	}
+	expect(seen, "the Homepage's row").toEqual(expected);
+});
+
+test("a closed Announcement's row has its date tile and its ปิดแล้ว label in status-closed with text-primary, where a current one's tile keeps the gradient with the month and year in accent-warm", async ({
+	page,
+}) => {
+	const closes = closeDates();
+	const current = await createAnnouncement("tile-current", {
+		data: { announcement_at: in2031(2, 1), closes_at: in2031(12, 31) },
+	});
+	const closed = await createAnnouncement("tile-closed", {
+		data: { announcement_at: in2031(2, 2), closes_at: closes.yesterday },
+	});
+	await publish(current);
+	await publish(closed);
+	const colour = (name: string) => tokenColor(page, name);
+
+	await page.goto("/announcements");
+	await expect(listedItem(page, current.title)).toContainText("เปิดอยู่");
+	const currentTile = (await readRow(listedItem(page, current.title))).tile;
+	const row = await gotoListing(page, closed.title);
+	await expect(row).toContainText("ปิดแล้ว");
+	const closedTile = (await readRow(row)).tile;
+	expect(
+		{ currentTile, closedTile, label: await coloursOf(row, "ปิดแล้ว") },
+		"a closed row greyed against a current one",
+	).toEqual({
+		currentTile: {
+			gradient: true,
+			fill: currentTile.fill,
+			day: await colour("surface-base"),
+			monthAndYear: await colour("accent-warm"),
+		},
+		closedTile: {
+			gradient: false,
+			fill: await colour("status-closed"),
+			day: await colour("text-primary"),
+			monthAndYear: await colour("text-primary"),
+		},
+		label: { fill: await colour("status-closed"), words: await colour("text-primary"), dot: true },
+	});
+});
+
+test("under the pointer a row moves 10 px to the right with the deep shadow only when motion is allowed, a press on the strip it left still opens the Announcement, and the keyboard reaches each row once, its ring banded over the field", async ({
+	page,
+}) => {
+	const first = await createAnnouncement("hover-first", {
+		data: { announcement_at: in2031(3, 2) },
+	});
+	const second = await createAnnouncement("hover-second", {
+		data: { announcement_at: in2031(3, 1) },
+	});
+	await publish(first);
+	await publish(second);
+	/** The row's white surface, which moves inside the row's place: its left edge and shadow. */
+	const surfaceOf = async (row: Locator) => {
+		const surface = row.getByTestId("announcement-surface");
+		if ((await surface.count()) === 0) return undefined;
+		return surface.evaluate((element) => ({
+			x: Math.round(element.getBoundingClientRect().x),
+			deepShadow: getComputedStyle(element).boxShadow.includes("0px 30px 60px -20px"),
+		}));
+	};
+	/** Point at the row's left edge, where the moved row leaves a strip, once it has come in. */
+	const pointAtEdge = async (row: Locator) => {
+		await row.scrollIntoViewIfNeeded();
+		await expect.poll(() => shownOpacity(row), { message: "the row has come in" }).toBe(1);
+		const place = await boxOf(row, "the row's place");
+		const edge = { x: place.x + 3, y: place.y + place.height / 2 };
+		await page.mouse.move(edge.x, edge.y);
+		// The move takes 0.3 s.
+		await page.waitForTimeout(500);
+		return { x: Math.round(place.x), edge };
+	};
+
+	// Today's rows: one focus stop each, in order.
+	await page.goto("/announcements");
+	await listedItem(page, first.title).getByRole("link").focus();
+	await page.keyboard.press("Tab");
+	await expect(
+		listedItem(page, second.title).getByRole("link"),
+		"the next row's link follows",
+	).toBeFocused();
+	const firstLink = page.getByRole("main").getByRole("article").first().getByRole("link");
+	await firstLink.focus();
+	const band = await firstLink.evaluate((link) => getComputedStyle(link).boxShadow);
+
+	const still = await pointAtEdge(listedItem(page, first.title));
+	const stillSurface = await surfaceOf(listedItem(page, first.title));
+
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.goto("/announcements");
+	const row = listedItem(page, first.title);
+	const moving = await pointAtEdge(row);
+	const movedSurface = await surfaceOf(row);
+	await page.mouse.click(moving.edge.x, moving.edge.y);
+	// Today's row opens nothing there: the reading follows either way.
+	await page.waitForURL(/\/announcements\/./, { timeout: 5_000 }).catch(() => undefined);
+	expect(
+		{ band, stillSurface, movedSurface, opened: new URL(page.url()).pathname },
+		"the row under the pointer, and its ring",
+	).toEqual({
+		// The first row lies over the field's edge: its ring has a white band on both sides.
+		band: expect.stringContaining(`${await tokenColor(page, "surface-base")} 0px 0px 0px 7px`),
+		stillSurface: { x: still.x, deepShadow: false },
+		movedSurface: { x: moving.x + 10, deepShadow: true },
+		opened: `/announcements/${first.slug}`,
+	});
+});
+
 test("/announcements pages through its Announcements, current ones before closed ones across pages", async ({
 	page,
 }) => {
@@ -330,6 +640,7 @@ test("/announcements pages through its Announcements, current ones before closed
 		.click();
 	await expect(page).toHaveURL(/\/announcements\?page=2$/);
 	expect(ownTitles(await listedTitles(page), all), "the second page").toEqual([closed.title]);
+	const closedTile = (await readRow(listedItem(page, closed.title))).tile.fill;
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
 		"href",
 		`${origin}/announcements?page=2`,
@@ -342,6 +653,9 @@ test("/announcements pages through its Announcements, current ones before closed
 	await expect(
 		page.getByRole("main").getByRole("link", { name: "กลับไปหน้าแรกของรายการ" }),
 	).toHaveAttribute("href", "/announcements");
+	expect(closedTile, "the closed one's grey tile on the second page").toBe(
+		await tokenColor(page, "status-closed"),
+	);
 });
 
 test("an Announcement page shows its type, dates, details and its published attached Documents, each linking to its Document page", async ({
