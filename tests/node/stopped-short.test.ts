@@ -48,6 +48,17 @@ const SUITE = [
 	/* 34 */ "\t\tawait expect(page).toHaveURL(HOME);",
 	/* 35 */ "\t});",
 	/* 36 */ "});",
+	/* 37 */ "",
+	/* 38 */ 'test("a title too long for one line keeps its test\'s header on three", async ({',
+	/* 39 */ "\tpage,",
+	/* 40 */ "}) => {",
+	/* 41 */ '\tawait page.goto("/");',
+	/* 42 */ "\tawait expect(title).toBeVisible();",
+	/* 43 */ "\tfor (const row of ROWS) {",
+	/* 44 */ "\t\tawait expect(row).toBeVisible();",
+	/* 45 */ "\t}",
+	/* 46 */ "\tawait expect(page).toHaveURL(HOME);",
+	/* 47 */ "});",
 ].join("\n");
 
 describe("a failed test's unrun assertions", () => {
@@ -68,6 +79,13 @@ describe("a failed test's unrun assertions", () => {
 
 	it("finds a loop whose head runs over several lines, from a block inside it", () => {
 		assert.deepEqual(stoppedShort(SUITE, 17, 27), { after: 1, inLoop: true });
+	});
+
+	it("reads a test whose header runs over several lines, as Prettier breaks a long title's", () => {
+		// The header's `}) => {` closes a bracket at the test's indentation and opens its body: the
+		// test ends at the line that closes the call (#329, found by #316's red run).
+		assert.deepEqual(stoppedShort(SUITE, 38, 42), { after: 2, inLoop: false });
+		assert.deepEqual(stoppedShort(SUITE, 38, 44), { after: 1, inLoop: true });
 	});
 
 	it("reads nothing for a failure outside the test, such as a hook's", () => {

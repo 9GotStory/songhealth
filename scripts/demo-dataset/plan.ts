@@ -11,6 +11,13 @@ export const DEMO_PREFIX = "demo-";
 export const DEMO_MARK = "[ตัวอย่าง]";
 
 /**
+ * What every synthetic fixture of the browser suites carries (tests/browser/cms.helpers.ts
+ * SYNTHETIC_FIXTURE_MARK), which this module cannot import: an Office Contact value or a handle
+ * that holds it is a test's, left behind, and not the office's own.
+ */
+export const FIXTURE_MARK = "songhealth-f002-synthetic";
+
+/**
  * The CSS class of every menu item the dataset makes. The Homepage renders no class of a menu item
  * (src/lib/homepage-curation.ts).
  */
@@ -291,7 +298,8 @@ function isDemoEntryOf(dataset: DemoDataset): (entry: LiveEntry) => boolean {
  * term, media item or entry the runtime holds keeps its label, file or fields. An entry of the
  * office's own at a reserved slug stays as it is, and the dataset's entry there is left out. A
  * file the dataset removes is uploaded only for an entry `add` creates, and then deleted, so a
- * runtime that holds the dataset has none.
+ * runtime that holds the dataset has none. Office Contact and the handles keep the office's own
+ * values; what a test left there, with FIXTURE_MARK, gives way to the dataset's.
  */
 export function planAdd(dataset: DemoDataset, live: LiveState): AddPlan {
 	const isDemo = isDemoEntryOf(dataset);
@@ -370,15 +378,21 @@ export function planAdd(dataset: DemoDataset, live: LiveState): AddPlan {
 		if (!same) plan.menus.push({ name, items });
 	}
 
+	// A fixture writes every Office Contact key at once (cms.helpers.ts showOfficeContact), so one
+	// value with the fixture mark makes the whole set a test's, unmarked values included (#316
+	// retro).
+	const leftByTest = Object.values(live.officeContact).some((value) =>
+		String(value ?? "").includes(FIXTURE_MARK),
+	);
 	for (const [key, value] of Object.entries(dataset.officeContact)) {
 		const current = live.officeContact[key];
-		if (current === null || current === undefined || current === "")
+		if (current === null || current === undefined || current === "" || leftByTest)
 			plan.officeContact[key] = value;
 		else if (current !== value) plan.kept.push(`Office Contact ${key}`);
 	}
 	for (const [network, handle] of Object.entries(dataset.social)) {
 		const current = live.social[network];
-		if (!current) plan.social[network] = handle;
+		if (!current || current.includes(FIXTURE_MARK)) plan.social[network] = handle;
 		else if (current !== handle) plan.kept.push(`the social handle ${network}`);
 	}
 	return plan;

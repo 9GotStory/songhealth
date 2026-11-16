@@ -8,7 +8,10 @@
 # (playwright.config.ts).
 #   scripts/dev-runtime-residue.sh [--clear-404-log | --clear-404-log-including-others]
 # Entries (live or in trash), media, terms, bylines, redirects and menu items must all be gone after
-# a task run: any that remain are listed and the exit status is 1. EmDash's 404 log keeps the tests'
+# a task run, and no Office Contact value or social handle may hold the mark: any that remain are
+# listed and the exit status is 1. A fixture writes every Office Contact key at once, so a marked
+# value means its unmarked neighbours are a test's too, and `demo-dataset.ts add` replaces them all
+# with the dataset's (#316 retro: a full suite failed on /contact while the count read NONE). EmDash's 404 log keeps the tests'
 # misses too, but they can be removed only by clearing the log or pruning it by age, not one by one,
 # so those are counted without failing (docs/operations/development-quadlet.md). A miss without the
 # synthetic marks, such as one a person met while browsing, is counted, 0 included, so an evidence
@@ -119,6 +122,9 @@ try:
     for menu in get("/_emdash/api/menus"):
         name = menu["name"]
         left[f"{name} menu items"] = marked(get(f"/_emdash/api/menus/{name}")["items"])
+    contact = get("/_emdash/api/admin/plugins/songhealth-office-contact/settings")["values"] or {}
+    left["Office Contact values"] = marked(contact.values())
+    left["social handles"] = marked((get("/_emdash/api/settings").get("social") or {}).values())
     left["bylines"] = marked(every("/_emdash/api/admin/bylines", search=FIXTURE))
     left["redirects"] = marked(every("/_emdash/api/redirects", search=FIXTURE))
     misses = marked(every("/_emdash/api/redirects/404s"), MISSES)
@@ -140,6 +146,8 @@ for entry in demo_unpublished:
     print(f"demo dataset, not published: {entry}")
 if demo_unpublished:
     print("DEMO DATASET: INCOMPLETE (scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add)")
+if left["Office Contact values"] or left["social handles"]:
+    print("SETTINGS: a test's (scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add)")
 found = any(left.values())
 print("RESIDUE: FOUND" if found else "RESIDUE: NONE")
 sys.exit(1 if found or demo_unpublished else 0)

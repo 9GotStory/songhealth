@@ -2504,7 +2504,11 @@ export async function expectVisuallyHidden(part: Locator, label: string): Promis
 	expect(Math.max(box.width, box.height), `${label} takes no room in sight`).toBeLessThanOrEqual(1);
 }
 
-/** The card or row a list page shows for the item titled `title`. */
+/**
+ * The card or row a list page shows for the item titled `title`. On a record's page, whose own
+ * `<article>` holds every title it lists, read the rows inside their section instead
+ * (`section.getByRole("article")`): this one also matches the page (#316).
+ */
 export function listedItem(page: Page, title: string) {
 	return page.getByRole("main").getByRole("article").filter({ hasText: title });
 }
