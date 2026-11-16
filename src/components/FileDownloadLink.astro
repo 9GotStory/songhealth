@@ -3,12 +3,12 @@
 // repository", "The card over the field's edge"): brand-primary, 44 px high at least, the 20 px
 // download icon, the words in semibold and, in regular weight, the file's type and size, brand-dark
 // under the pointer. The type and size stay on one line, so on a narrow pill the words take two
-// lines, centred, 8 px from its edges, rather than part the size from its unit (#317). It links
-// to the file at EmDash's media URL and offers the uploaded file's name (src/lib/media.ts
-// downloadableFile). A Document row's says "ดาวน์โหลด" and takes the Document's
-// title as `context`, read after the visible words by assistive technology only, so twenty
-// downloads on a page are told apart and the visible words come first (WCAG 2.2 SC 2.4.4, 2.5.3);
-// a Document's page keeps today's "ดาวน์โหลดเอกสาร". The icon is decorative
+// lines, centred, 8 px from its upper and lower edges, rather than part the size from its unit
+// (#317). It links to the file at EmDash's media URL and offers the uploaded file's name
+// (src/lib/media.ts downloadableFile). A Document row's pill says "ดาวน์โหลด" and takes the
+// Document's title as `context`, read after the visible words by assistive technology only, so
+// twenty downloads on a page are told apart and the visible words come first (WCAG 2.2 SC 2.4.4,
+// 2.5.3); a Document's page says "ดาวน์โหลดเอกสาร". The icon is decorative
 // (docs/agents/lucide-astro-1.59.0.md).
 import Download from "@lucide/astro/icons/download";
 import type { DownloadableFile } from "../lib/media";

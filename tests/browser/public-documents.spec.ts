@@ -62,6 +62,7 @@ import {
 	cardOverFieldEdge,
 	cardOverFieldEdgeAsSpecified,
 	detailOf,
+	entersAfter,
 	expect,
 	expectBreadcrumb,
 	expectFilteredEmpty,
@@ -1067,8 +1068,8 @@ function typeOf(part: Locator) {
 }
 
 /**
- * How a download's words lie in it: on how many lines its type and size in parentheses run, and
- * whether its words keep 8 px or more from its upper and lower edges.
+ * How a download's words lie in it: on how many lines they and their type and size in parentheses
+ * run, how they align, and whether they keep 8 px or more from its upper and lower edges.
  */
 function wordsIn(download: Locator) {
 	return download.evaluate((link) => {
@@ -1079,7 +1080,12 @@ function wordsIn(download: Locator) {
 		if (!size || !words) return "no type and size";
 		const box = link.getBoundingClientRect();
 		const text = words.getBoundingClientRect();
+		const range = document.createRange();
+		range.selectNodeContents(words);
+		const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
 		return {
+			lines: tops.size,
+			align: getComputedStyle(words).textAlign,
 			sizeLines: size.getClientRects().length,
 			inset: Math.min(text.top - box.top, box.bottom - text.bottom) >= 8 - 0.5,
 		};
@@ -1089,8 +1095,9 @@ function wordsIn(download: Locator) {
 test.describe("a Document's page on the field", () => {
 	/** A type, the summary, every detail, current: its type's pill alone. */
 	let full: DocumentFixture & { type: SyntheticTerm };
-	/** The same type, superseded: both pills. */
+	/** The same type, superseded by a published successor: both pills, and the note. */
 	let superseded: DocumentFixture;
+	let successor: DocumentFixture;
 	/** No type, expired: its status's pill alone. */
 	let expired: DocumentFixture;
 	/** No type, summary or detail: no row of pills, and a card that holds the file alone. */
@@ -1112,11 +1119,14 @@ test.describe("a Document's page on the field", () => {
 			taxonomies: { document_type: [type.slug] },
 		});
 		full = { ...created, type };
+		successor = await createDocument("field-successor");
+		await publish(successor);
 		superseded = await createDocument("field-superseded", {
 			// 11.8 KB, a size whose words take two lines of the download at 320 px.
 			file: await uploadSyntheticPdf(admin, undefined, 12_083),
 			data: { domain_status: "superseded" },
 			taxonomies: { document_type: [type.slug] },
+			references: { successor: [successor.id] },
 		});
 		expired = await createDocument("field-expired", { data: { domain_status: "expired" } });
 		bare = await createDocument("field-bare");
@@ -1398,10 +1408,39 @@ test.describe("a Document's page on the field", () => {
 				detailsUnderRule: 20,
 				// The type and size stay on one line, and the words keep 8 px from the pill's edges
 				// when they take two lines.
-				words: { sizeLines: 1, inset: true },
+				words: {
+					lines: width === 320 ? 2 : 1,
+					align: "center",
+					sizeLines: 1,
+					inset: true,
+				},
 			};
 		}
 		expect(seen, "the card's file block, rule and details").toEqual(expected);
+	});
+
+	test("with motion allowed the header rises in as the page opens and the card after it, while the breadcrumb and the successor's note show at once", async ({
+		page,
+	}) => {
+		const parts = fieldParts(page);
+		const note = page.getByRole("main").getByText("เอกสารฉบับถัดไป");
+		await page.emulateMedia({ reducedMotion: "no-preference" });
+		await page.goto(pathOf(superseded), { waitUntil: "commit" });
+		await expect(parts.title).toBeVisible();
+		const headerEnters = await entersAfter(parts.title);
+		const seen = {
+			title: headerEnters,
+			cardAfterHeader: (await entersAfter(parts.card)) > headerEnters,
+			breadcrumb: await entersAfter(parts.breadcrumb),
+			note: await entersAfter(note),
+		};
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		expect(seen, "the header and the card rise in; the rest shows at once").toEqual({
+			title: 0,
+			cardAfterHeader: true,
+			breadcrumb: -1,
+			note: -1,
+		});
 	});
 });
 

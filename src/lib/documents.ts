@@ -58,8 +58,8 @@ export const DOMAIN_STATUS_LABELS: Record<DomainStatus, string> = {
 };
 
 /**
- * The status a Document states in a list: only one that changes what a citizen should do,
- * superseded or expired.
+ * The status a Document states in a list and in its page's header: only one that changes what a
+ * citizen should do, superseded or expired.
  */
 export function listedDomainStatus(
 	status: DomainStatus | null | undefined,
