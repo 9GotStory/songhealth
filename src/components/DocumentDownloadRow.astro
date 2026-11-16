@@ -59,8 +59,11 @@ const actionPlace = "max-sm:col-span-2 sm:col-start-2 lg:col-start-3";
 				<DocumentStatus status={status} />
 			</p>
 		)}
-		<Heading class="line-clamp-2 text-body font-semibold wrap-anywhere sm:text-body-large">
-			<a class="underline-offset-4 hover:text-brand-primary hover:underline" href={href}>
+		<Heading class="text-body font-semibold wrap-anywhere sm:text-body-large">
+			<a
+				class="line-clamp-2 w-fit underline-offset-4 hover:text-brand-primary hover:underline"
+				href={href}
+			>
 				<ThaiTitle text={data.title} />
 			</a>
 		</Heading>

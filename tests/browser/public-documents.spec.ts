@@ -176,7 +176,7 @@ test("/documents lists only published Documents, newest first, each row with its
 	).toEqual([newer.title, older.title]);
 
 	const row = listedItem(page, older.title);
-	await expect(row.getByRole("link", { name: older.title })).toHaveAttribute(
+	await expect(row.getByRole("link", { name: older.title, exact: true })).toHaveAttribute(
 		"href",
 		`/documents/${older.slug}`,
 	);
@@ -300,7 +300,8 @@ test("each /documents row: the file's tile with file-text and the file's type, 6
 		seen[width] = {
 			tile: tile && [Math.round(tile.width), Math.round(tile.height)],
 			titleSize: (await textStyle(parts.title)).size,
-			title: await shownLines(parts.title),
+			// The title's link holds its lines, so its focus ring is not cut where they are.
+			title: await shownLines(parts.title.getByRole("link")),
 			summary: (await summary.isVisible()) ? await shownLines(summary) : "hidden",
 			links: [
 				await row.getByRole("link").count(),
@@ -475,7 +476,7 @@ test("a row's download sits at the row's right from 1,024 px, under the text at 
 	await page.goto("/documents");
 	const row = listedItem(page, document.title);
 	const { tile, title, download } = rowParts(row);
-	await expect(row.getByRole("link", { name: document.title })).toBeVisible();
+	await expect(row.getByRole("link", { name: document.title, exact: true })).toBeVisible();
 	/** Where the download lies against the row, its tile and its text, rounded to the pixel. */
 	const placeOf = async () => {
 		if ((await download.count()) === 0) return "no download";
