@@ -274,7 +274,7 @@ test("each /documents row: the file's tile with file-text and the file's type, 6
 	};
 	const seen: Record<string, unknown> = {
 		tile: await tileOnce(),
-		titleColour: (await textStyle(parts.title)).colour,
+		titleColour: (await textStyle(parts.title.getByRole("link"))).colour,
 		summaryColour: (await textStyle(summary)).colour,
 	};
 	const expected: Record<string, unknown> = {
@@ -521,7 +521,7 @@ test("a row's download sits at the row's right from 1,024 px, under the text at 
 	expect(seen, "the download's place by width").toEqual(expected);
 });
 
-test("a row's title and download are its two focus stops; under the pointer its title turns brand-primary and underlined on its own link only, the row takes the deep shadow only when motion is allowed, and a press elsewhere on the row opens nothing", async ({
+test("a row's title and download are its two focus stops; under the pointer its title turns brand-primary and underlined on its own link only, the download's fill turns brand-dark, the row takes the deep shadow only when motion is allowed, and a press elsewhere on the row opens nothing", async ({
 	page,
 }) => {
 	const dated = { data: { document_at: "2026-09-23T17:30:00.000Z" } };
@@ -569,14 +569,17 @@ test("a row's title and download are its two focus stops; under the pointer its 
 	const afterThat = await focused(rowParts(listedItem(page, second.title)).title.getByRole("link"));
 
 	await pointAt(away);
-	const onTile = { title: await textStyle(title), row: await shadowOf(row) };
+	const onTile = { title: await textStyle(titleLink), row: await shadowOf(row) };
 	await pointAt(titleLink);
 	const onTitle = await textStyle(titleLink);
+	await pointAt(download);
+	const downloadFill = await download.evaluate((link) => getComputedStyle(link).backgroundColor);
 	const tileBox = await boxOf(away, "the tile");
 	const rowBox = await boxOf(row, "the row");
 	const pressed = {
 		tile: await pressAt(tileBox.x + tileBox.width / 2, tileBox.y + tileBox.height / 2),
-		corner: await pressAt(rowBox.x + rowBox.width - 4, rowBox.y + 4),
+		// Inside the row's rounded corner, 22 px across, where nothing is drawn but the row.
+		corner: await pressAt(rowBox.x + rowBox.width - 12, rowBox.y + 12),
 	};
 
 	await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -588,12 +591,13 @@ test("a row's title and download are its two focus stops; under the pointer its 
 	await pointAt(away);
 	const moving = await shadowOf(listedItem(page, first.title));
 
-	const [primary, text] = [
+	const [primary, text, dark] = [
 		await tokenColor(page, "brand-primary"),
 		await tokenColor(page, "text-primary"),
+		await tokenColor(page, "brand-dark"),
 	];
 	expect(
-		{ afterTitle, afterThat, onTile, onTitle, pressed, moving },
+		{ afterTitle, afterThat, onTile, onTitle, downloadFill, pressed, moving },
 		"the row's links, under the pointer and the keyboard",
 	).toEqual({
 		// Tab goes from the title to its download, then to the next row's title.
@@ -604,6 +608,7 @@ test("a row's title and download are its two focus stops; under the pointer its 
 			row: "card",
 		},
 		onTitle: { size: 18, weight: "600", colour: primary, underline: true },
+		downloadFill: dark,
 		pressed: { tile: "/documents", corner: "/documents" },
 		moving: "deep",
 	});
