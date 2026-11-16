@@ -8,7 +8,7 @@
 > implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
 > 6891402807). Feature 010's redesign of the Activities, Announcements and Documents pages follows
 > spec #311, implemented by #312–#318.
-> **Updated:** 2026-11-16 (#316); first drafted 2026-10-30
+> **Updated:** 2026-11-16 (#317); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -114,8 +114,10 @@ health-service network.
   title linking to the Document's page and the file's own download (§7.3; #315). An
   Announcement's page opens on the field with the Post page's header and lays its details in one
   white card over the field's edge, then its text and its related Documents with their downloads
-  (§9.4; #316). A Document's page keeps its design until its own ticket (#317), and every page
-  outside the two features keeps its design under the new shell until its own feature.
+  (§9.4; #316). A Document's page opens on the same field with the same header, its type and a
+  superseded or expired status in pills, and lays its file first in one white card over the
+  field's edge, then its details (§9.5; #317). Every page outside the two features keeps its
+  design under the new shell until its own feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
   "มันยังดูธรรมดา เรียบง่ายเกินไป ไม่ได้ดูทันสมัย หรือ สมัยใหม่เลย", and naming two sites as the look
@@ -182,7 +184,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, the file's type on its tile (§7.3, §9.4); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's page, the file's type on its tile (§7.3, §9.4, §9.5); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), and on a Document's header the pill of a superseded or expired status (§9.5) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -268,7 +270,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, one of the two exceptions to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
-| `accent-warm` (the file's type, "PDF") on a Document row's file tile on `/documents` and in an Announcement's related Documents (§9.4), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315) |
+| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's page (§9.5), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317) |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7, and the label on its page, §9.4) | 13.85:1 |
@@ -445,11 +447,11 @@ this document names:
 | Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
 | Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `ServiceCard`, `QuickLinkCard`, `PersonCard` |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
-| Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1) and an Announcement's (§9.4) |
-| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's page under a Post page's header (§9.4) |
+| Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4) and a Document's (§9.5) |
+| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's and a Document's page under a Post page's header (§9.4, §9.5) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
-| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents` and in an Announcement's related Documents (§7.3, §9.4), where every other page keeps `DocumentRow`; `RelatedDocuments` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents` and in an Announcement's related Documents (§7.3, §9.4), where every other page keeps `DocumentRow`, with `FileTile` and `FileDownloadLink`, which a Document's page shares (§9.5); `RelatedDocuments` |
 
 ### 7.2 Component rules
 
@@ -565,7 +567,9 @@ this document names:
   be served shows "ไฟล์ไม่พร้อมให้บริการ" at small size, semibold, in `text-secondary`, in its
   place, and no link. The download sits at the row's right, beside the text, from `lg`; under
   the text at its start from `sm`; across the row under the tile and the text below `sm`
-  (decision 17). **No link covers the row**, unlike a whole card: the title and the download are
+  (decision 17); its type and size stay whole on one line, and words that do not fit one line take
+  two, centred 8 px inside the pill (`FileDownloadLink`, §9.5; #317). **No link covers the row**,
+  unlike a whole card: the title and the download are
   its two links and its two focus stops, and a press elsewhere on it opens nothing (decision 16).
   Under the pointer the title turns `brand-primary` and underlined on its own link only (#315
   comment 6908747140, item 2), and the row takes the `deep` shadow, only with motion allowed;
@@ -1371,11 +1375,12 @@ stays the submit state (§8.9).
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
   show at once (`public-posts.spec.ts` "a post moves only when motion is allowed: …").
-- **An Announcement's page's motion.** Its header's text rises in as a Post page's does, starting
-  at 0 s, and its details card at 0.25 s, as a Post page's frame (§9.4; Feature 010 #316). The
-  breadcrumb, the details' text and the related Documents show at once
-  (`public-announcements.spec.ts` "with motion allowed the header rises in as the page opens and
-  the card after it, …").
+- **An Announcement's and a Document's page's motion.** The header's text rises in as a Post
+  page's does, starting at 0 s, and the card at 0.25 s, as a Post page's frame (§9.4, §9.5;
+  Feature 010 #316, #317). The breadcrumb, an Announcement's details text and related Documents,
+  and a Document's successor note show at once (`public-announcements.spec.ts` "with motion
+  allowed the header rises in as the page opens and the card after it, …"; a Document's page has
+  the same `CardOverField` and `PostHeader`).
 - **Hover** ships with each section (§8.1, §8.4, §8.6 to §8.10).
 - **Reduced motion and paper.** All of it runs only on a screen under
   `prefers-reduced-motion: no-preference`. With reduced motion preferred, and in print, nothing
@@ -1477,8 +1482,8 @@ text"; Product Owner, #285 comment 6877659654).
     post with a picture alone (`scripts/screenshot-fixtures/post-empty-row.ts`, a landscape
     picture) is 900, 929, 1,183, 1,163 and 1,261 px, and a Health Content post without a picture
     900, 900, 900, 900 and 913 px, the shell's minimum height.
-- An Announcement's page takes this header on this field, though it is not a Post page (§9.4).
-  The other detail templates, such as Document and Service, keep their layout.
+- An Announcement's and a Document's page take this header on this field, though neither is a Post
+  page (§9.4, §9.5). The other detail templates, such as Service, keep their layout.
 
 ### 9.2 An Activity's photos
 
@@ -1516,7 +1521,7 @@ EmDash's Edit mode shows the block as a placeholder (`05` §5.1).
 
 Feature 010 #316 (spec #311 "An Announcement's page and a Document's page: the header", "The card
 over the field's edge", "Motion", decisions 9, 10 and 15; Product Owner, #316 comment 6912742335).
-A Document's page takes the same header and card in #317.
+A Document's page takes the same header and card (§9.5).
 
 - **The header** is a Post page's (`PostHeader`, §9.1) on the `post` field, without a ring, 48 rem
   wide at most, though an Announcement is not a Post page (GLOSSARY): the breadcrumb in white; 24 px
@@ -1563,6 +1568,65 @@ A Document's page takes the same header and card in #317.
   and download 6.45:1. `scripts/measure-focus-contrast.ts` read the row's title link and download
   rings at 6.45:1 under them and 6.07:1 or more beside them, and the breadcrumb's `accent-warm` ring
   on the field at 6.61:1 or more, none under 3:1.
+
+### 9.5 A Document's page: its file first in the card over the field's edge
+
+Feature 010 #317 (spec #311 "An Announcement's page and a Document's page: the header", "The card
+over the field's edge", "Motion", decisions 8, 9 and 15). The page takes §9.4's field, header and
+card (`PostHeader`, `CardOverField`).
+
+- **The header**, as §9.4's: the breadcrumb in white; 24 px under it the Document's type (every
+  type's label, as the details row joins them) in the outlined white pill, then "ถูกแทนที่แล้ว" or
+  "หมดอายุแล้ว" in the `accent-warm` pill (`PostHeader`'s `attention`), 13 / 20 semibold, each with
+  its 1 px edge; the title as the page's one H1 in its sizes; and the summary at body-large with
+  the line breaks staff typed. No publication date, as before. A pill the Document lacks is left
+  out, and so is the row without a pill; a current Document shows its type alone, since its
+  "ฉบับปัจจุบัน" stays in the details. With no room left on the row, the status's pill starts the
+  next row 8 px under the type's.
+- **The card** over the field's edge, as §9.4's in place and look, holds first the file:
+  `FileTile` (the Document row's tile, §7.3: 68 px below `sm`, 92 px from `sm`, the gradient,
+  `file-text` and the type in `accent-warm`, decorative); 16 px beside it the H2 "ไฟล์เอกสาร" at
+  body-large, semibold, `brand-dark`, with the file's type and size under it at small size in
+  `text-secondary`; and the download, `FileDownloadLink` in the row's look with today's words,
+  "ดาวน์โหลดเอกสาร" semibold and the type and size in regular weight, linking to the file at
+  EmDash's media URL under the uploaded file's name. From `sm` the download sits at the card's
+  right, beside the text, 52 px high; below `sm` it runs across the card 16 px under the tile and
+  the text, 44 px high, or, where its words do not fit one line (as "ดาวน์โหลดเอกสาร (PDF, 11.8
+  KB)" at 320 px), on two lines centred 8 px inside it, the type and size kept whole on one
+  (`FileDownloadLink`, the row's too). It is the same for a superseded or expired Document (#315
+  comment 6909993217). **A file that cannot be served** shows the H2 and the unavailable notice
+  (`UnavailableNotice`: "ไฟล์ไม่พร้อมให้บริการ", "หากต้องการเอกสารนี้ โปรดติดต่อสำนักงาน", "ติดต่อเรา"
+  to `/contact`), and no tile. Then, 20 px apart, a 1 px `border-default` rule and the details
+  (type, Document date, fiscal year, owner or source, status with "ฉบับปัจจุบัน", the health topics
+  linking to the filtered repository), each row only when set. **A Document with no details row**
+  has its card all the same, holding the file alone, without the rule.
+- **The successor's note**, on a superseded Document whose successor is published, follows the
+  card on the page's colour, as before, 32 px under it below `lg` and 40 px from `lg` (§9.4's
+  text).
+- **Motion** (§8.12): with motion allowed the header's text rises in and the card 0.25 s after it;
+  the breadcrumb and the successor's note show at once.
+- `tests/browser/public-documents.spec.ts` "a Document's page on the field" reads the header's
+  parts in order on the field, their pills and colours, the title's sizes on both sides of 640 and
+  1,024 px and the summary's line break; the card's place over the edge at 320, 375, 639, 640 and
+  1,440 px with the file and details, the file alone and the unavailable notice; and the file
+  block, the rule and the details at seven widths. The top-level Document page tests read the
+  details in the card, the card without details, the successor's note under the card and the
+  unavailable notice first in it.
+- **Measured** on the development runtime at `b42cb51` (#317), `scripts/measure-text-contrast.ts
+  --all-text` at 1,440, 1,024, 768, 375 and 320 px on the field and in the card of
+  `/documents/demo-document-vhv-application` (current), `/documents/demo-document-plan-2569`
+  (superseded, with its successor's note), `/documents/demo-document-flu-vaccine-form` (a health
+  topic), `/documents/demo-document-plan-2570` (current, its status in the details) and an expired
+  Document's and a file-gone Document's page (`scripts/screenshot-fixtures/lists-by-count.ts`,
+  `LIST=documents`), the lowest of each text: the breadcrumb's links 9.34:1 (320 px) and its
+  current page 5.48:1 (375 and 320 px); the type's pill 9.34:1 (320 px) and the status's 7.75:1;
+  the H1 6.27:1 (320 px) and the summary 6.45:1; the tile's "PDF" 5.60:1; the H2 12.21:1, the type
+  and size 4.97:1 and the download's words 6.45:1; the details' terms 4.97:1, values 16.54:1,
+  "ฉบับปัจจุบัน" 10.94:1, the attention labels 7.75:1 and a topic's link 6.45:1; the notice's
+  "ไฟล์ไม่พร้อมให้บริการ" 10.94:1, its line 5.07:1 and "ติดต่อเรา" 5.78:1; the successor's note
+  10.56:1 and its link 5.58:1. `scripts/measure-focus-contrast.ts` read the download's and a
+  topic link's rings on the card's white at 6.45:1 under them and 5.38:1 or more beside them; the
+  successor's link, unchanged, 4.83:1 or more under its ring.
 
 ## 10. Acceptance and known limits
 
@@ -1990,6 +2054,19 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (v2.10). Authority: #298 comment 6892189972, decision 1 (no placeholder in our code, no
   dependency upgrade) and decision 2 (a portrait follows its focal point), and #298 comment 6893006429
   (the sentence for staff in `05`).
+- **v1.4 a Document's page (2026-11-16, Feature 010 #317):** a Document's page opens on the
+  deep field with the Post page's header (§9.1, §9.5): its type in the outlined white pill and a
+  superseded or expired status in the `accent-warm` pill above the H1, and the summary in white
+  with staff's line breaks, where the title was `brand-dark` and the summary `text-secondary` on
+  the page's colour. One white card over the field's edge holds first the file, the tile with the
+  file's type, the H2 "ไฟล์เอกสาร" with the type and size, and the download "ดาวน์โหลดเอกสาร" in the
+  Document row's pill, at the card's right from `sm` and across it below, 52 px high from `sm`,
+  where the H2 and the download followed the details and the successor's note; or the H2 and the
+  unavailable notice. A rule and the details follow in the card, and the successor's note after
+  it. `FileTile` and `FileDownloadLink` come out of the Document row (§7.1), `PostHeader` takes
+  `attention`, and the tile's `accent-warm` type joins the page (§3.1, §3.2). §2 and §8.12 name
+  the page. Authority: spec #311 "An Announcement's page and a Document's page: the header", "The
+  card over the field's edge", decisions 8, 9 and 15, and #311 comment 6895825492.
 - **v1.4 an Announcement's page (2026-11-16, Feature 010 #316):** an Announcement's page opens on
   the deep field with the Post page's header (§9.1, §9.4): "เผยแพร่" and the publication date in
   the `accent-warm` pill and the type in the outlined white pill above the H1, where the date was a

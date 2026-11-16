@@ -51,23 +51,32 @@ import {
 import type { Locator } from "@playwright/test";
 import {
 	DESKTOP_VIEWPORT,
+	MOBILE_VIEWPORT,
+	PHONE_VIEWPORT,
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
 	pressInside,
 	SECTION_CRUMBS,
 	boxOf,
+	cardOverFieldEdge,
+	cardOverFieldEdgeAsSpecified,
 	detailOf,
+	entersAfter,
 	expect,
 	expectBreadcrumb,
 	expectFilteredEmpty,
 	expectPreviewRenders,
 	expectSiteNotFound,
 	expectVisuallyHidden,
+	fieldParts,
+	gutterAt,
+	HEADER_WIDEST,
 	listedItem,
 	listedTitles,
 	offeredLabels,
 	ownTitles,
+	pillStyle,
 	shownLines,
 	shownOpacity,
 	siteTitleParts,
@@ -831,7 +840,7 @@ test("an empty filtered result shows the empty state, and a fiscal year that is 
 	}
 });
 
-test("a Document page shows its details, its file for download at EmDash's media URL, and its breadcrumb", async ({
+test("a Document page shows its details in its card, its file for download at EmDash's media URL, and its breadcrumb", async ({
 	page,
 	request,
 }) => {
@@ -861,8 +870,6 @@ test("a Document page shows its details, its file for download at EmDash's media
 	expect(response?.status(), "GET the Document page").toBe(200);
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(document.title);
-	// Its heading stays as it is until its own ticket (Feature 010 #317).
-	await expect(page.getByTestId("deep-field"), "no deep field under the heading").toHaveCount(0);
 	await expect(main.getByText(summary)).toBeVisible();
 	await expect(detailOf(page, "ประเภทเอกสาร")).toHaveText(type.label);
 	await expect(detailOf(page, "วันที่เอกสาร")).toHaveText("24 ก.ย. 2569");
@@ -876,8 +883,7 @@ test("a Document page shows its details, its file for download at EmDash's media
 	const download = main.getByRole("link", { name: /ดาวน์โหลด/ });
 	await expect(download).toHaveAttribute("href", `/_emdash/api/media/file/${file.storageKey}`);
 	await expect(download).toHaveAttribute("download", file.filename);
-	await expect(download).toContainText("PDF");
-	await expect(download).toContainText("2 KB");
+	await expect(download).toHaveAccessibleName("ดาวน์โหลดเอกสาร (PDF, 2 KB)");
 	const served = await request.get(`/_emdash/api/media/file/${file.storageKey}`);
 	expect(served.status(), "EmDash serves the file at that address").toBe(200);
 	expect(served.headers()["content-type"]).toBe("application/pdf");
@@ -887,9 +893,31 @@ test("a Document page shows its details, its file for download at EmDash's media
 	await expect(
 		page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "เอกสารเผยแพร่" }),
 	).toHaveAttribute("aria-current", "true");
+
+	// The details and the download lie in the card over the field's edge (Feature 010 #317).
+	const card = fieldParts(page).card;
+	expect(
+		{
+			terms: await card.getByRole("term").allInnerTexts(),
+			downloads: await card.getByRole("link", { name: /ดาวน์โหลด/ }).count(),
+		},
+		"the card's details and download",
+	).toEqual({
+		terms: [
+			"ประเภทเอกสาร",
+			"วันที่เอกสาร",
+			"ปีงบประมาณ",
+			"เจ้าของ/แหล่งที่มา",
+			"สถานะเอกสาร",
+			"ประเด็นสุขภาพ",
+		],
+		downloads: 1,
+	});
 });
 
-test("a Document page leaves out the optional details that are not set", async ({ page }) => {
+test("a Document page leaves out the optional details that are not set, and its card then holds the file alone", async ({
+	page,
+}) => {
 	const document = await createDocument("minimal");
 	await publish(document);
 
@@ -909,9 +937,18 @@ test("a Document page leaves out the optional details that are not set", async (
 	}
 	await expect(main.locator("time")).toHaveCount(0);
 	await expect(main.getByText("เอกสารฉบับถัดไป")).toHaveCount(0);
+	const card = fieldParts(page).card;
+	expect(
+		{
+			downloads: await card.getByRole("link", { name: /ดาวน์โหลด/ }).count(),
+			rules: await card.getByRole("separator").count(),
+			details: await card.locator("dl").count(),
+		},
+		"the card holds the file alone, with no rule",
+	).toEqual({ downloads: 1, rules: 0, details: 0 });
 });
 
-test("a superseded or expired Document says so in text and links to its published successor", async ({
+test("a superseded or expired Document says so in text and links to its published successor in a note 32 px under the card below 1,024 px and 40 px from 1,024 px", async ({
 	page,
 }) => {
 	const successor = await createDocument("successor");
@@ -949,9 +986,28 @@ test("a superseded or expired Document says so in text and links to its publishe
 	await page.goto("/documents");
 	await expect(listedItem(page, superseded.title)).toContainText("ถูกแทนที่แล้ว");
 	await expect(listedItem(page, expired.title)).toContainText("หมดอายุแล้ว");
+
+	// The note follows the card, on the page's colour (Feature 010 #317).
+	await page.goto(`/documents/${superseded.slug}`);
+	const card = fieldParts(page).card;
+	const note = page.getByRole("main").getByText("เอกสารฉบับถัดไป");
+	const seen: Record<number, unknown> = {};
+	const expected: Record<number, unknown> = {};
+	for (const width of [375, 1023, 1024, 1440]) {
+		expected[width] = [width < 1024 ? 32 : 40, 0];
+		if ((await card.count()) === 0) continue;
+		await page.setViewportSize({ width, height: 900 });
+		const cardBox = await boxOf(card, `at ${width} px: the card`);
+		const noteBox = await boxOf(note, `at ${width} px: the note`);
+		seen[width] = [
+			Math.round(noteBox.y - cardBox.y - cardBox.height),
+			Math.round(noteBox.x - cardBox.x),
+		];
+	}
+	expect(seen, "the successor's note under the card, at its start").toEqual(expected);
 });
 
-test("a Document whose file was deleted shows the unavailable state with status 200 and no storage detail", async ({
+test("a Document whose file was deleted shows the unavailable notice first in its card, under the H2 ไฟล์เอกสาร and without a tile, with ติดต่อเรา, status 200 and no storage detail", async ({
 	page,
 }) => {
 	const document = await createDocument("file-gone");
@@ -977,6 +1033,415 @@ test("a Document whose file was deleted shows the unavailable state with status 
 
 	await page.goto("/documents");
 	await expect(listedItem(page, document.title)).toContainText("ไฟล์ไม่พร้อมให้บริการ");
+
+	await page.goto(`/documents/${document.slug}`);
+	const card = fieldParts(page).card;
+	const heading = card.getByRole("heading", { level: 2, name: "ไฟล์เอกสาร" });
+	const notice = card.getByText("ไฟล์ไม่พร้อมให้บริการ", { exact: true });
+	const inCard = (await heading.count()) === 1 && (await notice.count()) === 1;
+	expect(
+		inCard && {
+			headingFirst: Math.round(
+				(await boxOf(heading, "the H2")).y - (await boxOf(card, "the card")).y,
+			),
+			noticeUnderHeading:
+				(await boxOf(notice, "the notice")).y > (await boxOf(heading, "the H2")).y,
+			asks: await card.getByText("หากต้องการเอกสารนี้ โปรดติดต่อสำนักงาน", { exact: true }).count(),
+			contact: await card
+				.getByRole("link", { name: "ติดต่อเรา", exact: true })
+				.getAttribute("href"),
+			tiles: await card.locator("svg.lucide-file-text").count(),
+		},
+		"the unavailable notice first in the card",
+	).toEqual({ headingFirst: 20, noticeUnderHeading: true, asks: 1, contact: "/contact", tiles: 0 });
+});
+
+/** A Document's summary in two lines, as staff typed them. */
+const FIELD_SUMMARY = `${SYNTHETIC_FIXTURE_MARK} แผนปฏิบัติการด้านสุขภาพของเครือข่าย\nฉบับปรับปรุงประจำปีงบประมาณ`;
+
+/** A part's type size, weight and colour as the page is laid out now. */
+function typeOf(part: Locator) {
+	return part.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return [parseFloat(style.fontSize), style.fontWeight, style.color];
+	});
+}
+
+/**
+ * How a download's words lie in it: on how many lines they and their type and size in parentheses
+ * run, how they align, and whether they keep 8 px or more from its upper and lower edges.
+ */
+function wordsIn(download: Locator) {
+	return download.evaluate((link) => {
+		const size = [...link.querySelectorAll("span")].find((span) =>
+			span.textContent?.trim().startsWith("("),
+		);
+		const words = size?.parentElement;
+		if (!size || !words) return "no type and size";
+		const box = link.getBoundingClientRect();
+		const text = words.getBoundingClientRect();
+		const range = document.createRange();
+		range.selectNodeContents(words);
+		const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+		return {
+			lines: tops.size,
+			align: getComputedStyle(words).textAlign,
+			sizeLines: size.getClientRects().length,
+			inset: Math.min(text.top - box.top, box.bottom - text.bottom) >= 8 - 0.5,
+		};
+	});
+}
+
+test.describe("a Document's page on the field", () => {
+	/** A type, the summary, every detail, current: its type's pill alone. */
+	let full: DocumentFixture & { type: SyntheticTerm };
+	/** The same type, superseded by a published successor: both pills, and the note. */
+	let superseded: DocumentFixture;
+	let successor: DocumentFixture;
+	/** No type, expired: its status's pill alone. */
+	let expired: DocumentFixture;
+	/** No type, summary or detail: no row of pills, and a card that holds the file alone. */
+	let bare: DocumentFixture;
+	/** Its file deleted: the card holds the unavailable notice. */
+	let fileGone: DocumentFixture;
+	const pathOf = (fixture: DraftFixture) => `/documents/${fixture.slug}`;
+
+	test.beforeAll(async () => {
+		const type = await createTerm("document_type", "แผนงาน");
+		const created = await createDocument("field-full", {
+			data: {
+				summary: FIELD_SUMMARY,
+				document_at: "2026-09-23T17:30:00.000Z",
+				fiscal_year: 2569,
+				owner_source: `${SYNTHETIC_FIXTURE_MARK} กลุ่มงานควบคุมโรค`,
+				domain_status: "current",
+			},
+			taxonomies: { document_type: [type.slug] },
+		});
+		full = { ...created, type };
+		successor = await createDocument("field-successor");
+		await publish(successor);
+		superseded = await createDocument("field-superseded", {
+			// 11.8 KB, a size whose words take two lines of the download at 320 px.
+			file: await uploadSyntheticPdf(admin, undefined, 12_083),
+			data: { domain_status: "superseded" },
+			taxonomies: { document_type: [type.slug] },
+			references: { successor: [successor.id] },
+		});
+		expired = await createDocument("field-expired", { data: { domain_status: "expired" } });
+		bare = await createDocument("field-bare");
+		fileGone = await createDocument("field-file-gone");
+		for (const fixture of [full, superseded, expired, bare, fileGone]) await publish(fixture);
+		const removed = await deleteMedia(admin, fileGone.file.mediaId);
+		expect(removed.ok, `deleting the media item: ${nativeRefusalOf(removed)}`).toBe(true);
+	});
+
+	test("the page opens on the deep field without a ring: the breadcrumb in white, 24 px under it the type in an outlined white pill and ถูกแทนที่แล้ว or หมดอายุแล้ว in an accent-warm pill, then the title as the page's one H1 in today's sizes and the summary with the line breaks staff typed, each on the field, 48 rem wide at most, with no publication date; a pill the Document lacks is left out, and so is the row without a pill", async ({
+		page,
+	}) => {
+		const main = page.getByRole("main");
+		const parts = fieldParts(page);
+		// What today's page already shows: one H1 in its sizes, and no publication date.
+		await page.goto(pathOf(superseded));
+		await expect(page.getByRole("heading", { level: 1 }), "one H1").toHaveCount(1);
+		for (const [width, size] of [
+			[639, "24px"],
+			[640, "34px"],
+			[1023, "34px"],
+			[1024, "46px"],
+		] as const) {
+			await page.setViewportSize({ width, height: 900 });
+			await expect(
+				page.getByRole("heading", { level: 1 }),
+				`the title at ${width} px: H3 below 640 px, H2 from 640 px and H1 from 1,024 px`,
+			).toHaveCSS("font-size", size);
+		}
+		await expect(main.getByText(/^เผยแพร่ /), "no publication date").toHaveCount(0);
+
+		const white = await tokenColor(page, "surface-base");
+		const onField = (await parts.field.count()) === 1;
+		const type = parts.field.getByText(full.type.label, { exact: true });
+		const status = parts.field.getByText("ถูกแทนที่แล้ว", { exact: true });
+		const seen: Record<string, unknown> = {
+			field: onField,
+			decorations: await parts.field.locator(':scope > [aria-hidden="true"] > *').count(),
+		};
+		const expected: Record<string, unknown> = {
+			field: true,
+			decorations: 0,
+		};
+		for (const viewport of [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+			if (!onField) break;
+			await page.setViewportSize(viewport);
+			const at = `at ${viewport.width} px`;
+			const field = await boxOf(parts.field, `${at}: the field`);
+			const crumbs = await boxOf(parts.breadcrumb, `${at}: the breadcrumb`);
+			const typeBox = await boxOf(type, `${at}: the type's pill`);
+			const statusBox = await boxOf(status, `${at}: the status's pill`);
+			const title = await boxOf(parts.title, `${at}: the title`);
+			seen[viewport.width] = {
+				onField: [crumbs, typeBox, statusBox, title].every(
+					(box) => box.y >= field.y && box.y + box.height <= field.y + field.height,
+				),
+				pillsUnderCrumbs: Math.round(typeBox.y - crumbs.y - crumbs.height),
+				// The status follows the type on its row, or, with no room left on it, starts the next
+				// row 8 px under it at the row's start.
+				statusAfterType:
+					Math.abs(statusBox.y - typeBox.y) <= 1
+						? statusBox.x > typeBox.x + typeBox.width
+						: Math.round(statusBox.x - typeBox.x) === 0 &&
+							Math.round(statusBox.y - typeBox.y - typeBox.height) === 8,
+				titleUnderPills: title.y >= typeBox.y + typeBox.height,
+				headerWidth: Math.round((await boxOf(parts.header, `${at}: the header`)).width),
+				pills: { type: await pillStyle(type), status: await pillStyle(status) },
+				white: [
+					await parts.breadcrumb
+						.getByRole("link")
+						.first()
+						.evaluate((link) => getComputedStyle(link).color),
+					await parts.breadcrumb
+						.locator('[aria-current="page"]')
+						.evaluate((crumb) => getComputedStyle(crumb).color),
+					await parts.title.evaluate((title) => getComputedStyle(title).color),
+				],
+			};
+			expected[viewport.width] = {
+				onField: true,
+				pillsUnderCrumbs: 24,
+				statusAfterType: true,
+				titleUnderPills: true,
+				headerWidth: Math.min(HEADER_WIDEST, viewport.width - 2 * gutterAt(viewport.width)),
+				pills: {
+					type: {
+						fill: "rgba(0, 0, 0, 0)",
+						colour: white,
+						type: ["13px", "20px", "600"],
+						edge: "1px",
+					},
+					status: {
+						fill: await tokenColor(page, "accent-warm"),
+						colour: await tokenColor(page, "brand-dark"),
+						type: ["13px", "20px", "600"],
+						edge: "1px",
+					},
+				},
+				white: [white, white, white],
+			};
+		}
+
+		// A current Document: its type's pill alone, then the title and the summary with its line
+		// breaks, and no date in the header.
+		await page.goto(pathOf(full));
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+		const summary = parts.header.getByText(FIELD_SUMMARY.split("\n")[0]!);
+		const rowOf = async (pill: Locator) =>
+			(await pill.count()) === 1 ? (await pill.locator("xpath=..").innerText()).trim() : "no pill";
+		seen.current = onField && {
+			row: await rowOf(parts.field.getByText(full.type.label, { exact: true })),
+			dates: await parts.header.locator("time").count(),
+			summary: {
+				text: await summary.innerText(),
+				shown: await shownLines(summary),
+				colour: await summary.evaluate((text) => getComputedStyle(text).color),
+				underTitle:
+					(await boxOf(summary, "the summary")).y >=
+					(await boxOf(parts.title, "the title")).y +
+						(await boxOf(parts.title, "the title")).height,
+			},
+		};
+		expected.current = {
+			row: full.type.label,
+			dates: 0,
+			summary: {
+				text: FIELD_SUMMARY,
+				shown: { lines: 2, clamped: false },
+				colour: white,
+				underTitle: true,
+			},
+		};
+
+		// Expired without a type: its status's pill alone.
+		await page.goto(pathOf(expired));
+		seen.expired = onField && (await rowOf(parts.field.getByText("หมดอายุแล้ว", { exact: true })));
+		expected.expired = "หมดอายุแล้ว";
+
+		// Neither: no row of pills, the title 24 px under the breadcrumb.
+		await page.goto(pathOf(bare));
+		const crumbs = onField && (await boxOf(parts.breadcrumb, "the bare Document's breadcrumb"));
+		seen.bare =
+			crumbs &&
+			Math.round(
+				(await boxOf(parts.title, "the bare Document's title")).y - crumbs.y - crumbs.height,
+			);
+		expected.bare = 24;
+		expect(seen, "the header on the field").toEqual(expected);
+	});
+
+	test("the card starts 48 px above the field's lower edge below 640 px and 56 px from 640 px, where the header ends 80 and 96 px above it: white, radius 24, the deep shadow, 20 px inside, in the text column at most 48 rem wide, whether it holds the file and the details, the file alone or the unavailable notice", async ({
+		page,
+	}) => {
+		const widths = [320, 375, 639, 640, 1440];
+		const seen: Record<string, unknown> = {};
+		const expected: Record<string, unknown> = {};
+		for (const fixture of [full, bare, fileGone]) {
+			await page.goto(pathOf(fixture));
+			seen[fixture.title] = await cardOverFieldEdge(page, widths);
+			expected[fixture.title] = await cardOverFieldEdgeAsSpecified(page, widths);
+		}
+		expect(seen, "the card over the field's edge").toEqual(expected);
+	});
+
+	test("the card holds first the file: the tile with file-text and the type in accent-warm, 68 px below 640 px and 92 px from 640 px, beside it the H2 ไฟล์เอกสาร with the type and size under it, and the download ดาวน์โหลดเอกสาร with the type and size, at the card's right and 52 px high from 640 px, across the card under them and 44 px high below 640 px; then a 1 px border-default rule and the details, 20 px apart", async ({
+		page,
+	}) => {
+		// A superseded Document's download is a current one's (#315 comment 6909993217).
+		await page.goto(pathOf(superseded));
+		const card = fieldParts(page).card;
+		const tile = card.locator("svg.lucide-file-text").locator("xpath=..");
+		const heading = card.getByRole("heading", { level: 2, name: "ไฟล์เอกสาร" });
+		const typeAndSize = card.getByText("PDF, 11.8 KB", { exact: true });
+		const download = card.getByRole("link", {
+			name: "ดาวน์โหลดเอกสาร (PDF, 11.8 KB)",
+			exact: true,
+		});
+		const rule = card.getByRole("separator");
+		const details = card.locator("dl");
+		const found = (await download.count()) === 1 && (await rule.count()) === 1;
+		const seen: Record<string, unknown> = {
+			parts: found && {
+				tile: await tile.evaluate((element) => ({
+					decorative: element.closest('[aria-hidden="true"]') !== null,
+					gradient: getComputedStyle(element).backgroundImage.includes("linear-gradient"),
+					type: element.textContent?.trim(),
+					typeColour: getComputedStyle(element.querySelector("span") ?? element).color,
+				})),
+				heading: await typeOf(heading),
+				typeAndSize: await typeOf(typeAndSize),
+				download: {
+					fill: await download.evaluate((link) => getComputedStyle(link).backgroundColor),
+					words: await typeOf(download),
+					typeAndSize: (await typeOf(download.getByText("(PDF, 11.8 KB)", { exact: true })))[1],
+					icon: await download.locator("svg.lucide-download").evaluate((icon) => {
+						const box = icon.getBoundingClientRect();
+						return [box.width, box.height];
+					}),
+					href: await download.getAttribute("href"),
+					filename: await download.getAttribute("download"),
+				},
+				rule: await rule.evaluate((element) => {
+					const style = getComputedStyle(element);
+					return [style.borderTopWidth, style.borderTopStyle, style.borderTopColor];
+				}),
+			},
+		};
+		const expected: Record<string, unknown> = {
+			parts: {
+				tile: {
+					decorative: true,
+					gradient: true,
+					type: "PDF",
+					typeColour: await tokenColor(page, "accent-warm"),
+				},
+				heading: [18, "600", await tokenColor(page, "brand-dark")],
+				typeAndSize: [13, "400", await tokenColor(page, "text-secondary")],
+				download: {
+					fill: await tokenColor(page, "brand-primary"),
+					words: [14, "600", await tokenColor(page, "surface-base")],
+					typeAndSize: "400",
+					icon: [20, 20],
+					href: `/_emdash/api/media/file/${superseded.file.storageKey}`,
+					filename: superseded.file.filename,
+				},
+				rule: ["1px", "solid", await tokenColor(page, "border-default")],
+			},
+		};
+		for (const width of [320, 375, 639, 640, 1023, 1024, 1440]) {
+			if (!found) break;
+			await page.setViewportSize({ width, height: 900 });
+			const wide = width >= 640;
+			const at = `at ${width} px`;
+			const cardBox = await boxOf(card, `${at}: the card`);
+			const tileBox = await boxOf(tile, `${at}: the tile`);
+			const headingBox = await boxOf(heading, `${at}: the H2`);
+			const textBox = await boxOf(typeAndSize, `${at}: the type and size`);
+			const downloadBox = await boxOf(download, `${at}: the download`);
+			const ruleBox = await boxOf(rule, `${at}: the rule`);
+			const detailsBox = await boxOf(details, `${at}: the details`);
+			const inner = { left: cardBox.x + 20, width: cardBox.width - 40 };
+			const textEnd = Math.max(headingBox.x + headingBox.width, textBox.x + textBox.width);
+			const fileEnd = Math.max(tileBox.y + tileBox.height, downloadBox.y + downloadBox.height);
+			seen[width] = {
+				tileFirst: [Math.round(tileBox.x - inner.left), Math.round(tileBox.y - cardBox.y - 20)],
+				tile: [Math.round(tileBox.width), Math.round(tileBox.height)],
+				headingBesideTile: Math.round(headingBox.x - tileBox.x - tileBox.width),
+				sizeUnderHeading: Math.round(textBox.y - headingBox.y - headingBox.height),
+				download: wide
+					? {
+							right: Math.round(inner.left + inner.width - downloadBox.x - downloadBox.width),
+							height: Math.round(downloadBox.height),
+							besideText: downloadBox.x - textEnd >= 16,
+						}
+					: {
+							across: [Math.round(downloadBox.x - inner.left), Math.round(downloadBox.width)],
+							tall: downloadBox.height >= 44,
+							under: Math.round(
+								downloadBox.y - Math.max(tileBox.y + tileBox.height, textBox.y + textBox.height),
+							),
+						},
+				rule: [
+					Math.round(ruleBox.y - fileEnd),
+					Math.round(ruleBox.height),
+					Math.round(ruleBox.width),
+				],
+				detailsUnderRule: Math.round(detailsBox.y - ruleBox.y - ruleBox.height),
+				words: await wordsIn(download),
+			};
+			expected[width] = {
+				tileFirst: [0, 0],
+				tile: wide ? [92, 92] : [68, 68],
+				headingBesideTile: 16,
+				sizeUnderHeading: 0,
+				download: wide
+					? { right: 0, height: 52, besideText: true }
+					: { across: [0, Math.round(inner.width)], tall: true, under: 16 },
+				rule: [20, 1, Math.round(inner.width)],
+				detailsUnderRule: 20,
+				// The type and size stay on one line, and the words keep 8 px from the pill's edges
+				// when they take two lines.
+				words: {
+					lines: width === 320 ? 2 : 1,
+					align: "center",
+					sizeLines: 1,
+					inset: true,
+				},
+			};
+		}
+		expect(seen, "the card's file block, rule and details").toEqual(expected);
+	});
+
+	test("with motion allowed the header rises in as the page opens and the card after it, while the breadcrumb and the successor's note show at once", async ({
+		page,
+	}) => {
+		const parts = fieldParts(page);
+		const note = page.getByRole("main").getByText("เอกสารฉบับถัดไป");
+		await page.emulateMedia({ reducedMotion: "no-preference" });
+		await page.goto(pathOf(superseded), { waitUntil: "commit" });
+		await expect(parts.title).toBeVisible();
+		const headerEnters = await entersAfter(parts.title);
+		const seen = {
+			title: headerEnters,
+			cardAfterHeader: (await entersAfter(parts.card)) > headerEnters,
+			breadcrumb: await entersAfter(parts.breadcrumb),
+			note: await entersAfter(note),
+		};
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		expect(seen, "the header and the card rise in; the rest shows at once").toEqual({
+			title: 0,
+			cardAfterHeader: true,
+			breadcrumb: -1,
+			note: -1,
+		});
+	});
 });
 
 test("a draft, unpublished or trashed Document answers the site 404 and stays out of the list", async ({

@@ -1,0 +1,42 @@
+---
+// A Document's file as a download pill (Feature 010 #315, #317; spec #311 "The Document
+// repository", "The card over the field's edge"): brand-primary, 44 px high at least, the 20 px
+// download icon, the words in semibold and, in regular weight, the file's type and size, brand-dark
+// under the pointer. The type and size stay on one line, so on a narrow pill the words take two
+// lines, centred, 8 px from its upper and lower edges, rather than part the size from its unit
+// (#317). It links to the file at EmDash's media URL and offers the uploaded file's name
+// (src/lib/media.ts downloadableFile). A Document row's pill says "ดาวน์โหลด" and takes the
+// Document's title as `context`, read after the visible words by assistive technology only, so
+// twenty downloads on a page are told apart and the visible words come first (WCAG 2.2 SC 2.4.4,
+// 2.5.3); a Document's page says "ดาวน์โหลดเอกสาร". The icon is decorative
+// (docs/agents/lucide-astro-1.59.0.md).
+import Download from "@lucide/astro/icons/download";
+import type { DownloadableFile } from "../lib/media";
+
+interface Props {
+	file: DownloadableFile;
+	/** The visible words before the type and size. */
+	words: string;
+	/** Read after the words by assistive technology only, such as the Document's title. */
+	context?: string;
+	/** Where and how wide the pill sits in its parent, and its height from `sm`. */
+	class?: string;
+}
+
+const { file, words, context, class: className } = Astro.props;
+---
+
+<a
+	class:list={[
+		"inline-flex min-h-11 items-center justify-center gap-2 rounded-pill bg-brand-primary px-5 py-2 text-center text-label font-semibold text-surface-base hover:bg-brand-dark motion-safe:transition-colors",
+		className,
+	]}
+	href={file.href}
+	download={file.filename}
+>
+	<Download class="shrink-0" size={20} />
+	<span>
+		{words} <span class="font-normal whitespace-nowrap">({file.label})</span>
+	</span>
+	{context && <span class="sr-only"> {context}</span>}
+</a>

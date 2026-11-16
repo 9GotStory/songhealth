@@ -58,10 +58,13 @@ import {
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
 	boxOf,
-	deepField,
+	cardOverFieldEdge,
+	cardOverFieldEdgeAsSpecified,
 	detailOf,
 	entersAfter,
 	expectStacked,
+	fieldEdge,
+	fieldParts,
 	gutterAt,
 	heldBack,
 	expect,
@@ -71,6 +74,7 @@ import {
 	listedItem,
 	listedTitles,
 	ownTitles,
+	pillStyle,
 	shownLines,
 	shownOpacity,
 	siteTitleParts,
@@ -129,40 +133,6 @@ const createAnnouncement = (label: string, fields: DraftFields = {}) =>
 /** A synthetic Document draft with `file`, and the terms given. */
 const createDocument = (label: string, file: SyntheticPdf, taxonomies?: Record<string, string[]>) =>
 	createSyntheticDocument(admin, label, { file, taxonomies });
-
-/**
- * An Announcement's page as it lies on the deep field: the field, the breadcrumb, the header, the
- * title, and the white card over the field's edge, a part with no role.
- */
-function fieldParts(page: Page) {
-	const field = deepField(page);
-	return {
-		field,
-		breadcrumb: field.getByRole("navigation", { name: "เส้นทางนำทาง" }),
-		header: field.locator("header"),
-		title: field.getByRole("heading", { level: 1 }),
-		card: page.getByTestId("field-card"),
-	};
-}
-
-/** Where the field's lower edge lies in the window, as the page is laid out now. */
-async function fieldEdge(field: Locator, label: string): Promise<number> {
-	const box = await boxOf(field, `${label}: the field`);
-	return box.y + box.height;
-}
-
-/** A pill's fill, words' colour, type (size, line, weight) and edge, as the page is now. */
-function pillStyle(pill: Locator) {
-	return pill.evaluate((element) => {
-		const style = getComputedStyle(element);
-		return {
-			fill: style.backgroundColor,
-			colour: style.color,
-			type: [style.fontSize, style.lineHeight, style.fontWeight],
-			edge: style.borderTopStyle === "solid" ? style.borderTopWidth : "none",
-		};
-	});
-}
 
 /** Publish an entry of `collection` now, or backdated. Returns the stored publication instant. */
 function publish(
@@ -1018,40 +988,13 @@ test.describe("an Announcement's page on the field", () => {
 	test("the details card starts 48 px above the field's lower edge below 640 px and 56 px from 640 px, where the header ends 80 and 96 px above it: white, radius 24, the deep shadow, 20 px inside, in the text column at most 48 rem wide, with the status as the list's dotted label; an Announcement with no details row has no card, and its field reaches 40 px under the header below 640 px and 48 px from 640 px", async ({
 		page,
 	}) => {
-		const deepShadow = /rgba\(13, 46, 36, 0\.35\) 0px 30px 60px -20px$/;
+		const widths = [320, 375, 639, 640, 1440];
 		for (const fixture of [full, untyped]) {
 			await page.goto(pathOf(fixture));
-			const parts = fieldParts(page);
-			for (const width of [320, 375, 639, 640, 1440]) {
-				await page.setViewportSize({ width, height: 900 });
-				const label = `${fixture.title} at ${width} px`;
-				const edge = await fieldEdge(parts.field, label);
-				const card = await boxOf(parts.card, `${label}: the card`);
-				const title = await boxOf(parts.title, `${label}: the title`);
-				const crumbs = await boxOf(parts.breadcrumb, `${label}: the breadcrumb`);
-				expect(
-					{
-						cardOverEdge: Math.round(edge - card.y),
-						headerAboveEdge: Math.round(edge - title.y - title.height),
-						cardStart: Math.round(card.x - crumbs.x),
-						cardWidth: Math.round(card.width),
-					},
-					`${label}: the card over the field's edge`,
-				).toEqual({
-					cardOverEdge: width < 640 ? 48 : 56,
-					headerAboveEdge: width < 640 ? 80 : 96,
-					cardStart: 0,
-					cardWidth: Math.min(HEADER_WIDEST, width - 2 * gutterAt(width)),
-				});
-			}
-			await expect(parts.card, "the white card").toHaveCSS(
-				"background-color",
-				await tokenColor(page, "surface-base"),
-			);
-			await expect(parts.card, "the card's corners").toHaveCSS("border-top-left-radius", "24px");
-			await expect(parts.card, "the card's deep shadow").toHaveCSS("box-shadow", deepShadow);
-			await expect(parts.card, "20 px inside").toHaveCSS("padding-top", "20px");
-			await expect(parts.card, "20 px inside").toHaveCSS("padding-left", "20px");
+			expect(
+				await cardOverFieldEdge(page, widths),
+				`${fixture.title}: the card over the field's edge`,
+			).toEqual(await cardOverFieldEdgeAsSpecified(page, widths));
 		}
 
 		// The status as the list's dotted label, in its own fill.
