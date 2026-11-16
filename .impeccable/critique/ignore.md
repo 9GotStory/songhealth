@@ -10,3 +10,7 @@ Each entry is a detector or review finding that `docs/design/DESIGN.md` settles,
   reads the gradient's lightest stop, 4.1:1, where the text sits darker; DESIGN.md §3.2 and §8.7
   record its readings, the one measured exception to `accent-warm` small text (#245 comment
   6812837231; #314).
+- `low-contrast` on a Document row's file type ("PDF", or "ไฟล์") on its tile (`accent-warm` on
+  the same gradient, `src/components/DocumentDownloadRow.astro`): the detector reads the
+  gradient's lightest stop, 4.1:1; DESIGN.md §3.2 and §7.3 record its readings, 5.60:1 or more,
+  the other measured exception (spec #311 "The Document repository"; #315).
