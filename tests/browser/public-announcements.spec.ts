@@ -51,6 +51,7 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
+	pressInside,
 	SECTION_CRUMBS,
 	boxOf,
 	detailOf,
@@ -612,7 +613,7 @@ test("under the pointer a row moves 10 px to the right with the deep shadow only
 	const row = listedItem(page, first.title);
 	const moving = await pointAtEdge(row);
 	const movedSurface = await surfaceOf(row);
-	await page.mouse.click(moving.edge.x, moving.edge.y);
+	await pressInside(page, row, moving.edge, "the part the row left");
 	// Today's row opens nothing there: the reading follows either way.
 	await page.waitForURL(/\/announcements\/./, { timeout: 5_000 }).catch(() => undefined);
 	expect(

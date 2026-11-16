@@ -518,6 +518,26 @@ export async function boxOf(part: Locator, label: string) {
 	return (await part.boundingBox())!;
 }
 
+/**
+ * Press the page at `point` once the point lies on `target` or on something inside it, so a press
+ * meant for a part cannot land beside it, on a rounded corner's outside or another element, and
+ * pass for one that opened nothing (#315 retro). `target` is what takes the press: where a card's
+ * link covers its picture or title, the link or the card, not the part under it.
+ */
+export async function pressInside(
+	page: Page,
+	target: Locator,
+	point: { x: number; y: number },
+	label: string,
+) {
+	const inside = await target.evaluate((element, { x, y }) => {
+		const hit = document.elementFromPoint(x, y);
+		return hit !== null && element.contains(hit);
+	}, point);
+	expect(inside, `${label}: the point lies on it`).toBe(true);
+	await page.mouse.click(point.x, point.y);
+}
+
 /** How opaque `part` shows as the page is now, through everything that holds it: 0 to 1. */
 export function shownOpacity(part: Locator): Promise<number> {
 	return part.evaluate((element) => {
@@ -598,7 +618,7 @@ export async function expectRisesUnderPointer(
 			message: "the card under the pointer has risen 6 px",
 		})
 		.toBeCloseTo(place.y - 6, 0);
-	await page.mouse.click(edge.x, edge.y);
+	await pressInside(page, card, edge, "the part the card left");
 }
 
 /** How many lines a title shows, and whether more of it lies below them. */

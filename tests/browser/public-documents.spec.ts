@@ -54,6 +54,7 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
+	pressInside,
 	SECTION_CRUMBS,
 	boxOf,
 	detailOf,
@@ -545,9 +546,9 @@ test("a row's title and download are its two focus stops; under the pointer its 
 		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 		await page.waitForTimeout(500);
 	};
-	/** Press `x`, `y` and say which address the page then shows. */
-	const pressAt = async (x: number, y: number) => {
-		await page.mouse.click(x, y);
+	/** Press `x`, `y` on `target` and say which address the page then shows. */
+	const pressAt = async (target: Locator, x: number, y: number, label: string) => {
+		await pressInside(page, target, { x, y }, label);
 		await page.waitForURL(/\/documents\/./, { timeout: 2_000 }).catch(() => undefined);
 		const opened = new URL(page.url()).pathname;
 		if (opened !== "/documents") await page.goBack();
@@ -577,9 +578,14 @@ test("a row's title and download are its two focus stops; under the pointer its 
 	const tileBox = await boxOf(away, "the tile");
 	const rowBox = await boxOf(row, "the row");
 	const pressed = {
-		tile: await pressAt(tileBox.x + tileBox.width / 2, tileBox.y + tileBox.height / 2),
+		tile: await pressAt(
+			away,
+			tileBox.x + tileBox.width / 2,
+			tileBox.y + tileBox.height / 2,
+			"the tile",
+		),
 		// Inside the row's rounded corner, 22 px across, where nothing is drawn but the row.
-		corner: await pressAt(rowBox.x + rowBox.width - 12, rowBox.y + 12),
+		corner: await pressAt(row, rowBox.x + rowBox.width - 12, rowBox.y + 12, "the row's corner"),
 	};
 
 	await page.emulateMedia({ reducedMotion: "no-preference" });
