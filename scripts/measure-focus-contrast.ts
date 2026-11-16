@@ -115,8 +115,10 @@ async function ringContrast(page: Page, selector: string): Promise<string> {
 	 * How far a point of the clip lies outside the element's box with its corners' radius, grown by
 	 * `grow`, as Chromium draws an outline around a rounded box; negative inside it.
 	 */
+	// A corner's radius is at most half the box, as CSS draws a pill's (`rounded-pill`, 999px).
+	const corner = Math.min(ring.radius, box.width / 2, box.height / 2);
 	const outside = (px: number, py: number, grow: number) => {
-		const radius = ring.radius > 0 ? ring.radius + grow : 0;
+		const radius = corner > 0 ? corner + grow : 0;
 		const qx = Math.abs(px + x - (box.x + box.width / 2)) - (box.width / 2 + grow - radius);
 		const qy = Math.abs(py + y - (box.y + box.height / 2)) - (box.height / 2 + grow - radius);
 		return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - radius;

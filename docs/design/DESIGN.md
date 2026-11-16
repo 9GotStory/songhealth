@@ -266,7 +266,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, one of the two exceptions to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
-| `accent-warm` (the file's type, "PDF") on a Document row's file tile on `/documents`, the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository") | 5.68:1 or more in the prototype |
+| `accent-warm` (the file's type, "PDF") on a Document row's file tile on `/documents`, the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315) |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7) | 13.85:1 |
@@ -566,7 +566,13 @@ this document names:
   the download's fill turns `brand-dark`. Each row reveals as it comes into the window and shows
   whole while it holds the keyboard's focus (§8.12). Every other page that lists Documents (a
   Health Report's page, the About pages, a Service's and a Basic Page's related Documents, search
-  results) keeps the earlier row, `DocumentRow`, until its own feature (decision 2).
+  results) keeps the earlier row, `DocumentRow`, until its own feature (decision 2). With
+  `--all-text` at the five widths every text of a row reads 4.97:1 or more, the facts line, the
+  summary and "ไฟล์ไม่พร้อมให้บริการ" in `text-secondary` the lowest; the tile's "PDF" 5.60:1 or
+  more, the download's words 6.45:1, the attention label 7.75:1 and the title 16.54:1. Both
+  links' rings lie on the row's white: under each ring 6.45:1 at the five widths, beside the
+  download's 6.07:1 or more (#315; measured at `fac3acd` with `scripts/measure-text-contrast.ts`,
+  `scripts/measure-focus-contrast.ts` and `scripts/screenshot-fixtures/lists-by-count.ts`).
 - **Crops:** a list's card, a News, Health Content or Activity card, crops its picture to 16:9
   from `sm` and 4:3 below (`ContentCard.astro`), as the Homepage's small News card does; the
   Homepage's Health Content
@@ -765,7 +771,7 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
   ring lies around the row and over the field in the first row, with the same band; on
   `/documents` the filter form is the block over the edge, its ring on its own white card, and the
   Document rows follow it (§7.3; Feature 010 #315), 14 px apart, each with two links, its title
-  and its download, whose rings lie on the row's white. The cards are the Homepage's News
+  and its download, whose rings lie on the row's white, 6.45:1 (§7.3). The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
   ring alone was faint, so a card's ring has a `surface-base` band on both sides
