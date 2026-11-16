@@ -111,7 +111,8 @@ health-service network.
   `/activities` shows the News lists' cards, its newest large on a first page, each with its date
   and place (§7.3; #313), `/announcements` the Homepage's Announcement rows, a closed one greyed
   (§8.7; #314), and `/documents`, after its filter form, rows with the file's type on a tile, the
-  title linking to the Document's page and the file's own download (§7.3; #315). An Announcement's and a Document's page keep their design until their own tickets (#316,
+  title linking to the Document's page and the file's own download (§7.3; #315). An
+  Announcement's and a Document's page keep their design until their own tickets (#316,
   #317), and every page outside the two features keeps its design under the new shell until its
   own feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -412,8 +413,8 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
     heading beside their rows (§8.4 to §8.11). The field under a list's heading has its ring
     (§7.8), a list's small cards go three to a row and its large card takes two columns or the
     whole row by the number of items (§7.3), a Document row's download sits beside its text at
-    the row's right, where from `sm` it is under the text at its start and below `sm` across the
-    row (§7.3), and a
+    the row's right, where from `sm` to `lg` it is under the text at its start and below `sm`
+    across the row (§7.3), and a
     Post page's frame starts on the field beside the text and stays in view while the text is the
     longer (§9.1, §10).
   - `md` and `xl` are not used.
@@ -545,7 +546,8 @@ this document names:
   14 px apart, after the filter form. It holds the file's tile, the Announcement row's date tile
   in size and gradient (68 px, radius 14, below `sm`; 92 px, radius 18, from `sm`; §8.7), with the
   24 px `file-text` and under it the file's type ("PDF") at small size, semibold, in
-  `accent-warm` (§3.2), or "ไฟล์" when the file cannot be served; it is decorative. Beside the
+  `accent-warm` (§3.2), or "ไฟล์" when the file cannot be served or carries no type in its name;
+  it is decorative. Beside the
   tile: the facts line as before (`MetaLine`: type, Document date, "ปีงบประมาณ" and the year);
   a superseded or expired Document's `accent-warm` attention label on its own line; the title,
   an H2, `text-primary`, semibold, body size below `sm` and body-large from `sm`, two lines at
