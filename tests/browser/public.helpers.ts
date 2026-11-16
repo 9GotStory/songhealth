@@ -2605,3 +2605,32 @@ export class BorrowedEntries {
 		expect(failures, "the runtime's own entries are published again as they were").toEqual([]);
 	}
 }
+
+/**
+ * The entries a test publishes to lead an ordered list (newest first, a page boundary), returned
+ * to draft when the test ends, so a later test's own entries lead in turn (CODING_STANDARDS
+ * "Tests"; #314 retro: 2031 Announcements left published pushed the paging test's own off the
+ * first page). Call `release` from the suite's `test.afterEach`.
+ */
+export class LeadingEntries {
+	readonly #entries: Array<{ collection: string; fixture: DraftFixture }> = [];
+
+	/** Hold `fixture` of `collection`, which the test has just published, until `release`. */
+	hold(collection: string, fixture: DraftFixture): void {
+		this.#entries.push({ collection, fixture });
+	}
+
+	/**
+	 * Unpublish every held entry before any result is judged, so one refusal leaves no other
+	 * published, then fail unless each one was.
+	 */
+	async release(admin: CmsActor): Promise<void> {
+		const refused: string[] = [];
+		for (const { collection, fixture } of this.#entries.splice(0)) {
+			const unpublished = await unpublishEntry(admin, collection, fixture.id);
+			if (!unpublished.ok)
+				refused.push(`${collection}/${fixture.slug}: ${nativeRefusalOf(unpublished)}`);
+		}
+		expect(refused, "every leading entry unpublished").toEqual([]);
+	}
+}
