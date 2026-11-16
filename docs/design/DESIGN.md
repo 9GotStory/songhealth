@@ -1094,8 +1094,10 @@ News as a section of their own. Their row is also the Announcements list's (belo
   - a closed Announcement, which the list shows after every current one, has its date tile in
     `status-closed` with its day and its month and year in `text-primary` (13.85:1), and its
     label "ปิดแล้ว" after the dot in `status-closed` with `text-primary`, so the closed rows read
-    grey where they begin (Product Owner, 2026-11-15: spec #311 "Decisions", 13, variant B); a
-    current one's tile keeps the gradient with the month and year in `accent-warm`;
+    grey where they begin (Product Owner, 2026-11-15: spec #311 "Decisions", 13, variant B); its
+    type's badge keeps its colour, as variant B showed, so the types still differ by colour on a
+    closed row (Product Owner, 2026-11-16: #314 comment 6906496480); a current one's tile keeps
+    the gradient with the month and year in `accent-warm`;
   - the link's focus ring has the lists' `surface-base` band on both sides (`focus-ring-banded`,
     §7.3), since the first row's ring lies over the field (#283 comment 6854670042); the
     Homepage's ring, on its band, has none.
