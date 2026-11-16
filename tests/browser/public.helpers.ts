@@ -1233,9 +1233,9 @@ export interface MovingCards {
 	grid: Locator;
 	/** Every card the page shows. */
 	cards: Locator;
-	/** A card with a picture, and one whose picture is missing; a list of rows has neither. */
-	pictured?: Locator;
-	plain?: Locator;
+	/** A card with a picture, and one whose picture is missing. */
+	pictured: Locator;
+	plain: Locator;
 }
 
 /**
@@ -1244,8 +1244,8 @@ export interface MovingCards {
  * `atOnce` show at once; each of its `cards`, where `moving` names them, reveals as it comes into
  * the window and shows whole while it holds the keyboard's focus, and a picture's box shimmers as
  * the page opens while a missing picture's visual does not; and nothing runs by itself for more
- * than five seconds (WCAG 2.2 SC 2.2.2). A list of rows, which have no picture, names no
- * `pictured` and `plain` card (Feature 010 #314). A list whose items do not move yet, such as the
+ * than five seconds (WCAG 2.2 SC 2.2.2). A list of rows, which have no picture, names its `grid`
+ * and `cards` alone (Feature 010 #314). A list whose items do not move yet, such as the
  * Documents list until Feature 010's rows (#315), names its `grid` alone. The empty state that
  * `empty.path` shows, reading `empty.message`, shows at once too. With reduced motion preferred,
  * and on paper, nothing moves. The page's height and each part's place are the same either way, at
@@ -1256,7 +1256,7 @@ export async function expectListMovesOnlyWhenAllowed(
 	path: string,
 	heading: ListHeadingParts,
 	atOnce: Array<[name: string, part: Locator]>,
-	moving: MovingCards | Pick<MovingCards, "grid">,
+	moving: MovingCards | Pick<MovingCards, "grid" | "cards"> | Pick<MovingCards, "grid">,
 	empty: { path: string; message: string },
 ): Promise<void> {
 	const { grid } = moving;
@@ -1373,7 +1373,7 @@ export async function expectListMovesOnlyWhenAllowed(
 		await expect(heading.title).toBeVisible();
 		const ends = await selfRunningEnds(page.locator("html"));
 		expect(Math.max(0, ...ends), "the last effect to end, in ms").toBeLessThanOrEqual(5_000);
-		if (!("pictured" in moving) || !moving.pictured || !moving.plain) return;
+		if (!("pictured" in moving)) return;
 		expect(
 			(await selfRunningEnds(moving.pictured)).length,
 			"the box of a card's picture shimmers as the page opens",

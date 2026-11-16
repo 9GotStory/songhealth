@@ -317,14 +317,17 @@ const leading: DraftFixture[] = [];
  * would push a later test's own off the first page (#313 note on #314).
  */
 async function publishLeading(fixture: DraftFixture): Promise<void> {
-	leading.push(fixture);
 	await publish(fixture);
+	leading.push(fixture);
 }
 
 test.afterEach(async () => {
+	// Each is unpublished before any result is judged, so one refusal leaves no other published.
+	const refused: string[] = [];
 	for (const fixture of leading.splice(0)) {
-		expect((await unpublishEntry(admin, "announcements", fixture.id)).ok, "unpublish").toBe(true);
+		if (!(await unpublishEntry(admin, "announcements", fixture.id)).ok) refused.push(fixture.title);
 	}
+	expect(refused, "every leading Announcement unpublished").toEqual([]);
 });
 
 /**
@@ -348,21 +351,23 @@ async function gotoListing(page: Page, title: string): Promise<Locator> {
  */
 function readRow(row: Locator) {
 	return row.evaluate((article) => {
-		const link = article.querySelector("a")!.getBoundingClientRect();
+		const link = article.querySelector("a")?.getBoundingClientRect();
 		const box = article.getBoundingClientRect();
-		const date = article.querySelector("time")!;
-		const [day, month] = [...date.children].map((part) => ({
+		const date = article.querySelector("time");
+		const [day, month] = [...(date?.children ?? [])].map((part) => ({
 			text: part.textContent?.trim(),
 			size: parseFloat(getComputedStyle(part).fontSize),
 			top: part.getBoundingClientRect().top,
 			bottom: part.getBoundingClientRect().bottom,
 			color: getComputedStyle(part).color,
 		}));
-		const tile = getComputedStyle(date.parentElement!);
+		const tile = getComputedStyle(date?.parentElement ?? article);
 		return {
-			linkCoversRow: (["x", "y", "width", "height"] as const).every(
-				(side) => Math.abs(link[side] - box[side]) < 1,
-			),
+			linkCoversRow:
+				!!link &&
+				(["x", "y", "width", "height"] as const).every(
+					(side) => Math.abs(link[side] - box[side]) < 1,
+				),
 			day: day?.text,
 			dayLarge: !!day && !!month && day.size > month.size,
 			monthUnderDay: !!day && !!month && month.top >= day.bottom - 1,
@@ -449,27 +454,14 @@ test("each /announcements row is the Homepage's row: the date tile with the day 
 	}
 
 	// What the Homepage's row adds, read whole and compared once.
-	/** An empty record of what the rows show at each part, by row, label, status or width. */
+	/** An empty record of what the rows show, by label, status or width. */
 	const record = () => ({
-		rows: [] as object[],
 		badges: {} as Record<string, unknown>,
 		dots: {} as Record<string, unknown>,
 		widths: {} as Record<number, unknown>,
 		arrows: {} as Record<number, boolean[]>,
 	});
 	const [seen, expected] = [record(), record()];
-	for (const [index, announcement] of fixtures.entries()) {
-		const { linkCoversRow, day, dayLarge, monthUnderDay } = await readRow(
-			listedItem(page, announcement.title),
-		);
-		seen.rows.push({ linkCoversRow, day, dayLarge, monthUnderDay });
-		expected.rows.push({
-			linkCoversRow: true,
-			day: String(4 - index),
-			dayLarge: true,
-			monthUnderDay: true,
-		});
-	}
 	for (const [announcement, label, words, fill] of badges) {
 		const colours = await coloursOf(listedItem(page, announcement.title), label);
 		seen.badges[label] = { fill: colours?.fill, words: colours?.words };
@@ -498,11 +490,28 @@ test("each /announcements row is the Homepage's row: the date tile with the day 
 			await boxOf(listedItem(page, procurement.title), "the first row"),
 			await boxOf(listedItem(page, recruitment.title), "the second row"),
 		];
+		const tiles = [];
+		for (const announcement of fixtures) {
+			const { linkCoversRow, day, dayLarge, monthUnderDay } = await readRow(
+				listedItem(page, announcement.title),
+			);
+			tiles.push({ linkCoversRow, day, dayLarge, monthUnderDay });
+		}
 		seen.widths[width] = {
 			title: await shownLines(longTitle),
 			gap: Math.round(lower.y - (upper.y + upper.height)),
+			tiles,
 		};
-		expected.widths[width] = { title: { lines: 2, clamped: true }, gap: 14 };
+		expected.widths[width] = {
+			title: { lines: 2, clamped: true },
+			gap: 14,
+			tiles: fixtures.map((_, index) => ({
+				linkCoversRow: true,
+				day: String(4 - index),
+				dayLarge: true,
+				monthUnderDay: true,
+			})),
+		};
 	}
 	for (const [width, shown] of [
 		[640, true],
@@ -545,7 +554,8 @@ test("a closed Announcement's row has its date tile and its ปิดแล้�
 	).toEqual({
 		currentTile: {
 			gradient: true,
-			fill: currentTile.fill,
+			// The gradient is the tile's image, over no fill.
+			fill: "rgba(0, 0, 0, 0)",
 			day: await colour("surface-base"),
 			monthAndYear: await colour("accent-warm"),
 		},

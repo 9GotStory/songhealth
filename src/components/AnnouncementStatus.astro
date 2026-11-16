@@ -5,9 +5,10 @@
 // An Announcement row shows it after a dot, in the status's own fill (Feature 008 #245; spec #239
 // "Current Announcements"): open in surface-base on brand-primary (6.45:1), closed in text-primary
 // on status-closed (13.85:1), not open yet in brand-dark on accent-warm (7.75:1). The text and the
-// dot state the status, and the colour supports them. The Homepage lists current Announcements
-// only, so the closed fill shows on the Announcements list's rows (Feature 010 #314; spec #311
-// "The Announcements list"). An Announcement's page and a search result keep the first label.
+// dot state the status, and the colour supports them. The closed fill shows on the Announcements
+// list's rows alone (Feature 010 #314; spec #311 "The Announcements list"): the Homepage lists
+// current Announcements only. An Announcement's page and a search result show the label without
+// a dot, a closed one in its attention fill.
 import { STATUS_LABELS, type AnnouncementStatus } from "../lib/announcements";
 import StatusLabel from "./StatusLabel.astro";
 
