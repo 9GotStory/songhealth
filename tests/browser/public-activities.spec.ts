@@ -128,6 +128,20 @@ testListOnField({
 	},
 });
 
+testFirstPageByCount({
+	path: "/activities",
+	collection: "activities",
+	noun: "Activities",
+	counts: [1, 2, 4, 12],
+	admin: () => admin,
+	// Without an Activity date, each is placed by its publication, now, so the last is the newest.
+	publishItem: async (label) => {
+		const activity = await createActivity(label);
+		await publish(activity);
+		return activity;
+	},
+});
+
 test("/activities lists only published Activities, the most recently held first, an undated one placed by its publication", async ({
 	page,
 }) => {
@@ -515,21 +529,6 @@ function lineClampOf(part: Locator): Promise<string> {
 		getComputedStyle(element).getPropertyValue("-webkit-line-clamp"),
 	);
 }
-
-testFirstPageByCount({
-	path: "/activities",
-	collection: "activities",
-	noun: "Activities",
-	counts: [1, 2, 4, 12],
-	admin: () => admin,
-	// Without an Activity date, each is placed by its publication, now, so the last is the newest.
-	// The 13 stay published after it, later than the dates the cases above need on page 1.
-	publishItem: async (label) => {
-		const activity = await createActivity(label);
-		await publish(activity);
-		return activity;
-	},
-});
 
 testListCards({
 	path: "/activities",
