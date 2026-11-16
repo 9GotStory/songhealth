@@ -1405,6 +1405,167 @@ export async function whileNonePublished(
 	}
 }
 
+/** The widths the first page's layout is read at, on both sides of 640 and 1,024 px. */
+const LAYOUT_WIDTHS = [1440, 1024, 1023, 768, 640, 639, 375, 320];
+
+/** `count` cards in rows of `perRow`, the last row holding what is left. */
+function rowsOf(count: number, perRow: number): number[] {
+	const rows: number[] = [];
+	for (let left = count; left > 0; left -= perRow) rows.push(Math.min(perRow, left));
+	return rows;
+}
+
+/**
+ * Fail unless the first page of the list at `path`, showing `count` items, leads with the large
+ * card laid out by the count at each of `LAYOUT_WIDTHS` (spec #280 "The first page"; spec #311
+ * "The Activities list"): from 1,024 px across the row and 440 px high or more with one item, two
+ * columns wide and as high as the card beside it, 380 px or more, with two, and two columns wide
+ * and two rows high, 520 px or more, beside the next two with three or more, the rest three to a
+ * row; from 640 px across the row, 380 px or more, the rest two to a row; below 640 px 300 px or
+ * more, then rows. Nothing is past the window.
+ */
+async function expectFirstPageLayout(page: Page, path: string, count: number): Promise<void> {
+	const { grid } = cardList(page);
+	const cells = grid.getByRole("listitem");
+	await expect(cells, `a cell holds each of ${count} items`).toHaveCount(count);
+	for (const width of LAYOUT_WIDTHS) {
+		await page.setViewportSize({ width, height: 900 });
+		await expectNoHorizontalScroll(page, `${path} with ${count} items at ${width} px`);
+		const at = `with ${count} items at ${width} px`;
+		const gap = width >= 640 ? 24 : 14;
+		const row = await boxOf(grid, "the cards");
+		const boxes = await Promise.all(
+			Array.from({ length: count }, (_, index) => boxOf(cells.nth(index), `card ${index + 1}`)),
+		);
+		const [large, next, third] = boxes;
+		const beside = width >= 1024 && count >= 2;
+		if (beside) {
+			const column = next!.width;
+			expect(large!.width, `the large card is two columns wide ${at}`).toBeCloseTo(
+				2 * column + gap,
+				0,
+			);
+			expect(next!.x - (large!.x + large!.width), `the next card beside it ${at}`).toBeCloseTo(
+				gap,
+				0,
+			);
+			expect(next!.y, `the next card level with it ${at}`).toBeCloseTo(large!.y, 0);
+			if (count === 2) {
+				expect(large!.height, `as high as the card beside it ${at}`).toBeCloseTo(next!.height, 0);
+				expect(large!.height, `380 px or more ${at}`).toBeGreaterThanOrEqual(380);
+			} else {
+				expect(third!.x, `the third card under the second ${at}`).toBeCloseTo(next!.x, 0);
+				expect(third!.y - (next!.y + next!.height), `the second and third ${at}`).toBeCloseTo(
+					gap,
+					0,
+				);
+				expect(large!.y + large!.height, `two rows high ${at}`).toBeCloseTo(
+					third!.y + third!.height,
+					0,
+				);
+				expect(large!.height, `520 px or more ${at}`).toBeGreaterThanOrEqual(520);
+			}
+		} else {
+			expect(large!.width, `the large card spans the row ${at}`).toBeCloseTo(row.width, 0);
+			const least = width >= 1024 ? 440 : width >= 640 ? 380 : 300;
+			expect(large!.height, `${least} px or more ${at}`).toBeGreaterThanOrEqual(least);
+			if (next) {
+				expect(
+					next.y - (large!.y + large!.height),
+					`the next row ${gap} px under it ${at}`,
+				).toBeCloseTo(gap, 0);
+			}
+		}
+		const expected =
+			width >= 1024
+				? count >= 3
+					? [2, 1, ...rowsOf(count - 3, 3)]
+					: [1 + Math.min(count - 1, 1)]
+				: [1, ...rowsOf(count - 1, width >= 640 ? 2 : 1)];
+		expect(await itemsPerRow(cells), `the rows ${at}`).toEqual(expected);
+		// Every small card takes one column, a last row's alone too.
+		const column =
+			(row.width - (width >= 1024 ? 2 : width >= 640 ? 1 : 0) * gap) /
+			(width >= 1024 ? 3 : width >= 640 ? 2 : 1);
+		for (const [index, box] of boxes.slice(1).entries()) {
+			expect(box.width, `card ${index + 2} takes one column ${at}`).toBeCloseTo(column, 0);
+		}
+	}
+}
+
+/** A list whose first page leads with the large card, laid out by its number of items. */
+export interface FirstPageByCount {
+	path: string;
+	/** The collection the list shows. */
+	collection: string;
+	/** What the list's items are called in the test's title and failures: "News", "Activities". */
+	noun: string;
+	/** The numbers of items the first page is read with, fewest first; the last a full page. */
+	counts: readonly number[];
+	/** The actor whose fixtures the suite makes, once its `beforeAll` has run. */
+	admin: () => CmsActor;
+	/** A new item of the list, published now, so it is the newest. */
+	publishItem: (label: string) => Promise<DraftFixture>;
+}
+
+/** The words of a count in a test's title. */
+const COUNT_WORDS: Record<number, string> = {
+	1: "one",
+	2: "two",
+	3: "three",
+	4: "four",
+	12: "a full page of twelve",
+};
+
+/**
+ * Declare the test of a list's first page by its number of items (Feature 009 #284; Feature 010
+ * #313): with no other item published, the page leads with its newest item as the large card,
+ * once and before the others in the list's order, laid out by each of `counts`
+ * (`expectFirstPageLayout`); one more than the last moves the oldest to the second page, which has
+ * no large card.
+ */
+export function testFirstPageByCount(list: FirstPageByCount): void {
+	const { path, noun, counts } = list;
+	const words = counts.map((count) => COUNT_WORDS[count] ?? String(count));
+	test(`the first page of ${path} leads with its newest ${noun} as the large card, shown once before the others in the list's order, laid out by the number of ${noun}: ${words.slice(0, -1).join(", ")} and ${words.at(-1)}, which ends with one card alone at two columns; nothing is past the window, and the second page has no large card`, async ({
+		page,
+	}) => {
+		test.setTimeout(240_000);
+		await whileNonePublished(list.admin(), list.collection, async () => {
+			const published: DraftFixture[] = [];
+			const { cards, large } = cardList(page);
+			for (const count of counts) {
+				const label = `count-${String(count).padStart(2, "0")}`;
+				while (published.length < count) {
+					published.push(
+						await list.publishItem(`${label}-${String(published.length).padStart(2, "0")}`),
+					);
+				}
+				await page.setViewportSize(DESKTOP_VIEWPORT);
+				await page.goto(path);
+				const newestFirst = published.toReversed().map((item) => item.title);
+				await expect(large, `one large card with ${count} ${noun}`).toHaveCount(1);
+				await expect(large.getByRole("heading", { level: 2 }), "the newest is large").toHaveText(
+					newestFirst[0]!,
+				);
+				expect(await listedTitles(page), `each item once, newest first, with ${count}`).toEqual(
+					newestFirst,
+				);
+				await expect(cards, `the large card and ${count - 1} small ones`).toHaveCount(count);
+				await expectFirstPageLayout(page, path, count);
+			}
+
+			// One more, the newest, moves the oldest to the second page.
+			await list.publishItem(`count-${String(counts.at(-1)! + 1).padStart(2, "0")}`);
+			await page.setViewportSize(DESKTOP_VIEWPORT);
+			await page.goto(`${path}?page=2`);
+			await expect(cards, `the second page shows the oldest ${noun}`).toHaveCount(1);
+			await expect(large, "no large card on the second page").toHaveCount(0);
+			expect(await listedTitles(page)).toEqual([published[0]!.title]);
+		});
+	});
+}
+
 /** What a list's heading on the deep field reads, and where the list is. */
 interface HeadingOnField {
 	path: string;
@@ -1717,6 +1878,12 @@ export interface ListOnField extends HeadingOnField {
 	 * and the suite's other tests still find their own on the first page.
 	 */
 	publishItem: (label: string) => Promise<DraftFixture>;
+	/**
+	 * For a list whose cards move (Feature 010 #313): a new item with a picture, published now, so
+	 * its card is on the first page. The motion case then reads each card's reveal and the
+	 * shimmer of a picture's box.
+	 */
+	publishPictured?: (label: string) => Promise<DraftFixture>;
 }
 
 /**
@@ -1832,18 +1999,30 @@ export function testListOnField(list: ListOnField): void {
 		}
 	});
 
-	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, ${list.form ? "the filter form, " : ""}the items, the pager and an empty state show at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
+	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, ${list.form ? "the filter form, " : ""}${list.publishPictured ? "" : "the items, "}the pager and an empty state show at once${list.publishPictured ? "; each card reveals as it comes into the window and shows whole while it holds the keyboard's focus, and a picture's box shimmers as the page opens while a missing picture's visual does not" : ""}, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
 		page,
 	}) => {
 		test.setTimeout(120_000);
 		await fillPastOnePage("motion");
-		const { grid, pager } = cardList(page);
+		const pictured = await list.publishPictured?.("motion-picture");
+		const { cards, grid, pager } = cardList(page);
 		await expectListMovesOnlyWhenAllowed(
 			page,
 			path,
 			listHeading(page, text),
-			[...formPart(page), ["the items", grid], ["the pager", pager]],
-			{ grid },
+			[
+				...formPart(page),
+				...(pictured ? [] : [["the items", grid] as [string, Locator]]),
+				["the pager", pager],
+			],
+			pictured
+				? {
+						grid,
+						cards,
+						pictured: listedItem(page, pictured.title),
+						plain: cards.filter({ hasNot: page.locator("img") }).last(),
+					}
+				: { grid },
 			{ path: `${path}?page=10000`, message: list.pastLast },
 		);
 	});
@@ -1865,21 +2044,27 @@ export function testListOnField(list: ListOnField): void {
 	});
 }
 
+/** What a list's card shows after its date: a term's label, or an Activity's place. */
+export type CardLabel = Pick<SyntheticTerm, "label">;
+
 /**
  * A list page whose cards are the small and the large card of spec #280 "The cards" (Feature 009
- * #283, #284).
+ * #283, #284), and the Activities list's (Feature 010 #313; spec #311 "The Activities list").
  */
-export interface ListCards {
+export interface ListCards<Label extends CardLabel = CardLabel> {
 	path: string;
 	/** The Lucide icon of the plain visual that stands in for a missing picture. */
-	icon: "message-square" | "heart-pulse";
+	icon: "message-square" | "heart-pulse" | "heart";
 	/**
 	 * Whether an item of the list can have no label: every item on Health News has a Health Topic,
 	 * which labels its card.
 	 */
 	unlabelled: boolean;
-	/** A new synthetic term of the taxonomy that labels the list's cards. */
-	createLabel: (label: string) => Promise<SyntheticTerm>;
+	/**
+	 * A new label of the list's cards, `label` behind the synthetic mark with a unique ending: a
+	 * term of the taxonomy that labels them, or an Activity's place.
+	 */
+	createLabel: (label: string) => Promise<Label>;
 	/** A new synthetic picture in the media library: its media item's id. */
 	uploadPicture: () => Promise<string>;
 	/** The fixed number of items a page of the list shows. */
@@ -1890,7 +2075,7 @@ export interface ListCards {
 	 */
 	publishItem: (
 		label: string,
-		parts: { term?: SyntheticTerm; summary?: string; picture?: string },
+		parts: { term?: Label; summary?: string; picture?: string },
 	) => Promise<{ item: DraftFixture; at: string }>;
 }
 
@@ -1907,7 +2092,7 @@ export interface ListCards {
  * its label in pills, its title and from 640 px its summary over the gradient at its foot, and
  * without a picture the deep visual with the list's icon in a 72 px tile.
  */
-export function testListCards(list: ListCards): void {
+export function testListCards<Label extends CardLabel>(list: ListCards<Label>): void {
 	const SUMMARY = "สรุปข่าวสำหรับทดสอบการ์ดของรายการ ซึ่งแสดงใต้ชื่อเรื่องตั้งแต่ 640 พิกเซล";
 	test(`on ${list.path} a card shows its picture, then its date, a dot and its label on one line, its title as an H2 and from 640 px its summary; below 640 px it is a row with a 120 px picture at 4:3 beside its text, its label on the line under its date with no dot, and no summary; a card without ${list.unlabelled ? "a label writes its date alone, " : ""}a summary shows none, and one without a picture shows the plain visual with the ${list.icon} icon in a 48 px tile`, async ({
 		page,
@@ -1938,6 +2123,12 @@ export function testListCards(list: ListCards): void {
 		await expect(lineOf(fullCard), "the date, a dot and the label").toHaveText(
 			new RegExp(`^\\s*${fullDate}\\s*·\\s*${term.label}\\s*$`),
 		);
+		const shownDate = lineOf(fullCard).locator("time");
+		await expect(shownDate, "the date in brand-primary").toHaveCSS(
+			"color",
+			await tokenColor(page, "brand-primary"),
+		);
+		await expect(shownDate, "the date semibold").toHaveCSS("font-weight", "600");
 		await expect(lineOf(bareCard), "the date with its label, or alone").toHaveText(
 			list.unlabelled ? bareDate : new RegExp(`^\\s*${bareDate}\\s*·\\s*${term.label}\\s*$`),
 		);

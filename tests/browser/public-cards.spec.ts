@@ -1,7 +1,8 @@
 // Shared single-destination cards (#193; spec #190, PO comment 6707205912), and the Homepage's own
 // Service card, News cards and Announcement rows, which open from their whole surface as they do
 // (Feature 008 #242, #244, #245). The News, Health News and Health Content lists' cards are the
-// Homepage's small News card (Feature 009 #283; spec #280 "The cards"): they rise under the pointer
+// Homepage's small News card (Feature 009 #283; spec #280 "The cards"), and so is the Activities
+// list's since Feature 010 #313 (spec #311 "The Activities list"): they rise under the pointer
 // with no ring, and their focus ring has a white band on both sides. A first page leads with the
 // newest item as the Homepage's large card (#284), whose picture grows under the pointer while the
 // card stays.
@@ -54,10 +55,12 @@ const LONG_SUMMARY =
 	"สรุปที่ยาวกว่าสองบรรทัดของการ์ด เพื่อทดสอบว่าการ์ดแสดงสรุปได้ไม่เกินสองบรรทัดบนจอกว้าง และซ่อนสรุปทั้งหมดบนจอแคบ โดยข้อความส่วนนี้ต่อยาวออกไปอีกเพื่อให้เกินสองบรรทัดแน่นอน";
 /** A summary longer than the large card's two lines, on a card two columns wide. */
 const LARGE_SUMMARY = `${LONG_SUMMARY} ${LONG_SUMMARY}`;
-const longEntries: Partial<Record<"news" | "health_content", DraftFixture>> = {};
+/** The collections whose lists show the list card (spec #280 "The cards"; spec #311). */
+type CardCollection = "news" | "health_content" | "activities";
+const longEntries: Partial<Record<CardCollection, DraftFixture>> = {};
 const ownedTerms: SyntheticTerm[] = [];
 const extraActivities: DraftFixture[] = [];
-const pictureEntries: Partial<Record<"news" | "health_content" | "activities", DraftFixture>> = {};
+const pictureEntries: Partial<Record<CardCollection, DraftFixture>> = {};
 
 test.beforeAll(async () => {
 	admin = await devAdminActor();
@@ -105,15 +108,24 @@ test.beforeAll(async () => {
 		await publishEntryAt(admin, "activities", entry.id);
 		extraActivities.push(entry);
 	}
-	for (const collection of ["news", "health_content"] as const) {
+	for (const collection of ["news", "health_content", "activities"] as const) {
 		const entry = await createSyntheticDraft(admin, collection, LONG_TITLE, "lines", {
-			data: { summary: LONG_SUMMARY },
-			taxonomies: { topic: [topic.slug] },
+			// An Activity is listed by when it was held: after the Homepage's five, the suite's four.
+			data:
+				collection === "activities"
+					? { summary: LONG_SUMMARY, activity_at: "2034-01-02T03:00:00.000Z" }
+					: { summary: LONG_SUMMARY },
+			...(collection === "activities" ? {} : { taxonomies: { topic: [topic.slug] } }),
 		});
 		longEntries[collection] = entry;
 		await publishEntryAt(admin, collection, entry.id, "2034-01-02T03:00:00.000Z");
 	}
 });
+
+/** The address of an entry of `collection`, from its slug. */
+function entryPath(collection: CardCollection, slug: string): string {
+	return `${{ news: "/news", health_content: "/health/content", activities: "/activities" }[collection]}/${slug}`;
+}
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
 
 /** Click the visible part a citizen points at, whether the link wraps it or covers it. */
@@ -231,11 +243,11 @@ async function expectCardDestination(page: Page, path: string, fixture: DraftFix
 }
 
 /**
- * The lists whose cards open from their whole surface. A News list's small card (`news`) is a row
- * below 640 px with a 4:3 picture and shows no summary there; its picture is 16:9 from 640 px. The
- * suite's newest News and Health Content, `news` and `health`, are each list's large card (Feature
- * 009 #284), so a small card's case reads the pictured item after them, and its visual is its
- * picture.
+ * The lists whose cards open from their whole surface. A list card (`listCard`: the News lists'
+ * and, since Feature 010 #313, the Activities list's) is a row below 640 px with a 4:3 picture and
+ * shows no summary there; its picture is 16:9 from 640 px. The suite's newest News, Health Content
+ * and Activity, `news`, `health` and `activity`, are each list's large card (Feature 009 #284), so
+ * a small card's case reads the pictured item after them, and its visual is its picture.
  */
 const listCases = [
 	{
@@ -243,29 +255,29 @@ const listCases = [
 		list: "/news",
 		fixture: () => pictureEntries.news!,
 		visual: "picture",
-		news: true,
+		listCard: true,
 	},
 	{
 		name: "Health News",
 		list: "/news/health",
 		fixture: () => pictureEntries.news!,
 		visual: "picture",
-		news: true,
+		listCard: true,
 	},
 	{
 		name: "Health Content",
 		list: "/health/content",
 		fixture: () => pictureEntries.health_content!,
 		visual: "picture",
-		news: true,
+		listCard: true,
 	},
 	{ name: "Services", list: "/services", fixture: () => service, visual: "service-icon" },
 	{
 		name: "Activities",
 		list: "/activities",
-		fixture: () => activity,
-		visual: "activity-visual",
-		ratio: 16 / 9,
+		fixture: () => pictureEntries.activities!,
+		visual: "picture",
+		listCard: true,
 	},
 ];
 
@@ -274,9 +286,9 @@ function visualOf(context: (typeof listCases)[number], card: Locator): Locator {
 	return context.visual === "picture" ? card.locator("img") : card.getByTestId(context.visual);
 }
 
-/** The shape of a card's picture, or the visual in its place, at `width`. */
+/** The shape of a list card's picture at `width`; a Service card's icon has none. */
 function ratioOf(context: (typeof listCases)[number], width: number): number | undefined {
-	if (!context.news) return context.ratio;
+	if (!context.listCard) return undefined;
 	return width < 640 ? 4 / 3 : 16 / 9;
 }
 
@@ -293,7 +305,7 @@ for (const width of [320, 375, 1440]) {
 					: `${context.list}/${fixture.slug}`;
 			await page.goto(context.list);
 			const card = listedItem(page, fixture.title);
-			const link = context.news
+			const link = context.listCard
 				? await expectListCardInteraction(page, card, fixture.title)
 				: await expectCardInteraction(page, card, fixture.title, 2);
 			await expect(card).toContainText(SUMMARY);
@@ -315,7 +327,7 @@ for (const width of [320, 375, 1440]) {
 			for (const target of ["visual", "summary", "metadata", "padding", "title"]) {
 				if (target === "metadata" && context.name === "Services") continue;
 				// A News list's card shows no summary below 640 px.
-				if (target === "summary" && context.news && width < 640) continue;
+				if (target === "summary" && context.listCard && width < 640) continue;
 				await page.goto(context.list);
 				if (target === "visual") await clickCardSurface(page, visual);
 				else if (target === "title")
@@ -453,35 +465,22 @@ for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 	});
 }
 
-test("an Activity card retains its decorative loaded picture and 16:9 crop", async ({ page }) => {
-	const fixture = pictureEntries.activities!;
-	await page.goto("/activities");
-	const card = listedItem(page, fixture.title);
-	const picture = card.locator("img");
-	await picture.scrollIntoViewIfNeeded();
-	await expectImageLoaded(picture, "activities");
-	await expect(picture).toHaveAttribute("alt", "");
-	await expect(picture).toHaveCSS("object-fit", "cover");
-	const box = await picture.boundingBox();
-	expect(box!.width / box!.height).toBeCloseTo(16 / 9, 1);
-	await clickCardSurface(page, picture);
-	await expectCardDestination(page, `/activities/${fixture.slug}`, fixture);
-});
-
-const newsLists = [
+/** The lists of the list card, with the collection each shows. */
+const cardLists = [
 	{ name: "News", list: "/news", collection: "news" },
 	{ name: "Health News", list: "/news/health", collection: "news" },
 	{ name: "Health Content", list: "/health/content", collection: "health_content" },
+	{ name: "Activities", list: "/activities", collection: "activities" },
 ] as const;
 
 for (const width of [375, 1440]) {
-	for (const { name, list, collection } of newsLists) {
+	for (const { name, list, collection } of cardLists) {
 		test(`a ${name} card's decorative picture covers its box at ${width === 375 ? "4:3" : "16:9"} at ${width} px; under the pointer, with motion allowed, the picture grows by 6 % and the card rises 6 px, and with reduced motion neither moves`, async ({
 			page,
 		}) => {
 			await page.setViewportSize({ width, height: 900 });
 			const fixture = pictureEntries[collection]!;
-			const path = `${collection === "news" ? "/news" : "/health/content"}/${fixture.slug}`;
+			const path = entryPath(collection, fixture.slug);
 			await page.goto(list);
 			const card = listedItem(page, fixture.title);
 			const picture = card.locator("img");
@@ -543,6 +542,7 @@ test("native modified click opens a card in a new tab", async ({ page }) => {
 		["/news", news, `/news/${news.slug}`],
 		["/news/health", news, `/news/${news.slug}`],
 		["/health/content", health, `/health/content/${health.slug}`],
+		["/activities", activity, `/activities/${activity.slug}`],
 	] as const) {
 		await page.goto(list);
 		const link = listedItem(page, fixture.title).getByRole("link", {
@@ -621,16 +621,16 @@ async function expectLowerCornerAndEnter(
 	await expectCardDestination(page, path, fixture);
 }
 
-// Until the describe below, the suite's newest News and Health Content, `news` and `health`, lead
-// the lists as the large card, without a picture (Feature 009 #284).
+// Until the describe below, the suite's newest News, Health Content and Activity, `news`, `health`
+// and `activity`, lead the lists as the large card, without a picture (Feature 009 #284).
 for (const width of [375, 1440]) {
-	for (const { name, list, collection } of newsLists) {
+	for (const { name, list, collection } of cardLists) {
 		test(`the large card of ${name} without a picture opens by one link named by its title from the tile of its visual, its lower corner and Enter, at ${width} px`, async ({
 			page,
 		}) => {
 			await page.setViewportSize({ width, height: 900 });
-			const fixture = collection === "news" ? news : health;
-			const path = `${collection === "news" ? "/news" : "/health/content"}/${fixture.slug}`;
+			const fixture = { news, health_content: health, activities: activity }[collection];
+			const path = entryPath(collection, fixture.slug);
 			await page.goto(list);
 			const card = listedItem(page, fixture.title);
 			await expect(page.getByRole("main").getByRole("article").first()).toHaveText(
@@ -646,21 +646,23 @@ for (const width of [375, 1440]) {
 }
 
 // Last in the suite: these items are newer than every other fixture, so from here on they lead the
-// News lists and Health Content as the large card (Feature 009 #284; spec #280 "The cards").
+// News lists, Health Content and the Activities as the large card (Feature 009 #284; spec #280 "The
+// cards"; Feature 010 #313).
 test.describe("the large card", () => {
-	const largeEntries: Partial<Record<"news" | "health_content", DraftFixture>> = {};
+	const largeEntries: Partial<Record<CardCollection, DraftFixture>> = {};
 
 	test.beforeAll(async () => {
 		const topic = await createOwnedTerm(admin, "topic", "หัวข้อการ์ดใหญ่", ownedTerms);
 		const imageId = await uploadSyntheticPicture(admin, "ภาพสังเคราะห์สำหรับการ์ดใหญ่");
-		for (const collection of ["news", "health_content"] as const) {
+		for (const collection of ["news", "health_content", "activities"] as const) {
 			const entry = await createSyntheticDraft(admin, collection, LONG_TITLE, "large", {
 				// A focal point off the middle, which the picture's crop centres on.
 				data: {
 					summary: LARGE_SUMMARY,
 					featured_image: { id: imageId, focalX: 0.25, focalY: 0.75 },
+					...(collection === "activities" ? { activity_at: "2036-01-01T03:00:00.000Z" } : {}),
 				},
-				taxonomies: { topic: [topic.slug] },
+				...(collection === "activities" ? {} : { taxonomies: { topic: [topic.slug] } }),
 			});
 			largeEntries[collection] = entry;
 			await publishEntryAt(admin, collection, entry.id, "2036-01-01T03:00:00.000Z");
@@ -668,13 +670,13 @@ test.describe("the large card", () => {
 	});
 
 	for (const width of [375, 1440]) {
-		for (const { name, list, collection } of newsLists) {
+		for (const { name, list, collection } of cardLists) {
 			test(`the large card of ${name} opens from its whole surface by one link named by its title, its picture covers it around its focal point, its title shows three lines at most and ${width < 640 ? "its summary does not show" : "its summary two"} at ${width} px; under the pointer, with motion allowed, the picture grows by 6 % and the card stays in its place, and with reduced motion nothing moves; its focus ring has a white band on both sides`, async ({
 				page,
 			}) => {
 				await page.setViewportSize({ width, height: 900 });
 				const fixture = largeEntries[collection]!;
-				const path = `${collection === "news" ? "/news" : "/health/content"}/${fixture.slug}`;
+				const path = entryPath(collection, fixture.slug);
 				await page.goto(list);
 				const card = listedItem(page, fixture.title);
 				await expect(page.getByRole("main").getByRole("article").first()).toHaveText(

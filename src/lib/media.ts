@@ -20,12 +20,6 @@ export interface MediaRuntime {
 	getPublicMediaUrl?: (storageKey: string) => string;
 }
 
-/**
- * A card picture's `sizes`: the card's width in the Activities list's grid (ActivityCardGrid),
- * three to a row from `lg`, two from `sm`. The News lists' cards have their own (ContentCard).
- */
-export const CARD_PICTURE_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
-
 /** What a page shows where a Document's file cannot be served. */
 export const FILE_UNAVAILABLE = "ไฟล์ไม่พร้อมให้บริการ";
 

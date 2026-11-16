@@ -41,7 +41,7 @@ const listUrl = new URL(ACTIVITIES_PATH, Astro.url);
 	</ListHeading>
 	<ListBody>
 		{entries.length > 0 ? (
-			<ActivityCardGrid entries={entries} />
+			<ActivityCardGrid entries={entries} page={page} />
 		) : page > 1 ? (
 			<EmptyState
 				message="ไม่พบกิจกรรมในหน้านี้"

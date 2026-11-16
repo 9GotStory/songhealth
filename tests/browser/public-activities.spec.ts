@@ -25,6 +25,8 @@
 // - Deleting a media item removes its stored file and leaves the Activity that uses it unchanged
 //   (src/api/handlers/media.ts handleMediaDelete).
 
+import type { Locator } from "@playwright/test";
+
 import {
 	createSyntheticDraft,
 	deleteMedia,
@@ -47,19 +49,24 @@ import {
 	OFF_CENTRE_FOCAL_POINT,
 	SECTION_CRUMBS,
 	boxOf,
+	cardList,
 	deepField,
 	detailOf,
 	expect,
 	expectBreadcrumb,
 	expectCrop,
+	expectNoHorizontalScroll,
 	expectPreviewRenders,
 	expectSiteNotFound,
 	listedItem,
 	listedTitles,
 	ownTitles,
+	shownLines,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
+	testFirstPageByCount,
+	testListCards,
 	testListOnField,
 	thaiDate,
 	tokenColor,
@@ -73,6 +80,8 @@ const ACTIVITIES_LEAD = "กิจกรรม การประชุม แ�
 
 let admin: CmsActor;
 let origin: string;
+/** When the last Activity of the list cards' cases was held: after every other of the suite. */
+let cardHeldAt = Date.parse("2040-01-01T03:00:00.000Z");
 
 /** A synthetic Activity draft. Its title is unique, so a page shows it or does not. */
 const createActivity = (label: string, fields: DraftFields = {}) =>
@@ -106,6 +115,15 @@ testListOnField({
 	publishItem: async (label) => {
 		const activity = await createActivity(label);
 		await publish(activity, LIST_END);
+		return activity;
+	},
+	publishPictured: async (label) => {
+		const activity = await createActivity(label, {
+			data: {
+				featured_image: { id: await uploadSyntheticPicture(admin, "ภาพกิจกรรมสำหรับทดสอบ") },
+			},
+		});
+		await publish(activity);
 		return activity;
 	},
 });
@@ -190,7 +208,7 @@ test("the first Activity card lies over the deep field's lower edge, so its focu
 	);
 });
 
-test("an Activity card shows its picture, cropped around its middle or around its focal point, or the Activity visual when it has none or its picture is gone, and its summary", async ({
+test("an Activity card shows its picture, cropped around its middle or around its focal point, and its summary, or the list card's visual when it has none or its picture is gone, and its line says no more than its date", async ({
 	page,
 }) => {
 	const pictured = await createActivity("card-picture", {
@@ -222,32 +240,28 @@ test("an Activity card shows its picture, cropped around its middle or around it
 	expect((await deleteMedia(admin, goneId)).ok, "deleting the media item").toBe(true);
 
 	await page.goto("/activities");
-	await expect(listedItem(page, pictured.title).getByRole("heading", { level: 2 })).toHaveText(
-		pictured.title,
-	);
-	await expect(
-		listedItem(page, pictured.title).getByText("กิจกรรม", { exact: true }),
-	).toBeVisible();
-	await expect(listedItem(page, pictured.title).locator("img")).toHaveCount(1);
-	await expect(listedItem(page, pictured.title).getByTestId("activity-visual")).toHaveCount(0);
-	await expectCrop(
-		listedItem(page, pictured.title).locator("img"),
-		"50% 50%",
-		"a picture without a focal point",
-	);
-	for (const activity of [plain, pictureGone]) {
-		await expect(listedItem(page, activity.title).locator("img"), activity.title).toHaveCount(0);
-		await expect(
-			listedItem(page, activity.title).getByTestId("activity-visual"),
-			activity.title,
-		).toHaveCount(1);
-	}
-	await expect(listedItem(page, plain.title).getByText(summary, { exact: true })).toBeVisible();
+	const pictureCard = listedItem(page, pictured.title);
+	await expect(pictureCard.getByRole("heading", { level: 2 })).toHaveText(pictured.title);
+	await expect(pictureCard.locator("img")).toHaveCount(1);
+	await expectCrop(pictureCard.locator("img"), "50% 50%", "a picture without a focal point");
 	await expectCrop(
 		listedItem(page, focused.title).locator("img"),
 		OFF_CENTRE_CROP,
 		"a picture with a focal point",
 	);
+	await expect(listedItem(page, plain.title).getByText(summary, { exact: true })).toBeVisible();
+	for (const activity of [plain, pictureGone]) {
+		await expect(listedItem(page, activity.title).locator("img"), activity.title).toHaveCount(0);
+	}
+	// The list card's visual (Feature 010 #313), where the Activity card had its own.
+	await expect(pictureCard.getByTestId("news-visual"), "no visual beside a picture").toHaveCount(0);
+	await expect(listedItem(page, plain.title).getByTestId("news-visual")).toHaveCount(1);
+	await expect(listedItem(page, pictureGone.title).getByTestId("news-visual")).toHaveCount(1);
+	// The card's line is its date, with the place when it has one; "กิจกรรม" left it.
+	await expect(
+		pictureCard.locator("p").filter({ has: page.locator("time") }),
+		"the date alone",
+	).toHaveText(thaiDate("2030-03-03T03:00:00.000Z"));
 });
 
 test("/activities pages through older Activities in the same order, with the page number in the address", async ({
@@ -450,6 +464,97 @@ test("the Activity pages carry their title, description, absolute canonical addr
 	await expect(meta('meta[name="description"]')).toHaveAttribute("content", /.+/);
 	await expect(meta('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/activities`);
 	await expect(meta('meta[property="og:type"]')).toHaveAttribute("content", "website");
+});
+
+/** A place longer than a card's line holds: two lines from 640 px, one in the large card's pill. */
+const LONG_PLACE = `${SYNTHETIC_FIXTURE_MARK} ห้องประชุมใหญ่ชั้นสองของอาคารอเนกประสงค์ ที่ทำการองค์การบริหารส่วนตำบล ซึ่งอยู่ติดกับโรงเรียนประจำหมู่บ้านและศาลาประชาคม ใกล้ตลาดนัดชุมชนวันพุธและสถานีอนามัยเดิม ทางทิศเหนือของหมู่บ้าน`;
+
+test("an Activity card's place follows its date after a dot from 640 px, the line two lines at most; below 640 px it is on its own line, one line at most, cut with an ellipsis; on the large card it is one line in its pill", async ({
+	page,
+}) => {
+	const small = await createActivity("place-small", {
+		data: { activity_at: "2032-01-01T03:00:00.000Z", location_text: LONG_PLACE },
+	});
+	// The newest, the first page's large card.
+	const large = await createActivity("place-large", {
+		data: { activity_at: "2032-01-02T03:00:00.000Z", location_text: LONG_PLACE },
+	});
+	await publish(small);
+	await publish(large);
+	await page.goto("/activities");
+	const smallCard = listedItem(page, small.title);
+	const line = smallCard.locator("p").filter({ has: page.locator("time") });
+	const place = line.getByText(LONG_PLACE, { exact: true });
+	const pill = listedItem(page, large.title).getByText(LONG_PLACE, { exact: true });
+	await expect(cardList(page).cards.first(), "the newer leads as the large card").toHaveText(
+		new RegExp(RegExp.escape(large.title)),
+	);
+	for (const width of [1440, 640, 639, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		await expectNoHorizontalScroll(page, `/activities at ${width} px`);
+		expect(await shownLines(pill), `the large card's place at ${width} px`).toEqual({
+			lines: 1,
+			clamped: true,
+		});
+		expect(
+			await shownLines(width >= 640 ? line : place),
+			`the small card's ${width >= 640 ? "line" : "place"} at ${width} px`,
+		).toEqual({ lines: width >= 640 ? 2 : 1, clamped: true });
+		// A line clamp ends its last line with an ellipsis (CSS Overflow 4 `line-clamp`).
+		expect(await lineClampOf(pill), `the pill cut with an ellipsis at ${width} px`).toBe("1");
+		expect(
+			await lineClampOf(width >= 640 ? line : place),
+			`the small card's ${width >= 640 ? "line" : "place"} cut with an ellipsis at ${width} px`,
+		).toBe(width >= 640 ? "2" : "1");
+	}
+});
+
+/** The number of lines `part` is clamped to, which its last shown line ends with an ellipsis. */
+function lineClampOf(part: Locator): Promise<string> {
+	return part.evaluate((element) =>
+		getComputedStyle(element).getPropertyValue("-webkit-line-clamp"),
+	);
+}
+
+testFirstPageByCount({
+	path: "/activities",
+	collection: "activities",
+	noun: "Activities",
+	counts: [1, 2, 4, 12],
+	admin: () => admin,
+	// Without an Activity date, each is placed by its publication, now, so the last is the newest.
+	// The 13 stay published after it, later than the dates the cases above need on page 1.
+	publishItem: async (label) => {
+		const activity = await createActivity(label);
+		await publish(activity);
+		return activity;
+	},
+});
+
+testListCards({
+	path: "/activities",
+	icon: "heart",
+	unlabelled: true,
+	createLabel: async (label) => ({
+		label: `${SYNTHETIC_FIXTURE_MARK} ${label} ${crypto.randomUUID().slice(0, 6)}`,
+	}),
+	uploadPicture: () => uploadSyntheticPicture(admin, "ภาพกิจกรรมสำหรับทดสอบการ์ด"),
+	pageSize: PAGE_SIZE,
+	publishItem: async (label, { term, summary, picture }) => {
+		// Held after every other Activity of the suite, a minute apart, so each new one leads.
+		cardHeldAt += 60_000;
+		const at = new Date(cardHeldAt).toISOString();
+		const activity = await createActivity(label, {
+			data: {
+				activity_at: at,
+				...(term ? { location_text: term.label } : {}),
+				...(summary ? { summary } : {}),
+				...(picture ? { featured_image: { id: picture } } : {}),
+			},
+		});
+		await publish(activity);
+		return { item: activity, at };
+	},
 });
 
 test.describe("accessibility and reflow", () => {

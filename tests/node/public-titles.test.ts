@@ -36,7 +36,7 @@ describe("headings on public pages", () => {
 		const files = new Set((await headings()).map(({ file }) => file));
 		for (const file of [
 			"components/PageHeading.astro",
-			"components/ActivityCard.astro",
+			"components/ContentCard.astro",
 			"components/SectionHeading.astro",
 			"components/HomeActivityTile.astro",
 			BODY_HEADING,
