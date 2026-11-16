@@ -265,7 +265,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-secondary-on-soft` (the tagline) on the header's surface over `brand-dark`, the darkest fill a page scrolls under it (`text-secondary` there would be 4.15:1) | 4.73:1 |
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
-| `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, the one exception to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more |
+| `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, the one exception to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7) | 13.85:1 |
@@ -1101,7 +1101,17 @@ News as a section of their own. Their row is also the Announcements list's (belo
     Homepage's ring, on its band, has none.
 
   The rows are 14 px apart, as here, in the list's order and page size (20), and each reveals as
-  it comes into the window and shows whole while it holds the keyboard's focus (§8.12). An
+  it comes into the window and shows whole while it holds the keyboard's focus (§8.12).
+  Measured at `2cb2e11` on `/announcements` with `scripts/screenshot-fixtures/lists-by-count.ts`
+  (`LIST=announcements LIST_COUNT=8`: the three badges, open, not yet open, closed and undated
+  rows) at 1,440, 1,024, 768, 375 and 320 px: `scripts/measure-text-contrast.ts --all-text` read
+  a current tile's month and year at 5.52:1 or more from 768 px and 5.37:1 at 375 and 320 px, its
+  day at 7.79:1 or more; a closed tile's day, month and year and its "ปิดแล้ว" 13.85:1; the
+  badges 7.43:1 (procurement), 7.75:1 (recruitment) and 5.78:1 (any other); "เปิดอยู่" 6.45:1,
+  "ยังไม่เปิด" 7.75:1, the status line's dates 4.97:1 and the titles 16.54:1.
+  `scripts/measure-focus-contrast.ts` read the first row's ring, over the field's edge, at 5.40:1
+  or more beside it with its band, none of it under 3:1, at every width; without the band, about
+  half of the ring's pixels lie on the field under 3:1. An
   Announcement's page and a search result keep the earlier label, closed in `brand-dark` on
   `accent-warm` (`StatusLabel`). `tests/browser/public-announcements.spec.ts` reads the row's
   parts, a closed row against a current one, the hover, the keyboard and the order across pages;
