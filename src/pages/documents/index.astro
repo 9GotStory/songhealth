@@ -11,10 +11,11 @@
 // The page opens on the deep field as the News lists do (Feature 010 #312; spec #311 "Decisions",
 // 3 and 4; ListHeading): the label "เข้าถึงข้อมูล", the Homepage's Quick Access label, with the
 // folder-open icon, over its H1 "เอกสารเผยแพร่", and no link. The filter form comes first over the
-// field's lower edge, as on Health Content, then the rows, the empty state and the pager
-// (ListBody).
+// field's lower edge, as on Health Content, then the rows, 14 px apart, the empty state and the
+// pager (ListBody). Each row has its file's download (DocumentDownloadRow; Feature 010 #315) and
+// reveals as it comes into the window, as the Announcements' rows do (spec #311 "Motion").
 import FolderOpen from "@lucide/astro/icons/folder-open";
-import DocumentRow from "../../components/DocumentRow.astro";
+import DocumentDownloadRow from "../../components/DocumentDownloadRow.astro";
 import EmptyState from "../../components/EmptyState.astro";
 import FilterForm from "../../components/FilterForm.astro";
 import ListBody from "../../components/ListBody.astro";
@@ -85,10 +86,10 @@ const termOptions = (terms: typeof types) =>
 			]}
 		/>
 		{entries.length > 0 ? (
-			<ul class="flex flex-col gap-4">
+			<ul class="flex flex-col gap-3.5">
 				{entries.map((document) => (
-					<li>
-						<DocumentRow document={document} />
+					<li class="scroll-reveal">
+						<DocumentDownloadRow document={document} />
 					</li>
 				))}
 			</ul>

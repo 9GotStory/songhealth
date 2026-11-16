@@ -1356,7 +1356,8 @@ export async function expectListMovesOnlyWhenAllowed(
 					.toBe(1);
 			}
 			await page.goto(path);
-			await last.getByRole("link").focus();
+			// Its first link: a Document row has two, its title and its download (#315).
+			await last.getByRole("link").first().focus();
 			await expect
 				.poll(() => shownOpacity(last), {
 					message: "the last card, focused, shows whole",
