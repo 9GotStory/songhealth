@@ -99,6 +99,9 @@ and why, and `.jscpd-baseline.json` records them.
   2026-11-13: #281 comment 6848893055). Such a card takes `focus-ring-banded`, a white band on
   both sides of the ring (#283 comment 6854670042). `expectBlocksOverFieldEdge` (`tests/browser/public.helpers.ts`) fails a part over the
   field's edge whose ring meets the field past its own card without that band (#312 retro).
+- A link held to its lines carries the clamp itself (`line-clamp-2 w-fit` on the `a`), not its
+  heading: the clamp's hidden overflow cuts the link's focus ring, which lies outside the link's
+  box (#315 retro: axe's focus check failed the Document row's title).
 - `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
   the Homepage's and the one under a list's heading or a Post page's header (spec #280 "The field
   under a heading"), it is
@@ -166,6 +169,11 @@ and why, and `.jscpd-baseline.json` records them.
   checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
   out decorative `aria-hidden` icons. A `data-testid` marks only an element with no accessible
   role or name, such as a decorative mark.
+- A state's look, under the pointer or with focus, is read on the element whose class sets it,
+  such as a title's link rather than its heading, whose own colour never changes. A press that
+  must open nothing goes through `pressInside` (`tests/browser/public.helpers.ts`), which fails
+  when the point lies beside its target (#315 retro: two reads on the heading and a press outside
+  a row's rounded corner passed whatever the row did).
 - A test that changes shared runtime state (site settings, menus, plugin settings) saves it first
   and restores it in `finally`, and says what the native API cannot restore.
 - A test whose fixtures lead an ordered list (newest first, a page boundary) dates them after

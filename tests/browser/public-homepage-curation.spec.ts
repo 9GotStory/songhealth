@@ -86,6 +86,7 @@ import {
 	homepageSection,
 	itemsPerRow,
 	occurrencesOf,
+	pressInside,
 	siteTitleParts,
 	test,
 	thaiDate,
@@ -938,7 +939,7 @@ test("on hover a Service card turns brand green with white text, and its icon ti
 				message: "the card under the pointer has risen 8 px",
 			})
 			.toBeCloseTo(place.y - 8, 0);
-		await page.mouse.click(edge.x, edge.y);
+		await pressInside(page, card, edge, "the part the card left");
 		await expect(page).toHaveURL(`/services/${service.slug}`);
 	});
 });
