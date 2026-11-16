@@ -1522,7 +1522,8 @@ const COUNT_WORDS: Record<number, string> = {
  * #313): with no other item published, the page leads with its newest item as the large card,
  * once and before the others in the list's order, laid out by each of `counts`
  * (`expectFirstPageLayout`); one more than the last moves the oldest to the second page, which has
- * no large card.
+ * no large card. What it published is unpublished at the end, so a later case finds the list as it
+ * was (#313 retro: its items, published now, pushed a suite's dated fixtures off the first page).
  */
 export function testFirstPageByCount(list: FirstPageByCount): void {
 	const { path, noun, counts } = list;
@@ -1531,38 +1532,49 @@ export function testFirstPageByCount(list: FirstPageByCount): void {
 		page,
 	}) => {
 		test.setTimeout(240_000);
-		await whileNonePublished(list.admin(), list.collection, async () => {
-			const published: DraftFixture[] = [];
-			const { cards, large } = cardList(page);
-			for (const count of counts) {
-				const label = `count-${String(count).padStart(2, "0")}`;
-				while (published.length < count) {
-					published.push(
-						await list.publishItem(`${label}-${String(published.length).padStart(2, "0")}`),
+		const published: DraftFixture[] = [];
+		try {
+			await whileNonePublished(list.admin(), list.collection, async () => {
+				const { cards, large } = cardList(page);
+				for (const count of counts) {
+					const label = `count-${String(count).padStart(2, "0")}`;
+					while (published.length < count) {
+						published.push(
+							await list.publishItem(`${label}-${String(published.length).padStart(2, "0")}`),
+						);
+					}
+					await page.setViewportSize(DESKTOP_VIEWPORT);
+					await page.goto(path);
+					const newestFirst = published.toReversed().map((item) => item.title);
+					await expect(large, `one large card with ${count} ${noun}`).toHaveCount(1);
+					await expect(large.getByRole("heading", { level: 2 }), "the newest is large").toHaveText(
+						newestFirst[0]!,
 					);
+					expect(await listedTitles(page), `each item once, newest first, with ${count}`).toEqual(
+						newestFirst,
+					);
+					await expect(cards, `the large card and ${count - 1} small ones`).toHaveCount(count);
+					await expectFirstPageLayout(page, path, count);
 				}
-				await page.setViewportSize(DESKTOP_VIEWPORT);
-				await page.goto(path);
-				const newestFirst = published.toReversed().map((item) => item.title);
-				await expect(large, `one large card with ${count} ${noun}`).toHaveCount(1);
-				await expect(large.getByRole("heading", { level: 2 }), "the newest is large").toHaveText(
-					newestFirst[0]!,
-				);
-				expect(await listedTitles(page), `each item once, newest first, with ${count}`).toEqual(
-					newestFirst,
-				);
-				await expect(cards, `the large card and ${count - 1} small ones`).toHaveCount(count);
-				await expectFirstPageLayout(page, path, count);
-			}
 
-			// One more, the newest, moves the oldest to the second page.
-			await list.publishItem(`count-${String(counts.at(-1)! + 1).padStart(2, "0")}`);
-			await page.setViewportSize(DESKTOP_VIEWPORT);
-			await page.goto(`${path}?page=2`);
-			await expect(cards, `the second page shows the oldest ${noun}`).toHaveCount(1);
-			await expect(large, "no large card on the second page").toHaveCount(0);
-			expect(await listedTitles(page)).toEqual([published[0]!.title]);
-		});
+				// One more, the newest, moves the oldest to the second page.
+				published.push(
+					await list.publishItem(`count-${String(counts.at(-1)! + 1).padStart(2, "0")}`),
+				);
+				await page.setViewportSize(DESKTOP_VIEWPORT);
+				await page.goto(`${path}?page=2`);
+				await expect(cards, `the second page shows the oldest ${noun}`).toHaveCount(1);
+				await expect(large, "no large card on the second page").toHaveCount(0);
+				expect(await listedTitles(page)).toEqual([published[0]!.title]);
+			});
+		} finally {
+			for (const item of published) {
+				const unpublished = await unpublishEntry(list.admin(), list.collection, item.id);
+				expect
+					.soft(unpublished.ok, `unpublish ${item.slug}: ${nativeRefusalOf(unpublished)}`)
+					.toBe(true);
+			}
+		}
 	});
 }
 
