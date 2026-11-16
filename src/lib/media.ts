@@ -137,6 +137,8 @@ export interface DownloadableFile {
 	href: string;
 	/** The file's type, from its extension, and its size, such as "PDF, 1.2 MB". */
 	label: string;
+	/** The file's type alone, such as "PDF", when its name or stored key has an extension. */
+	type?: string;
 	/** The name the file was uploaded with, offered as the saved file's name. */
 	filename?: string;
 }
@@ -180,10 +182,11 @@ export async function downloadableFile(
 		throw error;
 	}
 	const filename = value?.filename;
-	const extension = EXTENSION.exec(filename ?? "")?.[1] ?? EXTENSION.exec(key)?.[1];
+	const type = (EXTENSION.exec(filename ?? "")?.[1] ?? EXTENSION.exec(key)?.[1])?.toUpperCase();
 	return {
 		href: runtime.getPublicMediaUrl(key),
-		label: [extension?.toUpperCase(), formatFileSize(size)].filter(Boolean).join(", "),
+		label: [type, formatFileSize(size)].filter(Boolean).join(", "),
+		...(type ? { type } : {}),
 		...(filename ? { filename } : {}),
 	};
 }

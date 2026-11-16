@@ -1,0 +1,24 @@
+---
+// A Document's facts line above its title in a row (Feature 003 #55; spec #51 "Shared building
+// blocks"): its type, its Document date and "ปีงบประมาณ" with its fiscal year, as MetaLine writes
+// them. DocumentRow and DocumentDownloadRow show the same line (spec #311 "The Document
+// repository": the facts line as today).
+import type { DocumentData } from "../lib/documents";
+import { termsOf } from "../lib/terms";
+import MetaLine from "./MetaLine.astro";
+
+interface Props {
+	data: DocumentData;
+}
+
+const { data } = Astro.props;
+const type = termsOf(data, "document_type")[0];
+---
+
+<MetaLine
+	facts={[
+		type && { text: type.label },
+		data.document_at && { date: data.document_at },
+		data.fiscal_year && { text: `ปีงบประมาณ ${data.fiscal_year}` },
+	]}
+/>

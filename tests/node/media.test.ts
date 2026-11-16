@@ -107,13 +107,14 @@ describe("downloadableFile", () => {
 		};
 	}
 
-	it("offers a stored file at EmDash's media URL, labelled with its file type and size, under its original name", async () => {
+	it("offers a stored file at EmDash's media URL, labelled with its file type and size, under its original name, and names its type alone", async () => {
 		const { runtime } = runtimeWith({ "01JX0010.pdf": 1_258_291 });
 		assert.deepEqual(
 			await downloadableFile(pickedFile("01JX0010.pdf", "แผนปฏิบัติการ 2569.pdf"), runtime),
 			{
 				href: "/_emdash/api/media/file/01JX0010.pdf",
 				label: "PDF, 1.2 MB",
+				type: "PDF",
 				filename: "แผนปฏิบัติการ 2569.pdf",
 			},
 		);
@@ -173,13 +174,13 @@ describe("downloadableFile", () => {
 	it("takes the type from the stored file's key when the filename has no extension", async () => {
 		const { runtime } = runtimeWith({ "01JX0014.pdf": 2_048 });
 		const file = await downloadableFile(pickedFile("01JX0014.pdf", "ตารางสรุป"), runtime);
-		assert.equal(file?.label, "PDF, 2 KB");
+		assert.deepEqual([file?.label, file?.type], ["PDF, 2 KB", "PDF"]);
 	});
 
-	it("labels a file with neither extension by its size alone", async () => {
+	it("labels a file with neither extension by its size alone, and names no type", async () => {
 		const { runtime } = runtimeWith({ "01JX0018": 2_048 });
 		const file = await downloadableFile(pickedFile("01JX0018", "ตารางสรุป"), runtime);
-		assert.equal(file?.label, "2 KB");
+		assert.deepEqual([file?.label, file && "type" in file], ["2 KB", false]);
 	});
 });
 

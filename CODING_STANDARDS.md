@@ -103,10 +103,11 @@ and why, and `.jscpd-baseline.json` records them.
   the Homepage's and the one under a list's heading or a Post page's header (spec #280 "The field
   under a heading"), it is
   4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product
-  Owner, 2026-11-11: #242 comment 6797113372, item 1). One measured exception: the month
-  and year on a current Announcement's date tile, where they sit on its gradient (its readings in
-  `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12: #245 comment 6812837231). A
-  change to the tile's size or gradient needs a new measure.
+  Owner, 2026-11-11: #242 comment 6797113372, item 1). Two measured exceptions, on the same
+  gradient tile: the month and year on a current Announcement's date tile (its readings in
+  `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12: #245 comment 6812837231), and
+  the file's type on a Document row's file tile on `/documents` (§3.2 and §7.3; spec #311 "The
+  Document repository"). A change to either tile's size or gradient needs a new measure.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
   state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`

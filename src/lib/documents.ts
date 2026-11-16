@@ -19,6 +19,7 @@ import {
 	type TaxonomyTerm,
 	type WhereValue,
 } from "emdash";
+import { downloadableFile, type MediaRuntime } from "./media";
 import { TOPIC_PARAM } from "./terms";
 
 /** The fixed number of Documents a list page shows. */
@@ -89,6 +90,19 @@ export type DocumentEntry = ContentEntry<DocumentData>;
 /** A Document's canonical address, `/documents/{slug}` (`03` §15), encoded as EmDash encodes it. */
 export function documentPath(slug: string): string {
 	return `/documents/${encodeURIComponent(slug)}`;
+}
+
+/**
+ * What a Document's row shows besides its facts and its title, on every page that lists
+ * Documents: its page's address, its file while the file can be served (src/lib/media.ts), and a
+ * status that needs attention.
+ */
+export async function documentRowParts(document: DocumentEntry, runtime: MediaRuntime | undefined) {
+	return {
+		href: documentPath(document.id),
+		file: await downloadableFile(document.data.file, runtime),
+		status: listedDomainStatus(document.data.domain_status),
+	};
 }
 
 /** The filters a list address asks for. A fiscal year that is not one is ignored. */

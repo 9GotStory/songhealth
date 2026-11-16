@@ -8,7 +8,7 @@
 > implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
 > 6891402807). Feature 010's redesign of the Activities, Announcements and Documents pages follows
 > spec #311, implemented by #312–#318.
-> **Updated:** 2026-11-16 (#314); first drafted 2026-10-30
+> **Updated:** 2026-11-16 (#315); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -110,8 +110,8 @@ health-service network.
   Activities, Announcements and Documents lists (spec #311; §7.8), and over the field's edge
   `/activities` shows the News lists' cards, its newest large on a first page, each with its date
   and place (§7.3; #313), `/announcements` the Homepage's Announcement rows, a closed one greyed
-  (§8.7; #314), while `/documents` keeps today's rows, after its filter form, until its own ticket
-  (#315). An Announcement's and a Document's page keep their design until their own tickets (#316,
+  (§8.7; #314), and `/documents`, after its filter form, rows with the file's type on a tile, the
+  title linking to the Document's page and the file's own download (§7.3; #315). An Announcement's and a Document's page keep their design until their own tickets (#316,
   #317), and every page outside the two features keeps its design under the new shell until its
   own feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -180,7 +180,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's header, the pill of "เผยแพร่" and the date (§9.1) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents`, the file's type on its tile (§7.3); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's header, the pill of "เผยแพร่" and the date (§9.1) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -265,7 +265,8 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-secondary-on-soft` (the tagline) on the header's surface over `brand-dark`, the darkest fill a page scrolls under it (`text-secondary` there would be 4.15:1) | 4.73:1 |
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
-| `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, the one exception to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
+| `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, one of the two exceptions to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
+| `accent-warm` (the file's type, "PDF") on a Document row's file tile on `/documents`, the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository") | 5.68:1 or more in the prototype |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7) | 13.85:1 |
@@ -352,7 +353,8 @@ own module.
   submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The hero's search field opens with a 20 px `search`
   icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's cards, small and large, `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3; in a
   list heading's tile `heart` on `/activities`, `file-text` on `/announcements` and `folder-open` on
-  `/documents`, §7.8). A Service card shows
+  `/documents`, §7.8), and so does a Document row's file tile on `/documents`, with `file-text`
+  (§7.3). A Service card shows
   the Service's icon (below).
 - **Service icons** (Product Owner, 2026-11-12: #248 comment 6826430670): a Service card's tile
   shows the icon staff chose for the Service in the Service editor, on the Homepage (§8.4) and in
@@ -409,7 +411,9 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
     News card and the large Activity tile beside their small ones, and the Current Announcements'
     heading beside their rows (§8.4 to §8.11). The field under a list's heading has its ring
     (§7.8), a list's small cards go three to a row and its large card takes two columns or the
-    whole row by the number of items (§7.3), and a
+    whole row by the number of items (§7.3), a Document row's download sits beside its text at
+    the row's right, where from `sm` it is under the text at its start and below `sm` across the
+    row (§7.3), and a
     Post page's frame starts on the field beside the text and stays in view while the text is the
     longer (§9.1, §10).
   - `md` and `xl` are not used.
@@ -443,7 +447,7 @@ this document names:
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText` |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
-| Lists | `FilterForm` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents` (§7.3), where every other page keeps `DocumentRow` |
 
 ### 7.2 Component rules
 
@@ -536,6 +540,33 @@ this document names:
   A full page of twelve at two columns ends with one card alone (decision 11). A later page, and
   a list narrowed by a Health Topic, show the small cards alone. Its picture's `sizes` is two of
   the container's three columns from `lg` (all three with one item) and the row below.
+- **The Document row** on `/documents` (Feature 010 #315; spec #311 "The Document repository",
+  decisions 2, 8, 16 and 17), `DocumentDownloadRow`: a white row, radius 22, the `card` shadow,
+  14 px apart, after the filter form. It holds the file's tile, the Announcement row's date tile
+  in size and gradient (68 px, radius 14, below `sm`; 92 px, radius 18, from `sm`; §8.7), with the
+  24 px `file-text` and under it the file's type ("PDF") at small size, semibold, in
+  `accent-warm` (§3.2), or "ไฟล์" when the file cannot be served; it is decorative. Beside the
+  tile: the facts line as before (`MetaLine`: type, Document date, "ปีงบประมาณ" and the year);
+  a superseded or expired Document's `accent-warm` attention label on its own line; the title,
+  an H2, `text-primary`, semibold, body size below `sm` and body-large from `sm`, two lines at
+  most (Product Owner, 2026-11-16: #315 comment 6908747140, item 1), linking to the Document's
+  page; and from `sm` the summary at label size in `text-secondary`, two lines at most. Then the
+  download: a `brand-primary` pill 44 px high, with the 20 px `download` icon, "ดาวน์โหลด"
+  semibold and the file's type and size in parentheses in regular weight, linking to the file at
+  EmDash's media URL under the uploaded file's name, as the Document's page does. Its
+  accessible name adds the Document's title after the visible words, for assistive technology
+  only, so the downloads of a page are told apart (WCAG 2.2 SC 2.4.4, 2.5.3). A file that cannot
+  be served shows "ไฟล์ไม่พร้อมให้บริการ" at small size, semibold, in `text-secondary`, in its
+  place, and no link. The download sits at the row's right, beside the text, from `lg`; under
+  the text at its start from `sm`; across the row under the tile and the text below `sm`
+  (decision 17). **No link covers the row**, unlike a whole card: the title and the download are
+  its two links and its two focus stops, and a press elsewhere on it opens nothing (decision 16).
+  Under the pointer the title turns `brand-primary` and underlined on its own link only (#315
+  comment 6908747140, item 2), and the row takes the `deep` shadow, only with motion allowed;
+  the download's fill turns `brand-dark`. Each row reveals as it comes into the window and shows
+  whole while it holds the keyboard's focus (§8.12). Every other page that lists Documents (a
+  Health Report's page, the About pages, a Service's and a Basic Page's related Documents, search
+  results) keeps the earlier row, `DocumentRow`, until its own feature (decision 2).
 - **Crops:** a list's card, a News, Health Content or Activity card, crops its picture to 16:9
   from `sm` and 4:3 below (`ContentCard.astro`), as the Homepage's small News card does; the
   Homepage's Health Content
@@ -732,9 +763,9 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
   the field with the lists' `focus-ring-banded`; on `/announcements` the block is the Homepage's
   Announcement rows (§8.7; Feature 010 #314), 14 px apart, each one link over the whole row, whose
   ring lies around the row and over the field in the first row, with the same band; on
-  `/documents` it holds today's Document rows until Feature 010 #315. A Document row's only link
-  is its title, whose ring lies on the row's white, 6.45:1; on `/documents` the filter form is the
-  block over the edge, its ring on its own white card. The cards are the Homepage's News
+  `/documents` the filter form is the block over the edge, its ring on its own white card, and the
+  Document rows follow it (§7.3; Feature 010 #315), 14 px apart, each with two links, its title
+  and its download, whose rings lie on the row's white. The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
   ring alone was faint, so a card's ring has a `surface-base` band on both sides
@@ -742,7 +773,7 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
   #283 comment 6854670042).
 - **Motion** (§8.12): with motion allowed the heading block rises in as the page opens, and the
   lead 0.1 s after it. Each card reveals as it comes into the window (§7.3), and on
-  `/announcements` each row (§8.7); on `/documents` the rows show at once until their own ticket. The
+  `/announcements` and `/documents` each row (§7.3, §8.7). The
   breadcrumb, the link, the filter form, the empty state and the pager show at once.
 - **Measured** on the development runtime at `fb11b3e`, the head of `009-news-post-redesign`,
   with the demo dataset's six News and five Health Content (#287,
@@ -1322,7 +1353,7 @@ stays the submit state (§8.9).
   `testFilteredListOnField`'s motion case for the other two, and `testListOnField`'s for the
   Activities, Announcements and Documents lists: the Activities list's cards move as `/news`'s
   since Feature 010 #313, the Announcements' rows reveal as the Homepage's do since #314, without a
-  picture to shimmer, and the Documents' rows do not until #315).
+  picture to shimmer, and the Documents' rows as the Announcements' since #315).
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
@@ -1888,6 +1919,18 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (v2.10). Authority: #298 comment 6892189972, decision 1 (no placeholder in our code, no
   dependency upgrade) and decision 2 (a portrait follows its focal point), and #298 comment 6893006429
   (the sentence for staff in `05`).
+- **v1.4 the Document row on `/documents` (2026-11-16, Feature 010 #315):** `/documents` shows
+  the Document row with its download (§7.3), `DocumentDownloadRow`, in place of the earlier row:
+  the file's tile with `file-text` and the file's type, the facts line, a superseded or expired
+  Document's attention label on its own line, the title as an H2 linking to its page, from `sm`
+  the summary, and the download pill, or "ไฟล์ไม่พร้อมให้บริการ" without a link; the file's type
+  and size no longer show as a line of text without a link. No link covers the row: the title and
+  the download are its two links. The download sits beside the text from `lg` and under it below
+  (§6), and the rows are 14 px apart and reveal as they come into the window (§7.8, §8.12). The
+  file's type on its tile is the second measured `accent-warm` exception on a gradient tile
+  (§3.1, §3.2), and the tile's `file-text` joins §5. Every other page that lists Documents keeps
+  `DocumentRow` (§7.1). §2 names the row. Authority: spec #311 "The Document repository",
+  decisions 2, 8, 16 and 17, #311 comment 6895825492, and #315 comment 6908747140.
 - **v1.4 the Announcements list's rows (2026-11-16, Feature 010 #314):** `/announcements` shows
   the Homepage's Announcement row in place of its earlier row (§8.7): the date tile, the type's
   badge in its colour, the title as an H2 in two lines at most, the status after a dot and from
