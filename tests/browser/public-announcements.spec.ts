@@ -952,10 +952,16 @@ test.describe("an Announcement's page on the field", () => {
 				dateBox.y - crumbs.y - crumbs.height,
 				`${label}: the pills 24 px under the breadcrumb`,
 			).toBeCloseTo(24, 0);
-			expect(typeBox.y, `${label}: the type on the date's row`).toBeCloseTo(dateBox.y, 0);
-			expect(typeBox.x, `${label}: the type after the date`).toBeGreaterThan(
-				dateBox.x + dateBox.width,
-			);
+			// The type follows the date on its row, or, too long for what is left of it, starts the
+			// next row 8 px under it.
+			const sameRow = Math.abs(typeBox.y - dateBox.y) <= 1;
+			expect(
+				sameRow
+					? typeBox.x > dateBox.x + dateBox.width
+					: Math.round(typeBox.x - dateBox.x) === 0 &&
+							Math.round(typeBox.y - dateBox.y - dateBox.height) === 8,
+				`${label}: the type after the date, or 8 px under it at the row's start`,
+			).toBe(true);
 			expect(
 				(await boxOf(parts.header, `${label}: the header`)).width,
 				`${label}: the header 48 rem wide at most`,
@@ -1051,7 +1057,7 @@ test.describe("an Announcement's page on the field", () => {
 		] as const) {
 			await page.goto(pathOf(fixture));
 			const status = detailOf(page, "สถานะ");
-			const label = status.locator("span").filter({ hasText: words });
+			const label = status.getByText(words, { exact: true });
 			await expect(status, `${words}: in words`).toHaveText(words);
 			await expect(status.getByTestId("status-dot"), `${words}: after a dot`).toHaveCount(1);
 			await expect(label, `${words}: its fill`).toHaveCSS(
