@@ -3,7 +3,8 @@
 # root of a commit on the local branch evidence/<ticket>-screenshots, and print the push command,
 # the address to embed each image by, and a table row for each before-<name>.png with its
 # after-<name>.png (#196 retro). The branch keeps no code. A new capture for the same ticket
-# becomes a child commit, so earlier screenshots stay reachable. The commit also holds <dir>'s
+# becomes a child commit, so earlier screenshots stay reachable; a folder of after images alone
+# takes their before images from the branch's tip. The commit also holds <dir>'s
 # captures.txt, when scripts/capture-screenshots.mjs wrote one, so the branch keeps each image's
 # path (#282 retro). It ends with the table of the pages' heights that scripts/evidence-heights.ts
 # reads from the PNGs, for a pull request or a record to quote whole (#287 retro). The push is left
@@ -18,6 +19,31 @@ images=("$dir"/*.png)
 ((${#images[@]})) || { echo "evidence-branch: no PNG in $dir" >&2; exit 1; }
 
 branch=evidence/$ticket-screenshots
+# An after-<name>.png whose before-<name>.png is not in <dir> takes the one at the branch's tip, so
+# a folder of after images alone still commits and prints its pairs (#339 retro: the after-only
+# commit 63c77c2 dropped the 100 before images from the tip and printed no pair).
+if git rev-parse --verify -q "refs/heads/$branch" >/dev/null; then
+  work=$(mktemp -d)
+  trap 'rm -rf "$work"' EXIT
+  cp "$dir"/*.png "$work"/
+  [[ -e $dir/captures.txt ]] && cp "$dir/captures.txt" "$work/captures.txt"
+  carried=0
+  for after in "$work"/after-*.png; do
+    before=before-${after##*/after-}
+    [[ -e $work/$before ]] && continue
+    git cat-file -e "$branch:$before" 2>/dev/null || continue
+    git cat-file blob "$branch:$before" >"$work/$before"
+    if git cat-file -e "$branch:captures.txt" 2>/dev/null; then
+      git cat-file blob "$branch:captures.txt" | grep -F "$before"$'\t' >>"$work/captures.txt" || true
+    fi
+    carried=$((carried + 1))
+  done
+  if ((carried)); then
+    echo "evidence-branch: $carried before images carried from $branch's tip"
+    dir=$work
+    images=("$dir"/*.png)
+  fi
+fi
 files=("${images[@]}")
 if [[ -e $dir/captures.txt ]]; then files+=("$dir/captures.txt"); fi
 tree=$(for file in "${files[@]}"; do

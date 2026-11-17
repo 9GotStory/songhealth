@@ -110,7 +110,9 @@ function versionMissingFor(design: string, feature: string): string[] {
 function missingFor(design: string, ticket: string): string[] {
 	const named = new RegExp(`#${ticket}\\b`);
 	const updated = /^> \*\*Updated:\*\*.*$/m.exec(design)?.[0] ?? "";
-	const entries = design.match(/^- \*\*v\d+\.\d+\b.*$/gm) ?? [];
+	// An entry runs on over its indented lines, where Prettier can wrap the ticket's number (#339
+	// retro).
+	const entries = design.match(/^- \*\*v\d+\.\d+\b.*(?:\n {2,}\S.*)*/gm) ?? [];
 	return [
 		...(named.test(updated) ? [] : [`the Updated line names #${ticket}`]),
 		...(entries.some((entry) => named.test(entry)) ? [] : [`a §13 entry names #${ticket}`]),
@@ -143,12 +145,17 @@ describe("DESIGN.md amended on a ticket's branch", () => {
 		assert.equal(ticketOfBranch("main"), undefined);
 	});
 
-	it("finds a missing Updated line or entry, and a ticket whose number only starts another", () => {
+	it("finds a missing Updated line or entry, reads an entry over its wrapped lines, and passes over a ticket whose number only starts another", () => {
 		const design = (updated: string, entry: string) =>
 			`> **Updated:** 2026-11-14 (Feature 009 ${updated})\n\n- **v1.3 x (2026-11-14, Feature 009 ${entry}):** y\n`;
 		assert.deepEqual(missingFor(design("#286", "#286"), "286"), []);
 		assert.deepEqual(missingFor(design("#284", "#286"), "286"), ["the Updated line names #286"]);
 		assert.deepEqual(missingFor(design("#286", "#284"), "286"), ["a §13 entry names #286"]);
+		assert.deepEqual(missingFor(design("#286", "\n  #286"), "286"), []);
+		assert.deepEqual(
+			missingFor(`> **Updated:** #286\n\n- **v1.3 x:** y\n\n#286 in another paragraph\n`, "286"),
+			["a §13 entry names #286"],
+		);
 		assert.deepEqual(missingFor(design("#2861", "#2861"), "286"), [
 			"the Updated line names #286",
 			"a §13 entry names #286",

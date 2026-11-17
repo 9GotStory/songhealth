@@ -208,6 +208,9 @@ scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts
 # every suite that reads a Homepage section or opens the Homepage, before the review of a change
 # to the Homepage
 scripts/dev-runtime-env.sh npm run test:browser:homepage
+# the suites that name a page the change touches, or a page importing a changed component, with
+# the command that runs them (#339 retro)
+node scripts/suites-for-change.ts <base>
 # T021 public reads, only through the coordinator, from a checkout at the promoted commit
 scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 ```
