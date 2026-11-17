@@ -11,6 +11,8 @@
 // --expect takes the addresses a walkthrough's steps gave, and prints each one the log does not
 // show answered, so the steps to ask about again are named in the same reading (#287 retro: a
 // list and a post were missed by eye, in two rounds). An address counts without its query string.
+// One --expect takes every address after it; a second one is refused, as an address that is a flag
+// (#318 retro: "--expect" was read as an address and printed as not opened).
 
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -18,7 +20,13 @@ import { readFileSync } from "node:fs";
 import { notOpened, openedPages } from "./opened-pages/plan.ts";
 
 const [since, flag, ...expected] = process.argv.slice(2);
-if (since === undefined || (flag !== undefined && (flag !== "--expect" || expected.length === 0))) {
+if (
+	since === undefined ||
+	(flag !== undefined &&
+		(flag !== "--expect" ||
+			expected.length === 0 ||
+			expected.some((address) => address.startsWith("--"))))
+) {
 	console.error(
 		"usage: node scripts/dev-runtime-opened.ts <since> [--expect <address> [<address>...]]",
 	);
