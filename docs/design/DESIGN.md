@@ -373,7 +373,7 @@ own module.
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
   2026-11-11: #241 comment 6791096480, item 1), and so does the link of a list's heading on the
-  deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link, 20 px in the search's
+  deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link and in the links under `/services`' lead, 20 px in the search's
   submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The hero's search field opens with a 20 px `search`
   icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's cards, small and large, `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3; in a
   list heading's tile `heart` on `/activities`, `file-text` on `/announcements` and `folder-open` on
@@ -1364,7 +1364,7 @@ menu before the Contact Summary, and is left out while the menu is empty, as the
 leaves it (`scripts/demo-dataset/content.ts`; spec #239). Under the section heading its cards go
 four to a row from `lg` and two below, 24 px apart (12 px below `sm`). A card is the Homepage's
 card surface, white with the `card` shadow and no border, radius 22 (18 below `sm`): the label at
-the h3 size and a 24 px `arrow-right`, the whole card one link named by the label. Under the
+the h3 size (a plain label here, an H2 on `/health`, §7.3) and a 24 px `arrow-right`, the whole card one link named by the label. Under the
 pointer the label turns `brand-primary` and the shadow `deep`. Below `sm` it is compact (§7.3).
 
 **The Contact Summary** (`HomeContactCard`; spec #239 "Contact Summary") is one card inside the

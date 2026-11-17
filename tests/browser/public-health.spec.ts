@@ -86,6 +86,7 @@ import {
 	expectBreadcrumb,
 	expectEmptyStateUnderForm,
 	expectFilteredEmpty,
+	expectFocusRingWhole,
 	expectImageLoaded,
 	expectLabelAboveArrow,
 	expectListMovesOnlyWhenAllowed,
@@ -107,6 +108,7 @@ import {
 	testListCards,
 	testListOnField,
 	thaiDate,
+	tokenColor,
 	whileNonePublished,
 } from "./public.helpers";
 
@@ -279,6 +281,36 @@ test("/health shows its two destinations as the Homepage's Quick Access tiles ov
 
 	const heading = listHeading(page, HEALTH_HEADING);
 	await expectBlocksOverFieldEdge(page, heading.field, [heading.lead], [["the tiles", tiles]]);
+});
+
+test("on /health the keyboard goes from the breadcrumb, on the field with its accent-warm focus ring drawn whole, to the two tiles, and each tile opens its page from its arrow and by Enter", async ({
+	page,
+}) => {
+	await page.goto("/health");
+	const crumb = listHeading(page, HEALTH_HEADING).breadcrumb.getByRole("link");
+	const links = healthTiles(page).getByRole("link");
+	await crumb.focus();
+	await page.keyboard.press("Tab");
+	for (const [index, [label]] of HEALTH_TILES.entries()) {
+		await expect(links.nth(index), `the tile ${label}`).toBeFocused();
+		await page.keyboard.press("Tab");
+	}
+	await expectFocusRingWhole(crumb, "the หน้าแรก crumb");
+	await expect(crumb, "the หน้าแรก crumb: the field's focus ring").toHaveCSS(
+		"outline-color",
+		await tokenColor(page, "accent-warm"),
+	);
+
+	for (const [index, [label, href]] of HEALTH_TILES.entries()) {
+		for (const [how, open] of [
+			["its arrow", () => links.nth(index).locator("svg").click()],
+			["Enter", () => links.nth(index).press("Enter")],
+		] as const) {
+			await page.goto("/health");
+			await open();
+			await expect(page, `${label} by ${how}`).toHaveURL(href);
+		}
+	}
 });
 
 test("/health moves only when motion is allowed: the heading and then the lead rise in as the page opens while the breadcrumb shows at once, each tile reveals as it comes into the window and shows whole while it holds the keyboard's focus, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
