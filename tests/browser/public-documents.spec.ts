@@ -149,7 +149,7 @@ testListOnField({
 		await publishEntryAt(admin, "documents", document.id, LIST_END);
 		return document;
 	},
-	rowsMove: true,
+	itemsMove: "rows",
 });
 
 test("/documents lists only published Documents, newest first, each row with its type, date, fiscal year, file type and size", async ({

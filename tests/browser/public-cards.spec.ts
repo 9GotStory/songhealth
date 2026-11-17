@@ -35,8 +35,10 @@ import {
 	HOMEPAGE_HEADINGS,
 	boxOf,
 	listedItem,
+	pressInside,
 	shownLines,
 	shownOpacity,
+	SHADOWS,
 	test,
 	tokenColor,
 } from "./public.helpers";
@@ -169,26 +171,49 @@ async function expectWholeCardLink(page: Page, card: Locator, title: string, lev
 }
 
 /**
- * A shared card's interaction: the whole-card link, the hover that marks it without moving it, and
- * keyboard focus around its whole visible surface.
+ * The Service catalog's card, the Homepage's Frequently Used Service card shared (Feature 011
+ * #340; spec #338 "The Service catalog", decision 21): the whole-card link named by the name, an
+ * H2; at rest a white card with the `card` shadow; under the pointer the card turns brand-primary
+ * with the `deep` shadow and, with reduced motion preferred, stays in its place; the focus ring,
+ * the global 3 px outline, lies inside the card's edge, brand-primary at rest and accent-warm while
+ * the card is brand-primary under the pointer. Its rise with motion allowed is its own case.
  */
-async function expectCardInteraction(page: Page, card: Locator, title: string, level: 2 | 3) {
-	const link = await expectWholeCardLink(page, card, title, level);
-	const heading = card.getByRole("heading", { name: title, level, exact: true });
+async function expectServiceCardInteraction(page: Page, card: Locator, title: string) {
+	const link = await expectWholeCardLink(page, card, title, 2);
+	const surface = card.getByTestId("service-surface");
 	const green = await tokenColor(page, "brand-primary");
+	await link.blur();
 	await page.mouse.move(0, 0);
-	const restingBox = await card.boundingBox();
-	const restingShadow = await link.evaluate((el) => getComputedStyle(el).boxShadow);
+	/** The surface's fill, shadow and box, or nothing where the card has no such surface. */
+	const read = async () =>
+		(await surface.count()) === 0
+			? undefined
+			: {
+					fill: await surface.evaluate((element) => getComputedStyle(element).backgroundColor),
+					shadow: await surface.evaluate((element) => getComputedStyle(element).boxShadow),
+					box: await boxOf(surface, "the card's surface"),
+				};
+	const resting = await read();
 	await link.hover();
-	await expect(heading).toHaveCSS("color", green);
-	await expect(heading).toHaveCSS("text-decoration-line", "underline");
-	await expect(link).toHaveCSS("box-shadow", new RegExp(`${RegExp.escape(green)} 0px 0px 0px 2px`));
-	expect(await card.boundingBox(), "hover must not move or resize a card").toEqual(restingBox);
-	await page.mouse.move(0, 0);
-	await expect(link).toHaveCSS("box-shadow", restingShadow);
+	const pointed = await read();
 	await link.focus();
-	await expect(link).toHaveCSS("outline-width", "3px");
-	await expect(link).toHaveCSS("outline-color", green);
+	const ringPointed = await link.evaluate((element) => getComputedStyle(element).outlineColor);
+	await page.mouse.move(0, 0);
+	const ring = await link.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return { width: style.outlineWidth, offset: style.outlineOffset, colour: style.outlineColor };
+	});
+	expect({ resting, pointed, ring, ringPointed }).toEqual({
+		resting: {
+			fill: await tokenColor(page, "surface-base"),
+			shadow: expect.stringMatching(SHADOWS.card),
+			box: resting?.box,
+		},
+		pointed: { fill: green, shadow: expect.stringMatching(SHADOWS.deep), box: resting?.box },
+		// 4 px inside the link's box, which is the card's: the 3 px ring lies on the card.
+		ring: { width: "3px", offset: "-4px", colour: green },
+		ringPointed: await tokenColor(page, "accent-warm"),
+	});
 	return link;
 }
 
@@ -305,9 +330,7 @@ for (const width of [320, 375, 1440]) {
 					: `${context.list}/${fixture.slug}`;
 			await page.goto(context.list);
 			const card = listedItem(page, fixture.title);
-			const link = context.listCard
-				? await expectListCardInteraction(page, card, fixture.title)
-				: await expectCardInteraction(page, card, fixture.title, 2);
+			const link = card.getByRole("link", { name: fixture.title, exact: true });
 			await expect(card).toContainText(SUMMARY);
 			const visual = visualOf(context, card);
 			await expect(visual).toBeVisible();
@@ -326,8 +349,8 @@ for (const width of [320, 375, 1440]) {
 			await expectCardDestination(page, path, fixture);
 			for (const target of ["visual", "summary", "metadata", "padding", "title"]) {
 				if (target === "metadata" && context.name === "Services") continue;
-				// A News list's card shows no summary below 640 px.
-				if (target === "summary" && context.listCard && width < 640) continue;
+				// A News list's card and a Service card show no summary below 640 px.
+				if (target === "summary" && width < 640) continue;
 				await page.goto(context.list);
 				if (target === "visual") await clickCardSurface(page, visual);
 				else if (target === "title")
@@ -341,9 +364,56 @@ for (const width of [320, 375, 1440]) {
 				}
 				await expectCardDestination(page, path, fixture);
 			}
+			// The hover and the focus ring are read last: the catalog's card is new in #340, so its
+			// red run reaches every press above first (CODING_STANDARDS "Tests").
+			await page.goto(context.list);
+			if (context.listCard) await expectListCardInteraction(page, card, fixture.title);
+			else await expectServiceCardInteraction(page, card, fixture.title);
 		});
 	}
 }
+
+test("under the pointer the catalog's Service card rises 8 px only when motion is allowed, and a press on the part it left opens the Service", async ({
+	page,
+}) => {
+	const path = `/services/${service.slug}`;
+	const card = listedItem(page, service.title);
+	const surface = card.getByTestId("service-surface");
+	/** How far the card's surface lies above its place, or nothing without such a surface. */
+	const risen = async () =>
+		(await surface.count()) === 0
+			? undefined
+			: Math.round((await boxOf(card, "its place")).y - (await boxOf(surface, "the surface")).y);
+	await page.goto("/services");
+	const edge = async () => {
+		await card.scrollIntoViewIfNeeded();
+		const place = await boxOf(card, "the card's place");
+		return { x: place.x + place.width / 2, y: place.y + place.height - 3 };
+	};
+	// With reduced motion preferred, as the suites run, the card stays.
+	const still = await edge();
+	await page.mouse.move(still.x, still.y);
+	await page.waitForTimeout(500);
+	const withReducedMotion = await risen();
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.goto("/services");
+	const point = await edge();
+	// With motion the card's reveal is over a frame after the scroll.
+	await expect.poll(() => shownOpacity(card), { message: "the card has come in" }).toBe(1);
+	await page.mouse.move(point.x, point.y);
+	await expect
+		.poll(risen, { timeout: 3_000 })
+		.toBe(8)
+		.catch(() => undefined);
+	const withMotion = await risen();
+	await pressInside(page, card, point, "the part the card left");
+	await page.waitForURL(path, { timeout: 5_000 }).catch(() => undefined);
+	expect({ withReducedMotion, withMotion, opened: new URL(page.url()).pathname }).toEqual({
+		withReducedMotion: 0,
+		withMotion: 8,
+		opened: path,
+	});
+});
 
 for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 	test(`Homepage cards open from their whole surface and keep compact content, with five Activities, at ${width}px`, async ({

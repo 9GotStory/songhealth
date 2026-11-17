@@ -1946,10 +1946,10 @@ export interface ListOnField extends HeadingOnField {
 	 */
 	publishPictured?: (label: string) => Promise<DraftFixture>;
 	/**
-	 * For a list whose rows move (Feature 010 #314): the motion case reads each row's reveal. Rows
-	 * have no picture, so it reads no shimmer.
+	 * For a list whose rows or cards move without a picture (Feature 010 #314: rows; Feature 011
+	 * #340: `/services`' cards): the motion case reads each item's reveal, and no shimmer.
 	 */
-	rowsMove?: boolean;
+	itemsMove?: "rows" | "cards";
 }
 
 /**
@@ -2081,8 +2081,8 @@ export function testListOnField(list: ListOnField): void {
 	/** What the motion case says the items do. */
 	const itemsMotion = list.publishPictured
 		? "; each card reveals as it comes into the window and shows whole while it holds the keyboard's focus, and a picture's box shimmers as the page opens while a missing picture's visual does not"
-		: list.rowsMove
-			? "; each row reveals as it comes into the window and shows whole while it holds the keyboard's focus"
+		: list.itemsMove
+			? `; each ${list.itemsMove === "rows" ? "row" : "card"} reveals as it comes into the window and shows whole while it holds the keyboard's focus`
 			: "";
 	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, ${list.leadLinks ? "the links under the lead, " : ""}${list.form ? "the filter form, " : ""}${itemsMotion ? "" : "the items, "}the pager and an empty state show at once${itemsMotion}, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
 		page,
@@ -2098,7 +2098,7 @@ export function testListOnField(list: ListOnField): void {
 					pictured: listedItem(page, pictured.title),
 					plain: cards.filter({ hasNot: page.locator("img") }).last(),
 				}
-			: list.rowsMove
+			: list.itemsMove
 				? { grid, cards }
 				: { grid };
 		await expectListMovesOnlyWhenAllowed(
@@ -2574,6 +2574,16 @@ export async function expectServiceIcon(card: Locator, icon: string, title: stri
 		new RegExp(`(?:^| )lucide-${icon}(?: |$)`),
 	);
 }
+
+/**
+ * The two shadows a card takes, as the browser computes them from `--shadow-card` and
+ * `--shadow-deep` (src/styles/global.css), to compare with a card's computed `box-shadow`. Tailwind
+ * puts its transparent ring layers before a shadow, so each matches the value's last layer.
+ */
+export const SHADOWS = {
+	card: /(?:^|, )rgba\(13, 46, 36, 0\.08\) 0px 10px 15px 0px$/,
+	deep: /(?:^|, )rgba\(13, 46, 36, 0\.35\) 0px 30px 60px -20px$/,
+};
 
 /** The widest header on the field (a Post's, an Announcement's, a Document's page), 48 rem. */
 export const HEADER_WIDEST = 768;

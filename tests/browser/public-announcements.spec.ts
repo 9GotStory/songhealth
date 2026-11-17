@@ -163,7 +163,7 @@ testListOnField({
 	noneYet: "ยังไม่มีประกาศ",
 	pastLast: "ไม่พบประกาศในหน้านี้",
 	admin: () => admin,
-	rowsMove: true,
+	itemsMove: "rows",
 	publishItem: async (label) => {
 		// Closed too, since the closed ones follow every current one.
 		const announcement = await createAnnouncement(label, { data: { closes_at: LIST_END } });
