@@ -16,9 +16,16 @@
 // heading's right, level with the heading's top, as the prototype the look was picked from has it
 // (Product Owner, 2026-11-13: #281 comment 6846855734); below `sm` it follows the lead.
 //
+// Links under the lead, `leadLinks`, are a list's related pages that are not its own items, such
+// as /services' Health Service Directory and guides and forms (Feature 011 #339; spec #338 "The
+// Service catalog", decision 15): surface-base words, semibold, at label size and underlined, each
+// with a 16 px arrow-right, 44 px high, 24 px apart across and 4 px down where they wrap. Under the
+// pointer they keep their colour, as the breadcrumb's links on the field do: accent-warm small text
+// reads below 4.5:1 there (CODING_STANDARDS "Public pages"; #339 comment 6941979791).
+//
 // With motion allowed the heading block and then the lead rise in as the page opens, as the
-// hero's text does (`hero-enter`, src/styles/global.css; spec #280 "Motion"). The breadcrumb and
-// the link show at once, so nothing the keyboard reaches is held back.
+// hero's text does (`hero-enter`, src/styles/global.css; spec #280 "Motion"). The breadcrumb, the
+// link and the links under the lead show at once, so nothing the keyboard reaches is held back.
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import { breadcrumbTrail, type Crumb, type NavigationSection } from "../lib/navigation";
 import Breadcrumb from "./Breadcrumb.astro";
@@ -36,9 +43,11 @@ interface Props {
 	lead: string;
 	/** A related list the heading links to, such as Health News from /news. */
 	link?: { href: string; label: string };
+	/** Related pages linked under the lead, in order. */
+	leadLinks?: ReadonlyArray<{ href: string; label: string }>;
 }
 
-const { section, crumbs, label, title, lead, link } = Astro.props;
+const { section, crumbs, label, title, lead, link, leadLinks = [] } = Astro.props;
 ---
 
 <DeepField kind="list">
@@ -50,6 +59,21 @@ const { section, crumbs, label, title, lead, link } = Astro.props;
 					<slot name="icon" slot="icon" />
 				</SectionHeading>
 				<p class="hero-enter max-w-prose text-body-large [--hero-enter-delay:0.1s]">{lead}</p>
+				{leadLinks.length > 0 && (
+					<ul class="flex flex-wrap gap-x-6 gap-y-1">
+						{leadLinks.map((related) => (
+							<li>
+								<a
+									href={related.href}
+									class="inline-flex min-h-11 items-center gap-1.5 text-label font-semibold text-surface-base underline underline-offset-4"
+								>
+									{related.label}
+									<ArrowRight class="shrink-0" size={16} />
+								</a>
+							</li>
+						))}
+					</ul>
+				)}
 			</div>
 			{link && (
 				<a

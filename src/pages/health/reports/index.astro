@@ -6,9 +6,16 @@
 // and fiscal year (#51 user story 45).
 //
 // The canonical address keeps a valid page number, as on the News lists.
+//
+// The page opens on the deep field as Health Content does (Feature 011 #339; spec #338
+// "Decisions", 5; ListHeading), under the label "สุขภาพ" with the file-chart-column icon and no
+// link; the rows, the empty state and the pager follow over the field's lower edge (ListBody),
+// in today's look until #342.
+import FileChartColumn from "@lucide/astro/icons/file-chart-column";
 import EmptyState from "../../../components/EmptyState.astro";
 import HealthReportRow from "../../../components/HealthReportRow.astro";
-import PageHeading from "../../../components/PageHeading.astro";
+import ListBody from "../../../components/ListBody.astro";
+import ListHeading from "../../../components/ListHeading.astro";
 import Pagination from "../../../components/Pagination.astro";
 import SiteLayout from "../../../layouts/SiteLayout.astro";
 import { HEALTH_REPORTS_PATH, HEALTH_REPORTS_TITLE } from "../../../lib/health";
@@ -22,15 +29,17 @@ const { entries, hasMore } = await listHealthReports(page);
 const listUrl = new URL(HEALTH_REPORTS_PATH, Astro.url);
 ---
 
-<SiteLayout
-	title={title}
-	section="health"
-	description={lead}
-	canonical={pageHref(listUrl, page)}
-	crumbs={[{ label: title }]}
->
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={title} lead={lead} />
+<SiteLayout title={title} section="health" description={lead} canonical={pageHref(listUrl, page)}>
+	<ListHeading
+		section="health"
+		crumbs={[{ label: title }]}
+		label="สุขภาพ"
+		title={title}
+		lead={lead}
+	>
+		<FileChartColumn slot="icon" class="shrink-0" size={24} />
+	</ListHeading>
+	<ListBody>
 		{entries.length > 0 ? (
 			<ul class="flex flex-col gap-4">
 				{entries.map((report) => (
@@ -48,5 +57,5 @@ const listUrl = new URL(HEALTH_REPORTS_PATH, Astro.url);
 			<EmptyState message="ยังไม่มีรายงานสุขภาพ" />
 		)}
 		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
-	</div>
+	</ListBody>
 </SiteLayout>

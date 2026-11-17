@@ -1,6 +1,6 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.4, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.5, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
@@ -8,8 +8,9 @@
 > implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
 > 6891402807). Feature 010's redesign of the Activities, Announcements and Documents pages follows
 > spec #311, implemented by #312–#318, and was accepted on #311 (Product Owner, 2026-11-17: #311
-> comment 6936494700).
-> **Updated:** 2026-11-17 (#318); first drafted 2026-10-30
+> comment 6936494700). Feature 011's redesign of the Health Information hub, the Health Reports,
+> Services and Health Services pages follows spec #338, implemented by #339–#346.
+> **Updated:** 2026-11-17 (#339); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -70,6 +71,19 @@
 > each with its own decisions in §13's change history, and #318 the documents, the measures and the
 > limits. Every page outside the feature keeps its design.
 
+> **Feature 011 decision (Product Owner, 2026-11-17; spec #338, #338 comment 6941491587):** the
+> Health Information hub (`/health`), the Health Reports list and a Health Report's page, the
+> Service catalog and a Service's page, and the Health Service Directory and a Health Service's
+> page are redesigned after the Homepage and Features 009 and 010's pages as they are built, in the
+> look the Product Owner picked from a prototype. Each list is headed on the deep field as Feature
+> 009's lists are (§7.8): `/health` and `/health/reports` under the label "สุขภาพ", `/services`
+> under "บริการ" with its two related links under the lead, and `/health-services` under
+> "หน่วยบริการ"; their H1s, leads, titles in the head, menu items and breadcrumbs stay. `/health`
+> shows its two destinations as the Homepage's Quick Access tiles (§7.3, §8.11). Every address,
+> read and behaviour stays, and no colour, type size, radius or shadow joins the tokens. #339 to
+> #345 implement the seven pages, each with its own decisions in §13's change history, and #346
+> the documents, the measures and the limits. Every page outside the feature keeps its design.
+
 ## 1. Scope, authority and status
 
 This document records the public presentation of Songhealth: its tokens, its components, the
@@ -117,8 +131,13 @@ health-service network.
   white card over the field's edge, then its text and its related Documents with their downloads
   (§9.4; #316). A Document's page opens on the same field with the same header, its type and a
   superseded or expired status in pills, and lays its file first in one white card over the
-  field's edge, then its details (§9.5; #317). Every page outside the two features keeps its
-  design under the new shell until its own feature.
+  field's edge, then its details (§9.5; #317). Feature 011 brings the list's heading to the
+  Health Information hub, the Health Reports list, the Service catalog and the Health Service
+  Directory (spec #338; §7.8; #339): `/services` with its two related links under the lead, and
+  `/health` with its two destinations as the Homepage's Quick Access tiles over the field's edge
+  (§7.3, §8.11). Their cards and rows, and the three item pages, keep their look until #340 to
+  #345. Every page outside the three features keeps its design under the new shell until its own
+  feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
   "มันยังดูธรรมดา เรียบง่ายเกินไป ไม่ได้ดูทันสมัย หรือ สมัยใหม่เลย", and naming two sites as the look
@@ -277,7 +296,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7, and the label on its page, §9.4) | 13.85:1 |
 | `text-secondary-on-soft` on `surface-base`, the lightest the Current Announcements' glow makes the band under its lead | 5.66:1 |
 | `surface-base` (the label, the lead and the counts' words) on the Health Service Discovery band's gradient: measured (§8.9) | 5.20:1 or more |
-| `surface-base` (the breadcrumb, the label, the H1 and the lead) on the field under a list's heading (`/news`, Health News, Health Content at `fb11b3e`, #287; `/activities`, `/announcements`, `/documents` at `8643ef1`, #312): measured with `scripts/measure-text-contrast.ts` at the five widths (§7.8) | 6.27:1 or more |
+| `surface-base` (the breadcrumb, the label, the H1 and the lead) on the field under a list's heading (`/news`, Health News, Health Content at `fb11b3e`, #287; `/activities`, `/announcements`, `/documents` at `8643ef1`, #312; `/health`, `/health/reports`, `/services` with its links under the lead, `/health-services` at `06b4b58`, #339): measured with `scripts/measure-text-contrast.ts` at the five widths (§7.8) | 6.27:1 or more; the breadcrumb's current page 5.07:1 on `/health-services` at 375 px (#339) |
 | `surface-base` (the breadcrumb, the H1, the summary, a category's words in its outlined pill and Health Content's review date) on the field under a Post page's header, and `brand-dark` on the `accent-warm` pill of "เผยแพร่" and the date: measured at `fb11b3e` with `scripts/measure-text-contrast.ts` on seven demo posts and one synthetic post at the five widths (§9.1, #287) | 5.34:1 or more (the breadcrumb's current page); the date pill 7.75:1 |
 | `brand-primary` focus ring of a list's card against what lies beside it, its `surface-base` band, over the field's lower edge or the page (`focus-ring-banded`, §7.3): measured at `fb11b3e` with `scripts/measure-focus-contrast.ts` on `/news` at the five widths (#283, #287) | 5.09:1 or more; a few blended pixels at the cards' fractional edges at 1,024 and 768 px down to 2.77:1, under 0.5 % of the ring's neighbours |
 | `surface-base` text on a list's large card over a white picture, the least gradient behind it: the title, the summary and the label's words on its `brand-dark` 40 % fill, measured at `fb11b3e` with `scripts/measure-text-contrast.ts` and `scripts/screenshot-fixtures/news-list-light-picture.ts` on `/news` at the five widths (§7.3, #284, #287) | the title 6.74:1, the summary 8.98:1, the label 6.35:1 or more; on a large card without a picture, over its `deep-visual`, 11.12:1 or more |
@@ -354,7 +373,7 @@ own module.
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
   2026-11-11: #241 comment 6791096480, item 1), and so does the link of a list's heading on the
-  deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link, 20 px in the search's
+  deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link and in the links under `/services`' lead, 20 px in the search's
   submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The hero's search field opens with a 20 px `search`
   icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's cards, small and large, `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3; in a
   list heading's tile `heart` on `/activities`, `file-text` on `/announcements` and `folder-open` on
@@ -610,7 +629,14 @@ this document names:
     fixed height, and the cards of a row share one height. One line of label makes it 82 px tall
     (a 26 px line, the 8 px gap, the arrow and 24 px of padding), the taller proportions the
     Product Owner accepted (#190 comment 6707205912, Quick Access B).
-  - `/about`, `/health` and `/ita` keep `QuickLinkCard`, the full card with its border.
+  - `/about` and `/ita` keep `QuickLinkCard`, the full card with its border.
+  - `/health` shows its two destinations, "ความรู้สุขภาพ" then "รายงานสุขภาพ", with it (Feature 011
+    #339; spec #338 "`/health`"), `kind="list"`: over the field's lower edge (§7.8), two to a row
+    at every width, 12 px apart below `sm` and 20 px from `sm`, the compact card below 640 px.
+    There its label is an H2, the page's tiles being a list's under no other heading, where the
+    Homepage's label is plain text under its section's H2 (Product Owner, 2026-11-17: #339
+    comment 6941979791), and its link's focus ring has the lists' `surface-base` band
+    (`focus-ring-banded`, §3). Each tile reveals as it comes into the window (§8.12).
 
 ### 7.4 Header and navigation
 
@@ -734,9 +760,12 @@ Health Service Directory:
 ### 7.8 List heading on the deep field
 
 `ListHeading` (Feature 009 #281, #282; spec #280 "The field under a heading", "List heading")
-heads `/news`, Health News (`/news/health`) and the Health Content list (`/health/content`), and
+heads `/news`, Health News (`/news/health`) and the Health Content list (`/health/content`),
 since Feature 010 #312 (spec #311 "Decisions", 3 and 4) the Activities list (`/activities`), the
-Announcements list (`/announcements`) and the Document repository (`/documents`).
+Announcements list (`/announcements`) and the Document repository (`/documents`), and since
+Feature 011 #339 (spec #338 "Decisions", 5, 6 and 15) the Health Information hub (`/health`), the
+Health Reports list (`/health/reports`), the Service catalog (`/services`) and the Health Service
+Directory (`/health-services`).
 
 - **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
   `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
@@ -773,6 +802,20 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
   the Homepage's Quick Access label (§8.11), over "เอกสารเผยแพร่", with `folder-open`, its
   breadcrumb under หน้าแรก. None has a link, and each keeps its lead, its title in the head and its
   breadcrumb (spec #311 "Decisions", 3).
+- **`/health`** and **`/health/reports`** are labelled "สุขภาพ", as Health Content, over their H1s
+  "ข้อมูลสุขภาพ" and "รายงานสุขภาพ", with `heart-pulse` and `file-chart-column`; **`/services`**
+  "บริการ" over "บริการประชาชน", with `users`, as the Homepage's Frequently Used Services (§8.4); and
+  **`/health-services`** "หน่วยบริการ" over "หน่วยบริการสุขภาพที่เกี่ยวข้อง", with `hospital`, as the
+  Homepage's Health Service band (§8.9), whose H2 it does not take (spec #338 "Decisions", 14).
+  None has a pill link, and each keeps its lead, its title in the head and its breadcrumb (spec
+  #338 "Decisions", 5).
+- **The links under the lead.** `/services` has two, "ค้นหาหน่วยบริการสุขภาพที่เกี่ยวข้อง" to the
+  directory and "คู่มือและแบบฟอร์ม" to `/documents`, its related pages that are not Services (spec
+  #338 "The Service catalog", decision 15): 16 px under the lead, `surface-base` words, semibold,
+  at label size and underlined, each with a 16 px `arrow-right`, 44 px high, 24 px apart across
+  and 4 px down where they wrap. Under the pointer they keep their colour, as the breadcrumb's
+  links on the field: `accent-warm` small text is below 4.5:1 there (§3.2; #339 comment
+  6941979791).
 - **What follows the heading** lies over the field's lower edge: the field's content ends 128 px
   above the edge from `sm` and 96 px below, and the block that follows (`ListBody`) starts 88 px
   above it from `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state,
@@ -784,7 +827,11 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
   ring lies around the row and over the field in the first row, with the same band; on
   `/documents` the filter form is the block over the edge, its ring on its own white card, and the
   Document rows follow it (§7.3; Feature 010 #315), 14 px apart, each with two links, its title
-  and its download, whose rings lie on the row's white, 6.45:1 (§7.3). The cards are the Homepage's News
+  and its download, whose rings lie on the row's white, 6.45:1 (§7.3). On `/services` and
+  `/health-services` the filter form is the block over the edge, then today's Service cards or
+  Health Service rows; on `/health/reports` today's report rows are the block; each in its look
+  until Feature 011's #340 to #342. On `/health` the block is the two Quick Access tiles (§7.3),
+  their rings with the lists' band (Feature 011 #339). The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
   ring alone was faint, so a card's ring has a `surface-base` band on both sides
@@ -792,8 +839,10 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
   #283 comment 6854670042).
 - **Motion** (§8.12): with motion allowed the heading block rises in as the page opens, and the
   lead 0.1 s after it. Each card reveals as it comes into the window (§7.3), and on
-  `/announcements` and `/documents` each row (§7.3, §8.7). The
-  breadcrumb, the link, the filter form, the empty state and the pager show at once.
+  `/announcements` and `/documents` each row (§7.3, §8.7) and on `/health` each tile (§7.3). The
+  breadcrumb, the link, the links under the lead, the filter form, the empty state and the pager
+  show at once, and so do `/services`' cards and the Health Service and report rows until their
+  own tickets (#340 to #342).
 - **Measured** on the development runtime at `fb11b3e`, the head of `009-news-post-redesign`,
   with the demo dataset's six News and five Health Content (#287,
   `docs/evidence/287-news-post-redesign-evidence-round.md`):
@@ -813,6 +862,16 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
     Activities 6.44:1 at 320 px), the H1 7.39:1 (Documents, 320 px), the label 8.48:1 (Activities,
     320 px), the breadcrumb's current page 8.96:1 (Activities, 320 px) and its links 9.73:1
     (320 px).
+  - At `06b4b58` (#339), `scripts/measure-text-contrast.ts --all-text --fold` on the deep field of
+    `/health/reports`, `/services` and `/health-services` and on the whole of `/health` at the five
+    widths, the lowest reading of each text: the lead 6.45:1 (each page, at 768 px or below), the
+    links under `/services`' lead 6.45:1 (320 px), the H1 6.99:1 (`/health-services`, 320 px), the
+    label 8.84:1 (320 px), the breadcrumb's links 9.46:1 (`/health/reports`, 320 px) and its
+    current page 5.07:1 (`/health-services`, 375 px), and `/health`'s tiles' H2s 16.54:1.
+    `scripts/measure-focus-contrast.ts` on `/health`'s two tiles: beside the ring, with its band,
+    no pixel under 3:1 at any width, the lowest 5.22:1 from 768 px and 2.80:1 on a few blended
+    pixels at 375 px; the ring alone over the field read under 3:1 on 56 to 61 % of its pixels,
+    which the band answers.
   - `scripts/capture-screenshots.mjs`, the pages' heights in px at 1,440, 1,024, 768, 375 and
     320 px: `/news` 1,801, 1,765, 2,242, 1,791 and 1,917, where it was 1,501, 1,494, 2,030, 3,447
     and 3,449 at `668d3e5` (#281's before screenshots); Health News 1,945, 1,909, 1,969, 1,777 and
@@ -838,6 +897,12 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
   (`testHeadingOnField`) and adds the list with no item, what follows over the edge with each empty
   state, the keyboard from the breadcrumb, the motion and the page without JavaScript;
   `public-filter-form.spec.ts` reads the form over the edge on the three lists that have it there.
+  Since Feature 011 #339 `public-services.spec.ts`, `public-health-services.spec.ts` and, for
+  `/health/reports`, `public-health.spec.ts` take `testListOnField` too, `/services` with its links
+  under the lead (`leadLinks`: on the field after the lead, in the keyboard's order after the
+  breadcrumb, shown at once), and `public-filter-form.spec.ts` reads their forms over the edge;
+  `/health` takes `testHeadingOnField` alone, with its own cases for its tiles over the edge, their
+  layout at seven widths, their reveal and the page without JavaScript.
 
 ## 8. Homepage
 
@@ -1293,12 +1358,13 @@ held, at every width, fewer when fewer exist; with none the section is left out.
 
 ### 8.11 Quick Access and the Contact Summary
 
-**Quick Access** (`HomeQuickLink`; spec #239 "Quick Access") shows up to four shortcuts from its
+**Quick Access** (`HomeQuickLink`; spec #239 "Quick Access"; on `/health` too since Feature 011
+#339, §7.3) shows up to four shortcuts from its
 menu before the Contact Summary, and is left out while the menu is empty, as the demo dataset
 leaves it (`scripts/demo-dataset/content.ts`; spec #239). Under the section heading its cards go
 four to a row from `lg` and two below, 24 px apart (12 px below `sm`). A card is the Homepage's
 card surface, white with the `card` shadow and no border, radius 22 (18 below `sm`): the label at
-the h3 size and a 24 px `arrow-right`, the whole card one link named by the label. Under the
+the h3 size (a plain label here, an H2 on `/health`, §7.3) and a 24 px `arrow-right`, the whole card one link named by the label. Under the
 pointer the label turns `brand-primary` and the shadow `deep`. Below `sm` it is compact (§7.3).
 
 **The Contact Summary** (`HomeContactCard`; spec #239 "Contact Summary") is one card inside the
@@ -1362,8 +1428,9 @@ stays the submit state (§8.9).
   box behind it. A missing picture's visual has no shimmer, nor has the Featured picture, which
   has its blurred copy behind it (§8.1), or a Leadership portrait in its ring (§8.5) (Product
   Owner: the same comment, item 2).
-- **A list's motion.** On `/news`, Health News, Health Content, `/activities`, `/announcements`
-  and `/documents` the heading block rises in as the hero's parts do, starting at 0 s, and the lead
+- **A list's motion.** On `/news`, Health News, Health Content, `/activities`, `/announcements`,
+  `/documents`, and since Feature 011 #339 `/health`, `/health/reports`, `/services` and
+  `/health-services`, the heading block rises in as the hero's parts do, starting at 0 s, and the lead
   at 0.1 s (§7.8). Each card reveals as a
   section's card does and shows whole while it holds the keyboard's focus, and its picture's box
   shimmers as the page opens; a missing picture's visual does not (§7.3; Feature 009 #283). The
@@ -1864,6 +1931,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - Feature 006: spec #144 and tickets #145 to #151.
 - Feature 009: spec #280 and tickets #281 to #287.
 - Feature 010: spec #311 and tickets #312 to #318.
+- Feature 011: spec #338 and tickets #339 to #346.
 - Figma, as history: [Songhealth — Homepage Concept v1](https://www.figma.com/design/Lxdfd1dBgNNO28Rx62zGYO),
   described in `docs/design/homepage-concept-v1.md`.
 - Tailwind official: [Astro installation](https://tailwindcss.com/docs/installation/framework-guides/astro),
@@ -2209,3 +2277,15 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   the field (§7.3, §7.8). §2, §4, §5, §7.7, §7.8 and §8.12 name the three lists, and the Status
   line and a Feature 010 banner name the feature. Authority: spec #311
   "Decisions", 3, 4 and 5, and #311 comment 6895825492.
+- **v1.5 the list heading on four more lists (2026-11-17, Feature 011 #339):** `/health`, `/health/reports`, `/services` and `/health-services` open on the deep field
+  with the list heading (§7.8): the labels "สุขภาพ", "บริการ" and "หน่วยบริการ" and the icons
+  `heart-pulse`, `file-chart-column`, `users` and `hospital` are new to these pages, and the H1s,
+  the leads, the titles in the head, the menu and the breadcrumbs stay. `ListHeading` takes links
+  under the lead, `/services`' two related links, white and underlined with a 16 px `arrow-right`.
+  What follows lies over the field's edge: on `/services` and `/health-services` the filter form
+  first (§7.7), then today's cards or rows, empty states and pager, which keep their look until
+  #340 to #342. `/health` shows its two destinations as the Homepage's Quick Access tiles
+  (`HomeQuickLink kind="list"`, an H2 label and the lists' banded ring; the Homepage's tiles
+  unchanged), two to a row at every width (§7.3, §8.11). §2, §7.3, §7.8, §8.11 and §8.12 name the
+  pages, and the Status line and a Feature 011 banner name the feature. Authority: spec #338
+  "Decisions", 2, 5, 6, 13 and 15, #338 comment 6941491587, and #339 comment 6941979791.

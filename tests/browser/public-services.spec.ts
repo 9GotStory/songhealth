@@ -9,6 +9,11 @@
 // never show, and their addresses answer the site 404. The filter offers only the Service
 // Categories that published Services carry, in label order (spec #174 "Public list filters").
 //
+// /services opens on the deep field (Feature 011 #339; spec #338 "Decisions", 5, 6 and 15): its
+// breadcrumb, the label บริการ, the H1 บริการประชาชน, its lead and its two related links under the
+// lead, then over the field's lower edge its filter form, its cards and its pager
+// (public.helpers.ts testListOnField). A Service's page keeps today's heading until #344.
+//
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
 // widths). Fixtures are synthetic Services, Documents, Health Services and `service_category`
@@ -48,7 +53,11 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	LIST_END,
+	MOBILE_VIEWPORT,
 	SECTION_CRUMBS,
+	boxOf,
+	deepField,
 	detailOf,
 	expect,
 	expectBreadcrumb,
@@ -56,6 +65,7 @@ import {
 	expectPreviewRenders,
 	expectServiceIcon,
 	expectSiteNotFound,
+	leadLinksOf,
 	listedItem,
 	listedTitles,
 	offeredLabels,
@@ -63,6 +73,8 @@ import {
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
+	testListOnField,
+	tokenColor,
 } from "./public.helpers";
 
 /** The fixed number of Services a catalog page shows. */
@@ -72,6 +84,16 @@ let admin: CmsActor;
 let origin: string;
 /** Synthetic terms this suite created, removed at the end. */
 const ownedTerms: SyntheticTerm[] = [];
+
+/** The lead of /services, under its heading. */
+const SERVICES_LEAD =
+	"บริการที่สำนักงานสาธารณสุขอำเภอสองให้บริการเอง ประสานให้ หรือแนะนำช่องทาง พร้อมผู้ให้บริการ ช่องทาง ขั้นตอน และเอกสารที่ต้องเตรียมก่อนไปรับบริการ";
+
+/** /services' two related links under its lead, in order (spec #338 "The Service catalog"). */
+const SERVICES_LEAD_LINKS = [
+	["ค้นหาหน่วยบริการสุขภาพที่เกี่ยวข้อง", "/health-services"],
+	["คู่มือและแบบฟอร์ม", "/documents"],
+] as const;
 
 /** What /services shows when its Service Category matches nothing. */
 const FILTERED_EMPTY = {
@@ -100,6 +122,82 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
+
+// First in the suite, while the runtime holds only its own Services. The catalog orders by name,
+// so these Services are named with ฮ, the last Thai consonant, and follow every other test's.
+testListOnField({
+	path: "/services",
+	crumbs: [HOME_CRUMB],
+	heading: { label: "บริการ", title: "บริการประชาชน", lead: SERVICES_LEAD },
+	icon: "users",
+	leadLinks: SERVICES_LEAD_LINKS,
+	collection: "services",
+	pageSize: PAGE_SIZE,
+	noneYet: "ยังไม่มีข้อมูลบริการ",
+	pastLast: "ไม่พบบริการในหน้านี้",
+	form: {
+		name: "กรองบริการ",
+		unmatched: `category=${syntheticSlug("no-such-category")}`,
+		empty: FILTERED_EMPTY,
+	},
+	admin: () => admin,
+	publishItem: async (label) => {
+		const service = await createService(label, { name: "ฮ บริการ" });
+		await publishEntryAt(admin, "services", service.id, LIST_END);
+		return service;
+	},
+});
+
+test("/services' two related links lie under its lead on the field, 16 px under it: surface-base words, semibold, at label size and underlined, each with a 16 px arrow-right after them and 44 px high; they sit 24 px apart on one row and, where they wrap, 4 px apart one under the other, and keep their colour under the pointer", async ({
+	page,
+}) => {
+	await page.goto("/services");
+	const lead = deepField(page).getByText(SERVICES_LEAD, { exact: true });
+	const links = leadLinksOf(page, { leadLinks: SERVICES_LEAD_LINKS });
+	const white = await tokenColor(page, "surface-base");
+	for (const [label, link] of links) {
+		await expect(link, label).toHaveCSS("color", white);
+		await expect(link, label).toHaveCSS("font-weight", "600");
+		await expect(link, label).toHaveCSS("font-size", "14px");
+		await expect(link, label).toHaveCSS("text-decoration-line", "underline");
+		const box = await boxOf(link, label);
+		expect(box.height, `${label} is 44 px high`).toBeCloseTo(44, 0);
+		const arrow = link.locator("svg.lucide-arrow-right");
+		const arrowBox = await boxOf(arrow, `${label}'s arrow`);
+		expect([arrowBox.width, arrowBox.height], `${label}'s arrow is 16 px`).toEqual([16, 16]);
+		const words = await link.evaluate((element) => {
+			const range = document.createRange();
+			range.selectNodeContents(element.firstChild!);
+			return range.getBoundingClientRect().right;
+		});
+		expect(arrowBox.x, `${label}'s arrow follows its words`).toBeGreaterThanOrEqual(words);
+		await link.hover();
+		await expect(link, `${label} under the pointer`).toHaveCSS("color", white);
+	}
+
+	const [first, second] = links.map(([, link]) => link) as [typeof lead, typeof lead];
+	for (const [viewport, row] of [
+		[DESKTOP_VIEWPORT, "one row"],
+		[MOBILE_VIEWPORT, "two rows"],
+	] as const) {
+		await page.setViewportSize(viewport);
+		const at = `at ${viewport.width} px`;
+		const leadBox = await boxOf(lead, "the lead");
+		const [one, two] = [await boxOf(first, "the first link"), await boxOf(second, "the second")];
+		expect(
+			one.y - (leadBox.y + leadBox.height),
+			`the links 16 px under the lead ${at}`,
+		).toBeCloseTo(16, 0);
+		expect(one.x, `the first link starts with the lead ${at}`).toBeCloseTo(leadBox.x, 0);
+		if (row === "one row") {
+			expect(two.y, `the links on one row ${at}`).toBeCloseTo(one.y, 0);
+			expect(two.x - (one.x + one.width), `24 px apart across ${at}`).toBeCloseTo(24, 0);
+		} else {
+			expect(two.x, `the second link under the first ${at}`).toBeCloseTo(one.x, 0);
+			expect(two.y - (one.y + one.height), `4 px apart down ${at}`).toBeCloseTo(4, 0);
+		}
+	}
+});
 
 test("/services lists only published Services by name, each with its summary and a link to its page", async ({
 	page,
@@ -308,6 +406,8 @@ test("a Service page says who actually provides it, in plain Thai, for each owne
 	for (const { type, service } of fixtures) {
 		const response = await page.goto(`/services/${service.slug}`);
 		expect(response?.status(), `GET the ${type} Service`).toBe(200);
+		// A Service's page keeps today's heading until its own ticket (#344).
+		await expect(deepField(page), "no deep field under the heading").toHaveCount(0);
 		await expect(page.getByRole("main").getByRole("heading", { level: 1 })).toHaveText(
 			service.title,
 		);

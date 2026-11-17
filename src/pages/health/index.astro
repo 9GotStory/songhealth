@@ -2,29 +2,33 @@
 // The Health Information hub, /health (Feature 003 #59; spec #51 "Public reads", `03` §9 and §19):
 // it links to Health Content and to Health Reports (src/lib/health.ts), so citizens choose
 // knowledge or reports (#51 user story 43).
-import PageHeading from "../../components/PageHeading.astro";
-import QuickLinkCard from "../../components/QuickLinkCard.astro";
+//
+// The page opens on the deep field as the lists do (Feature 011 #339; spec #338 "Decisions", 5,
+// and "`/health`"; ListHeading): the label "สุขภาพ", the Homepage's Health Information label, with
+// the heart-pulse icon, over its H1. Its two destinations follow over the field's lower edge as the
+// Homepage's Quick Access tiles (HomeQuickLink), two to a row at every width, 12 px apart below
+// `sm` and 20 px from `sm`, each revealed as it comes into the window (`scroll-reveal`).
+import HeartPulse from "@lucide/astro/icons/heart-pulse";
+import HomeQuickLink from "../../components/HomeQuickLink.astro";
+import ListBody from "../../components/ListBody.astro";
+import ListHeading from "../../components/ListHeading.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { HEALTH_AREAS, HEALTH_PATH, HEALTH_TITLE } from "../../lib/health";
 
 const lead = "ความรู้สุขภาพสำหรับประชาชน และรายงานสุขภาพของสำนักงานสาธารณสุขอำเภอสองและเครือข่าย";
 ---
 
-<SiteLayout
-	title={HEALTH_TITLE}
-	section="health"
-	description={lead}
-	canonical={HEALTH_PATH}
-	crumbs={[]}
->
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={HEALTH_TITLE} lead={lead} />
-		<ul class="grid gap-4 sm:grid-cols-2">
+<SiteLayout title={HEALTH_TITLE} section="health" description={lead} canonical={HEALTH_PATH}>
+	<ListHeading section="health" crumbs={[]} label="สุขภาพ" title={HEALTH_TITLE} lead={lead}>
+		<HeartPulse slot="icon" class="shrink-0" size={24} />
+	</ListHeading>
+	<ListBody>
+		<ul class="grid grid-cols-2 gap-3 sm:gap-5">
 			{HEALTH_AREAS.map((area) => (
-				<li>
-					<QuickLinkCard href={area.href} label={area.label} />
+				<li class="scroll-reveal">
+					<HomeQuickLink href={area.href} label={area.label} kind="list" />
 				</li>
 			))}
 		</ul>
-	</div>
+	</ListBody>
 </SiteLayout>

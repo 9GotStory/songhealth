@@ -16,6 +16,10 @@
 // /health/content opens on the deep field (Feature 009 #282; spec #280 "List heading", "What
 // follows a list's heading"): its breadcrumb, the label สุขภาพ, the H1 ความรู้สุขภาพ and its lead, with
 // its filter form first over the field's lower edge (public.helpers.ts testFilteredListOnField).
+// /health and /health/reports open on it too (Feature 011 #339; spec #338 "Decisions", 5 and 13):
+// /health under the label สุขภาพ with its two destinations as the Homepage's Quick Access tiles over
+// the field's lower edge, and /health/reports under the same label with its rows and pager there
+// (testListOnField). A Health Report's page keeps today's heading until #343.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -70,26 +74,41 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	LIST_END,
 	SECTION_CRUMBS,
+	boxOf,
 	cardList,
+	deepField,
 	detailOf,
 	expect,
+	expectArrowBesideLabel,
+	expectBlocksOverFieldEdge,
 	expectBreadcrumb,
 	expectEmptyStateUnderForm,
 	expectFilteredEmpty,
+	expectFocusRingWhole,
 	expectImageLoaded,
+	expectLabelAboveArrow,
+	expectListMovesOnlyWhenAllowed,
+	expectNoHorizontalScroll,
 	expectPreviewRenders,
 	expectSiteNotFound,
+	itemsPerRow,
+	listHeading,
 	listedItem,
 	listedTitles,
 	offeredLabels,
 	ownTitles,
+	shownOpacity,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
 	testFilteredListOnField,
+	testHeadingOnField,
 	testListCards,
+	testListOnField,
 	thaiDate,
+	tokenColor,
 	whileNonePublished,
 } from "./public.helpers";
 
@@ -100,6 +119,23 @@ const REPORTS_PAGE_SIZE = 20;
 
 /** The lead of /health/content, under its heading. */
 const CONTENT_LEAD = "ความรู้ด้านสุขภาพสำหรับประชาชนในอำเภอสอง เลือกประเด็นสุขภาพที่สนใจได้";
+
+/** The heading of /health, the Health Information hub. */
+const HEALTH_HEADING = {
+	label: "สุขภาพ",
+	title: "ข้อมูลสุขภาพ",
+	lead: "ความรู้สุขภาพสำหรับประชาชน และรายงานสุขภาพของสำนักงานสาธารณสุขอำเภอสองและเครือข่าย",
+};
+
+/** /health's two tiles, in order, each the link to its area. */
+const HEALTH_TILES = [
+	["ความรู้สุขภาพ", "/health/content"],
+	["รายงานสุขภาพ", "/health/reports"],
+] as const;
+
+/** The lead of /health/reports, under its heading. */
+const REPORTS_LEAD =
+	"รายงานด้านสุขภาพของสำนักงานสาธารณสุขอำเภอสองและเครือข่าย พร้อมเอกสารรายงานฉบับเต็ม";
 
 /** The name of the filter form of /health/content. */
 const CONTENT_FILTER_FORM = "กรองความรู้สุขภาพ";
@@ -141,6 +177,13 @@ const publishContent = (content: DraftFixture, publishedAt?: string) =>
 const publishReport = (report: DraftFixture, publishedAt?: string) =>
 	publishEntryAt(admin, "health_reports", report.id, publishedAt);
 
+/** The list that holds /health's tiles. */
+const healthTiles = (page: Page) =>
+	page
+		.getByRole("main")
+		.getByRole("list")
+		.filter({ has: page.getByRole("link", { name: HEALTH_TILES[0][0], exact: true }) });
+
 /** The main navigation's ข้อมูลสุขภาพ item. */
 const healthNavItem = (page: Page) =>
 	page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "ข้อมูลสุขภาพ" });
@@ -171,6 +214,159 @@ test("with no published Health Content, /health/content shows ยังไม่
 			page.getByRole("form", { name: CONTENT_FILTER_FORM }),
 			"ยังไม่มีความรู้สุขภาพ",
 		);
+	});
+});
+
+// Next, while the runtime holds only this suite's Health Reports and the demo dataset's: the list
+// with none returns each to draft for its case (testListOnField). Its own reports, published at
+// LIST_END without a report date, follow every other test's.
+testListOnField({
+	path: "/health/reports",
+	crumbs: [HOME_CRUMB, SECTION_CRUMBS.health],
+	heading: { label: "สุขภาพ", title: "รายงานสุขภาพ", lead: REPORTS_LEAD },
+	icon: "file-chart-column",
+	collection: "health_reports",
+	pageSize: REPORTS_PAGE_SIZE,
+	noneYet: "ยังไม่มีรายงานสุขภาพ",
+	pastLast: "ไม่พบรายงานสุขภาพในหน้านี้",
+	admin: () => admin,
+	publishItem: async (label) => {
+		const report = await createReport(label);
+		await publishReport(report, LIST_END);
+		return report;
+	},
+});
+
+testHeadingOnField({
+	path: "/health",
+	crumbs: [HOME_CRUMB],
+	heading: HEALTH_HEADING,
+	icon: "heart-pulse",
+});
+
+test("/health shows its two destinations as the Homepage's Quick Access tiles over the field's lower edge, ความรู้สุขภาพ then รายงานสุขภาพ, each one link named by its H2: side by side at every width from 320 to 1,440 px, 12 px apart below 640 px and 20 px from 640 px, compact below 640 px, and each focus ring with its white band where it meets the field", async ({
+	page,
+}) => {
+	await page.goto("/health");
+	const tiles = healthTiles(page);
+	const items = tiles.getByRole("listitem");
+	await expect(items).toHaveCount(HEALTH_TILES.length);
+	for (const [index, [label, href]] of HEALTH_TILES.entries()) {
+		const link = items.nth(index).getByRole("link");
+		await expect(link, `tile ${index + 1}: one link`).toHaveCount(1);
+		await expect(link, `tile ${index + 1}`).toHaveAccessibleName(label);
+		await expect(link, label).toHaveAttribute("href", href);
+		await expect(link.getByRole("heading", { level: 2 }), `${label}: an H2`).toHaveText(label);
+	}
+
+	for (const width of [320, 375, 639, 640, 768, 1024, 1440]) {
+		await page.setViewportSize({ width, height: 900 });
+		const at = `at ${width} px`;
+		await expectNoHorizontalScroll(page, `/health ${at}`);
+		expect(await itemsPerRow(items), `the two tiles side by side ${at}`).toEqual([2]);
+		const [first, second] = [
+			await boxOf(items.nth(0), "tile 1"),
+			await boxOf(items.nth(1), "tile 2"),
+		];
+		expect(second.x - (first.x + first.width), `the tiles' gap ${at}`).toBeCloseTo(
+			width < 640 ? 12 : 20,
+			0,
+		);
+		for (const [index, [label]] of HEALTH_TILES.entries()) {
+			const link = items.nth(index).getByRole("link");
+			if (width < 640) await expectLabelAboveArrow(link, `${label} ${at}`);
+			else await expectArrowBesideLabel(link, `${label} ${at}`);
+		}
+	}
+
+	const heading = listHeading(page, HEALTH_HEADING);
+	await expectBlocksOverFieldEdge(page, heading.field, [heading.lead], [["the tiles", tiles]]);
+});
+
+test("on /health the keyboard goes from the breadcrumb, on the field with its accent-warm focus ring drawn whole, to the two tiles, and each tile opens its page from its arrow and by Enter", async ({
+	page,
+}) => {
+	await page.goto("/health");
+	const crumb = listHeading(page, HEALTH_HEADING).breadcrumb.getByRole("link");
+	const links = healthTiles(page).getByRole("link");
+	await crumb.focus();
+	await page.keyboard.press("Tab");
+	for (const [index, [label]] of HEALTH_TILES.entries()) {
+		await expect(links.nth(index), `the tile ${label}`).toBeFocused();
+		await page.keyboard.press("Tab");
+	}
+	await expectFocusRingWhole(crumb, "the หน้าแรก crumb");
+	await expect(crumb, "the หน้าแรก crumb: the field's focus ring").toHaveCSS(
+		"outline-color",
+		await tokenColor(page, "accent-warm"),
+	);
+
+	for (const [index, [label, href]] of HEALTH_TILES.entries()) {
+		for (const [how, open] of [
+			["its arrow", () => links.nth(index).locator("svg").click()],
+			["Enter", () => links.nth(index).press("Enter")],
+		] as const) {
+			await page.goto("/health");
+			await open();
+			await expect(page, `${label} by ${how}`).toHaveURL(href);
+		}
+	}
+});
+
+test("/health moves only when motion is allowed: the heading and then the lead rise in as the page opens while the breadcrumb shows at once, each tile reveals as it comes into the window and shows whole while it holds the keyboard's focus, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
+	page,
+}) => {
+	test.setTimeout(90_000);
+	await expectListMovesOnlyWhenAllowed(page, "/health", listHeading(page, HEALTH_HEADING), [], {
+		grid: healthTiles(page),
+	});
+
+	// A window shorter than the field puts the tiles below it as the page opens, well below: just
+	// under a 300 px window Chromium gives a tile's view timeline no progress, and it shows whole.
+	const short = { width: 1440, height: 200 };
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.setViewportSize(short);
+	await page.goto("/health");
+	const items = healthTiles(page).getByRole("listitem");
+	for (const tile of await items.all()) {
+		expect((await boxOf(tile, "a tile")).y, "a tile lies below the window").toBeGreaterThan(
+			short.height,
+		);
+	}
+	// The two share a row, so both are read before either comes into the window.
+	for (const tile of await items.all()) {
+		expect(await shownOpacity(tile), "a tile below the window waits").toBe(0);
+	}
+	for (const tile of await items.all()) {
+		await tile.scrollIntoViewIfNeeded();
+		await expect.poll(() => shownOpacity(tile), { message: "a tile in the window shows" }).toBe(1);
+	}
+	await page.goto("/health");
+	await items.last().getByRole("link").focus();
+	await expect
+		.poll(() => shownOpacity(items.last()), {
+			message: "the last tile, focused, shows whole",
+			timeout: 3_000,
+		})
+		.toBe(1);
+});
+
+test.describe("/health without JavaScript", () => {
+	test.use({ javaScriptEnabled: false });
+
+	test("/health shows its heading with its label and its lead, and its two tiles", async ({
+		page,
+	}) => {
+		await page.goto("/health");
+		await expect(page.getByRole("heading", { level: 1 })).toHaveText(HEALTH_HEADING.title);
+		await expect(listHeading(page, HEALTH_HEADING).label, "the label above the H1").toBeVisible();
+		await expect(listHeading(page, HEALTH_HEADING).lead).toBeVisible();
+		for (const [label] of HEALTH_TILES) {
+			await expect(
+				healthTiles(page).getByRole("link", { name: label, exact: true }),
+				label,
+			).toBeVisible();
+		}
 	});
 });
 
@@ -634,6 +830,8 @@ test("a Health Report page shows its summary, type, report date, reporting perio
 
 	const response = await page.goto(`/health/reports/${report.slug}`);
 	expect(response?.status(), "GET the Health Report page").toBe(200);
+	// A Health Report's page keeps today's heading until its own ticket (#343).
+	await expect(deepField(page), "no deep field under the heading").toHaveCount(0);
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(report.title);
 	await expect(main.getByText(summary)).toBeVisible();

@@ -1224,19 +1224,15 @@ test.describe("without JavaScript", () => {
 	});
 });
 
-for (const [path, name] of [
-	["/about", "โครงสร้างองค์กร"],
-	["/health", "ความรู้สุขภาพ"],
-] as const) {
-	for (const width of [320, 639]) {
-		test(`at ${width} px a Quick Link card on ${path} keeps its arrow beside its label at the H3 size`, async ({
-			page,
-		}) => {
-			await page.setViewportSize({ width, height: 900 });
-			await page.goto(path);
-			const card = page.getByRole("main").getByRole("link", { name, exact: true });
-			await expect(card).toHaveCSS("font-size", "24px");
-			await expectArrowBesideLabel(card, `${path} at ${width} px`);
-		});
-	}
+// /health's tiles are the Homepage's since #339, compact below 640 px (public-health.spec.ts).
+for (const width of [320, 639]) {
+	test(`at ${width} px a Quick Link card on /about keeps its arrow beside its label at the H3 size`, async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width, height: 900 });
+		await page.goto("/about");
+		const card = page.getByRole("main").getByRole("link", { name: "โครงสร้างองค์กร", exact: true });
+		await expect(card).toHaveCSS("font-size", "24px");
+		await expectArrowBesideLabel(card, `/about at ${width} px`);
+	});
 }

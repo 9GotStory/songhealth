@@ -12,6 +12,17 @@
 //   seventh not open yet, every fifth without open or close dates, and the second has a long title.
 // - documents: the second is expired and the third's file cannot be served, which are captured on
 //   their pages too, as document-expired-<width> and document-file-gone-<width>.
+// - services (Feature 011 #339): three Service Categories in turn; every fourth has no summary,
+//   every third the standard icon, and the second a long name. The catalog orders by name.
+// - health-services (#339): two Areas and three Facility Types in turn; the first is inactive and
+//   the second has no coordinates, both captured on their pages too, as health-service-inactive-
+//   <width> and health-service-no-map-<width>; every fifth is closed for now, every third has a
+//   display name, and the fourth has no address.
+// - health-reports (#339): two Report Types in turn, each describing one published Document but
+//   the third, whose Document is unpublished after the report is; the second has no fiscal year,
+//   and every third no report date, so its publication places it. Both are captured on their
+//   pages too, as health-report-no-fiscal-year-<width> and health-report-document-unpublished-
+//   <width>.
 //
 //   LIST=activities LIST_COUNT=4 scripts/dev-runtime-env.sh \
 //     node scripts/capture-with-fixtures.ts scripts/screenshot-fixtures/lists-by-count.ts <out-dir>
@@ -26,9 +37,22 @@ const LISTS = {
 	activities: { path: "/activities", pageSize: 12 },
 	announcements: { path: "/announcements", pageSize: 20 },
 	documents: { path: "/documents", pageSize: 20 },
+	services: { path: "/services", pageSize: 12 },
+	"health-services": { path: "/health-services", pageSize: 20 },
+	"health-reports": { path: "/health/reports", pageSize: 20 },
 } as const;
 
 type List = keyof typeof LISTS;
+
+/** The collection each list shows, whose published entries the run borrows. */
+const COLLECTIONS: Record<List, string> = {
+	activities: "activities",
+	announcements: "announcements",
+	documents: "documents",
+	services: "services",
+	"health-services": "health_services",
+	"health-reports": "health_reports",
+};
 
 const list = process.env.LIST as List;
 if (!(list in LISTS)) {
@@ -163,14 +187,168 @@ async function documents({ admin, helpers, term }: FixtureKit): Promise<Capture[
 	);
 }
 
+/** The pages of `slugs` at the five widths, each named by its key. */
+const pagesAt = (base: string, slugs: Map<string, string>): Capture[] =>
+	[...slugs].flatMap(([name, slug]) =>
+		HOMEPAGE_WIDTHS.map((width) => ({
+			name: `${name}-${width}`,
+			path: `${base}/${slug}@${width}`,
+		})),
+	);
+
+async function services({ admin, helpers, term }: FixtureKit): Promise<void> {
+	const titles = [
+		"[ตัวอย่าง] ขอรับคำปรึกษาด้านสุขภาพ",
+		"[ตัวอย่าง] แจ้งเหตุความเดือดร้อนด้านสุขภาพในชุมชน",
+		"[ตัวอย่าง] ขอสำเนาเอกสารของสำนักงาน",
+		"[ตัวอย่าง] รับวัคซีนตามนัด",
+	];
+	const categories = [
+		await term("service_category", "ร้องเรียนและเสนอแนะ"),
+		await term("service_category", "แจ้งปัญหาสุขภาพ"),
+		await term("service_category", "ขอข้อมูลและบริการอื่น"),
+	];
+	const icons = ["เข็มฉีดยา", "หัวใจและชีพจร", undefined, "แผ่นรายการ"];
+	for (let index = 0; index < count; index += 1) {
+		const icon = index % 3 === 2 ? undefined : icons[index % icons.length];
+		const entry = await helpers.createSyntheticEntry(admin, "services", {
+			slug: helpers.syntheticSlug("shot"),
+			data: {
+				title: titleOf(titles, index),
+				...(index % 4 === 3
+					? {}
+					: {
+							summary:
+								"บริการของสำนักงานสาธารณสุขอำเภอสองสำหรับประชาชนในพื้นที่ พร้อมช่องทางและขั้นตอน",
+						}),
+				...(icon ? { icon } : {}),
+			},
+			taxonomies: { service_category: [categories[index % categories.length]!] },
+		});
+		if (!entry.result.ok) throw new Error(`service: ${helpers.nativeRefusalOf(entry.result)}`);
+		await helpers.publishEntryAt(admin, "services", entry.entryId!, daysAgo(index + 1));
+	}
+}
+
+async function healthServices({ admin, helpers, term }: FixtureKit): Promise<Capture[]> {
+	const titles = [
+		"[ตัวอย่าง] โรงพยาบาลส่งเสริมสุขภาพตำบลตัวอย่าง",
+		"[ตัวอย่าง] สถานีอนามัยบ้านตัวอย่าง",
+		"[ตัวอย่าง] ศูนย์สุขภาพชุมชนตัวอย่าง",
+		"[ตัวอย่าง] คลินิกชุมชนอบอุ่นตัวอย่าง",
+	];
+	const areas = [await term("area", "ตำบลตัวอย่างเหนือ"), await term("area", "ตำบลตัวอย่างใต้")];
+	const types = [
+		await term("facility_type", "โรงพยาบาลส่งเสริมสุขภาพตำบล"),
+		await term("facility_type", "สถานีอนามัย"),
+		await term("facility_type", "ศูนย์สุขภาพชุมชน"),
+	];
+	const pages = new Map<string, string>();
+	for (let index = 0; index < count; index += 1) {
+		const slug = helpers.syntheticSlug("shot");
+		const title = titleOf(titles, index);
+		const status = index === 0 ? "inactive" : index % 5 === 4 ? "temporarily_closed" : "active";
+		const entry = await helpers.createSyntheticEntry(admin, "health_services", {
+			slug,
+			data: {
+				title,
+				...(index % 3 === 2
+					? { display_name: title.replace("โรงพยาบาลส่งเสริมสุขภาพตำบล", "รพ.สต.") }
+					: {}),
+				operational_status: status,
+				...(index === 3 ? {} : { address: "99 หมู่ 9 ตำบลตัวอย่าง อำเภอสอง จังหวัดแพร่ 54120" }),
+				opening_hours: "จันทร์–ศุกร์ 08.30–16.30 น.",
+				public_contact: "โทร 054 000 000",
+				...(index === 1
+					? {}
+					: { latitude: 18.47 + index / 1000, longitude: 100.19 + index / 1000 }),
+			},
+			taxonomies: {
+				facility_type: [types[index % types.length]!],
+				area: [areas[index % areas.length]!],
+			},
+		});
+		if (!entry.result.ok) {
+			throw new Error(`health service: ${helpers.nativeRefusalOf(entry.result)}`);
+		}
+		await helpers.publishEntryAt(admin, "health_services", entry.entryId!, daysAgo(index + 1));
+		if (index === 0) pages.set("health-service-inactive", slug);
+		if (index === 1) pages.set("health-service-no-map", slug);
+	}
+	return pagesAt("/health-services", pages);
+}
+
+async function healthReports({ admin, helpers, term }: FixtureKit): Promise<Capture[]> {
+	const titles = [
+		"[ตัวอย่าง] รายงานสถานการณ์โรคประจำไตรมาส",
+		"[ตัวอย่าง] รายงานผลการดำเนินงานสาธารณสุขประจำปี",
+		"[ตัวอย่าง] รายงานความครอบคลุมการได้รับวัคซีน",
+		"[ตัวอย่าง] รายงานการเฝ้าระวังโรคในชุมชน",
+	];
+	const types = [
+		await term("report_type", "รายงานสถานการณ์โรค"),
+		await term("report_type", "รายงานผลการดำเนินงาน"),
+	];
+	/** A published Document for a report to describe. */
+	const reportDocument = async (title: string) => {
+		const document = await helpers.createSyntheticDocument(admin, "shot", {
+			data: { title, fiscal_year: 2569, owner_source: "สำนักงานสาธารณสุขอำเภอสอง" },
+			taxonomies: { document_type: [await term("document_type", "รายงาน")] },
+		});
+		await helpers.publishEntryAt(admin, "documents", document.id);
+		return document.id;
+	};
+	const shared = await reportDocument("[ตัวอย่าง] เอกสารรายงานฉบับเต็ม");
+	const pages = new Map<string, string>();
+	for (let index = 0; index < count; index += 1) {
+		const slug = helpers.syntheticSlug("shot");
+		const own =
+			index === 2 ? await reportDocument("[ตัวอย่าง] เอกสารรายงานที่เลิกเผยแพร่") : undefined;
+		const entry = await helpers.createSyntheticEntry(admin, "health_reports", {
+			slug,
+			data: {
+				title: titleOf(titles, index),
+				...(index % 4 === 3
+					? {}
+					: {
+							summary: "สรุปสถานการณ์และผลการดำเนินงานด้านสุขภาพของเครือข่ายบริการสุขภาพอำเภอสอง",
+						}),
+				reporting_period: "ตุลาคม 2568 – กันยายน 2569",
+				owner_source: "สำนักงานสาธารณสุขอำเภอสอง",
+				...(index === 1 ? {} : { fiscal_year: index < count / 2 ? 2570 : 2569 }),
+				...(index % 3 === 2 ? {} : { report_at: daysAgo(index + 2) }),
+			},
+			taxonomies: { report_type: [types[index % types.length]!] },
+			references: { report_document: [own ?? shared] },
+		});
+		if (!entry.result.ok) {
+			throw new Error(`health report: ${helpers.nativeRefusalOf(entry.result)}`);
+		}
+		await helpers.publishEntryAt(admin, "health_reports", entry.entryId!, daysAgo(index + 1));
+		if (own !== undefined) {
+			const unpublished = await helpers.unpublishEntry(admin, "documents", own);
+			if (!unpublished.ok) throw new Error(`unpublish: ${helpers.nativeRefusalOf(unpublished)}`);
+			pages.set("health-report-document-unpublished", slug);
+		}
+		if (index === 1) pages.set("health-report-no-fiscal-year", slug);
+	}
+	return pagesAt("/health/reports", pages);
+}
+
 const fixtures: Fixtures = async (kit) => {
-	await kit.borrow(list);
+	await kit.borrow(COLLECTIONS[list]);
 	const pages =
 		list === "activities"
 			? (await activities(kit), [])
 			: list === "announcements"
 				? (await announcements(kit), [])
-				: await documents(kit);
+				: list === "documents"
+					? await documents(kit)
+					: list === "services"
+						? (await services(kit), [])
+						: list === "health-services"
+							? await healthServices(kit)
+							: await healthReports(kit);
 	return [
 		...HOMEPAGE_WIDTHS.flatMap((width) => [
 			{ name: `${list}-list-${count}-${width}`, path: `${path}@${width}` },

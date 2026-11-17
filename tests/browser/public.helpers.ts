@@ -770,7 +770,8 @@ function quickLinkParts(card: Locator) {
 		const edges = ({ top, right, bottom, left }: DOMRect) => ({ top, right, bottom, left });
 		const outer = element.getBoundingClientRect();
 		const style = getComputedStyle(element);
-		const column = element.querySelector(":scope > span")!;
+		// The label: a span, or on /health a heading (Feature 011 #339).
+		const column = element.querySelector(":scope > :not(svg)")!;
 		const lines: DOMRect[] = [];
 		const range = document.createRange();
 		const walker = document.createTreeWalker(column, NodeFilter.SHOW_TEXT);
@@ -1267,7 +1268,8 @@ export interface MovingCards {
  * than five seconds (WCAG 2.2 SC 2.2.2). A list of rows, which have no picture, names its `grid`
  * and `cards` alone (Feature 010 #314). A list whose items do not move yet, such as the
  * Documents list until Feature 010's rows (#315), names its `grid` alone. The empty state that
- * `empty.path` shows, reading `empty.message`, shows at once too. With reduced motion preferred,
+ * `empty.path` shows, reading `empty.message`, shows at once too; /health, which lists no
+ * collection, has none (Feature 011 #339). With reduced motion preferred,
  * and on paper, nothing moves. The page's height and each part's place are the same either way, at
  * the desktop width, 375 px and 320 px. The page ends on a screen with motion allowed.
  */
@@ -1277,7 +1279,7 @@ export async function expectListMovesOnlyWhenAllowed(
 	heading: ListHeadingParts,
 	atOnce: Array<[name: string, part: Locator]>,
 	moving: MovingCards | Pick<MovingCards, "grid" | "cards"> | Pick<MovingCards, "grid">,
-	empty: { path: string; message: string },
+	empty?: { path: string; message: string },
 ): Promise<void> {
 	const { grid } = moving;
 	const main = page.getByRole("main");
@@ -1339,15 +1341,16 @@ export async function expectListMovesOnlyWhenAllowed(
 		expect(await layouts(), "the page with motion, after its entrance").toEqual(still);
 	});
 
-	await test.step("An empty state", async () => {
-		await page.goto(empty.path);
-		const message = main.getByText(empty.message, { exact: true });
-		await expect(message).toBeVisible();
-		expect(await entersAfter(message), "the empty state shows at once").toBe(-1);
-		await expect
-			.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
-			.toEqual([]);
-	});
+	if (empty)
+		await test.step("An empty state", async () => {
+			await page.goto(empty.path);
+			const message = main.getByText(empty.message, { exact: true });
+			await expect(message).toBeVisible();
+			expect(await entersAfter(message), "the empty state shows at once").toBe(-1);
+			await expect
+				.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
+				.toEqual([]);
+		});
 
 	await test.step("On paper", async () => {
 		await page.emulateMedia({ media: "print", reducedMotion: "no-preference" });
@@ -1607,18 +1610,37 @@ interface HeadingOnField {
 	heading: ListHeadingText;
 	/** The Lucide icon in the heading's tile. */
 	icon: string;
+	/**
+	 * The links under the lead, in order, where the list has them (Feature 011 #339: /services' two
+	 * related links): the only links on the field besides the breadcrumb's.
+	 */
+	leadLinks?: ReadonlyArray<readonly [label: string, href: string]>;
+}
+
+/** The links under a list's lead on its deep field, in the order `list` names them. */
+export function leadLinksOf(
+	page: Page,
+	list: Pick<HeadingOnField, "leadLinks">,
+): Array<[label: string, link: Locator]> {
+	const field = deepField(page);
+	return (list.leadLinks ?? []).map(([label]) => [
+		label,
+		field.getByRole("link", { name: label, exact: true }),
+	]);
 }
 
 /**
  * Declare the tests of a list's heading on the deep field (Feature 009 #281, #282; Feature 010
- * #312): its breadcrumb, label, H1 and lead in that order and in surface-base, the icon in its
- * tile, no link on the field but the breadcrumb's, and the H1's size, the field's corners and the
- * room under the breadcrumb on both sides of 640 and 1,024 px.
+ * #312; Feature 011 #339): its breadcrumb, label, H1 and lead in that order and in surface-base,
+ * the icon in its tile, no link on the field but the breadcrumb's and those under the lead, which
+ * follow it, and the H1's size, the field's corners and the room under the breadcrumb on both sides
+ * of 640 and 1,024 px. /health, which lists no collection, takes these cases alone.
  */
-function testHeadingOnField(list: HeadingOnField): void {
+export function testHeadingOnField(list: HeadingOnField): void {
 	const { path, heading: text } = list;
+	const leadLinks = list.leadLinks ?? [];
 
-	test(`${path} opens on the deep field with its breadcrumb, the label ${text.label}, the H1 ${text.title} and its lead, one under another on a phone and each in surface-base, with the ${list.icon} icon in the heading's tile and no link on the field but the breadcrumb's`, async ({
+	test(`${path} opens on the deep field with its breadcrumb, the label ${text.label}, the H1 ${text.title} and its lead${leadLinks.length > 0 ? ` and then its links ${leadLinks.map(([label]) => label).join(" and ")}` : ""}, one under another on a phone and each in surface-base, with the ${list.icon} icon in the heading's tile and no link on the field but the breadcrumb's${leadLinks.length > 0 ? " and those" : ""}`, async ({
 		page,
 	}) => {
 		const response = await page.goto(path);
@@ -1632,15 +1654,21 @@ function testHeadingOnField(list: HeadingOnField): void {
 		await expect(heading.label, "the label above the H1").toBeVisible();
 		await expect(
 			heading.field.getByRole("link"),
-			"the field's only links are the breadcrumb's",
-		).toHaveText(list.crumbs.map(([label]) => label));
+			"the field's only links are the breadcrumb's and those under the lead",
+		).toHaveText([...list.crumbs, ...leadLinks].map(([label]) => label));
+		for (const [label, href] of leadLinks) {
+			await expect(heading.field.getByRole("link", { name: label, exact: true })).toHaveAttribute(
+				"href",
+				href,
+			);
+		}
 		// Lucide's class is the one thing that tells two icons apart (expectServiceIcon).
 		const icon = await boxOf(heading.field.locator(`svg.lucide-${list.icon}`), "the tile's icon");
 		expect([icon.width, icon.height], "the tile's icon is 24 px").toEqual([24, 24]);
 		expect(icon.x + icon.width, "the tile is left of the H1").toBeLessThanOrEqual(
 			(await boxOf(heading.title, "the H1")).x,
 		);
-		await expectHeadingOnField(page, path, heading);
+		await expectHeadingOnField(page, path, heading, leadLinksOf(page, list));
 	});
 
 	test(`the H1 of ${path} is 26 px below 640 px, 36 px from 640 px and 42 px from 1,024 px, the field's lower corners 24 px and from 640 px 32 px, the heading 24 px under the breadcrumb and from 640 px 32 px, and nothing is past the window at any of these widths`, async ({
@@ -1982,7 +2010,8 @@ export function testListOnField(list: ListOnField): void {
 		await expectBlocksOverFieldEdge(
 			page,
 			heading.field,
-			[heading.lead],
+			// The field's content ends with the lead, or the links under it.
+			[heading.lead, ...leadLinksOf(page, list).map(([, link]) => link)],
 			[...formPart(page), ["the items", grid], ["the pager", pager]],
 		);
 	});
@@ -2007,7 +2036,7 @@ export function testListOnField(list: ListOnField): void {
 		}
 	});
 
-	test(`on ${path} the keyboard goes from the breadcrumb, on the field with its accent-warm focus ring drawn whole, to ${list.form ? "the filter form's first field" : "the first item"}`, async ({
+	test(`on ${path} the keyboard goes from the breadcrumb, on the field with its accent-warm focus ring drawn whole, ${list.leadLinks ? "through the links under the lead, " : ""}to ${list.form ? "the filter form's first field" : "the first item"}`, async ({
 		page,
 	}) => {
 		await list.publishItem("keyboard");
@@ -2017,6 +2046,10 @@ export function testListOnField(list: ListOnField): void {
 		await crumbs.first().focus();
 		for (const [index, [label]] of list.crumbs.entries()) {
 			await expect(crumbs.nth(index), `the ${label} crumb`).toBeFocused();
+			await page.keyboard.press("Tab");
+		}
+		for (const [label, link] of leadLinksOf(page, list)) {
+			await expect(link, `the link ${label} under the lead`).toBeFocused();
 			await page.keyboard.press("Tab");
 		}
 		const next = list.form
@@ -2035,6 +2068,14 @@ export function testListOnField(list: ListOnField): void {
 				accentWarm,
 			);
 		}
+		for (const [label, link] of leadLinksOf(page, list)) {
+			await link.focus();
+			await expectFocusRingWhole(link, `the link ${label}`);
+			await expect(link, `the link ${label}: the field's focus ring`).toHaveCSS(
+				"outline-color",
+				accentWarm,
+			);
+		}
 	});
 
 	/** What the motion case says the items do. */
@@ -2043,7 +2084,7 @@ export function testListOnField(list: ListOnField): void {
 		: list.rowsMove
 			? "; each row reveals as it comes into the window and shows whole while it holds the keyboard's focus"
 			: "";
-	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, ${list.form ? "the filter form, " : ""}${itemsMotion ? "" : "the items, "}the pager and an empty state show at once${itemsMotion}, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
+	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, ${list.leadLinks ? "the links under the lead, " : ""}${list.form ? "the filter form, " : ""}${itemsMotion ? "" : "the items, "}the pager and an empty state show at once${itemsMotion}, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
 		page,
 	}) => {
 		test.setTimeout(120_000);
@@ -2065,6 +2106,9 @@ export function testListOnField(list: ListOnField): void {
 			path,
 			listHeading(page, text),
 			[
+				...leadLinksOf(page, list).map(
+					([label, link]) => [`the link ${label}`, link] as [string, Locator],
+				),
 				...formPart(page),
 				...(itemsMotion ? [] : [["the items", grid] as [string, Locator]]),
 				["the pager", pager],
