@@ -155,13 +155,13 @@ const roundArrow = `<span aria-hidden="true" class="flex size-10 shrink-0 items-
 const serviceIcon = (s) => icon(SERVICE_ICONS[s.icon] ?? "hand-heart", 24);
 const serviceHref = (s) => (s.slug === "demo-service-flu-vaccine" ? "page-service-flu.html" : s.slug === "demo-service-health-rights" ? "page-service-external.html" : "page-service-complaint.html");
 /** HomeServiceCard.astro, its name an H2 on the catalog (H3 under a section heading). */
-function serviceCard(s, tag = "h2") {
+function serviceCard(s, tag = "h2", shadow = "shadow-card group-hover:shadow-deep") {
 	const id = `c${++uid}`;
-	return `<article class="group focus-ring-on-light h-full"><div class="relative flex h-full items-center gap-4 rounded-22 bg-surface-base p-4 text-text-primary shadow-deep group-hover:bg-brand-primary group-hover:text-surface-base motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:-translate-y-2 sm:min-h-36 sm:items-start sm:p-6">
+	return `<article class="group focus-ring-on-light h-full"><div class="relative flex h-full items-center gap-4 rounded-22 bg-surface-base p-4 text-text-primary ${shadow} group-hover:bg-brand-primary group-hover:text-surface-base motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:-translate-y-2 sm:min-h-36 sm:items-start sm:p-6">
 <span aria-hidden="true" class="absolute inset-0 overflow-hidden rounded-22"><span class="absolute -right-10 -bottom-10 size-30 rounded-pill bg-surface-soft group-hover:bg-brand-primary motion-safe:transition-transform motion-safe:duration-400 motion-safe:group-hover:scale-600"></span></span>
 <span aria-hidden="true" class="relative flex size-12 shrink-0 items-center justify-center rounded-14 bg-surface-soft text-brand-primary group-hover:bg-accent-warm group-hover:text-brand-dark motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:scale-106 motion-safe:group-hover:-rotate-8 sm:size-14 sm:rounded-18">${serviceIcon(s)}</span>
 <div class="relative min-w-0 flex-1"><${tag} id="${id}" class="text-body-large font-semibold wrap-anywhere">${esc(s.title)}</${tag}>${
-		s.summary ? `<p class="mt-1 line-clamp-3 text-label font-normal text-text-secondary group-hover:text-surface-base max-sm:hidden">${esc(s.summary)}</p>` : ""
+		s.summary ? `<p class="mt-1 line-clamp-3 text-label font-normal text-text-secondary-on-soft group-hover:text-surface-base max-sm:hidden">${esc(s.summary)}</p>` : ""
 	}</div>
 ${icon("arrow-right", 20, "relative text-brand-primary group-hover:text-surface-base")}
 <a href="${serviceHref(s)}" aria-labelledby="${id}" class="absolute inset-0 rounded-22"></a></div></article>`;

@@ -99,3 +99,11 @@ offers.
   report without a report date by its publication date, which reads as the report's own date.
 - P4 the two pages' lists: A, a Health Service's Services as the catalog's cards and a Service's
   offering Health Services as the directory's rows, as P1 and P2.
+
+## After the contrast reading (2026-11-17)
+
+`scripts/measure-text-contrast.ts --all-text` read a Service card's summary at 4.45:1 over its
+corner circle (the Homepage as built reads the same) and the catalog's "หน้า 1" at 4.11:1 under the
+last row's `deep` shadow. The Product Owner chose to fix both in Feature 011: the summary takes
+`text-secondary-on-soft` (5.07:1), and a catalog card rests with the `card` shadow (4.69:1).
+`build.mjs` carries both; spec #338 decisions 20 and 21.
