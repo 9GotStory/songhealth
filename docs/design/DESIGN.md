@@ -879,6 +879,13 @@ Directory (`/health-services`).
     no pixel under 3:1 at any width, the lowest 5.22:1 from 768 px and 2.80:1 on a few blended
     pixels at 375 px; the ring alone over the field read under 3:1 on 56 to 61 % of its pixels,
     which the band answers.
+  - At `fad2249` (#340), the same on the whole of `/services`, with the demo dataset's nine Services
+    and with a full first page of twelve synthetic ones (`lists-by-count.ts`, `LIST_COUNT=24`): a
+    Service card's summary 5.07:1 where it crosses the corner circle (1,024 and 768 px) and 5.66:1
+    on the card's white, its name 14.82:1 (375 and 320 px), the form's button 6.45:1 and the
+    pager's "หน้า 1" under the last row 4.69:1 (each width). `scripts/measure-focus-contrast.ts` on
+    the first card: its ring lies on the card's white, under it 5.78:1 at the lowest and beside it
+    4.35:1 (1,440 px), no pixel under 3:1 at any width.
   - `scripts/capture-screenshots.mjs`, the pages' heights in px at 1,440, 1,024, 768, 375 and
     320 px: `/news` 1,801, 1,765, 2,242, 1,791 and 1,917, where it was 1,501, 1,494, 2,030, 3,447
     and 3,449 at `668d3e5` (#281's before screenshots); Health News 1,945, 1,909, 1,969, 1,777 and
@@ -1095,6 +1102,9 @@ hero on the same deep field, under the section heading with its "ทั้งห
   `brand-primary`, where `accent-warm` would be 4.10:1 (§3.2), below the 4.5:1 its small text
   needs. `scripts/measure-text-contrast.ts` read the label at 6.19:1 at its lowest on the runtime
   at `75e1765`, at 1,440, 1,024, 768, 375 and 320 px, with a Featured card and without one.
+  At `fad2249` (#340), `--all-text --fold` on the section with the demo dataset's six Services read
+  each summary 5.07:1 at the lowest, where it crosses the corner circle (1,440 and 1,024 px), and
+  each name 14.82:1 at the lowest (375 and 320 px).
 
 ### 8.5 Leadership strip
 

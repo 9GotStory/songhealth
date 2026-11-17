@@ -188,8 +188,9 @@ test("the catalog's card is the Homepage's: white, radius 22, 144 px high or mor
 			const icon = article.querySelector('[data-testid="service-icon"]');
 			const surface = article.querySelector('[data-testid="service-surface"]');
 			const box = (surface ?? article).getBoundingClientRect();
+			// 16 px in from the corner, inside the card's 22 px rounding and the circle.
 			const corner = document
-				.elementsFromPoint(box.right - 6, box.bottom - 6)
+				.elementsFromPoint(box.right - 16, box.bottom - 16)
 				.find(
 					(element) =>
 						article.contains(element) &&
