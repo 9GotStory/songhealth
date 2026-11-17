@@ -56,6 +56,17 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   and behaviour stays (spec #280, tickets #281–#287). `docs/design/DESIGN.md` v1.3 records it with
   the code, and `docs/evidence/287-news-post-redesign-evidence-round.md` its evidence and what
   that does not cover. The Product Owner accepted it on 2026-11-15 (#280 comment 6891402807), and
+  it was merged into `main`.
+- **Feature 010 `activities-announcements-documents`:** complete: the Activities list, the
+  Announcements list and an Announcement's page, and the Document repository and a Document's page
+  redesigned after the Homepage and Feature 009's pages as built, in the look the Product Owner
+  picked from a prototype: each list headed on the deep green field, `/activities` with the News
+  lists' cards, `/announcements` with the Homepage's rows, `/documents` with rows that hold their
+  file's download, and an Announcement's and a Document's page with the Post page's header and one
+  card over the field's edge. Every address, read and behaviour stays (spec #311, tickets
+  #312–#318). `docs/design/DESIGN.md` v1.4 records it with the code, and
+  `docs/evidence/318-activities-announcements-documents-evidence-round.md` its evidence and what
+  that does not cover. The Product Owner accepted it on 2026-11-17 (#311 comment 6936494700), and
   it was merged into `main`. Every other page keeps its design until its own feature.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
