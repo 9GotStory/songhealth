@@ -7,7 +7,8 @@
 > 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
 > implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
 > 6891402807). Feature 010's redesign of the Activities, Announcements and Documents pages follows
-> spec #311, implemented by #312–#318; the Product Owner accepts it on #311.
+> spec #311, implemented by #312–#318, and was accepted on #311 (Product Owner, 2026-11-17: #311
+> comment 6936494700).
 > **Updated:** 2026-11-17 (#318); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
@@ -1742,7 +1743,7 @@ The prototype's variants, on the branch `prototype/activities-announcements-docu
 there). Each ticket's decisions are on #312 to #317 and in §13. The evidence round of #318
 (`docs/evidence/318-activities-announcements-documents-evidence-round.md`) measures the pages and
 names what the evidence does not cover, which the Product Owner accepted after the walkthrough
-(#318 comment 6935876072). The Product Owner accepts the feature on #311.
+(#318 comment 6935876072). The Product Owner accepted the feature on #311 (comment 6936494700).
 
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
