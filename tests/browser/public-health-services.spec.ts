@@ -39,7 +39,9 @@ import {
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	LIST_END,
 	SECTION_CRUMBS,
+	deepField,
 	detailOf,
 	expect,
 	expectBreadcrumb,
@@ -51,10 +53,15 @@ import {
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
+	testListOnField,
 } from "./public.helpers";
 
 /** The fixed number of Health Services a list page shows. */
 const PAGE_SIZE = 20;
+
+/** The lead of /health-services, under its heading. */
+const DIRECTORY_LEAD =
+	"ค้นหาโรงพยาบาล รพ.สต. และหน่วยบริการสุขภาพอื่นที่เกี่ยวข้องกับอำเภอสอง ตามพื้นที่รับผิดชอบหรือชื่อ พร้อมที่อยู่ เวลาทำการ ช่องทางติดต่อ และลิงก์เปิดแผนที่";
 
 let admin: CmsActor;
 let origin: string;
@@ -84,6 +91,35 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(() => removeSuiteFixtures(admin, { terms: ownedTerms }));
+
+// First in the suite, while the runtime holds only its own Health Services (Feature 011 #339;
+// spec #338 "Decisions", 5 and 6): the directory opens on the deep field, and its filter form, rows
+// and pager follow over the field's lower edge. It orders by the name it shows, so these are shown
+// with ฮ, the last Thai consonant, and follow every other test's.
+testListOnField({
+	path: "/health-services",
+	crumbs: [HOME_CRUMB, SECTION_CRUMBS.services],
+	heading: { label: "หน่วยบริการ", title: "หน่วยบริการสุขภาพที่เกี่ยวข้อง", lead: DIRECTORY_LEAD },
+	icon: "hospital",
+	collection: "health_services",
+	pageSize: PAGE_SIZE,
+	noneYet: "ยังไม่มีข้อมูลหน่วยบริการ",
+	pastLast: "ไม่พบหน่วยบริการในหน้านี้",
+	form: {
+		name: "ค้นหาหน่วยบริการ",
+		unmatched: `name=${syntheticSlug("no-such-name")}`,
+		empty: {
+			message: "ไม่พบหน่วยบริการตามที่ค้นหา",
+			back: { label: "ดูหน่วยบริการทั้งหมด", href: "/health-services" },
+		},
+	},
+	admin: () => admin,
+	publishItem: async (label) => {
+		const healthService = await createHealthService(label, { displayName: "ฮ หน่วยบริการ" });
+		await publishEntryAt(admin, "health_services", healthService.id, LIST_END);
+		return healthService;
+	},
+});
 
 test("/health-services lists only published Health Services by name, each with its type, Area, address and a closed status in text", async ({
 	page,
@@ -334,6 +370,8 @@ test("a Health Service page shows its names, type, affiliation, status, address,
 	await publish("health_services", healthService);
 
 	const response = await page.goto(`/health-services/${healthService.slug}`);
+	// A Health Service's page keeps today's heading until its own ticket (#345).
+	await expect(deepField(page), "no deep field under the heading").toHaveCount(0);
 	expect(response?.status(), "GET the Health Service page").toBe(200);
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(healthService.title);
