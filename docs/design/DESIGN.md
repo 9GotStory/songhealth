@@ -7,8 +7,8 @@
 > 6841960594). Feature 009's redesign of the News lists and the Post page follows spec #280,
 > implemented by #281–#287, and was accepted on #280 (Product Owner, 2026-11-15: #280 comment
 > 6891402807). Feature 010's redesign of the Activities, Announcements and Documents pages follows
-> spec #311, implemented by #312–#318.
-> **Updated:** 2026-11-16 (#317); first drafted 2026-10-30
+> spec #311, implemented by #312–#318; the Product Owner accepts it on #311.
+> **Updated:** 2026-11-17 (#318); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -192,7 +192,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | `surface-soft` | `#eaf5f0` | soft bands, the Current Announcements' band and its general category badge |
 | `border-default` | `#dce7e2` | borders |
 | `topic-blue` | `#f0f5fc` | the procurement Announcement badge's fill (§8.7); `topic-green`, the old Health Information cards' other fill, left the tokens with them (#246), `contact-visual-from` and `-to`, the map stand-in's fill, with it (#247), and `activity-visual-from` and `-to`, the old Activity card's fill without a picture, with that card (#313) |
-| `divider` | `#dbe8e3` | separators inside a white box: the ITA year's rows, the line above a post's topics |
+| `divider` | `#dbe8e3` | separators inside a white box: the ITA year's rows, the line above a post's topics; the rule in the card on a Document's page is `border-default` (§9.5) |
 | `hero-chip`, `hero-secondary-fill`, `hero-secondary-border` | white at 12 %, 6 %, 28 % | the hero's chip; a secondary link on a dark surface |
 | `text-secondary-on-soft` | `#5d6a64` | secondary text on `surface-soft` (contrast fix, #51) |
 | `border-input` | `#7a8a83` | input boundaries (contrast fix, #51) |
@@ -425,7 +425,7 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
   SC 1.4.10). A rule from a breakpoint is checked on both sides of it, as at 1,023 and 1,024 px
   (CODING_STANDARDS "Tests"). The Homepage and the shell are also measured and captured at
   1,024 and 768 px, the five widths of Feature 008 (spec #239 "Testing Decisions"; §8.2), and so
-  are Feature 009's pages (spec #280 "Testing Decisions"; §7.8).
+  are Feature 009's and Feature 010's pages (spec #280 and spec #311 "Testing Decisions"; §7.8).
 - **Container:** the 1,200 px content column, centred (`page-container`), with a gutter of 16 px
   below `sm` and 24 px from `sm`, so a 1,440 px window has 120 px either side.
 - **Spacing:** the 4/8/12/16/24/32/48/64/80 px rhythm. Between two Homepage sections after the deep
@@ -1694,6 +1694,54 @@ visual reference (`docs/prototypes/news-post-redesign.md` there). Each ticket's 
 (`docs/evidence/287-news-post-redesign-evidence-round.md`) measures the pages and names what the
 evidence does not cover. The Product Owner accepted the feature on #280 (comment 6891402807).
 
+**What the Product Owner picked for the Activities, Announcements and Documents pages** on the
+Feature 010 prototype, after the Homepage and Feature 009's pages as they are built, each answered
+"ตามที่แนะนำ" on 2026-11-15 (spec #311 "Decisions the Product Owner made", whose numbers these
+are; #311 comment 6895825492):
+
+- the scope: the five pages in one feature; every read, order, page size, filter, address, head
+  tag, 404 and preview behaviour as it is; no new field, address or section; and the Homepage's
+  motion with no new effect (1, 5);
+- the new Document row on `/documents` and under an Announcement's "เอกสารที่เกี่ยวข้อง" only, and
+  every other page's Document row as it is until its own feature (2);
+- each list headed as Feature 009's lists, with its label, H1 and icon and no pill link (3), and
+  `/documents`' filter form over the field's edge (4);
+- `/activities` with Feature 009's list cards, not the Homepage's tiles, the newest large on a
+  first page by count, and a card's line of the date, a dot and the place (6, 12);
+- the Announcements list with the Homepage's Announcement row, a closed one's tile and label in
+  `status-closed` (7, 13);
+- `/documents` with rows, not cards (14): the download, or "ไฟล์ไม่พร้อมให้บริการ", and a status label
+  only on a superseded or expired Document (8); the title and the download as two links, no link
+  over the row (16); the download under the text below 1,024 px (17);
+- an Announcement's and a Document's page with the Post page's header on the field and one card
+  over its lower edge (9, 15), and "เอกสารที่เกี่ยวข้อง" with the Homepage's section heading (10);
+- **Current Announcement** in `GLOSSARY.md` (11).
+
+**What the Product Owner decided while the tickets were built,** each on its ticket:
+
+- the white band beside the focus ring of a card over the field (#312 comment 6897891014), which
+  the list card has had since #313;
+- the second list card's ring at 1,024 px left to #322, outside the feature (#313 comment
+  6903865541); a small card's place on one line below 640 px, no mark before the place, and the
+  large card's layouts as `/news` has them (#313 comment 6905240669);
+- a closed Announcement row's type badge in its colour (#314 comment 6906496480);
+- a Document row's title in `text-primary`, `brand-primary` and underlined under the pointer on its
+  own link only (#315 comment 6908747140), and the full download on a superseded or expired
+  Document's row (#315 comment 6909993217);
+- an Announcement without a details row: no card, and the field 40 / 48 px under the header (#316
+  comment 6912742335); its status in the card only, the card's full details, and the Homepage's
+  section heading over the related Documents (#316 comment 6913757888);
+- a Document's successor note after the card, its status in the header's pill and in the details,
+  the H2 "ไฟล์เอกสาร" above the unavailable notice, and a download whose words take two lines,
+  centred, when one cannot hold them (#317 comment 6918054121).
+
+The prototype's variants, on the branch `prototype/activities-announcements-documents` at
+`4b8aa22`, are the visual reference (`docs/prototypes/activities-announcements-documents.md`
+there). Each ticket's decisions are on #312 to #317 and in §13. The evidence round of #318
+(`docs/evidence/318-activities-announcements-documents-evidence-round.md`) measures the pages and
+names what the evidence does not cover, which the Product Owner accepted after the walkthrough
+(#318 comment 6935876072). The Product Owner accepts the feature on #311.
+
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
 Feature 008's picks above take the place of the smaller Featured title and the shorter phone page:
@@ -1736,6 +1784,20 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
     line; a breadcrumb that wraps moves the row down 24 px (#285 comment 6878495201, item 1).
 - **The News lists** (spec #280, decision 11): a full first page of twelve that no Health Topic
   narrows, at two columns from 640 px to 1,023 px, ends with one card alone, after the large card across the row (§7.3).
+- **The Activities list** (#313 comment 6905240669): below 640 px a small card's place takes one
+  line, so its ellipsis can cut the end of a place name that tells two places apart; an Activity's
+  page shows the place whole. With one Activity or four, the large card's layouts are `/news`'s: a
+  long band alone, or one small card alone under the large one (§7.3).
+- **A list card's focus ring at 1,024 px:** on `/activities` and `/news` 24 px of the second card's
+  ring are not in its colour, at 2.97:1 at the lowest (§7.3; #313 comment 6903865541), which #322
+  takes up outside Feature 010.
+- **A Document's download** takes two lines below 640 px when its words do not fit one, on
+  `/documents` and on a Document's page, its type and size kept whole (§7.3, §9.5; #317 comment
+  6918054121).
+- **The header on the field** of a Post page, an Announcement's and a Document's page can end
+  its H1 with one word on its last line (`PostHeader`; #318 comment 6935876072, item 3).
+- **"ติดต่อเรา" in the unavailable notice** on a Document's page is a link about 22 px high inside
+  its sentence, as it was before Feature 010 (the same comment).
 - **A gallery in a News body** does not fold, and EmDash's Edit mode shows it as a placeholder
   (§9.3).
 - **A focal point or alt text** set in the media library after staff picked a picture may not
@@ -1765,7 +1827,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   every stop and no sideways scrolling at 320 px, and at 375 px where a spec names it
   (CODING_STANDARDS "Tests"). There are no pixel tests: the look is the Product Owner's review of
   each pull request's screenshots at 1,440, 375 and 320 px, and for the Homepage, the shell and
-  Feature 009's pages at 1,024 and 768 px too (§6).
+  Feature 009's and Feature 010's pages at 1,024 and 768 px too (§6).
 
 ## 12. Developer and agent handoff rules
 
@@ -2054,6 +2116,20 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (v2.10). Authority: #298 comment 6892189972, decision 1 (no placeholder in our code, no
   dependency upgrade) and decision 2 (a portrait follows its focal point), and #298 comment 6893006429
   (the sentence for staff in `05`).
+- **v1.4 documents, measures and limits (2026-11-17, Feature 010 #318):** the Status line names
+  the acceptance due on #311. §10 lists what the Product Owner picked for Feature 010 and decided
+  on #312 to #317, with each decision's source, and five kept limits: a place name's ellipsis on
+  a small Activity card, the large card's layouts at one and four items, the second list card's
+  ring at 1,024 px (#322), a download on two lines, the H1's lone last word on the field and the
+  22 px "ติดต่อเรา" link. §6 and §11 name Feature 010's pages among those measured and captured at
+  1,024 and 768 px, and §3.1's `divider` row says that the rule in a Document's card is
+  `border-default` (§9.5). The readings in §3.2, §7.3, §7.8, §8.7, §9.4 and §9.5, each taken at its
+  ticket's commit, were read again at the integration head `47fc28a` and are the same, but for
+  §9.5's readings on two demo Documents the round did not read, a health topic's link and
+  "ฉบับปัจจุบัน" (`docs/evidence/318-activities-announcements-documents-evidence-round.md`). §8.12 already named
+  the five pages that move. Authority: spec #311 "Documents" and "Decisions the Product Owner
+  made", the decisions on #312 to #317, the notes on #318, and #318 comment 6935876072. No page
+  changed.
 - **v1.4 a Document's page (2026-11-16, Feature 010 #317):** a Document's page opens on the
   deep field with the Post page's header (§9.1, §9.5): its type in the outlined white pill and a
   superseded or expired status in the `accent-warm` pill above the H1, and the summary in white
