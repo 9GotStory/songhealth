@@ -152,14 +152,17 @@ testListOnField({
 	itemsMove: "cards",
 });
 
+/** The demo dataset's longest Service name (scripts/demo-dataset/content.ts), without its mark. */
+const LONGEST_SERVICE_NAME = "ร้องเรียนการปฏิบัติงานหรือการให้บริการ";
+
 /** A summary longer than the three lines a card shows of it, at every width. */
 const LONG_SUMMARY = `${SYNTHETIC_FIXTURE_MARK} ${"สรุปบริการที่ยาวกว่าสามบรรทัดของการ์ด เพื่อทดสอบว่าการ์ดตัดสรุปไว้ที่สามบรรทัด ".repeat(6)}`;
 
-test("the catalog's card is the Homepage's: white, radius 22, 144 px high or more from 640 px, the Service's name an H2 at 18 / 30 semibold, the summary at 14 / 22 in text-secondary-on-soft, three lines at most from 640 px and hidden below, the 20 px arrow-right and the surface-soft circle in its lower right corner; below 640 px the icon, the name and the arrow sit centred on one line", async ({
+test("the catalog's card is the Homepage's: white, radius 22, 144 px high or more from 640 px, the Service's name an H2 at 18 / 30 semibold, the summary at 14 / 22 in text-secondary-on-soft, three lines at most from 640 px and hidden below, the 20 px arrow-right and the surface-soft circle in its lower right corner; below 640 px the icon, the name and the arrow sit centred on one line, with the demo dataset's longest Service name, on both sides of 640 px and down to 320 px", async ({
 	page,
 }) => {
 	const service = await createService("card-parts", {
-		name: "กา การ์ดบริการ",
+		name: `กา ${LONGEST_SERVICE_NAME}`,
 		data: { summary: LONG_SUMMARY },
 	});
 	await publish("services", service);
@@ -167,7 +170,7 @@ test("the catalog's card is the Homepage's: white, radius 22, 144 px high or mor
 	const card = listedItem(page, service.title);
 	const seen: Record<number, unknown> = {};
 	const expected: Record<number, unknown> = {};
-	for (const width of [1440, 768, 375]) {
+	for (const width of [1440, 768, 640, 639, 375, 320]) {
 		await page.setViewportSize({ width, height: 900 });
 		await card.scrollIntoViewIfNeeded();
 		await page.mouse.move(0, 0);

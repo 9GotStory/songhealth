@@ -594,13 +594,14 @@ export function selfRunningEnds(scope: Locator): Promise<number[]> {
 }
 
 /**
- * Move the pointer to just above the resting lower edge of `card`, whose `surface` then rises 6 px,
- * and press there. The card rises only where motion is allowed.
+ * Move the pointer to just above the resting lower edge of `card`, whose `surface` then rises
+ * `rise` px, 6 unless given, and press there. The card rises only where motion is allowed.
  */
 export async function expectRisesUnderPointer(
 	page: Page,
 	card: Locator,
 	surface: Locator,
+	rise = 6,
 ): Promise<void> {
 	await page.emulateMedia({ reducedMotion: "no-preference" });
 	await card.scrollIntoViewIfNeeded();
@@ -615,9 +616,9 @@ export async function expectRisesUnderPointer(
 	await page.mouse.move(edge.x, edge.y);
 	await expect
 		.poll(async () => (await boxOf(surface, "the card's surface")).y, {
-			message: "the card under the pointer has risen 6 px",
+			message: `the card under the pointer has risen ${rise} px`,
 		})
-		.toBeCloseTo(place.y - 6, 0);
+		.toBeCloseTo(place.y - rise, 0);
 	await pressInside(page, card, edge, "the part the card left");
 }
 
@@ -657,6 +658,26 @@ export function tokenColor(page: Page, name: string): Promise<string> {
 		probe.remove();
 		return color;
 	}, name);
+}
+
+/**
+ * A matcher for a computed `box-shadow` whose last layer is the shadow token `shadow-<name>`
+ * (src/styles/global.css) as the page's browser computes it. Tailwind writes a shadow token's value
+ * into its utility and leaves no `--shadow-<name>` on the page, so a probe takes the utility's
+ * class and is read. Tailwind puts its transparent ring layers before a shadow, so the token is
+ * matched as the value's last layer.
+ */
+export async function tokenShadow(page: Page, name: string) {
+	const shadow = await page.evaluate((token) => {
+		const probe = document.createElement("span");
+		probe.className = `shadow-${token}`;
+		document.body.append(probe);
+		const layers = getComputedStyle(probe).boxShadow;
+		probe.remove();
+		if (layers === "none") throw new Error(`the page's stylesheet has no shadow-${token}`);
+		return layers.split(/,\s*(?![^(]*\))/).at(-1)!;
+	}, name);
+	return expect.stringMatching(new RegExp(`(?:^|, )${RegExp.escape(shadow)}$`));
 }
 
 /**
@@ -2574,16 +2595,6 @@ export async function expectServiceIcon(card: Locator, icon: string, title: stri
 		new RegExp(`(?:^| )lucide-${icon}(?: |$)`),
 	);
 }
-
-/**
- * The two shadows a card takes, as the browser computes them from `--shadow-card` and
- * `--shadow-deep` (src/styles/global.css), to compare with a card's computed `box-shadow`. Tailwind
- * puts its transparent ring layers before a shadow, so each matches the value's last layer.
- */
-export const SHADOWS = {
-	card: /(?:^|, )rgba\(13, 46, 36, 0\.08\) 0px 10px 15px 0px$/,
-	deep: /(?:^|, )rgba\(13, 46, 36, 0\.35\) 0px 30px 60px -20px$/,
-};
 
 /** The widest header on the field (a Post's, an Announcement's, a Document's page), 48 rem. */
 export const HEADER_WIDEST = 768;

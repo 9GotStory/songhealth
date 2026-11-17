@@ -88,10 +88,10 @@ import {
 	occurrencesOf,
 	pressInside,
 	siteTitleParts,
-	SHADOWS,
 	test,
 	thaiDate,
 	tokenColor,
+	tokenShadow,
 } from "./public.helpers";
 
 /** The Featured card's label, which its date follows (spec #239 "Hero and Featured"). */
@@ -945,13 +945,13 @@ test("on hover a Service card turns brand green with white text, and its icon ti
 		await expect(page).toHaveURL(`/services/${service.slug}`);
 		// At rest the Homepage's card keeps its own look where the catalog shares it (Feature 011
 		// #340; spec #338 decision 21): the name an H3 and the `deep` shadow; its summary takes
-		// text-secondary-on-soft, which reads 4.5:1 over the corner circle (decision 20). Read
-		// last, the summary's colour being new in #340.
+		// text-secondary-on-soft for SC 1.4.3 over the corner circle (decision 20; DESIGN.md
+		// §8.4). Read last, the summary's colour being new in #340.
 		await page.goto("/");
 		await page.mouse.move(0, 0);
 		const atRest = {
 			name: "H3",
-			shadow: expect.stringMatching(SHADOWS.deep),
+			shadow: await tokenShadow(page, "deep"),
 			summary: await tokenColor(page, "text-secondary-on-soft"),
 		};
 		expect({

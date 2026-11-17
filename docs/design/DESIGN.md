@@ -136,7 +136,8 @@ health-service network.
   Directory (spec #338; §7.8; #339): `/services` with its two related links under the lead, and
   `/health` with its two destinations as the Homepage's Quick Access tiles over the field's edge
   (§7.3, §8.11). `/services` shows the Homepage's Frequently Used Service cards (§8.4; #340). The
-  Health Service and report rows, and the three item pages, keep their look until #341 to #345. Every page outside the three features keeps its design under the new shell until its own
+  Health Service and report rows, and the three item pages, keep their look until #341 to #345.
+  Every page outside the three features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
@@ -368,7 +369,7 @@ own module.
 - **Sizes by role** (Product Owner, 2026-10-31: #105 comment 6536890963): 16 px for a direction
   icon beside label or small text (onward and external links, pagination, the breadcrumb); 20 px
   for an icon that shows the action itself at the start of its button (the menu, a download);
-  24 px on a card (Service and Quick Link cards).
+  24 px on a card (a Quick Link card's corner, a Service card's icon in its tile).
 - **Direction:** an onward link on this site ends in `chevron-right`, and a link that leaves it in
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
@@ -837,8 +838,9 @@ Directory (`/health-services`).
   and its download, whose rings lie on the row's white, 6.45:1 (§7.3). On `/services` and
   `/health-services` the filter form is the block over the edge, then the Service cards (§7.3,
   §8.4; Feature 011 #340) or today's Health Service rows; on `/health/reports` today's report rows
-  are the block; the rows in their look until Feature 011's #341 and #342. On `/health` the block is the two Quick Access tiles (§7.3),
-  their rings with the lists' band (Feature 011 #339). The cards are the Homepage's News
+  are the block; the rows in their look until Feature 011's #341 and #342. On `/health` the
+  block is the two Quick Access tiles (§7.3), their rings with the lists' band (Feature 011
+  #339). The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
   ring alone was faint, so a card's ring has a `surface-base` band on both sides
@@ -1087,24 +1089,26 @@ hero on the same deep field, under the section heading with its "ทั้งห
   the name as an H3 at 18 / 30 semibold, the summary at 14 / 22 in `text-secondary-on-soft`,
   clamped to three lines and hidden below `sm`, and a 20 px `arrow-right`. A `surface-soft` circle
   shows in its lower right corner, and the summary can lie over it, where `text-secondary` read
-  4.45:1 (spec #338 decision 20; Feature 011 #340).
+  4.45:1 (spec #338 decision 20; Feature 011 #340). At `fad2249` (#340), `--all-text --fold` on
+  the section with the demo dataset's six Services read each summary 5.07:1 at the lowest, where
+  it crosses the corner circle (1,440 and 1,024 px), and each name 14.82:1 at the lowest (375 and
+  320 px).
 - **The Service catalog shares the card** (`kind="list"`, §7.3; Feature 011 #340): its name an
   H2, and at rest the `card` shadow, taking `deep` under the pointer (spec #338 decision 21), where
-  the Homepage's cards keep `deep` at rest on the field. Everything else below holds for both.
+  the Homepage's cards keep `deep` at rest on the field. The link, the pointer and the focus
+  ring's colours below hold for both; the catalog's cards lie on the page, below the filter form,
+  so there the ring lies on the card's white alone (§7.3).
 - **One link** named by the Service's name covers the card, as on the shared cards (§7.3).
 - **Under the pointer** the card and its circle turn `brand-primary`, its name, summary and arrow
   `surface-base`, and its tile `accent-warm` with a `brand-dark` icon. Without a reduced-motion
   preference the card also rises 8 px inside its place, the tile turns, and the circle grows.
-- **The focus ring** lies inside the card's edge, because from `sm` the card lies partly on the
-  field and partly on the page: `brand-primary` on the white card, and `accent-warm` while the
+- **The focus ring** lies inside the card's edge, because from `sm` the Homepage's card lies
+  partly on the field and partly on the page: `brand-primary` on the white card, and `accent-warm` while the
   card is `brand-primary` under the pointer.
 - **The heading's label is `surface-base`**: under it the field is about as light as
   `brand-primary`, where `accent-warm` would be 4.10:1 (§3.2), below the 4.5:1 its small text
   needs. `scripts/measure-text-contrast.ts` read the label at 6.19:1 at its lowest on the runtime
   at `75e1765`, at 1,440, 1,024, 768, 375 and 320 px, with a Featured card and without one.
-  At `fad2249` (#340), `--all-text --fold` on the section with the demo dataset's six Services read
-  each summary 5.07:1 at the lowest, where it crosses the corner circle (1,440 and 1,024 px), and
-  each name 14.82:1 at the lowest (375 and 320 px).
 
 ### 8.5 Leadership strip
 

@@ -11,7 +11,8 @@
 // heading, and the card rests with the `card` shadow and takes `deep` under the pointer, as the
 // lists' cards do. On the Homepage the name is an H3 under the section's H2, and the card keeps
 // `deep` at rest on the field. The summary is text-secondary-on-soft on both, since it can lie
-// over the surface-soft circle, where text-secondary reads 4.45:1 (decision 20).
+// over the surface-soft circle, where text-secondary falls below SC 1.4.3 (decision 20;
+// docs/design/DESIGN.md §8.4).
 //
 // A native link named by the name covers the whole card; the summary stays readable outside the
 // link's name (WCAG 2.2 SC 2.5.3; #193; #190 comment 6707205912). Below `sm` the cards go one to a
@@ -49,7 +50,7 @@ interface Props {
 }
 
 const { service, kind = "home" } = Astro.props;
-const Name = kind === "list" ? "h2" : "h3";
+const Heading = kind === "list" ? "h2" : "h3";
 const titleId = `service-card-${crypto.randomUUID()}`;
 ---
 
@@ -72,9 +73,9 @@ const titleId = `service-card-${crypto.randomUUID()}`;
 			<ServiceIcon choice={service.data.icon} />
 		</span>
 		<div class="relative min-w-0 flex-1">
-			<Name id={titleId} class="text-body-large font-semibold wrap-anywhere">
+			<Heading id={titleId} class="text-body-large font-semibold wrap-anywhere">
 				<ThaiTitle text={service.data.title} />
-			</Name>
+			</Heading>
 			{service.data.summary && (
 				<p class="mt-1 line-clamp-3 text-label font-normal text-text-secondary-on-soft group-hover:text-surface-base max-sm:hidden">
 					{service.data.summary}

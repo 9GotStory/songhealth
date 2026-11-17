@@ -35,12 +35,11 @@ import {
 	HOMEPAGE_HEADINGS,
 	boxOf,
 	listedItem,
-	pressInside,
 	shownLines,
 	shownOpacity,
-	SHADOWS,
 	test,
 	tokenColor,
+	tokenShadow,
 } from "./public.helpers";
 
 let admin: CmsActor;
@@ -184,18 +183,15 @@ async function expectServiceCardInteraction(page: Page, card: Locator, title: st
 	const green = await tokenColor(page, "brand-primary");
 	await link.blur();
 	await page.mouse.move(0, 0);
-	/** The surface's fill, shadow and box, or nothing where the card has no such surface. */
-	const read = async () =>
-		(await surface.count()) === 0
-			? undefined
-			: {
-					fill: await surface.evaluate((element) => getComputedStyle(element).backgroundColor),
-					shadow: await surface.evaluate((element) => getComputedStyle(element).boxShadow),
-					box: await boxOf(surface, "the card's surface"),
-				};
-	const resting = await read();
+	/** The surface's fill and shadow, and its box. */
+	const read = async () => ({
+		fill: await surface.evaluate((element) => getComputedStyle(element).backgroundColor),
+		shadow: await surface.evaluate((element) => getComputedStyle(element).boxShadow),
+		box: await boxOf(surface, "the card's surface"),
+	});
+	const { box: restingBox, ...resting } = await read();
 	await link.hover();
-	const pointed = await read();
+	const { box: pointedBox, ...pointed } = await read();
 	await link.focus();
 	const ringPointed = await link.evaluate((element) => getComputedStyle(element).outlineColor);
 	await page.mouse.move(0, 0);
@@ -203,13 +199,14 @@ async function expectServiceCardInteraction(page: Page, card: Locator, title: st
 		const style = getComputedStyle(element);
 		return { width: style.outlineWidth, offset: style.outlineOffset, colour: style.outlineColor };
 	});
-	expect({ resting, pointed, ring, ringPointed }).toEqual({
+	expect({ resting, pointed, moved: pointedBox.y !== restingBox.y, ring, ringPointed }).toEqual({
 		resting: {
 			fill: await tokenColor(page, "surface-base"),
-			shadow: expect.stringMatching(SHADOWS.card),
-			box: resting?.box,
+			shadow: await tokenShadow(page, "card"),
 		},
-		pointed: { fill: green, shadow: expect.stringMatching(SHADOWS.deep), box: resting?.box },
+		pointed: { fill: green, shadow: await tokenShadow(page, "deep") },
+		// With reduced motion preferred, as the suites run, the card stays in its place.
+		moved: false,
 		// 4 px inside the link's box, which is the card's: the 3 px ring lies on the card.
 		ring: { width: "3px", offset: "-4px", colour: green },
 		ringPointed: await tokenColor(page, "accent-warm"),
@@ -373,46 +370,14 @@ for (const width of [320, 375, 1440]) {
 	}
 }
 
-test("under the pointer the catalog's Service card rises 8 px only when motion is allowed, and a press on the part it left opens the Service", async ({
+test("under the pointer the catalog's Service card rises 8 px when motion is allowed, and a press on the part it left opens the Service", async ({
 	page,
 }) => {
-	const path = `/services/${service.slug}`;
+	// With reduced motion preferred the card stays: expectServiceCardInteraction.
+	await page.goto("/services");
 	const card = listedItem(page, service.title);
-	const surface = card.getByTestId("service-surface");
-	/** How far the card's surface lies above its place, or nothing without such a surface. */
-	const risen = async () =>
-		(await surface.count()) === 0
-			? undefined
-			: Math.round((await boxOf(card, "its place")).y - (await boxOf(surface, "the surface")).y);
-	await page.goto("/services");
-	const edge = async () => {
-		await card.scrollIntoViewIfNeeded();
-		const place = await boxOf(card, "the card's place");
-		return { x: place.x + place.width / 2, y: place.y + place.height - 3 };
-	};
-	// With reduced motion preferred, as the suites run, the card stays.
-	const still = await edge();
-	await page.mouse.move(still.x, still.y);
-	await page.waitForTimeout(500);
-	const withReducedMotion = await risen();
-	await page.emulateMedia({ reducedMotion: "no-preference" });
-	await page.goto("/services");
-	const point = await edge();
-	// With motion the card's reveal is over a frame after the scroll.
-	await expect.poll(() => shownOpacity(card), { message: "the card has come in" }).toBe(1);
-	await page.mouse.move(point.x, point.y);
-	await expect
-		.poll(risen, { timeout: 3_000 })
-		.toBe(8)
-		.catch(() => undefined);
-	const withMotion = await risen();
-	await pressInside(page, card, point, "the part the card left");
-	await page.waitForURL(path, { timeout: 5_000 }).catch(() => undefined);
-	expect({ withReducedMotion, withMotion, opened: new URL(page.url()).pathname }).toEqual({
-		withReducedMotion: 0,
-		withMotion: 8,
-		opened: path,
-	});
+	await expectRisesUnderPointer(page, card, card.getByTestId("service-surface"), 8);
+	await expectCardDestination(page, `/services/${service.slug}`, service);
 });
 
 for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
