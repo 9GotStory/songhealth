@@ -10,9 +10,17 @@
 // Services (`00` §8.2, `03` §7), so the heading links to the Health Service Directory and the
 // Document repository instead. The canonical address keeps the filter when it is set and a valid
 // page number, so each view stays its own address.
+//
+// The page opens on the deep field as the News lists do (Feature 011 #339; spec #338 "Decisions",
+// 5, 6 and 15; ListHeading): the label "บริการ", as the Homepage's Frequently Used Services, with
+// the users icon over its H1, and the two related links under the lead. The filter form comes
+// first over the field's lower edge, then the cards, the empty state and the pager (ListBody),
+// the cards in today's look until #340.
+import Users from "@lucide/astro/icons/users";
 import EmptyState from "../../components/EmptyState.astro";
 import FilterForm from "../../components/FilterForm.astro";
-import PageHeading from "../../components/PageHeading.astro";
+import ListBody from "../../components/ListBody.astro";
+import ListHeading from "../../components/ListHeading.astro";
 import Pagination from "../../components/Pagination.astro";
 import ServiceCard from "../../components/ServiceCard.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
@@ -44,28 +52,18 @@ const relatedLinks = [
 ];
 ---
 
-<SiteLayout
-	title={title}
-	section="services"
-	description={lead}
-	canonical={pageHref(listUrl, page)}
-	crumbs={[]}
->
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={title} lead={lead}>
-			<ul class="flex flex-wrap gap-x-6 gap-y-1">
-				{relatedLinks.map((link) => (
-					<li>
-						<a
-							class="inline-flex min-h-11 items-center text-label text-brand-primary underline underline-offset-4"
-							href={link.href}
-						>
-							{link.label}
-						</a>
-					</li>
-				))}
-			</ul>
-		</PageHeading>
+<SiteLayout title={title} section="services" description={lead} canonical={pageHref(listUrl, page)}>
+	<ListHeading
+		section="services"
+		crumbs={[]}
+		label="บริการ"
+		title={title}
+		lead={lead}
+		leadLinks={relatedLinks}
+	>
+		<Users slot="icon" class="shrink-0" size={24} />
+	</ListHeading>
+	<ListBody>
 		<FilterForm
 			label="กรองบริการ"
 			action={servicesPath()}
@@ -101,5 +99,5 @@ const relatedLinks = [
 			<EmptyState message="ยังไม่มีข้อมูลบริการ" />
 		)}
 		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
-	</div>
+	</ListBody>
 </SiteLayout>
