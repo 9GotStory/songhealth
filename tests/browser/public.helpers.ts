@@ -2010,7 +2010,8 @@ export function testListOnField(list: ListOnField): void {
 		await expectBlocksOverFieldEdge(
 			page,
 			heading.field,
-			[heading.lead],
+			// The field's content ends with the lead, or the links under it.
+			[heading.lead, ...leadLinksOf(page, list).map(([, link]) => link)],
 			[...formPart(page), ["the items", grid], ["the pager", pager]],
 		);
 	});
