@@ -193,9 +193,11 @@ The file-gone page's notice reads 10.94, its sentence 5.07 and its link "ติ�
 superseded page's successor note 10.56 and its link 5.58 (768, 375, 320). A Post page's body text
 on the Announcement reads 11.52 or more.
 
-Every figure the notes on #318 give is read the same at `47fc28a`: #312's field at `8643ef1`,
+Every text reading the notes on #318 give is read the same at `47fc28a`: #312's field at `8643ef1`,
 #313's cards at `bf70e05`, #314's rows at `2cb2e11`, #315's rows at `fac3acd`, #316's pages at
-`9ad820f` and #317's at `b42cb51`.
+`9ad820f` and #317's at `b42cb51`. Of the notes' focus readings, the form select's ring (6.45:1, the note
+from #312) was not read again, and the breadcrumb's second link on an Announcement's page reads
+6.01:1 at 320 px, under the note from #316's "Focus rings read 6.07:1 or more"; `DESIGN.md` §9.4 now gives it.
 
 **Focus rings**, `scripts/measure-focus-contrast.ts` at `47fc28a`, the lowest contrast beside the
 ring with focus (WCAG 2.2 SC 1.4.11, 3:1), with the share of the ring's neighbours under 3:1:
