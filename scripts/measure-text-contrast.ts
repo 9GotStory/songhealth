@@ -3,7 +3,7 @@
 // leaves no fill at all, so a page that puts text on a drawn field reads its contrast with this
 // before its suites run.
 //
-//   node scripts/measure-text-contrast.ts [--fixtures <module>] [--all-text] <path> \
+//   node scripts/measure-text-contrast.ts [--fixtures <module>] [--all-text] [--fold] <path> \
 //     <selector> [<selector>...]
 //
 // At each of the widths 1440, 1024, 768, 375 and 320 px it opens <path> and, for the first element
@@ -21,10 +21,12 @@
 // --all-text reads every text of a surface, the reading a spec or a hand-off asks for (#287 retro:
 // three tickets in a row left a text of a surface unread, a pill's words, a breadcrumb's later
 // links and a card without its picture). Each selector is then a container, such as
-// "main .deep-field" or "main article >> nth=0", and every element in it that shows text of its
-// own is read under its tag and first words, with the text in its own colour alone: a part in
-// another colour is read as its own line. A text in a colour with an alpha, which the script
-// cannot set against the page, is named as not read.
+// "main .deep-field" or "main article >> nth=0", or "main" for a whole page's texts in one run
+// (#318), and every element in it that shows text of its own is read under its tag and first
+// words, with the text in its own colour alone: a part in another colour is read as its own line.
+// A text in a colour with an alpha, which the script cannot set against the page, is named as not
+// read. --fold closes with one line for the texts whose words differ only in their numbers, such
+// as a list's rows, in place of a line per text (#318 retro).
 //
 // A state the demo dataset does not hold takes --fixtures, a module of
 // scripts/screenshot-fixtures/, through scripts/dev-runtime-env.sh: its content is made first and
@@ -41,7 +43,7 @@
 
 import type { Page } from "@playwright/test";
 
-import { summaryLines, type Reading } from "./contrast/plan.ts";
+import { foldedLines, summaryLines, type Reading } from "./contrast/plan.ts";
 import {
 	contrast,
 	decode,
@@ -55,14 +57,17 @@ import {
 const args = process.argv.slice(2);
 let fixturesPath: string | undefined;
 let allText = false;
-while (args[0] === "--fixtures" || args[0] === "--all-text") {
-	if (args.shift() === "--all-text") allText = true;
+let fold = false;
+while (args[0] === "--fixtures" || args[0] === "--all-text" || args[0] === "--fold") {
+	const option = args.shift();
+	if (option === "--all-text") allText = true;
+	else if (option === "--fold") fold = true;
 	else fixturesPath = args.shift();
 }
 const [path, ...selectors] = args;
 if (path === undefined || selectors.length === 0) {
 	console.error(
-		"usage: node scripts/measure-text-contrast.ts [--fixtures <module>] [--all-text] <path> <selector> [<selector>...]",
+		"usage: node scripts/measure-text-contrast.ts [--fixtures <module>] [--all-text] [--fold] <path> <selector> [<selector>...]",
 	);
 	process.exit(2);
 }
@@ -177,4 +182,4 @@ await measureAtEachWidth(
 	{ path, selectors, fixtures: fixturesPath, ...(allText ? { expand: textsIn } : {}) },
 	lowestContrast,
 );
-for (const line of summaryLines(readings)) console.log(line);
+for (const line of (fold ? foldedLines : summaryLines)(readings)) console.log(line);

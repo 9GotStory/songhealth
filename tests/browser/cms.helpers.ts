@@ -1171,14 +1171,15 @@ export function syntheticMediaPng(): Uint8Array<ArrayBuffer> {
 	return bytes;
 }
 
-/** The exact size in bytes of every synthetic PDF. */
+/** The exact size in bytes of a synthetic PDF, unless a caller asks for another. */
 export const SYNTHETIC_PDF_BYTES = 2048;
 
 /**
- * A valid one-page, blank PDF of exactly SYNTHETIC_PDF_BYTES bytes: public-publishable, clearly
- * synthetic, and unique per call through a padding comment, so no upload deduplicates onto another.
+ * A valid one-page, blank PDF of exactly `size` bytes, SYNTHETIC_PDF_BYTES unless given:
+ * public-publishable, clearly synthetic, and unique per call through a padding comment, so no
+ * upload deduplicates onto another.
  */
-export function syntheticMediaPdf(): Uint8Array<ArrayBuffer> {
+export function syntheticMediaPdf(size = SYNTHETIC_PDF_BYTES): Uint8Array<ArrayBuffer> {
 	const body = [
 		"%PDF-1.4",
 		"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
@@ -1188,9 +1189,9 @@ export function syntheticMediaPdf(): Uint8Array<ArrayBuffer> {
 		`% ${SYNTHETIC_FIXTURE_MARK} ${crypto.randomUUID()}`,
 	].join("\n");
 	const end = "\n%%EOF\n";
-	const padding = " ".repeat(SYNTHETIC_PDF_BYTES - body.length - end.length - 2);
+	const padding = " ".repeat(size - body.length - end.length - 2);
 	const bytes = new TextEncoder().encode(`${body}\n%${padding}${end}`);
-	if (bytes.length !== SYNTHETIC_PDF_BYTES)
+	if (bytes.length !== size)
 		throw new CmsHelperError("synthetic-pdf", "synthetic PDF size drifted");
 	return new Uint8Array(bytes);
 }
@@ -1270,10 +1271,11 @@ export interface SyntheticPdf {
 export async function uploadSyntheticPdf(
 	actor: CmsActor,
 	filename = `${SYNTHETIC_FIXTURE_MARK}-${crypto.randomUUID().slice(0, 8)}.pdf`,
+	size = SYNTHETIC_PDF_BYTES,
 ): Promise<SyntheticPdf> {
 	const uploaded = await uploadSyntheticMedia(actor, {
 		filename,
-		file: { bytes: syntheticMediaPdf(), type: "application/pdf" },
+		file: { bytes: syntheticMediaPdf(size), type: "application/pdf" },
 	});
 	if (uploaded.mediaId === undefined) {
 		throw new CmsHelperError(

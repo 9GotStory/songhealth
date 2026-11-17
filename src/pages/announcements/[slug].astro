@@ -4,6 +4,15 @@
 // close dates, its status in text when it has those dates (ยังไม่เปิด, เปิดอยู่ or ปิดแล้ว), its details,
 // and the Documents attached to it.
 //
+// It opens on the deep field with the Post page's header, though it is not a Post page (Feature 010
+// #316; spec #311 "An Announcement's page and a Document's page: the header"): "เผยแพร่" and its
+// publication date in an accent-warm pill and its type in an outlined white pill, then its title.
+// Its details lie in one white card over the field's lower edge, the status as the Announcements
+// list's dotted label, and an Announcement with no details row has none; then its details text and
+// "เอกสารที่เกี่ยวข้อง" with each Document's download (spec #311 "The card over the field's edge";
+// src/components/CardOverField.astro). The page gives the shell no crumbs, since the header shows
+// them on the field.
+//
 // The attached Documents are read through the reference field in the order staff attached them.
 // EmDash resolves a target only while it is published, or a draft in preview, so a draft,
 // unpublished or trashed Document is left out (emdash 1.1.0 src/query.ts attachReferences,
@@ -21,11 +30,12 @@
 // panel sets one.
 import { getEmDashEntry } from "emdash";
 import AnnouncementStatus from "../../components/AnnouncementStatus.astro";
+import CardOverField from "../../components/CardOverField.astro";
 import DateText from "../../components/DateText.astro";
 import DetailItem from "../../components/DetailItem.astro";
+import PostHeader from "../../components/PostHeader.astro";
 import RelatedDocuments from "../../components/RelatedDocuments.astro";
 import RichText from "../../components/RichText.astro";
-import ThaiTitle from "../../components/ThaiTitle.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import {
 	ANNOUNCEMENTS_PATH,
@@ -53,9 +63,11 @@ if (!entry) return Astro.rewrite("/404");
 
 const announcement = entry.data;
 const types = termsOf(announcement, "announcement_type");
+const typeLabels = types.map((type) => type.label).join(", ");
 const status = statusOf(announcement, new Date());
 const documents = await documentsById(targetIds(entry.references?.documents.entries));
 const description = detailsExcerpt(announcement.details);
+const details = announcement.details ?? [];
 const hasDetails =
 	types.length > 0 ||
 	!!announcement.announcement_at ||
@@ -68,7 +80,6 @@ const hasDetails =
 	section="news"
 	description={description || undefined}
 	canonical={announcementPath(entry.id)}
-	crumbs={[{ label: ANNOUNCEMENTS_TITLE, href: ANNOUNCEMENTS_PATH }, { label: announcement.title }]}
 	entry={{
 		collection: "announcements",
 		id: announcement.id,
@@ -77,49 +88,52 @@ const hasDetails =
 	}}
 	noindex={isPreview}
 >
-	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<header class="flex max-w-3xl flex-col gap-3">
-			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
-				<ThaiTitle text={announcement.title} />
-			</h1>
-			{announcement.publishedAt && (
-				<p class="text-small text-text-secondary">
-					เผยแพร่ <DateText value={announcement.publishedAt} />
-				</p>
+	<article class="pb-16 lg:pb-20">
+		<CardOverField>
+			<PostHeader
+				slot="header"
+				section="news"
+				crumbs={[
+					{ label: ANNOUNCEMENTS_TITLE, href: ANNOUNCEMENTS_PATH },
+					{ label: announcement.title },
+				]}
+				title={announcement.title}
+				publishedAt={announcement.publishedAt}
+				outlined={typeLabels || undefined}
+			/>
+			{hasDetails && (
+				<dl slot="card" class="flex flex-col gap-3">
+					{types.length > 0 && <DetailItem term="ประเภทประกาศ">{typeLabels}</DetailItem>}
+					{announcement.announcement_at && (
+						<DetailItem term="วันที่ประกาศ">
+							<DateText value={announcement.announcement_at} />
+						</DetailItem>
+					)}
+					{announcement.opens_at && (
+						<DetailItem term="วันที่เริ่มต้น">
+							<DateText value={announcement.opens_at} />
+						</DetailItem>
+					)}
+					{announcement.closes_at && (
+						<DetailItem term="วันที่สิ้นสุด">
+							<DateText value={announcement.closes_at} />
+						</DetailItem>
+					)}
+					{status && (
+						<DetailItem term="สถานะ">
+							<span class="text-small">
+								<AnnouncementStatus status={status} dotted />
+							</span>
+						</DetailItem>
+					)}
+				</dl>
 			)}
-		</header>
-		{hasDetails && (
-			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
-				{types.length > 0 && (
-					<DetailItem term="ประเภทประกาศ">{types.map((type) => type.label).join(", ")}</DetailItem>
-				)}
-				{announcement.announcement_at && (
-					<DetailItem term="วันที่ประกาศ">
-						<DateText value={announcement.announcement_at} />
-					</DetailItem>
-				)}
-				{announcement.opens_at && (
-					<DetailItem term="วันที่เริ่มต้น">
-						<DateText value={announcement.opens_at} />
-					</DetailItem>
-				)}
-				{announcement.closes_at && (
-					<DetailItem term="วันที่สิ้นสุด">
-						<DateText value={announcement.closes_at} />
-					</DetailItem>
-				)}
-				{status && (
-					<DetailItem term="สถานะ">
-						<AnnouncementStatus status={status} />
-					</DetailItem>
-				)}
-			</dl>
-		)}
-		{announcement.details && announcement.details.length > 0 && (
-			<div class="max-w-3xl">
-				<RichText value={announcement.details} />
-			</div>
-		)}
-		<RelatedDocuments documents={documents} />
+			{(details.length > 0 || documents.length > 0) && (
+				<div class="flex max-w-3xl flex-col gap-8">
+					{details.length > 0 && <RichText value={details} />}
+					<RelatedDocuments documents={documents} downloads />
+				</div>
+			)}
+		</CardOverField>
 	</article>
 </SiteLayout>

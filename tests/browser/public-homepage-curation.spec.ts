@@ -86,6 +86,7 @@ import {
 	homepageSection,
 	itemsPerRow,
 	occurrencesOf,
+	pressInside,
 	siteTitleParts,
 	test,
 	thaiDate,
@@ -581,7 +582,8 @@ test("the hero shows no telephone number and no hours, with or without a Feature
 	page,
 }) => {
 	const telephone = "054 591 234";
-	const hours = "จันทร์–ศุกร์ 08:30–16:30 น.";
+	// The mark lets the residue count find these values if the test leaves them (#316 retro).
+	const hours = `จันทร์–ศุกร์ 08:30–16:30 น. ${SYNTHETIC_FIXTURE_MARK}`;
 	const featured = await create("news", "hero-without-contact");
 	await publish("news", featured);
 	await withOfficeContact(admin, { telephone, opening_hours: hours }, {}, async () => {
@@ -938,7 +940,7 @@ test("on hover a Service card turns brand green with white text, and its icon ti
 				message: "the card under the pointer has risen 8 px",
 			})
 			.toBeCloseTo(place.y - 8, 0);
-		await page.mouse.click(edge.x, edge.y);
+		await pressInside(page, card, edge, "the part the card left");
 		await expect(page).toHaveURL(`/services/${service.slug}`);
 	});
 });

@@ -82,6 +82,28 @@ function ticketOfBranch(branch: string): string | undefined {
 	return /^feat\/(?:\d{3}-)?(\d+)-/.exec(branch)?.[1];
 }
 
+/** The feature a feature's ticket branch builds, `feat/<feature>-<ticket>-<slug>`, as "010". */
+function featureOfBranch(branch: string): string | undefined {
+	return /^feat\/(\d{3})-\d+-/.exec(branch)?.[1];
+}
+
+/**
+ * What DESIGN.md lacks for a ticket of `feature`: a version of the feature's own in its Status
+ * line, which no change-history entry of another feature carries (CODING_STANDARDS "Documents",
+ * Amendments; #312 retro: Feature 010's first ticket kept Feature 009's v1.3, and the review found
+ * it).
+ */
+function versionMissingFor(design: string, feature: string): string[] {
+	const status = /^> \*\*Status:\*\* v(\d+\.\d+)/m.exec(design)?.[1];
+	const others = (design.match(/^- \*\*v\d+\.\d+\b.*$/gm) ?? []).filter(
+		(entry) =>
+			entry.startsWith(`- **v${status} `) &&
+			/Feature \d{3}\b/.test(entry) &&
+			!entry.includes(`Feature ${feature}`),
+	);
+	return others.length === 0 ? [] : [`a version of Feature ${feature}'s own, not v${status}`];
+}
+
 /**
  * What DESIGN.md lacks for `ticket`: its Updated line naming it, a change-history entry naming it.
  */
@@ -102,10 +124,15 @@ describe("DESIGN.md amended on a ticket's branch", () => {
 		const git = (...args: string[]) =>
 			execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
 		const staged = git("diff", "--cached", "--name-only").split("\n");
-		const ticket = ticketOfBranch(git("rev-parse", "--abbrev-ref", "HEAD"));
+		const branch = git("rev-parse", "--abbrev-ref", "HEAD");
+		const ticket = ticketOfBranch(branch);
 		if (!staged.includes("docs/design/DESIGN.md") || ticket === undefined) return;
 		const design = await readFile(new URL("docs/design/DESIGN.md", ROOT), "utf8");
-		assert.deepEqual(missingFor(design, ticket), []);
+		const feature = featureOfBranch(branch);
+		assert.deepEqual(
+			[...missingFor(design, ticket), ...(feature ? versionMissingFor(design, feature) : [])],
+			[],
+		);
 	});
 
 	it("reads the ticket from a feature's or a standalone ticket's branch, and none from another", () => {
@@ -126,6 +153,39 @@ describe("DESIGN.md amended on a ticket's branch", () => {
 			"the Updated line names #286",
 			"a §13 entry names #286",
 		]);
+	});
+});
+
+describe("DESIGN.md's version on a feature's ticket branch", () => {
+	it("reads the feature from a feature's ticket branch only", () => {
+		assert.equal(featureOfBranch("feat/010-312-list-heading"), "010");
+		assert.equal(featureOfBranch("feat/298-focal-point"), undefined);
+		assert.equal(featureOfBranch("chore/010-retro-312"), undefined);
+	});
+
+	it("finds a Status version that another feature's entry carries", () => {
+		const design = (status: string, entries: string[]) =>
+			`> **Status:** v${status} (x)\n\n${entries.map((entry) => `- **${entry}:** y`).join("\n")}\n`;
+		const f009 = "v1.3 a (2026-11-13, Feature 009 #281)";
+		const standalone = "v1.3 b (2026-11-15, #298)";
+		assert.deepEqual(
+			versionMissingFor(
+				design("1.3", [f009, standalone, "v1.3 c (2026-11-15, Feature 010 #312)"]),
+				"010",
+			),
+			["a version of Feature 010's own, not v1.3"],
+		);
+		assert.deepEqual(
+			versionMissingFor(
+				design("1.4", [f009, standalone, "v1.4 c (2026-11-15, Feature 010 #312)"]),
+				"010",
+			),
+			[],
+		);
+		assert.deepEqual(
+			versionMissingFor(design("1.3", [f009, "v1.3 d (Feature 009 #282)"]), "009"),
+			[],
+		);
 	});
 });
 

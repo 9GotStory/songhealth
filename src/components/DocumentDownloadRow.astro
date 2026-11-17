@@ -1,0 +1,78 @@
+---
+// A Document as a row with its download, on the Document repository (Feature 010 #315; spec #311
+// "The Document repository", decisions 8, 16 and 17). Every other page that lists Documents keeps
+// DocumentRow until its own feature (decision 2). A white row with the file's tile, the facts
+// line, a superseded or expired Document's attention label on its own line, the title, from `sm`
+// the summary, and the file's download. Its title is a heading one level below the list's own:
+// H2 on the repository; `headingLevel` 3 is for an Announcement's "เอกสารที่เกี่ยวข้อง", which takes
+// this row in #316 (#315 "What to build").
+//
+// The tile is FileTile, which a Document's page shows too. The title is text-primary, body size
+// below `sm` and body-large from `sm`, as the prototype's (Product Owner, 2026-11-16: #315 comment
+// 6908747140, item 1).
+//
+// No link covers the row: the title and the download are its two links and its two focus stops
+// (decision 16). The title turns brand-primary and underlined under the pointer on its own link
+// only, since a press elsewhere on the row opens nothing (#315 comment 6908747140, item 2); the row
+// takes the `deep` shadow under the pointer, only with motion allowed.
+//
+// The download is FileDownloadLink in the row's words, "ดาวน์โหลด", with the Document's title for
+// assistive technology only, as ActionLink's `context`. From `lg` it sits at the row's right; from
+// `sm` under the text at its start; below `sm` across the row under the tile and the text
+// (decision 17). A file that cannot be served shows FILE_UNAVAILABLE in its place, and no link
+// (src/lib/media.ts).
+import { documentRowParts, type DocumentEntry } from "../lib/documents";
+import { FILE_UNAVAILABLE } from "../lib/media";
+import DocumentFacts from "./DocumentFacts.astro";
+import DocumentStatus from "./DocumentStatus.astro";
+import FileDownloadLink from "./FileDownloadLink.astro";
+import FileTile from "./FileTile.astro";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	document: DocumentEntry;
+	headingLevel?: 2 | 3;
+}
+
+const { document, headingLevel = 2 } = Astro.props;
+const Heading = headingLevel === 3 ? "h3" : "h2";
+const data = document.data;
+const { href, file, status } = await documentRowParts(document, Astro.locals.emdash);
+/** The download's or the unavailable words' place by width. */
+const actionPlace = "max-sm:col-span-2 sm:col-start-2 lg:col-start-3";
+---
+
+<article class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3.5 gap-y-3 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition-shadow motion-safe:duration-300 motion-safe:hover:shadow-deep sm:gap-x-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
+	<FileTile type={file?.type} />
+	<div class="flex min-w-0 flex-col gap-1">
+		<DocumentFacts data={data} />
+		{status && (
+			<p class="flex pb-0.5">
+				<DocumentStatus status={status} />
+			</p>
+		)}
+		<Heading class="text-body font-semibold wrap-anywhere sm:text-body-large">
+			<a
+				class="line-clamp-2 w-fit underline-offset-4 hover:text-brand-primary hover:underline"
+				href={href}
+			>
+				<ThaiTitle text={data.title} />
+			</a>
+		</Heading>
+		{data.summary && (
+			<p class="line-clamp-2 text-label text-text-secondary max-sm:hidden">{data.summary}</p>
+		)}
+	</div>
+	{file ? (
+		<FileDownloadLink
+			file={file}
+			words="ดาวน์โหลด"
+			context={data.title}
+			class={`sm:justify-self-start ${actionPlace}`}
+		/>
+	) : (
+		<p class:list={["text-small font-semibold text-text-secondary", actionPlace]}>
+			{FILE_UNAVAILABLE}
+		</p>
+	)}
+</article>

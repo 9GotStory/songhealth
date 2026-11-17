@@ -2,25 +2,53 @@
 // The Documents a page links to (Feature 003 #56, #58; spec #51 "Public reads"): a "เอกสารที่เกี่ยวข้อง"
 // section of Document rows, each titled one level below the section's H2, shown only when there is
 // one. Announcement, Service and Basic Pages show it.
+//
+// `downloads` gives an Announcement's page the redesigned section (Feature 010 #316; spec #311
+// "The card over the field's edge", decisions 2 and 10): the Homepage's section heading on the
+// page's colour (the gradient folder-open tile, the label "เอกสารเผยแพร่" and the H2), then the
+// Document rows with their downloads, titles H3, 14 px apart and 24 px under the heading below `sm`
+// and 28 px from `sm`, as an Activity's photos are under theirs (DESIGN.md §9.2). Service and Basic
+// Pages keep today's heading and rows until their own feature. The rows show at once, with no
+// reveal (spec #311 "Motion").
+import FolderOpen from "@lucide/astro/icons/folder-open";
 import type { DocumentEntry } from "../lib/documents";
 import DetailSection from "./DetailSection.astro";
+import DocumentDownloadRow from "./DocumentDownloadRow.astro";
 import DocumentRow from "./DocumentRow.astro";
+import SectionHeading from "./SectionHeading.astro";
 
 interface Props {
 	documents: DocumentEntry[];
+	/** Each row with its download, under the Homepage's section heading. */
+	downloads?: boolean;
 }
 
-const { documents } = Astro.props;
+const { documents, downloads = false } = Astro.props;
+const HEADING = "เอกสารที่เกี่ยวข้อง";
 ---
 
-{documents.length > 0 && (
-	<DetailSection id="related-documents" heading="เอกสารที่เกี่ยวข้อง">
-		<ul class="flex flex-col gap-4">
-			{documents.map((document) => (
-				<li>
-					<DocumentRow document={document} headingLevel={3} />
-				</li>
-			))}
-		</ul>
-	</DetailSection>
-)}
+{documents.length > 0 &&
+	(downloads ? (
+		<section aria-labelledby="related-documents" class="flex flex-col gap-6 sm:gap-7">
+			<SectionHeading id="related-documents" label="เอกสารเผยแพร่" title={HEADING}>
+				<FolderOpen slot="icon" class="shrink-0" size={24} />
+			</SectionHeading>
+			<ul class="flex flex-col gap-3.5">
+				{documents.map((document) => (
+					<li>
+						<DocumentDownloadRow document={document} headingLevel={3} />
+					</li>
+				))}
+			</ul>
+		</section>
+	) : (
+		<DetailSection id="related-documents" heading={HEADING}>
+			<ul class="flex flex-col gap-4">
+				{documents.map((document) => (
+					<li>
+						<DocumentRow document={document} headingLevel={3} />
+					</li>
+				))}
+			</ul>
+		</DetailSection>
+	))}

@@ -14,6 +14,7 @@ import { demoDataset } from "../../scripts/demo-dataset/content.ts";
 import {
 	addSteps,
 	entryName,
+	FIXTURE_MARK,
 	mediaOf,
 	menuItemFields,
 	planAdd,
@@ -354,6 +355,31 @@ describe("demo dataset: add", () => {
 			"Office Contact telephone",
 			"the social handle facebook",
 		]);
+	});
+
+	it("takes over the Office Contact values and handles a test left, which carry the fixture mark", () => {
+		// A fixture writes every Office Contact key at once (cms.helpers.ts showOfficeContact), so one
+		// marked value makes the whole set a test's: the unmarked telephone and hours were left with
+		// it.
+		const live = installed(dataset);
+		const plan = planAdd(dataset, {
+			...live,
+			officeContact: {
+				...emptyRuntime().officeContact,
+				address: `${FIXTURE_MARK} 99 หมู่ 1\nอำเภอสอง จังหวัดแพร่ 54120`,
+				telephone: "054 591 234",
+				opening_hours: "จันทร์–ศุกร์ 08:30–16:30 น.",
+			},
+			social: { ...live.social, facebook: `songhealth.${FIXTURE_MARK}` },
+		});
+		assert.deepEqual(plan.officeContact, dataset.officeContact);
+		assert.equal(plan.social.facebook, dataset.social.facebook);
+		assert.deepEqual(plan.kept, []);
+	});
+
+	it("reads the fixture mark the browser suites write", () => {
+		const helpers = readFileSync(new URL("../browser/cms.helpers.ts", import.meta.url), "utf8");
+		assert.ok(helpers.includes(`export const SYNTHETIC_FIXTURE_MARK = "${FIXTURE_MARK}";`));
 	});
 
 	it("keeps a Basic Page of the office's own at a reserved slug", () => {

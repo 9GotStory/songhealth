@@ -22,6 +22,10 @@ _Avoid_: Event post, gallery
 Official information people must notice or act on, possibly with its own open and close dates.
 _Avoid_: Notice post
 
+**Current Announcement** (ประกาศที่ยังไม่ปิด):
+An Announcement whose close day has not passed, or that has no close date; one not open yet is current too.
+_Avoid_: Open announcement, active announcement
+
 **Health Content** (ความรู้สุขภาพ):
 Evergreen public-health knowledge for citizens.
 _Avoid_: Health News, health article

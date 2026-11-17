@@ -5,7 +5,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { fixturePath, lowestReadings, summaryLines } from "../../scripts/contrast/plan.ts";
+import {
+	fixturePath,
+	foldedLines,
+	lowestReadings,
+	summaryLines,
+} from "../../scripts/contrast/plan.ts";
 
 describe("lowestReadings", () => {
 	it("gives each text its lowest reading and the widths it was read at, in the order first seen", () => {
@@ -64,6 +69,46 @@ describe("summaryLines", () => {
 				"lowest  the lead  6.45:1 at 768 and 320 px",
 				"lowest  the title  7.50:1 at 375 px",
 				"lowest  category  not read at any width",
+			],
+		);
+	});
+});
+
+describe("foldedLines", () => {
+	it("folds the texts that differ only in their numbers or their repeat's count into one line", () => {
+		assert.deepEqual(
+			foldedLines([
+				{ width: 1440, text: 'span "16"', ratio: 7.9 },
+				{ width: 1440, text: 'span "พ.ย. 2569"', ratio: 5.52 },
+				{ width: 1440, text: 'span "15"', ratio: 7.79 },
+				{ width: 1440, text: 'span "พ.ย. 2569" (2)', ratio: 5.53 },
+				{ width: 375, text: 'span "16"', ratio: 7.79 },
+				{ width: 375, text: 'span "พ.ย. 2569"', ratio: 5.37 },
+				{ width: 375, text: 'span "พ.ย. 2569" (2)', ratio: 5.37 },
+				{ width: 320, text: 'span "พ.ย. 2569" (2)', ratio: 5.371 },
+				{ width: 320, text: 'p "PDF, 11.8 KB"', ratio: 4.97 },
+				{ width: 320, text: 'p "PDF, 2 KB"', ratio: 4.97 },
+			]),
+			[
+				'folded  span "#"  7.79:1 at 1440 and 375 px (2 texts)',
+				'folded  span "พ.ย. #"  5.37:1 at 375 and 320 px (2 texts)',
+				'folded  p "PDF, # KB"  4.97:1 at 320 px (2 texts)',
+			],
+		);
+	});
+
+	it("keeps a text of its own on its own line, and names one that no width read", () => {
+		assert.deepEqual(
+			foldedLines([
+				{ width: 1440, text: 'h1 "ประกาศ"', ratio: 8.9 },
+				{ width: 320, text: 'h1 "ประกาศ"', ratio: 8.26 },
+				{ width: 320, text: 'h2 "ประกาศ"', ratio: 15.47 },
+				{ width: 320, text: "category" },
+			]),
+			[
+				'folded  h1 "ประกาศ"  8.26:1 at 320 px',
+				'folded  h2 "ประกาศ"  15.47:1 at 320 px',
+				"folded  category  not read at any width",
 			],
 		);
 	});

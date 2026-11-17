@@ -119,7 +119,9 @@ rules. Product Owner decisions and the current documents rank above both (Author
 1. Read the spec, the ticket and the contract (`DESIGN.md` §12).
 2. Build test-first through `/tdd`, with `/frontend-design` when the ticket creates or changes UI.
 3. On the promoted commit: `/impeccable critique` and `audit`, `/web-design-guidelines` on the
-   changed files, Playwright MCP on the rendered pages.
+   changed files, Playwright MCP on the rendered pages. Done when the pull request's review
+   section gives each of the four its result; a tool the ticket would leave unrun is a Product
+   Owner ask before `/code-review` (#313 retro).
 4. Sort every finding: a provable defect inside the ticket's scope (accessibility, contrast,
    overflow, a broken interaction) gets its fix and test; a taste suggestion or out-of-scope change
    becomes a pending confirmation for the Product Owner; a finding against the contract is reported

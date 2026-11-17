@@ -23,6 +23,10 @@ and why, and `.jscpd-baseline.json` records them.
   comment cites the fact in `docs/agents/emdash-1.1.0.md` that shows EmDash lacks it, and a
   missing fact is added there with its source path (CLAUDE.md "Platform-native first";
   `src/lib/navigation.ts` breadcrumbTrail is an example).
+- A measured figure, such as a contrast ratio or a height, lives in `docs/design/DESIGN.md`; a
+  comment, a rule or an ignore entry cites its section instead of repeating the number, so a new
+  measure is one edit (#314 retro: the date tile's month, measured again, sat in six places). A
+  figure an older comment repeats goes when a change touches that comment.
 - Code that departs from the spec or the current docs on a Product Owner decision cites the
   decision (issue and comment) where it departs, so a later change does not "fix" it back.
 - Accepted Feature 001 and 002 files carry long historical headers. Trim them when a change
@@ -93,15 +97,22 @@ and why, and `.jscpd-baseline.json` records them.
   shows and is whole, and axe does not measure it against what lies behind: in #281 a card's
   `brand-primary` ring passed every suite at 1.89:1 on the field (#281 retro; Product Owner,
   2026-11-13: #281 comment 6848893055). Such a card takes `focus-ring-banded`, a white band on
-  both sides of the ring (#283 comment 6854670042).
+  both sides of the ring (#283 comment 6854670042). `expectBlocksOverFieldEdge` (`tests/browser/public.helpers.ts`) fails a part over the
+  field's edge whose ring meets the field past its own card without that band (#312 retro).
+- A link held to its lines carries the clamp itself (`line-clamp-2 w-fit` on the `a`), not its
+  heading: the clamp's hidden overflow cuts the link's focus ring, which lies outside the link's
+  box (#315 retro: axe's focus check failed the Document row's title).
 - `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
-  the Homepage's and the one under a list's heading or a Post page's header (spec #280 "The field
-  under a heading"), it is
-  4.10:1 or less, so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product
-  Owner, 2026-11-11: #242 comment 6797113372, item 1). One measured exception: the month
-  and year on a Current Announcement's date tile, 5.45:1 or more where they sit on its gradient
-  (`docs/design/DESIGN.md` §8.7; Product Owner, 2026-11-12: #245 comment 6812837231). A change
-  to the tile's size or gradient needs a new measure.
+  the Homepage's and the one under a list's heading or a Post page's, an Announcement's or a
+  Document's header (spec #280 "The field under a heading"; spec #311 "An Announcement's page and a
+  Document's page: the header"), it is 4.10:1 or less, so small text there is `surface-base`
+  (`docs/design/DESIGN.md` §3.2; Product Owner, 2026-11-11: #242 comment 6797113372, item 1). Two
+  measured exceptions, on the same gradient tile: the month and year on a current Announcement's
+  date tile (its readings in `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12:
+  #245 comment 6812837231), and the file's type on the file tile (`FileTile`) of a Document row on
+  `/documents` and in an Announcement's related Documents, and in the card on a Document's page
+  (§3.2, §7.3 and §9.5; spec #311 "The Document repository", "The card over the field's edge"). A
+  change to either tile's size or gradient needs a new measure.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
   state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`
@@ -160,10 +171,18 @@ and why, and `.jscpd-baseline.json` records them.
   checked by its accessible name (`getByRole(…, { name })`, `toHaveAccessibleName`), which leaves
   out decorative `aria-hidden` icons. A `data-testid` marks only an element with no accessible
   role or name, such as a decorative mark.
+- A state's look, under the pointer or with focus, is read on the element whose class sets it,
+  such as a title's link rather than its heading, whose own colour never changes. A press that
+  must open nothing goes through `pressInside` (`tests/browser/public.helpers.ts`), which fails
+  when the point lies beside its target (#315 retro: two reads on the heading and a press outside
+  a row's rounded corner passed whatever the row did).
 - A test that changes shared runtime state (site settings, menus, plugin settings) saves it first
   and restores it in `finally`, and says what the native API cannot restore.
-- A suite's fixtures stay until the suite ends, so a test that needs its fixtures to lead an
-  ordered list (newest first, a page boundary) dates them after every earlier test's fixtures.
+- A test whose fixtures lead an ordered list (newest first, a page boundary) dates them after
+  every earlier test's fixtures and returns them to draft when it ends, so a later test's own
+  fixtures lead in turn: `LeadingEntries` in `tests/browser/public.helpers.ts` holds them for the
+  suite's `test.afterEach` (#314 retro: 2031 Announcements left published pushed the paging
+  test's own off the first page, as #313's left `testFirstPageByCount`'s).
 - A test of a precedence rule, such as the longest listed word first or the newest entry first,
   gives its input in an order the rule must overturn, so the test fails without the rule (#145
   retro: a list already sorted longest first passed with the sort removed).
@@ -199,7 +218,11 @@ and why, and `.jscpd-baseline.json` records them.
   a dot and its label on one line" was asserted by its text and passed while every labelled card at
   320 px ran onto two lines). The assertion reads the spec's own word: "at its foot" is less room
   under the text than above it, where a stricter stand-in such as "in the lower half" fails at
-  320 px on a card the spec allows (#284 retro: it cost a 24-minute repeat run).
+  320 px on a card the spec allows (#284 retro: it cost a 24-minute repeat run). A synthetic
+  file's type and size read "PDF, 2 KB", shorter than the demo dataset's longest, "PDF, 12.8 KB",
+  so a test that places a download's words gives `uploadSyntheticPdf` a size in bytes as its third
+  argument whose label is as long, such as 12,083 for "PDF, 11.8 KB" (#317 retro: at 320 px the
+  download broke "(PDF, 11.8" from "KB)", and only the frontend gate saw it).
 - A fixture's label carries `SYNTHETIC_FIXTURE_MARK` before its words and a suffix after them,
   some 33 characters more than a real label, so a row of such labels can wrap where real ones
   would not. A

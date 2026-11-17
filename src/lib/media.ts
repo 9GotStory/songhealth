@@ -20,12 +20,6 @@ export interface MediaRuntime {
 	getPublicMediaUrl?: (storageKey: string) => string;
 }
 
-/**
- * A card picture's `sizes`: the card's width in the Activities list's grid (ActivityCardGrid),
- * three to a row from `lg`, two from `sm`. The News lists' cards have their own (ContentCard).
- */
-export const CARD_PICTURE_SIZES = "(min-width: 64rem) 24rem, (min-width: 40rem) 50vw, 100vw";
-
 /** What a page shows where a Document's file cannot be served. */
 export const FILE_UNAVAILABLE = "ไฟล์ไม่พร้อมให้บริการ";
 
@@ -143,6 +137,8 @@ export interface DownloadableFile {
 	href: string;
 	/** The file's type, from its extension, and its size, such as "PDF, 1.2 MB". */
 	label: string;
+	/** The file's type alone, such as "PDF", when its name or stored key has an extension. */
+	type?: string;
 	/** The name the file was uploaded with, offered as the saved file's name. */
 	filename?: string;
 }
@@ -186,10 +182,11 @@ export async function downloadableFile(
 		throw error;
 	}
 	const filename = value?.filename;
-	const extension = EXTENSION.exec(filename ?? "")?.[1] ?? EXTENSION.exec(key)?.[1];
+	const type = (EXTENSION.exec(filename ?? "")?.[1] ?? EXTENSION.exec(key)?.[1])?.toUpperCase();
 	return {
 		href: runtime.getPublicMediaUrl(key),
-		label: [extension?.toUpperCase(), formatFileSize(size)].filter(Boolean).join(", "),
+		label: [type, formatFileSize(size)].filter(Boolean).join(", "),
+		...(type ? { type } : {}),
 		...(filename ? { filename } : {}),
 	};
 }

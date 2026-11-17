@@ -5,7 +5,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { formattedCode, wideComments, widthOf, wrapComments } from "../../scripts/wrap-comments.ts";
+import {
+	formattedCode,
+	givenCode,
+	wideComments,
+	widthOf,
+	wrapComments,
+} from "../../scripts/wrap-comments.ts";
 
 describe("comment width", () => {
 	it("reads the code Prettier formats and leaves out what .prettierignore lists", async () => {
@@ -75,5 +81,24 @@ describe("comment rewrap", () => {
 	it("leaves a single word and an indented line outside a list as written", () => {
 		const long = "// https://example.com/a/long/path\n//\n//   node scripts/wrap-comments.ts\n";
 		assert.equal(wrapComments(long, 16), long);
+	});
+});
+
+describe("the files a rewrap takes", () => {
+	const code = ["src/a.astro", "src/b.ts", "scripts/c.mjs"];
+
+	it("takes every file of the code Prettier formats when no path is given", () => {
+		assert.deepEqual(givenCode(code, []), code);
+	});
+
+	it("takes only the given paths among them, written from the repository root or as ./ paths", () => {
+		assert.deepEqual(givenCode(code, ["./src/b.ts", "scripts/c.mjs"]), [
+			"src/b.ts",
+			"scripts/c.mjs",
+		]);
+	});
+
+	it("leaves out a given path Prettier does not format here, such as a Markdown file", () => {
+		assert.deepEqual(givenCode(code, ["docs/design/DESIGN.md", "src/a.astro"]), ["src/a.astro"]);
 	});
 });

@@ -53,6 +53,34 @@ export function summaryLines(readings: readonly Reading[]): string[] {
 	);
 }
 
+/**
+ * The closing lines of --fold: the texts whose names differ only in their numbers or in a
+ * repeat's count, " (2)", as the rows of a list do, on one line each, with the lowest reading of
+ * them all, the widths that read it and how many texts it folds. A record quotes these whole
+ * where the per-text lines run to a hundred (#318 retro: thirteen pages of 18 to 109 lines each).
+ */
+export function foldedLines(readings: readonly Reading[]): string[] {
+	// The numbers in the words only: a tag's own digit, h1 or h2, names another text.
+	const fold = (text: string) =>
+		text
+			.replace(/ \(\d+\)$/, "")
+			.replace(/"[^"]*"/, (words) => words.replace(/\d+(?:[.,]\d+)*/g, "#"));
+	const texts = new Map<string, Set<string>>();
+	for (const { text } of readings) {
+		const folded = fold(text);
+		texts.set(folded, (texts.get(folded) ?? new Set()).add(text));
+	}
+	return lowestReadings(readings.map((reading) => ({ ...reading, text: fold(reading.text) }))).map(
+		({ text, lowest, widths }) => {
+			const count = texts.get(text)!.size;
+			const of = count > 1 ? ` (${count} texts)` : "";
+			return lowest === undefined
+				? `folded  ${text}  not read at any width${of}`
+				: `folded  ${text}  ${lowest.toFixed(2)}:1 at ${listed([...new Set(widths)])} px${of}`;
+		},
+	);
+}
+
 /** A page a fixtures module returns (scripts/capture-with-fixtures.ts `Capture`). */
 type Capture = string | { name: string; path: string };
 

@@ -1,0 +1,56 @@
+---
+// A page that is not a Post page, headed as one on the deep field, with one white card over the
+// field's lower edge (Feature 010 #316; spec #311 "An Announcement's page and a Document's page:
+// the header", "The card over the field's edge", decision 15). An Announcement's page uses it, and
+// a Document's page (#317). The `header` slot lies on the field, a PostHeader; the `card` slot is
+// what the card holds, such as an Announcement's details or a Document's file and details; the
+// default slot is the text on the page's colour under it, such as a Document's successor note.
+//
+// The field is DeepField's `post` field, without a ring, as high as its header. Where a card
+// follows, the header ends 80 px above the field's edge below `sm` and 96 px from `sm`, and the
+// card starts 48 px above the edge below `sm` and 56 px from `sm`, in the text column, 48 rem wide
+// at most: white, radius 24, the `deep` shadow and 20 px inside. Without a card the field reaches
+// 40 px under the header below `sm` and 48 px from `sm`, as on a Post page without a picture
+// (Product Owner, #316 comment 6912742335). The text starts 32 px under the card, or under the
+// field, below `lg` and 40 px from `lg`. The card is positioned, as the field is, so it paints over
+// the field's edge.
+//
+// A slot that renders nothing counts as none, so an Announcement with no details row has no card.
+// `Astro.slots.has` tells only that a page passed the slot (astro 7.3.5
+// dist/core/render/slots.js), so the block renders each slot once with `Astro.slots.render` and
+// places that HTML, as PostColumns.astro does.
+//
+// With motion allowed the card rises in 0.25 s after the header's text, as a Post page's frame does
+// (`hero-enter`, src/styles/global.css; spec #311 "Motion"); the text shows at once.
+import DeepField from "./DeepField.astro";
+
+const cardHtml = await Astro.slots.render("card");
+const textHtml = await Astro.slots.render("default");
+const showsCard = Boolean(cardHtml?.trim());
+const showsText = Boolean(textHtml?.trim());
+---
+
+<div>
+	<DeepField kind="post">
+		<div
+			class:list={["page-container relative pt-6", showsCard ? "pb-20 sm:pb-24" : "pb-10 sm:pb-12"]}
+		>
+			<slot name="header" />
+		</div>
+	</DeepField>
+	{showsCard && (
+		<div class="page-container relative -mt-12 sm:-mt-14">
+			<div
+				data-testid="field-card"
+				class="hero-enter max-w-3xl rounded-24 bg-surface-base p-5 shadow-deep [--hero-enter-delay:0.25s]"
+			>
+				<Fragment set:html={cardHtml} />
+			</div>
+		</div>
+	)}
+	{showsText && (
+		<div class="page-container pt-8 lg:pt-10">
+			<Fragment set:html={textHtml} />
+		</div>
+	)}
+</div>

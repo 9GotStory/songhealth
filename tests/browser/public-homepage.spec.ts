@@ -76,6 +76,7 @@ import {
 	OFF_CENTRE_CROP,
 	OFF_CENTRE_FOCAL_POINT,
 	PHONE_VIEWPORT,
+	pressInside,
 	VIEWPORTS,
 	boxOf,
 	detailOf,
@@ -1150,7 +1151,7 @@ test("under the pointer an Announcement's row moves 10 px to the right, and a pr
 			message: "the row under the pointer has moved 10 px",
 		})
 		.toBeCloseTo(place.x + 10, 0);
-	await page.mouse.click(edge.x, edge.y);
+	await pressInside(page, row, edge, "the part the row left");
 	await expect(page).toHaveURL(`/announcements/${announcement.slug}`);
 });
 

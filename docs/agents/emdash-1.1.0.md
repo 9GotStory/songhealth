@@ -156,8 +156,8 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   `buildRenderMediaUrl`). `./src/lib/media.ts` `availableBody` reads the key the same way.
 - `/_emdash/api/media/file/{key}` serves the stored file by key. Safe image, video and audio types
   are served inline; anything else is an attachment, and the header names no file
-  (`src/astro/routes/api/media/file/[...key].ts`). `./src/components/DocumentDownload.astro` gives
-  the name with the link's `download` attribute.
+  (`src/astro/routes/api/media/file/[...key].ts`). `./src/components/DocumentDownload.astro` and
+  `./src/components/FileDownloadLink.astro` give the name with the link's `download` attribute.
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
   shares the key, and content keeps the stale value (`src/api/handlers/media.ts` `handleMediaDelete`).
   Pages therefore check media through `./src/lib/media.ts`.
@@ -236,8 +236,8 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
     `MUTABLE_MEDIA_CACHE_CONTROL`; #183 comment 6734787212).
 - `Image` loads lazily unless given `priority`, which makes it eager and adds
   `fetchpriority="high"`. The attributes it is given come after that default, so a passed `loading`
-  wins (`src/components/EmDashImage.astro`). `./src/components/ContentCard.astro` and
-  `./src/components/ActivityCard.astro` load a list's first row that way.
+  wins (`src/components/EmDashImage.astro`). `./src/components/ContentCard.astro` loads a list's
+  first row that way.
 - `Image` writes the value's dimensions as the `width` and `height` attributes, so its box takes
   the picture's shape before the file loads, and writes the value's placeholder (a blurhash, else
   the dominant colour) as the image's inline background, unless given `placeholder={false}`
@@ -270,8 +270,7 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   of the placeholder's `background` followed by `object-position: 25% 75%;` and computed
   `object-position: 50% 50%` (#284 comment 6870867641). So every `Image` a public page crops with
   `object-cover` takes `placeholder={false}` and crops around a focal point:
-  `./src/components/ContentCard.astro`, `./src/components/ActivityCard.astro`,
-  `./src/components/ActivityPhotos.astro`, `./src/components/HomeActivityTile.astro`,
+  `./src/components/ContentCard.astro`, `./src/components/ActivityPhotos.astro`, `./src/components/HomeActivityTile.astro`,
   `./src/components/HomeHealthCard.astro`, `./src/components/HomeLeadershipStrip.astro` and
   `./src/components/PersonCard.astro` (#298 comment 6892189972, decision 1), as the blurred copy
   in `./src/components/HomeHero.astro` does (above), and

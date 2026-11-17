@@ -56,6 +56,7 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	HEADER_WIDEST,
 	MOBILE_VIEWPORT,
 	PHONE_VIEWPORT,
 	boxOf,
@@ -69,6 +70,7 @@ import {
 	expectPictureFillsBox,
 	expectStacked,
 	expectVisibleFocusOnEveryStop,
+	gutterAt,
 	heldBack,
 	selfRunningEnds,
 	shownLines,
@@ -177,14 +179,8 @@ const TEXT_UNDER_FRAME = 32;
 /** How far the field reaches under its header, below `sm` and from `sm`; below lg with a frame. */
 const FIELD_UNDER_HEADER = { belowSm: 40, fromSm: 48, withFrame: 80 };
 
-/** The header's widest, 48 rem, the breadcrumb's with it. */
-const HEADER_WIDEST = 768;
-
 /** The breadcrumb's accessible name (Breadcrumb.astro). */
 const BREADCRUMB = "เส้นทางนำทาง";
-
-/** The page's gutter beside its column, below `sm` and from `sm`. */
-const gutterAt = (width: number) => (width < 640 ? 16 : 24);
 
 /** When the Health Content fixtures were last reviewed, so their header ends with ทบทวนล่าสุด. */
 const REVIEWED_AT = "2026-09-23T17:30:00.000Z";

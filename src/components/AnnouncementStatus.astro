@@ -1,19 +1,22 @@
 ---
 // An Announcement's status as a label (Feature 003 #56; spec #51 "Shared building blocks"): not
-// open yet, open or closed, stated in text; a closed one needs attention.
+// open yet, open or closed, stated in text. Undotted, a closed one needs attention.
 //
-// The Homepage's rows show it after a dot, in the status's own fill (Feature 008 #245; spec #239
-// "Current Announcements"): open in surface-base on brand-primary (6.45:1), closed in text-primary
-// on status-closed, not open yet in brand-dark on accent-warm (7.75:1). The text and the dot state
-// the status, and the colour supports them. The Homepage lists current Announcements only, so the
-// closed fill does not show there. The Announcements list keeps the first label (spec #239
-// "Scope of the change").
+// An Announcement row shows it after a dot, in the status's own fill (Feature 008 #245; spec #239
+// "Current Announcements"): open in surface-base on brand-primary, closed in text-primary on
+// status-closed, not open yet in brand-dark on accent-warm (docs/design/DESIGN.md §3.2 has each
+// ratio). The text and the
+// dot state the status, and the colour supports them. The closed fill shows on the Announcements
+// list's rows (Feature 010 #314; spec #311 "The Announcements list") and in an Announcement's
+// details card on its page (Feature 010 #316; spec #311 "The card over the field's edge"): the
+// Homepage lists current Announcements only. A search result shows the label without a dot, a
+// closed one in its attention fill.
 import { STATUS_LABELS, type AnnouncementStatus } from "../lib/announcements";
 import StatusLabel from "./StatusLabel.astro";
 
 interface Props {
 	status: AnnouncementStatus;
-	/** The Homepage's label: the status after a dot, in its own fill. */
+	/** An Announcement row's label: the status after a dot, in its own fill. */
 	dotted?: boolean;
 }
 

@@ -127,7 +127,8 @@ for (const path of LIST_PAGES) {
 		await page.goto(path);
 		const [first] = (await listedTitles(page)).filter((title) => title.startsWith(MARK));
 		expect(first, `${path} lists an entry titled "${MARK} …"`).toBeDefined();
-		await listedItem(page, first!).getByRole("link", { name: first }).click();
+		// Exactly the title: a Document row's download names it too (#315).
+		await listedItem(page, first!).getByRole("link", { name: first, exact: true }).click();
 		await expect(page.getByRole("heading", { level: 1 })).toHaveText(first!);
 	});
 }

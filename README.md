@@ -56,6 +56,17 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   and behaviour stays (spec #280, tickets #281–#287). `docs/design/DESIGN.md` v1.3 records it with
   the code, and `docs/evidence/287-news-post-redesign-evidence-round.md` its evidence and what
   that does not cover. The Product Owner accepted it on 2026-11-15 (#280 comment 6891402807), and
+  it was merged into `main`.
+- **Feature 010 `activities-announcements-documents`:** complete: the Activities list, the
+  Announcements list and an Announcement's page, and the Document repository and a Document's page
+  redesigned after the Homepage and Feature 009's pages as built, in the look the Product Owner
+  picked from a prototype: each list headed on the deep green field, `/activities` with the News
+  lists' cards, `/announcements` with the Homepage's rows, `/documents` with rows that hold their
+  file's download, and an Announcement's and a Document's page with the Post page's header and one
+  card over the field's edge. Every address, read and behaviour stays (spec #311, tickets
+  #312–#318). `docs/design/DESIGN.md` v1.4 records it with the code, and
+  `docs/evidence/318-activities-announcements-documents-evidence-round.md` its evidence and what
+  that does not cover. The Product Owner accepted it on 2026-11-17 (#311 comment 6936494700), and
   it was merged into `main`. Every other page keeps its design until its own feature.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
@@ -307,15 +318,16 @@ Administrator, an Editor or an Author sees it, comes from
 `scripts/dev-runtime-env.sh node scripts/capture-admin.ts <out-dir> [<role>]`.
 
 Text on a gradient or over a decoration is read with
-`node scripts/measure-text-contrast.ts [--fixtures <module>] [--all-text] <path> <selector>...`
+`node scripts/measure-text-contrast.ts [--fixtures <module>] [--all-text] [--fold] <path> <selector>...`
 before the suites run: axe leaves such text unmeasured. It prints the lowest contrast under the
 text's own pixels at five widths, then each text's lowest reading; its header says how. With
-`--all-text` a selector is a surface, such as `'main .deep-field'`, and every text on it is read,
-which is what a spec's or a hand-off's "every text" asks for. A page a fixtures module makes is
+`--all-text` a selector is a surface, such as `'main .deep-field'`, or `main` for a whole page, and
+every text on it is read, which is what a spec's or a hand-off's "every text" asks for; `--fold`
+gives one closing line to the texts that differ only in their numbers. A page a fixtures module makes is
 named `fixture:<capture's name>`. A focus ring over two surfaces, such as a card over
 the deep field's edge, is read the same way with
 `node scripts/measure-focus-contrast.ts [--fixtures <module>] [--style <css>] <path> <selector>...`
-(CODING_STANDARDS "Public pages").
+(CODING_STANDARDS "Public pages"); each reading names what it measured.
 
 The runtime holds the demo dataset: content marked `[ตัวอย่าง]` that fills every page for the
 Product Owner's review. `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` installs it
@@ -392,7 +404,8 @@ Every task run cleans up only **task-owned temporary resources** before it ends:
 Cleanup is part of task completion, never deferred to a later task. A task run that cannot
 clean up a resource it owns reports that fact in its result instead of leaving it silently.
 `scripts/dev-runtime-residue.sh` checks the runtime's share of it: synthetic entries, media,
-terms, bylines, redirects and menu items (`docs/operations/development-quadlet.md`, Daily use).
+terms, bylines, redirects, menu items, Office Contact values and social handles
+(`docs/operations/development-quadlet.md`, Daily use).
 
 Production prerequisites, deployment and recovery live in
 [docs/operations/production-foundation.md](docs/operations/production-foundation.md) and are

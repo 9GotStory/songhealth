@@ -22,8 +22,9 @@
 // which is 0 or a few at a fractional edge unless something covers the ring. The element's
 // surroundings are captured without focus and with it, after scrolling the element to the
 // window's middle and waiting for the pictures that then load. Animations and transitions are
-// stopped first, and the pointer rests at the window's corner. The script prints and judges
-// nothing.
+// stopped first, and the pointer rests at the window's corner. Each reading opens with the
+// element's name or first words, and how many the selector matches when it is more than one. The
+// script prints and judges nothing.
 //
 // --fixtures takes a module of scripts/screenshot-fixtures/, through scripts/dev-runtime-env.sh,
 // and a prototype's page is measured with its folder as the origin, as
@@ -75,8 +76,18 @@ class Reading {
 
 /** The contrast of `selector`'s focus ring against the page under it and beside it. */
 async function ringContrast(page: Page, selector: string): Promise<string> {
+	const matches = await page.locator(selector).count();
 	const element = page.locator(selector).first();
 	if (!(await element.isVisible())) return "not shown";
+	// What was measured, so a selector that finds another part first shows it (#318 retro:
+	// "main article a" on an Announcement's page found the breadcrumb, inside the page's article).
+	const words = await element.evaluate((node) =>
+		(node.getAttribute("aria-label") ?? (node as HTMLElement).innerText)
+			.trim()
+			.replace(/\s+/g, " ")
+			.slice(0, 30),
+	);
+	const measured = `"${words}"${matches > 1 ? `, the first of ${matches}` : ""}`;
 	await element.evaluate((node) => node.scrollIntoView({ block: "center" }));
 	await page.waitForLoadState("networkidle");
 	await page.mouse.move(0, 0);
@@ -91,7 +102,7 @@ async function ringContrast(page: Page, selector: string): Promise<string> {
 			radius: Number.parseFloat(style.borderTopLeftRadius),
 		};
 	});
-	if (!ring.shown) return "no focus ring";
+	if (!ring.shown) return `${measured}: no focus ring`;
 	await element.evaluate((node) => (node as HTMLElement).blur());
 	const box = await element.boundingBox();
 	if (box === null) return "not shown";
@@ -111,12 +122,14 @@ async function ringContrast(page: Page, selector: string): Promise<string> {
 	const focused = await page.screenshot({ clip });
 	const [before, after] = await decode(page, [unfocused, focused]);
 
+	// A corner's radius is at most half the box, as CSS draws a pill's (`rounded-pill`, 999px).
+	const corner = Math.min(ring.radius, box.width / 2, box.height / 2);
 	/**
 	 * How far a point of the clip lies outside the element's box with its corners' radius, grown by
 	 * `grow`, as Chromium draws an outline around a rounded box; negative inside it.
 	 */
 	const outside = (px: number, py: number, grow: number) => {
-		const radius = ring.radius > 0 ? ring.radius + grow : 0;
+		const radius = corner > 0 ? corner + grow : 0;
 		const qx = Math.abs(px + x - (box.x + box.width / 2)) - (box.width / 2 + grow - radius);
 		const qy = Math.abs(py + y - (box.y + box.height / 2)) - (box.height / 2 + grow - radius);
 		return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - radius;
@@ -140,8 +153,8 @@ async function ringContrast(page: Page, selector: string): Promise<string> {
 			beside.add(contrast(color, pixelAt(after!, at)));
 		}
 	}
-	if (under.pixels === 0) return "no ring pixel found";
-	return `${ring.color}; under the ring: ${under}; beside it, with focus: ${beside}; ${covered} px of the ring not in its colour`;
+	if (under.pixels === 0) return `${measured}: no ring pixel found`;
+	return `${measured}: ${ring.color}; under the ring: ${under}; beside it, with focus: ${beside}; ${covered} px of the ring not in its colour`;
 }
 
 await measureAtEachWidth({ path, selectors, ...options }, ringContrast);

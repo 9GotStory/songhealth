@@ -38,8 +38,6 @@
 	/* Colours the Figma frame uses without a variable */
 	--color-topic-blue: #f0f5fc; /* The procurement Announcement badge's fill */
 	--color-divider: #dbe8e3; /* Separators inside a white box */
-	--color-activity-visual-from: #bfdcce; /* Activity card without an image */
-	--color-activity-visual-to: #e8f0d9;
 	/*
 	 * The hero's chip (spec #239 "Hero and Featured"), and the fill and border of a secondary link
 	 * on a dark surface (Figma frame §3)
@@ -384,7 +382,9 @@
  * fades in, after --hero-enter-delay. The Featured card and the sheet behind it turn into their
  * tilt instead, the card after the hero's text and the sheet after the card. A list's heading and
  * its lead enter the same way (src/components/ListHeading.astro; spec #280 "Motion"), and so do a
- * Post page's header and then its frame (src/components/PostHeader.astro, PostColumns.astro).
+ * Post page's header and then its frame (src/components/PostHeader.astro, PostColumns.astro), and
+ * an Announcement's or a Document's header and then its card (CardOverField.astro; spec #311
+ * "Motion").
  */
 @utility hero-enter {
 	@media screen and (prefers-reduced-motion: no-preference) {

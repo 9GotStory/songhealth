@@ -23,7 +23,7 @@
 //   from `sm`; below `sm` three compact rows follow it. With fewer, the grid has two columns from
 //   `sm` and the large card spans the row when the others are an even number, so no cell is empty;
 // - the Current Announcements (Feature 008 #245; spec #239 "Current Announcements";
-//   HomeAnnouncementRow): the four newest current Announcements by announcement date, the Featured
+//   AnnouncementRow): the four newest current Announcements by announcement date, the Featured
 //   one left out (`04` §7), three below `sm`, as rows with a date tile, the category, the title and
 //   the status and dates the Announcements list shows (src/lib/announcements.ts). The section is a
 //   surface-soft band with a white glow at its upper left corner, and from `lg` its heading, lead
@@ -111,7 +111,7 @@ import Users from "@lucide/astro/icons/users";
 import ContentCard from "../components/ContentCard.astro";
 import DeepField from "../components/DeepField.astro";
 import HomeActivityTile from "../components/HomeActivityTile.astro";
-import HomeAnnouncementRow from "../components/HomeAnnouncementRow.astro";
+import AnnouncementRow from "../components/AnnouncementRow.astro";
 import HomeContactCard from "../components/HomeContactCard.astro";
 import HomeHealthCard from "../components/HomeHealthCard.astro";
 import HomeHero from "../components/HomeHero.astro";
@@ -371,7 +371,7 @@ const discoveryField =
 				<ul class="flex flex-col gap-3.5">
 					{announcements.map((announcement, index) => (
 						<li class:list={["scroll-reveal", index === 3 && "max-sm:hidden"]}>
-							<HomeAnnouncementRow announcement={announcement} now={now} />
+							<AnnouncementRow announcement={announcement} now={now} kind="home" />
 						</li>
 					))}
 				</ul>
