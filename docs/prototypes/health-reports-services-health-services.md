@@ -87,3 +87,15 @@ offers.
   report reads "26 ต.ค. 2569"), as the list orders it; A shows the fiscal year on the tile and the
   date in the facts line.
 - No case overflows the window at any of the five widths (`shots/measures.json`).
+
+## The Product Owner's picks (2026-11-17, "ตามที่แนะนำ")
+
+- P1 `/services`: B, the Homepage's card (`HomeServiceCard`, shared), with the two related links
+  under the lead as white underlined links. The pills beside the heading pushed the lead to three
+  lines at 768 px, and Feature 010's lists have no pill link.
+- P2 `/health-services`: A, rows, with "เปิดแผนที่" at the right from `lg`, as a Document row's
+  download.
+- P3 `/health/reports`: A, the `file-chart-column` tile with the fiscal year. B's date tile shows a
+  report without a report date by its publication date, which reads as the report's own date.
+- P4 the two pages' lists: A, a Health Service's Services as the catalog's cards and a Service's
+  offering Health Services as the directory's rows, as P1 and P2.
