@@ -296,7 +296,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, one of the two exceptions to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
-| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's page (§9.5), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, its own tile of the file tile's size and gradient with `file-chart-column` (§7.3; #342) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342) |
+| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's and a Health Report's page (§9.5, §9.6), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, its own tile of the file tile's size and gradient with `file-chart-column` (§7.3; #342) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342); on a Health Report's page 5.68:1 (#343) |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7, and the label on its page, §9.4) | 13.85:1 |
@@ -1846,7 +1846,16 @@ Feature 011 #343 (spec #338 "The three pages: the header", "The card over the fi
   unpublished Document and for a file that cannot be served; and the motion. Its top-level report
   test reads the details, the download's address and file name, the breadcrumb and the canonical
   address, and "/health without JavaScript" the page whole without JavaScript.
-- **Measured:** see §13 v1.5 (#343) for the readings taken in its evidence round.
+- **Measured** on the development runtime at `a683d48` (#343), `scripts/measure-text-contrast.ts
+  --all-text --fold` at 1,440, 1,024, 768, 375 and 320 px on `main` of
+  `/health/reports/demo-report-dengue-q4` (every field), `/health/reports/demo-report-performance-2569`
+  (no report date) and two synthetic reports (`scripts/screenshot-fixtures/lists-by-count.ts`,
+  `LIST=health-reports`: the report Document unpublished, and its file deleted), the lowest of each
+  text: the breadcrumb's links 6.61:1 and its current page 5.34:1 (375 px); "วันที่รายงาน" and the
+  date 7.75:1; the type's pill 5.79:1 (375 px); the H1 6.19:1 (375 px) and the summary 6.45:1; the
+  tile's "PDF" 5.68:1; the H2 12.21:1, the Document's title 6.45:1, the type and size 4.97:1 and
+  the download's words 6.45:1; the details' terms 4.97:1 and values 16.54:1; the notice's
+  "เอกสารรายงานไม่พร้อมให้บริการ" 10.94:1, its line 5.07:1 and "ติดต่อเรา" 5.78:1.
 
 ## 10. Acceptance and known limits
 
