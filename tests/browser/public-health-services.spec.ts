@@ -219,7 +219,7 @@ test("/health-services lists only published Health Services by name, each with i
 });
 
 /** A synthetic Health Service, its title the name it is shown by. */
-type HealthServiceFixture = DraftFixture & { officialName: string };
+type HealthServiceFixture = Awaited<ReturnType<typeof createSyntheticHealthService>>;
 
 /** The Google Maps link the pages build from these coordinates (Maps URLs, search action). */
 const mapLinkOf = (latitude: number, longitude: number) =>
@@ -844,8 +844,8 @@ test("a Health Service page shows its shown name and its official name under it,
 		expect(body.includes(word), `a Health Service page never says "${word}"`).toBe(false);
 	}
 
-	// Since #345 the page opens on the deep field, its official name under the H1 and out of the
-	// card, and its Services are cards named by H3s, in the order staff linked them.
+	// The page opens on the deep field with its official name under the H1 and no ชื่อทางการ row,
+	// and its Services are cards named by H3s, in the order staff linked them.
 	expect({
 		field: await deepField(page).count(),
 		under: await fieldParts(page).header.locator("h1 ~ p").allInnerTexts(),
@@ -906,9 +906,9 @@ test("a Health Service page leaves out what is not set, and the map link without
 test.describe("a Health Service's page on the field", () => {
 	type WithServices = HealthServiceFixture & { services: DraftFixture[] };
 	/**
-	 * Shown by its display name, closed for now, with every detail: a two-line address with
-	 * coordinates, hours, contact, two Areas, and three Services linked out of their names' order,
-	 * one with a name long enough to wrap.
+	 * Shown by its display name, closed for now, with every detail: two Facility Types, a two-line
+	 * address with coordinates, hours, contact, two Areas, and three Services linked out of their
+	 * names' order, one with a name long enough to wrap.
 	 */
 	let full: WithServices & { type: SyntheticTerm; areas: SyntheticTerm[] };
 	/** Inactive, shown by its official name, its address without coordinates, two Services. */
@@ -921,7 +921,10 @@ test.describe("a Health Service's page on the field", () => {
 	let locationOnly: HealthServiceFixture;
 	/** Nothing set: no row of pills, no card and no Services. */
 	let bare: HealthServiceFixture;
+	/** One Service and nothing else: บริการที่ให้ under the field, with no card. */
+	let servicesOnly: WithServices;
 	let type: SyntheticTerm;
+	let secondType: SyntheticTerm;
 	const pathOf = (fixture: DraftFixture) => `/health-services/${fixture.slug}`;
 	const text = (words: string) => `${SYNTHETIC_FIXTURE_MARK} ${words}`;
 	const ADDRESS = text("45 หมู่ 3 ตำบลบ้านกลาง\nอำเภอสอง จังหวัดแพร่ 54120");
@@ -947,11 +950,11 @@ test.describe("a Health Service's page on the field", () => {
 
 	test.beforeAll(async () => {
 		type = await createTerm("facility_type", "โรงพยาบาลชุมชน");
+		secondType = await createTerm("facility_type", "หน่วยบริการปฐมภูมิ");
 		const areas = [
 			await createTerm("area", "ตำบลบ้านกลาง"),
 			await createTerm("area", "ตำบลห้วยหม้าย"),
 		];
-		// Linked third, first, second: the page keeps the order staff linked them.
 		const services = await publishedServices(["field-third", "field-long", "field-second"]);
 		full = {
 			...(await createHealthService("field-full", {
@@ -965,7 +968,10 @@ test.describe("a Health Service's page on the field", () => {
 					public_contact: text("โทร 054 000 000"),
 					...AT_SONG,
 				},
-				taxonomies: { facility_type: [type.slug], area: areas.map((area) => area.slug) },
+				taxonomies: {
+					facility_type: [type.slug, secondType.slug],
+					area: areas.map((area) => area.slug),
+				},
 				references: { offered_services: services.map((service) => service.id) },
 			})),
 			services,
@@ -998,21 +1004,30 @@ test.describe("a Health Service's page on the field", () => {
 			data: { address: text("2 หมู่ 2 ตำบลสอง"), ...AT_SONG },
 		});
 		bare = await createHealthService("field-bare");
-		for (const fixture of [full, inactive, active, noLocation, locationOnly, bare]) {
+		const alone = await publishedServices(["field-alone"]);
+		servicesOnly = {
+			...(await createHealthService("field-services-only", {
+				references: { offered_services: alone.map((service) => service.id) },
+			})),
+			services: alone,
+		};
+		for (const fixture of [full, inactive, active, noLocation, locationOnly, bare, servicesOnly]) {
 			await publish("health_services", fixture);
 		}
 	});
 
-	test("the page opens on the deep field: the breadcrumb in white, 24 px under it its Facility Type in an outlined white pill and, only when it is temporarily closed or inactive, its status in an accent-warm pill, then its shown name as the page's one H1 in today's sizes and, only when the display name differs, its official name under it, each on the field, 48 rem wide at most; without a pill the row is left out", async ({
+	test("the page opens on the deep field: the breadcrumb in white, 24 px under it each Facility Type in an outlined white pill and, only when it is temporarily closed or inactive, its status in an accent-warm pill, then its shown name as the page's one H1 in today's sizes and, only when the display name differs, its official name under it, each on the field, 48 rem wide at most; without a pill the row is left out", async ({
 		page,
 	}) => {
 		const parts = fieldParts(page);
 		// What today's page already shows: one H1 in its sizes.
 		await page.goto(pathOf(full));
 		await expectPostTitleSizes(page);
+		// One pill per Facility Type, in the order the details row lists them.
+		const shownTypes = (await detailOf(page, "ประเภทหน่วยบริการ").innerText()).split(", ");
 		const { seen, expected } = await readHeaderOnField(page, {
 			pills: [
-				{ words: type.label, look: "outlined" },
+				...shownTypes.map((words) => ({ words, look: "outlined" as const })),
 				{ words: "ปิดให้บริการชั่วคราว", look: "warm" },
 			],
 			under: { text: full.officialName, lines: 1 },
@@ -1020,6 +1035,19 @@ test.describe("a Health Service's page on the field", () => {
 		const onField = seen.field === true;
 		seen.title = onField && (await parts.title.innerText());
 		expected.title = full.title;
+		seen.types = [...shownTypes].sort();
+		expected.types = [type.label, secondType.label].sort();
+
+		// Inactive: the status in the same accent-warm pill.
+		await page.goto(pathOf(inactive));
+		const inactiveHeader = await readHeaderOnField(page, {
+			pills: [
+				{ words: type.label, look: "outlined" },
+				{ words: "ไม่เปิดให้บริการแล้ว", look: "warm" },
+			],
+		});
+		seen.inactive = inactiveHeader.seen;
+		expected.inactive = inactiveHeader.expected;
 
 		/** The words of the header's row of pills, or "no pill", and its lines under the title. */
 		const header = async () => {
@@ -1033,7 +1061,6 @@ test.describe("a Health Service's page on the field", () => {
 			};
 		};
 		for (const [fixture, row] of [
-			[inactive, [type.label, "ไม่เปิดให้บริการแล้ว"]],
 			[active, [type.label]],
 			// No status at all: the type alone.
 			[noLocation, [type.label]],
@@ -1059,15 +1086,14 @@ test.describe("a Health Service's page on the field", () => {
 		const parts = fieldParts(page);
 		const seen: Record<string, unknown> = {};
 		const expected: Record<string, unknown> = {};
-		const ruleColour = await (async () => {
-			await page.goto(pathOf(full));
-			return tokenColor(page, "border-default");
-		})();
-		for (const [fixture, terms, rule] of [
-			[full, [...LOCATION, ...DETAILS, "พื้นที่รับผิดชอบ"], true],
-			[inactive, ["ที่ตั้ง", "ประเภทหน่วยบริการ", "สถานะการให้บริการ"], true],
-			[noLocation, ["รหัสหน่วยบริการ", "ประเภทหน่วยบริการ"], false],
-			[locationOnly, ["ที่ตั้ง"], false],
+		await page.goto(pathOf(full));
+		const ruleColour = await tokenColor(page, "border-default");
+		// The map link only with both coordinates: inactive has its address alone.
+		for (const [fixture, terms, rule, maps] of [
+			[full, [...LOCATION, ...DETAILS, "พื้นที่รับผิดชอบ"], true, 1],
+			[inactive, ["ที่ตั้ง", "ประเภทหน่วยบริการ", "สถานะการให้บริการ"], true, 0],
+			[noLocation, ["รหัสหน่วยบริการ", "ประเภทหน่วยบริการ"], false, 0],
+			[locationOnly, ["ที่ตั้ง"], false, 1],
 		] as const) {
 			await page.goto(pathOf(fixture));
 			const past: number[] = [];
@@ -1103,6 +1129,7 @@ test.describe("a Health Service's page on the field", () => {
 				past,
 				inCard: card !== "no card" && {
 					terms: await parts.card.getByRole("term").allInnerTexts(),
+					maps: await parts.card.getByRole("link", { name: /^เปิดแผนที่/ }).count(),
 					rule: await ruleRead(),
 				},
 			};
@@ -1111,6 +1138,7 @@ test.describe("a Health Service's page on the field", () => {
 				past: [0, 0],
 				inCard: {
 					terms,
+					maps,
 					rule: rule
 						? { aboveRule: 20, underRule: 20, edge: ["1px", "solid", ruleColour] }
 						: { rules: 0, lists: 1 },
@@ -1191,7 +1219,7 @@ test.describe("a Health Service's page on the field", () => {
 		expect(seen, "the card over the field's edge").toEqual(expected);
 	});
 
-	test("under the card บริการที่ให้ follows 32 px below 1,024 px and 40 px from 1,024 px, in the text column, under the Homepage's section heading (the users tile, the label บริการ, the H2), its Service cards 24 px under the heading below 640 px and 28 px from 640 px, names H3, two to a row from 640 px and one below at one, two and three Services, 20 px apart from 640 px and 12 px below, resting with the card shadow", async ({
+	test("under the card, or under the field without one, บริการที่ให้ follows 32 px below 1,024 px and 40 px from 1,024 px, in the text column, under the Homepage's section heading (the users tile, the label บริการ, the H2), its Service cards 24 px under the heading below 640 px and 28 px from 640 px, names H3 in the order staff linked them, two to a row from 640 px and one below at one, two and three Services, 20 px apart from 640 px and 12 px below, resting with the card shadow", async ({
 		page,
 	}) => {
 		const parts = fieldParts(page);
@@ -1214,7 +1242,7 @@ test.describe("a Health Service's page on the field", () => {
 					getComputedStyle(element).backgroundImage.startsWith("linear-gradient"),
 				),
 			},
-			h3: await region.getByRole("heading", { level: 3 }).count(),
+			h3: await region.getByRole("heading", { level: 3 }).allInnerTexts(),
 			resting: await surfaces.evaluateAll((elements) =>
 				elements.map((element) => getComputedStyle(element).boxShadow),
 			),
@@ -1223,7 +1251,8 @@ test.describe("a Health Service's page on the field", () => {
 		expected.heading = {
 			label: await tokenColor(page, "brand-primary"),
 			tile: { hidden: "true", gradient: true },
-			h3: 3,
+			// Linked third, first, second: the order staff linked them.
+			h3: full.services.map((service) => service.title),
 			resting: [cardShadow, cardShadow, cardShadow],
 		};
 
@@ -1270,6 +1299,21 @@ test.describe("a Health Service's page on the field", () => {
 					apart: count > 1 ? (width < 640 ? 12 : 20) : undefined,
 				};
 			}
+		}
+
+		// With no card, บริการที่ให้ follows the field's lower edge by the same 32 and 40 px.
+		await page.goto(pathOf(servicesOnly));
+		for (const width of [375, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			const at = `no card at ${width} px`;
+			if ((await parts.field.count()) !== 1 || (await region.count()) !== 1) break;
+			seen[at] = {
+				cards: await parts.card.count(),
+				underField: Math.round(
+					(await boxOf(region, `${at}: the section`)).y - (await fieldEdge(parts.field, at)),
+				),
+			};
+			expected[at] = { cards: 0, underField: width < 1024 ? 32 : 40 };
 		}
 
 		// Each card is the catalog's, named by its H3, the card shadow at rest and deep under the
