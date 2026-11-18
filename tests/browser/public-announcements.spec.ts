@@ -53,6 +53,7 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
+	isoDay,
 	pressInside,
 	SECTION_CRUMBS,
 	MOBILE_VIEWPORT,
@@ -329,8 +330,7 @@ test("an Announcement closing today is current and open, one that closed yesterd
 });
 
 /** The `day`th of `month` 2031, after any real Announcement, so the row leads its group. */
-const in2031 = (month: number, day: number) =>
-	`2031-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
+const in2031 = (month: number, day: number) => isoDay(2031, month, day);
 
 /** The 2031 Announcements a test published, returned to draft after it (`publishLeading`). */
 const leading = new LeadingEntries();

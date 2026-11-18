@@ -78,6 +78,7 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
+	isoDay,
 	SECTION_CRUMBS,
 	boxOf,
 	cardList,
@@ -105,6 +106,7 @@ import {
 	ownTitles,
 	pointAtRowEdge,
 	pressInside,
+	rowShadow,
 	shownLines,
 	shownOpacity,
 	siteTitleParts,
@@ -776,8 +778,7 @@ test("/health/reports lists only published Health Reports by report date, an und
 });
 
 /** The `day`th of `month` 2032, after any real Health Report and the paging test's, so it leads. */
-const in2032 = (month: number, day: number) =>
-	`2032-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
+const in2032 = (month: number, day: number) => isoDay(2032, month, day);
 
 /** The Health Reports a test published to lead the list, returned to draft after it. */
 const leading = new LeadingEntries();
@@ -869,7 +870,7 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 	const bareFacts = reportFacts(bareRow, thaiDate(bareAt));
 	const summary = row.getByText(LONG_REPORT_SUMMARY.trim());
 	const periodLine = row.getByText(`ช่วงเวลาของรายงาน: ${period}`);
-	// What today's rows already show: the title as an H2 naming the link to the report's page.
+	// The title as an H2 naming the one link, to the report's page.
 	await expect(parts.title).toHaveText(full.title);
 	await expect(row.getByRole("link")).toHaveAccessibleName(full.title);
 	await expect(row.getByRole("link")).toHaveAttribute("href", `/health/reports/${full.slug}`);
@@ -889,8 +890,6 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 					colour: getComputedStyle(year).color,
 					size: parseFloat(getComputedStyle(year).fontSize),
 					weight: getComputedStyle(year).fontWeight,
-					underIcon:
-						!!icon && year.getBoundingClientRect().top >= icon.getBoundingClientRect().bottom,
 				},
 			};
 		});
@@ -916,10 +915,13 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 			.filter(Boolean),
 		surface:
 			(await parts.surface.count()) > 0
-				? await parts.surface.evaluate((element) => {
-						const style = getComputedStyle(element);
-						return [style.backgroundColor, style.borderTopLeftRadius];
-					})
+				? [
+						...(await parts.surface.evaluate((element) => {
+							const style = getComputedStyle(element);
+							return [style.backgroundColor, style.borderTopLeftRadius];
+						})),
+						await rowShadow(parts.surface),
+					]
 				: undefined,
 	};
 	const expected: Record<string, unknown> = {
@@ -932,7 +934,6 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 				colour: await tokenColor(page, "accent-warm"),
 				size: 13,
 				weight: "600",
-				underIcon: true,
 			},
 		},
 		bareTile: {
@@ -950,7 +951,8 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 		period: { size: 13, weight: "400", colour: secondary, underline: false },
 		// The bare row shows its publication date and its title, and nothing else.
 		bareText: [thaiDate(bareAt), bare.title],
-		surface: [await tokenColor(page, "surface-base"), "22px"],
+		// At rest, the `card` shadow.
+		surface: [await tokenColor(page, "surface-base"), "22px", "card"],
 	};
 	for (const width of [1440, 1024, 1023, 768, 640, 639, 375, 320]) {
 		await page.setViewportSize({ width, height: 900 });
@@ -962,6 +964,24 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 		const tile = (await parts.tile.count()) > 0 ? await boxOf(parts.tile, "the tile") : undefined;
 		seen[width] = {
 			tile: tile && [Math.round(tile.width), Math.round(tile.height)],
+			yearUnderIcon:
+				tile &&
+				(await parts.tile.evaluate((element) => {
+					const [icon, year] = [element.querySelector("svg"), element.querySelector("span")];
+					return (
+						!!icon &&
+						!!year &&
+						year.getBoundingClientRect().top >= icon.getBoundingClientRect().bottom
+					);
+				})),
+			// The surface's padding: top, right, bottom, left.
+			padding:
+				(await parts.surface.count()) > 0
+					? await parts.surface.evaluate((element) => {
+							const style = getComputedStyle(element);
+							return [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft];
+						})
+					: undefined,
 			titleSize: (await textStyle(parts.title)).size,
 			title: await shownLines(parts.title),
 			summary: (await summary.isVisible()) ? await shownLines(summary) : "hidden",
@@ -972,6 +992,9 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 		};
 		expected[width] = {
 			tile: wide ? [92, 92] : [68, 68],
+			yearUnderIcon: true,
+			// The Announcement row's.
+			padding: wide ? ["18px", "22px", "18px", "18px"] : ["12px", "12px", "12px", "12px"],
 			titleSize: wide ? 18 : 16,
 			title: { lines: 2, clamped: true },
 			summary: wide ? { lines: 2, clamped: true } : "hidden",
@@ -987,18 +1010,18 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 test("a report row's facts line wraps between its facts, and inside a fact only when that fact alone is wider than the line", async ({
 	page,
 }) => {
-	const near = await createTerm("report_type", "รายงานสถานการณ์โรค");
-	const far = await createTerm(
+	const shortType = await createTerm("report_type", "รายงานสถานการณ์โรค");
+	const longType = await createTerm(
 		"report_type",
 		"รายงานที่มีชื่อประเภทรายงานยาวกว่าหนึ่งบรรทัดของแถวบนจอแคบและจอขนาดกลางของแท็บเล็ต",
 	);
 	const between = await createReport("facts-between", {
 		data: { report_at: in2032(2, 2), fiscal_year: 2569 },
-		taxonomies: { report_type: [near.slug] },
+		taxonomies: { report_type: [shortType.slug] },
 	});
 	const inside = await createReport("facts-inside", {
 		data: { report_at: in2032(2, 1) },
-		taxonomies: { report_type: [far.slug] },
+		taxonomies: { report_type: [longType.slug] },
 	});
 	for (const report of [between, inside]) await publishLeading(report);
 
@@ -1025,18 +1048,26 @@ test("a report row's facts line wraps between its facts, and inside a fact only 
 				}),
 			};
 		});
-	const seen: Record<number, unknown> = {};
-	for (const width of [1440, 640]) {
+	/** Whether each fact takes more than one line exactly when it alone is wider than the line. */
+	const ruleHolds = (line: Awaited<ReturnType<typeof factsOf>>) =>
+		line.facts.every((fact) => (fact.lines === "more") === fact.widerThanLine);
+	const seen: Record<string, unknown> = { rule: {} };
+	const rule = seen.rule as Record<number, unknown>;
+	for (const width of [1440, 640, 320]) {
 		await page.setViewportSize({ width, height: 900 });
-		seen[width] = {
-			between: await factsOf(between, near.label),
-			inside: await factsOf(inside, far.label),
+		const read = {
+			between: await factsOf(between, shortType.label),
+			inside: await factsOf(inside, longType.label),
 		};
+		rule[width] = [ruleHolds(read.between), ruleHolds(read.inside)];
+		if (width !== 320) seen[width] = read;
 	}
 	const one = { lines: 1, widerThanLine: false };
 	// A term's label opens with the suites' mark, so a synthetic fact is long: at 640 px the first
 	// row's three facts fit the line apart, not together, and the second row's type alone is wider.
 	const expected = {
+		// At 320 px, with the least room, which facts wrap depends on the labels; the rule holds.
+		rule: { 1440: [true, true], 640: [true, true], 320: [true, true] },
 		1440: {
 			between: { lines: 1, facts: [one, one, one] },
 			inside: { lines: 1, facts: [one, one] },
@@ -1075,7 +1106,7 @@ test("under the pointer a report row moves 10 px to the right with the deep shad
 	/** Press `row` at `point`, and the page it opens, or the list when it opens none. */
 	const opensFrom = async (row: Locator, point: { x: number; y: number }, label: string) => {
 		await pressInside(page, row, point, label);
-		// Today's row opens nothing there: the reading follows either way.
+		// A press that opens nothing leaves the list: the reading follows either way.
 		await page.waitForURL(/\/health\/reports\/./, { timeout: 5_000 }).catch(() => undefined);
 		return new URL(page.url()).pathname;
 	};

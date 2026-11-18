@@ -2981,6 +2981,10 @@ export class BorrowedEntries {
 	}
 }
 
+/** The `day`th of `month` of `year` at 10:00 in Thailand, as a fixture's stored instant. */
+export const isoDay = (year: number, month: number, day: number) =>
+	`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
+
 /**
  * The entries a test publishes to lead an ordered list (newest first, a page boundary), returned
  * to draft when the test ends, so a later test's own entries lead in turn (CODING_STANDARDS
