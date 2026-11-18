@@ -625,8 +625,8 @@ test("under the pointer a row moves 10 px to the right with the deep shadow only
 	).toEqual({
 		// The first row lies over the field's edge: its ring has a white band on both sides.
 		band: expect.stringContaining(`${await tokenColor(page, "surface-base")} 0px 0px 0px 7px`),
-		stillSurface: { x: still.x, deepShadow: false },
-		movedSurface: { x: moving.x + 10, deepShadow: true },
+		stillSurface: { x: still.x, shadow: "card" },
+		movedSurface: { x: moving.x + 10, shadow: "deep" },
 		opened: `/announcements/${first.slug}`,
 	});
 });
