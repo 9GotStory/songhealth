@@ -1820,7 +1820,8 @@ Feature 011 #343 (spec #338 "The three pages: the header", "The card over the fi
   staff typed. A pill the report lacks is left out, and so is the row without a pill. The report
   date shows in the details too.
 - **The card** over the field's edge, as §9.4's in place and look, holds first the report
-  Document, as §9.5's file: `FileTile`; 16 px beside it the H2 "เอกสารรายงาน" at body-large,
+  Document, as §9.5's file: `FileTile`, centred on the text beside it, which the Document's title
+  makes the taller (as in the prototype); 16 px beside it the H2 "เอกสารรายงาน" at body-large,
   semibold, `brand-dark`, the Document's title under it as a semibold `brand-primary` underlined
   link to `/documents/<slug>`, and the file's type and size at small size in `text-secondary`; and
   the download "ดาวน์โหลดเอกสาร" with the type and size (`FileDownloadLink`), linking to the file

@@ -3037,7 +3037,8 @@ export async function fileBlockLookAsSpecified(
 }
 
 /**
- * Where a file block's parts lie at `width`: the tile at the card's inner corner and its size, the
+ * Where a file block's parts lie at `width`: the block at the card's inner corner, the tile
+ * centred on the text beside it (the taller of the two sets the block's height) and its size, the
  * H2 beside it, the gap above each of `lines` (the parts under the H2, the type and size last),
  * the download at the card's right from `sm` or across it below, the rule under the block and the
  * details under the rule, and how the download's words lie.
@@ -3056,11 +3057,17 @@ export async function fileBlockAt(block: FileBlock, lines: Locator[], width: num
 	const ruleBox = await boxOf(block.rule, `${at}: the rule`);
 	const detailsBox = await boxOf(block.details, `${at}: the details`);
 	const inner = { left: cardBox.x + 20, width: cardBox.width - 40 };
-	const textEnd = Math.max(...text.map((box) => box.x + box.width));
+	const textRight = Math.max(...text.map((box) => box.x + box.width));
 	const last = text.at(-1)!;
-	const fileEnd = Math.max(tileBox.y + tileBox.height, downloadBox.y + downloadBox.height);
+	const textTop = text[0]!.y;
+	const textEnd = last.y + last.height;
+	const fileEnd = Math.max(tileBox.y + tileBox.height, downloadBox.y + downloadBox.height, textEnd);
 	return {
-		tileFirst: [Math.round(tileBox.x - inner.left), Math.round(tileBox.y - cardBox.y - 20)],
+		tileFirst: [
+			Math.round(tileBox.x - inner.left),
+			Math.round(Math.min(tileBox.y, textTop) - cardBox.y - 20),
+		],
+		tileCentred: Math.abs(tileBox.y + tileBox.height / 2 - (textTop + textEnd) / 2) <= 1,
 		tile: [Math.round(tileBox.width), Math.round(tileBox.height)],
 		headingBesideTile: Math.round(text[0]!.x - tileBox.x - tileBox.width),
 		linesUnderHeading: text
@@ -3070,7 +3077,7 @@ export async function fileBlockAt(block: FileBlock, lines: Locator[], width: num
 			? {
 					right: Math.round(inner.left + inner.width - downloadBox.x - downloadBox.width),
 					height: Math.round(downloadBox.height),
-					besideText: downloadBox.x - textEnd >= 16,
+					besideText: downloadBox.x - textRight >= 16,
 				}
 			: {
 					across: [
@@ -3078,9 +3085,7 @@ export async function fileBlockAt(block: FileBlock, lines: Locator[], width: num
 						Math.round(downloadBox.width - inner.width),
 					],
 					tall: downloadBox.height >= 44,
-					under: Math.round(
-						downloadBox.y - Math.max(tileBox.y + tileBox.height, last.y + last.height),
-					),
+					under: Math.round(downloadBox.y - Math.max(tileBox.y + tileBox.height, textEnd)),
 				},
 		rule: [
 			Math.round(ruleBox.y - fileEnd),
@@ -3093,18 +3098,19 @@ export async function fileBlockAt(block: FileBlock, lines: Locator[], width: num
 }
 
 /**
- * A file block's places at `width` as spec #311 sets them (docs/design/DESIGN.md §9.5): the tile
- * 20 px inside the card's corner, 68 px below `sm` and 92 px from `sm`, the H2 16 px beside it and
- * each of `lines` lines straight under it; from `sm` the download at the card's right, 52 px high
- * and 16 px or more beside the text, below `sm` across the card 16 px under the tile and the text,
- * 44 px high or more; the rule 20 px under the block across the card and the details 20 px under
- * it. The download's words take `wordLines` lines, centred, the type and size kept on one, 8 px
- * inside its edges.
+ * A file block's places at `width` as spec #311 sets them (docs/design/DESIGN.md §9.5): the block
+ * 20 px inside the card's corner, the tile centred on the text, 68 px below `sm` and 92 px from
+ * `sm`, the H2 16 px beside it and each of `lines` lines straight under it; from `sm` the download
+ * at the card's right, 52 px high and 16 px or more beside the text, below `sm` across the card
+ * 16 px under the tile and the text, 44 px high or more; the rule 20 px under the block across the
+ * card and the details 20 px under it. The download's words take `wordLines` lines, centred, the
+ * type and size kept on one, 8 px inside its edges.
  */
 export function fileBlockAsSpecified(width: number, lines: number, wordLines: number) {
 	const wide = width >= 640;
 	return {
 		tileFirst: [0, 0],
+		tileCentred: true,
 		tile: wide ? [92, 92] : [68, 68],
 		headingBesideTile: 16,
 		linesUnderHeading: Array.from({ length: lines }, () => 0),
