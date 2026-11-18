@@ -4,12 +4,12 @@
 // one. Announcement, Service and Basic Pages show it.
 //
 // `downloads` gives an Announcement's page the redesigned section (Feature 010 #316; spec #311
-// "The card over the field's edge", decisions 2 and 10): the Homepage's section heading on the
-// page's colour (the gradient folder-open tile, the label "เอกสารเผยแพร่" and the H2), then the
-// Document rows with their downloads, titles H3, 14 px apart and 24 px under the heading below `sm`
-// and 28 px from `sm`, as an Activity's photos are under theirs (DESIGN.md §9.2). Service and Basic
-// Pages keep today's heading and rows until their own feature. The rows show at once, with no
-// reveal (spec #311 "Motion").
+// "The card over the field's edge", decisions 2 and 10), and a Service's page (Feature 011 #344;
+// spec #338 decision 3): the Homepage's section heading on the page's colour (the gradient
+// folder-open tile, the label "เอกสารเผยแพร่" and the H2), then the Document rows with their
+// downloads, titles H3, 14 px apart and 24 px under the heading below `sm` and 28 px from `sm`, as
+// an Activity's photos are under theirs (DESIGN.md §9.2). A Basic Page keeps today's heading and
+// rows until its own feature. The rows show at once, with no reveal (spec #311 "Motion").
 import FolderOpen from "@lucide/astro/icons/folder-open";
 import type { DocumentEntry } from "../lib/documents";
 import DetailSection from "./DetailSection.astro";
