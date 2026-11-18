@@ -103,18 +103,20 @@ and why, and `.jscpd-baseline.json` records them.
   heading: the clamp's hidden overflow cuts the link's focus ring, which lies outside the link's
   box (#315 retro: axe's focus check failed the Document row's title).
 - `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
-  the Homepage's and the one under a list's heading or a Post page's, an Announcement's or a
-  Document's header (spec #280 "The field under a heading"; spec #311 "An Announcement's page and a
-  Document's page: the header"), it is 4.10:1 or less, so small text there is `surface-base`
+  the Homepage's and the one under a list's heading or a Post page's, an Announcement's, a
+  Document's or a Health Report's header (spec #280 "The field under a heading"; spec #311 "An
+  Announcement's page and a Document's page: the header"; spec #338 "The three pages: the
+  header"), it is 4.10:1 or less, so small text there is `surface-base`
   (`docs/design/DESIGN.md` §3.2; Product Owner, 2026-11-11: #242 comment 6797113372, item 1). Two
   measured exceptions, on the same gradient tile: the month and year on a current Announcement's
   date tile (its readings in `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12:
   #245 comment 6812837231), and the file's type on the file tile (`FileTile`) of a Document row on
-  `/documents` and in an Announcement's related Documents, and in the card on a Document's page
-  (§3.2, §7.3 and §9.5; spec #311 "The Document repository", "The card over the field's edge"),
-  and the fiscal year on a Health Report row's tile on `/health/reports`, a tile of the file tile's
-  size and gradient (§3.2, §7.3; spec #338 "The Health Reports list"). A change to any of these
-  tiles' size or gradient needs a new measure.
+  `/documents` and in an Announcement's related Documents, and in the card on a Document's and a
+  Health Report's page (§3.2, §7.3, §9.5 and §9.6; spec #311 "The Document repository", "The card
+  over the field's edge"; spec #338 "The card over the field's edge"), and the fiscal year on a
+  Health Report row's tile on `/health/reports`, a tile of the file tile's size and gradient
+  (§3.2, §7.3; spec #338 "The Health Reports list"). A change to any of these tiles' size or
+  gradient needs a new measure.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
   state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`

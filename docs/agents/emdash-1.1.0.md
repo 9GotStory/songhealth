@@ -156,8 +156,7 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   `buildRenderMediaUrl`). `./src/lib/media.ts` `availableBody` reads the key the same way.
 - `/_emdash/api/media/file/{key}` serves the stored file by key. Safe image, video and audio types
   are served inline; anything else is an attachment, and the header names no file
-  (`src/astro/routes/api/media/file/[...key].ts`). `./src/components/DocumentDownload.astro` and
-  `./src/components/FileDownloadLink.astro` give the name with the link's `download` attribute.
+  (`src/astro/routes/api/media/file/[...key].ts`). `./src/components/FileDownloadLink.astro` gives the name with the link's `download` attribute.
 - Deleting a media item has no in-use guard. It removes the stored file unless another media row
   shares the key, and content keeps the stale value (`src/api/handlers/media.ts` `handleMediaDelete`).
   Pages therefore check media through `./src/lib/media.ts`.
