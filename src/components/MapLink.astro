@@ -20,24 +20,18 @@ import { mapHref } from "../lib/map-link";
 interface Props {
 	latitude: number | null | undefined;
 	longitude: number | null | undefined;
-	/** The link sits on a dark surface. */
-	onDark?: boolean;
-	/** The pill of a Health Service row: the map-pin before the words, semibold. */
-	inRow?: boolean;
+	/**
+	 * The outlined pill; a Health Service row's pill, with the map-pin before the words, semibold;
+	 * or underlined text on a dark surface.
+	 */
+	variant?: "pill" | "row" | "onDark";
 	/** Read after the words by assistive technology only, such as the place's name. */
 	context?: string;
 	/** Where the pill sits in its parent. */
 	class?: string;
 }
 
-const {
-	latitude,
-	longitude,
-	onDark = false,
-	inRow = false,
-	context,
-	class: className,
-} = Astro.props;
+const { latitude, longitude, variant = "pill", context, class: className } = Astro.props;
 const href = mapHref(latitude, longitude);
 ---
 
@@ -45,17 +39,17 @@ const href = mapHref(latitude, longitude);
 	<a
 		class:list={[
 			"inline-flex min-h-11 items-center",
-			onDark
+			variant === "onDark"
 				? "gap-1 font-semibold text-surface-base underline underline-offset-4"
 				: "gap-2 rounded-pill border border-border-input px-5 text-label text-brand-primary hover:bg-surface-soft",
-			inRow && "justify-center font-semibold",
+			variant === "row" && "justify-center font-semibold",
 			className,
 		]}
 		href={href}
 		target="_blank"
 		rel="noopener"
 	>
-		{inRow && <MapPin class="shrink-0" size={20} />}
+		{variant === "row" && <MapPin class="shrink-0" size={20} />}
 		เปิดแผนที่
 		<span class="sr-only"> {context && `${context} `}(เปิดในแท็บใหม่)</span>
 		<ArrowUpRight class="shrink-0" size={16} />

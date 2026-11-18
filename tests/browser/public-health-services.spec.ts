@@ -294,6 +294,14 @@ test("each /health-services row: the hospital tile, 68 px below 640 px and 92 px
 		plainOfficial: await listedItem(page, plain.title)
 			.locator("p", { hasText: plain.officialName })
 			.count(),
+		// The Facility Type and the Area, separated by a dot.
+		factsParts: await parts.facts.evaluate((line) =>
+			[...line.children].map((part) => part.textContent?.trim()),
+		),
+		surface: await row.evaluate((article) => {
+			const style = getComputedStyle(article);
+			return [style.backgroundColor, style.borderTopLeftRadius];
+		}),
 	};
 	const expected: Record<string, unknown> = {
 		tile: { decorative: true, gradient: true, icon: [24, accentWarm] },
@@ -303,6 +311,8 @@ test("each /health-services row: the hospital tile, 68 px below 640 px and 92 px
 		official: { size: 13, weight: "400", colour: secondary, underline: false },
 		address: { size: 14, weight: "500", colour: secondary, underline: false },
 		plainOfficial: 0,
+		factsParts: [type.label, "•", area.label],
+		surface: [await tokenColor(page, "surface-base"), "22px"],
 	};
 	for (const width of [1440, 1024, 768, 640, 639, 375, 320]) {
 		await page.setViewportSize({ width, height: 900 });
@@ -469,6 +479,8 @@ test("a row's เปิดแผนที่ is a 44 px pill with a border-input
 		edge: await tokenColor(page, "border-input"),
 		words: { colour: await tokenColor(page, "brand-primary"), weight: "600" },
 		order: ["map-pin 20", "เปิดแผนที่", "arrow-up-right 16"],
+		// Across the row below 640 px, its icons and words sit in the pill's middle.
+		centredAt375: true,
 	};
 	if ((await map.count()) === 1) {
 		const style = await textStyle(map);
@@ -494,6 +506,14 @@ test("a row's เปิดแผนที่ is a 44 px pill with a border-input
 				}),
 			),
 		});
+		await page.setViewportSize({ width: 375, height: 900 });
+		const [pill, pin, arrow] = [
+			await boxOf(map, "the map link at 375 px"),
+			await boxOf(map.locator("svg.lucide-map-pin"), "the map-pin"),
+			await boxOf(map.locator("svg.lucide-arrow-up-right"), "the arrow"),
+		];
+		seen.centredAt375 =
+			Math.abs((pin.x + arrow.x + arrow.width) / 2 - (pill.x + pill.width / 2)) <= 1;
 		await expect(map).toHaveAccessibleName(expected.name as string);
 		await expectVisuallyHidden(map.getByText(mapped.title), "the name in the map link");
 	}
