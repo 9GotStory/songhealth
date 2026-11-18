@@ -13,12 +13,13 @@
 // The page opens on the deep field as the News lists do (Feature 011 #339; spec #338 "Decisions",
 // 5 and 6; ListHeading): the label "หน่วยบริการ", as the Homepage's Health Service band, with the
 // hospital icon over its H1, which stays the GLOSSARY's name, and no link. The filter form comes
-// first over the field's lower edge, then the rows, the empty state and the pager (ListBody), the
-// rows in today's look until #341.
+// first over the field's lower edge, then the rows, the empty state and the pager (ListBody). Each
+// row has its map (HealthServiceMapRow; Feature 011 #341), 14 px apart, and reveals as it comes
+// into the window, as the Document rows do (spec #338 "Motion").
 import Hospital from "@lucide/astro/icons/hospital";
 import EmptyState from "../../components/EmptyState.astro";
 import FilterForm from "../../components/FilterForm.astro";
-import HealthServiceRow from "../../components/HealthServiceRow.astro";
+import HealthServiceMapRow from "../../components/HealthServiceMapRow.astro";
 import ListBody from "../../components/ListBody.astro";
 import ListHeading from "../../components/ListHeading.astro";
 import Pagination from "../../components/Pagination.astro";
@@ -69,10 +70,10 @@ const listUrl = new URL(directoryPath(filters), Astro.url);
 			]}
 		/>
 		{entries.length > 0 ? (
-			<ul class="flex flex-col gap-4">
+			<ul class="flex flex-col gap-3.5">
 				{entries.map((healthService) => (
-					<li>
-						<HealthServiceRow healthService={healthService} />
+					<li class="scroll-reveal">
+						<HealthServiceMapRow healthService={healthService} />
 					</li>
 				))}
 			</ul>

@@ -36,24 +36,36 @@ import {
 	type DraftFixture,
 	type SyntheticTerm,
 } from "./cms.helpers";
+import type { Locator } from "@playwright/test";
 import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
 	LIST_END,
 	SECTION_CRUMBS,
+	boxOf,
 	deepField,
 	detailOf,
 	expect,
+	expectAttentionLabelsOnOwnLine,
 	expectBreadcrumb,
 	expectPreviewRenders,
+	expectSecondLinkPlaces,
 	expectSiteNotFound,
+	expectVisuallyHidden,
 	listedItem,
 	listedTitles,
 	ownTitles,
+	pointAt,
+	pressOpens,
+	rowShadow,
+	shownLines,
+	shownOpacity,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
 	testListOnField,
+	textStyle,
+	tokenColor,
 } from "./public.helpers";
 
 /** The fixed number of Health Services a list page shows. */
@@ -119,6 +131,8 @@ testListOnField({
 		await publishEntryAt(admin, "health_services", healthService.id, LIST_END);
 		return healthService;
 	},
+	// Each row reveals as it comes into the window (Feature 011 #341; spec #338 "Motion").
+	itemsMove: "rows",
 });
 
 test("/health-services lists only published Health Services by name, each with its type, Area, address and a closed status in text", async ({
@@ -172,7 +186,7 @@ test("/health-services lists only published Health Services by name, each with i
 	).toEqual([listed.title, closed.title, inactive.title]);
 
 	const row = listedItem(page, listed.title);
-	await expect(row.getByRole("link", { name: listed.title })).toHaveAttribute(
+	await expect(row.getByRole("link", { name: listed.title, exact: true })).toHaveAttribute(
 		"href",
 		`/health-services/${listed.slug}`,
 	);
@@ -190,6 +204,413 @@ test("/health-services lists only published Health Services by name, each with i
 	for (const word of ["ใกล้บ้าน", "ในพื้นที่"]) {
 		expect(body.includes(word), `the directory never says "${word}"`).toBe(false);
 	}
+});
+
+/** The Google Maps link the pages build from these coordinates (Maps URLs, search action). */
+const mapLinkOf = (latitude: number, longitude: number) =>
+	`https://www.google.com/maps/search/?api=1&query=${latitude}%2C${longitude}`;
+
+/** A place in อำเภอสอง, as a Health Service's coordinates. */
+const AT_SONG = { latitude: 18.4719, longitude: 100.1953 };
+
+/** A shown name longer than two lines of a row at every width. */
+const LONG_NAME =
+	"ก โรงพยาบาลส่งเสริมสุขภาพตำบลบ้านกลางและเครือข่ายหน่วยบริการปฐมภูมิร่วมกับศูนย์สุขภาพชุมชนของตำบลบ้านกลางและตำบลห้วยหม้าย ซึ่งให้บริการตรวจรักษาโรคทั่วไป ส่งเสริมสุขภาพ ป้องกันโรค และฟื้นฟูสภาพแก่ประชาชนในพื้นที่รับผิดชอบทุกกลุ่มวัย ทั้งเด็กเล็ก วัยเรียน วัยทำงาน ผู้สูงอายุ และผู้ป่วยติดเตียงที่ต้องการการดูแลต่อเนื่องที่บ้านโดยทีมสหวิชาชีพของเครือข่าย";
+
+/** An address longer than two lines of a row at every width. */
+const LONG_ADDRESS = `${SYNTHETIC_FIXTURE_MARK} ${"เลขที่ 123 หมู่ 1 ถนนสายหลักบ้านกลาง ตำบลบ้านกลาง อำเภอสอง จังหวัดแพร่ 54120 ".repeat(4)}`;
+
+/**
+ * The parts of a Health Service row a citizen meets, found by what they say and do: the tile by
+ * its icon, the name by its heading, the map by its words.
+ */
+function rowParts(row: Locator) {
+	return {
+		tile: row.locator("svg.lucide-hospital").locator("xpath=.."),
+		title: row.getByRole("heading", { level: 2 }),
+		map: row.getByRole("link", { name: /^เปิดแผนที่/ }),
+	};
+}
+
+/** A row's facts line, found by `fact`, the words of one of its facts. */
+const factsLine = (row: Locator, fact: string) =>
+	row.getByText(fact, { exact: true }).locator("xpath=..");
+
+/** A fact on one line, which fits the line by itself. */
+const one = { lines: 1, widerThanLine: false };
+
+/** The row that follows `row` in its list, or none. */
+const nextRow = (row: Locator) =>
+	row.locator("xpath=ancestor::li[1]/following-sibling::li[1]").getByRole("article");
+
+test("each /health-services row: the hospital tile, 68 px below 640 px and 92 px from 640 px; the facts line; the shown name as an H2 in two lines at most, linking to its page; the official name when the display name differs; the address in two lines at most at label size at every width; the name and the map its two links; rows 14 px apart", async ({
+	page,
+}) => {
+	const type = await createTerm("facility_type", "โรงพยาบาลส่งเสริมสุขภาพตำบล");
+	const area = await createTerm("area", "ตำบลบ้านกลาง");
+	const long = await createHealthService("row-long", {
+		displayName: `ก${LONG_NAME}`,
+		data: { address: LONG_ADDRESS, ...AT_SONG },
+		taxonomies: { facility_type: [type.slug], area: [area.slug] },
+	});
+	const plain = await createHealthService("row-plain");
+	for (const fixture of [long, plain]) await publish("health_services", fixture);
+
+	await page.goto("/health-services");
+	const row = listedItem(page, long.title);
+	const parts = { ...rowParts(row), facts: factsLine(row, type.label) };
+	// What today's rows already show: the name linking to the page, the facts, the official name.
+	await expect(
+		row.getByRole("link", { name: long.title, exact: true }),
+		"the name links to the Health Service's page",
+	).toHaveAttribute("href", `/health-services/${long.slug}`);
+	await expect(parts.facts).toContainText(area.label);
+	const official = row.getByText(long.officialName, { exact: true });
+	const address = row.getByText(LONG_ADDRESS.trim());
+
+	const tileOnce = async () => {
+		if ((await parts.tile.count()) === 0) return undefined;
+		return parts.tile.evaluate((tile) => ({
+			decorative: tile.closest('[aria-hidden="true"]') !== null,
+			gradient: getComputedStyle(tile).backgroundImage.includes("linear-gradient"),
+			icon: [
+				tile.querySelector("svg")?.getBoundingClientRect().width,
+				getComputedStyle(tile.querySelector("svg") ?? tile).color,
+			],
+		}));
+	};
+	const [secondary, primary, accentWarm] = [
+		await tokenColor(page, "text-secondary"),
+		await tokenColor(page, "text-primary"),
+		await tokenColor(page, "accent-warm"),
+	];
+	const seen: Record<string, unknown> = {
+		tile: await tileOnce(),
+		facts: await textStyle(parts.facts),
+		titleColour: (await textStyle(parts.title.getByRole("link"))).colour,
+		official: await textStyle(official),
+		address: await textStyle(address),
+		// A Health Service whose shown name is its official name shows it once.
+		plainOfficial: await listedItem(page, plain.title)
+			.locator("p", { hasText: plain.officialName })
+			.count(),
+		// The Facility Type and the Area, separated by a dot.
+		factsParts: await parts.facts.evaluate((line) =>
+			[...line.children].map((part) => part.textContent?.trim()),
+		),
+		surface: await row.evaluate((article) => {
+			const style = getComputedStyle(article);
+			return [style.backgroundColor, style.borderTopLeftRadius];
+		}),
+	};
+	const expected: Record<string, unknown> = {
+		tile: { decorative: true, gradient: true, icon: [24, accentWarm] },
+		facts: { size: 13, weight: "400", colour: secondary, underline: false },
+		// The name's colour and sizes as the Document row's (#315 comment 6908747140, item 1).
+		titleColour: primary,
+		official: { size: 13, weight: "400", colour: secondary, underline: false },
+		address: { size: 14, weight: "500", colour: secondary, underline: false },
+		plainOfficial: 0,
+		factsParts: [type.label, "•", area.label],
+		surface: [await tokenColor(page, "surface-base"), "22px"],
+	};
+	for (const width of [1440, 1024, 768, 640, 639, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		const wide = width >= 640;
+		const [upper, lower] = [
+			await boxOf(row, "the first row"),
+			await boxOf(nextRow(row), "the next row"),
+		];
+		const tile = (await parts.tile.count()) > 0 ? await boxOf(parts.tile, "the tile") : undefined;
+		seen[width] = {
+			tile: tile && [Math.round(tile.width), Math.round(tile.height)],
+			titleSize: (await textStyle(parts.title)).size,
+			// The name's link holds its lines, so its focus ring is not cut where they are.
+			title: await shownLines(parts.title.getByRole("link")),
+			address: (await address.isVisible()) ? await shownLines(address) : "hidden",
+			links: await row.getByRole("link").count(),
+			gap: Math.round(lower.y - (upper.y + upper.height)),
+		};
+		expected[width] = {
+			tile: wide ? [92, 92] : [68, 68],
+			titleSize: wide ? 18 : 16,
+			title: { lines: 2, clamped: true },
+			address: { lines: 2, clamped: true },
+			links: 2,
+			gap: 14,
+		};
+	}
+	expect(seen, "the row's parts").toEqual(expected);
+});
+
+test("a row's facts line wraps between its facts, and inside a fact only when that fact alone is wider than the line", async ({
+	page,
+}) => {
+	const type = await createTerm("facility_type", "โรงพยาบาลส่งเสริมสุขภาพตำบล");
+	const near = await createTerm("area", "ตำบลบ้านกลาง");
+	const far = await createTerm(
+		"area",
+		"ตำบลที่มีชื่อพื้นที่รับผิดชอบยาวกว่าหนึ่งบรรทัดของแถวบนจอแคบและจอขนาดกลางของแท็บเล็ต",
+	);
+	const between = await createHealthService("facts-between", {
+		displayName: "ก ข้อมูลตัดระหว่างกัน",
+		taxonomies: { facility_type: [type.slug], area: [near.slug] },
+	});
+	const inside = await createHealthService("facts-inside", {
+		displayName: "ก ข้อมูลตัดในข้อมูล",
+		taxonomies: { area: [far.slug] },
+	});
+	for (const fixture of [between, inside]) await publish("health_services", fixture);
+
+	await page.goto("/health-services");
+	/** The line's lines, and each fact's lines and whether it alone is wider than the line. */
+	const factsOf = (fixture: DraftFixture, fact: string) =>
+		factsLine(listedItem(page, fixture.title), fact).evaluate((line) => {
+			const lineHeight = parseFloat(getComputedStyle(line).lineHeight);
+			const facts = [...line.children].filter(
+				(part) => part.getAttribute("aria-hidden") !== "true",
+			);
+			return {
+				lines: Math.round(line.getBoundingClientRect().height / lineHeight),
+				facts: facts.map((fact) => {
+					// The fact on one line, in the line's own type.
+					const alone = fact.cloneNode(true) as HTMLElement;
+					alone.style.cssText = "position:absolute;white-space:nowrap;visibility:hidden";
+					line.append(alone);
+					const width = alone.getBoundingClientRect().width;
+					alone.remove();
+					return {
+						lines: Math.round(fact.getBoundingClientRect().height / lineHeight),
+						widerThanLine: width > line.clientWidth,
+					};
+				}),
+			};
+		});
+	const seen: Record<number, unknown> = {};
+	for (const width of [1440, 640]) {
+		await page.setViewportSize({ width, height: 900 });
+		seen[width] = {
+			between: await factsOf(between, type.label),
+			inside: await factsOf(inside, far.label),
+		};
+	}
+	// A term's label opens with the suites' mark, so a synthetic fact is long: at 640 px the first
+	// row's two facts fit the line apart, not together, and the second row's Area alone is wider.
+	const expected = {
+		1440: { between: { lines: 1, facts: [one, one] }, inside: { lines: 1, facts: [one] } },
+		640: {
+			between: { lines: 2, facts: [one, one] },
+			inside: { lines: 2, facts: [{ lines: 2, widerThanLine: true }] },
+		},
+	};
+	expect(seen, "where the facts line wraps").toEqual(expected);
+});
+
+test("a temporarily closed or an inactive Health Service's row shows its attention label on its own line between the facts and the name, and an active one shows none", async ({
+	page,
+}) => {
+	const type = await createTerm("facility_type", "สถานีอนามัย");
+	const fields = (status: string) => ({
+		data: { operational_status: status },
+		taxonomies: { facility_type: [type.slug] },
+	});
+	const closed = await createHealthService("row-closed", {
+		displayName: "ก ปิดชั่วคราว",
+		...fields("temporarily_closed"),
+	});
+	const inactive = await createHealthService("row-inactive", {
+		displayName: "ก ไม่เปิดแล้ว",
+		...fields("inactive"),
+	});
+	const active = await createHealthService("row-active", {
+		displayName: "ก เปิดอยู่",
+		...fields("active"),
+	});
+	for (const fixture of [closed, inactive, active]) await publish("health_services", fixture);
+
+	await page.goto("/health-services");
+	await expect(listedItem(page, active.title)).not.toContainText(
+		/เปิดให้บริการ|ปิดให้บริการชั่วคราว|ไม่เปิดให้บริการแล้ว/,
+	);
+	await expectAttentionLabelsOnOwnLine(
+		page,
+		(
+			[
+				[closed, "ปิดให้บริการชั่วคราว"],
+				[inactive, "ไม่เปิดให้บริการแล้ว"],
+			] as const
+		).map(([fixture, label]) => {
+			const row = listedItem(page, fixture.title);
+			return { row, title: rowParts(row).title, facts: factsLine(row, type.label), label };
+		}),
+	);
+});
+
+test("a row's เปิดแผนที่ is a 44 px pill with a border-input edge, the 20 px map-pin before its semibold brand-primary words and the 16 px arrow-up-right after, named by the words, the shown name and (เปิดในแท็บใหม่), linking to the map address of its coordinates in a new tab; without both coordinates the row has no map link", async ({
+	page,
+}) => {
+	const mapped = await createHealthService("map", {
+		displayName: "ก มีแผนที่",
+		data: AT_SONG,
+	});
+	const unmapped = await createHealthService("no-map", { displayName: "ก ไม่มีแผนที่" });
+	const halfMapped = await createHealthService("half-map", {
+		displayName: "ก มีแต่ละติจูด",
+		data: { latitude: AT_SONG.latitude },
+	});
+	for (const fixture of [mapped, unmapped, halfMapped]) await publish("health_services", fixture);
+
+	await page.goto("/health-services");
+	const map = rowParts(listedItem(page, mapped.title)).map;
+	const seen: Record<string, unknown> = {
+		links: await map.count(),
+		without: [
+			await rowParts(listedItem(page, unmapped.title)).map.count(),
+			await rowParts(listedItem(page, halfMapped.title)).map.count(),
+		],
+	};
+	const expected: Record<string, unknown> = {
+		links: 1,
+		without: [0, 0],
+		href: mapLinkOf(AT_SONG.latitude, AT_SONG.longitude),
+		target: ["_blank", "noopener"],
+		name: `เปิดแผนที่ ${mapped.title} (เปิดในแท็บใหม่)`,
+		height: 44,
+		edge: await tokenColor(page, "border-input"),
+		words: { colour: await tokenColor(page, "brand-primary"), weight: "600" },
+		order: ["map-pin 20", "เปิดแผนที่", "arrow-up-right 16"],
+		// Across the row below 640 px, its icons and words sit in the pill's middle.
+		centredAt375: true,
+	};
+	if ((await map.count()) === 1) {
+		const style = await textStyle(map);
+		Object.assign(seen, {
+			href: await map.getAttribute("href"),
+			target: [await map.getAttribute("target"), await map.getAttribute("rel")],
+			name: await map.evaluate((link) => link.textContent?.replace(/\s+/g, " ").trim()),
+			height: Math.round((await boxOf(map, "the map link")).height),
+			edge: await map.evaluate((link) => getComputedStyle(link).borderTopColor),
+			words: { colour: style.colour, weight: style.weight },
+			// What shows in the pill, left to right: its icons by name and size, and its words.
+			order: await map.evaluate((link) =>
+				[...link.childNodes].flatMap((node) => {
+					if (node instanceof SVGElement) {
+						const icon = [...node.classList].find(
+							(name) => name.startsWith("lucide-") && name !== "lucide-icon",
+						);
+						return [`${icon?.slice("lucide-".length)} ${node.getBoundingClientRect().width}`];
+					}
+					if (node instanceof HTMLElement && node.classList.contains("sr-only")) return [];
+					const text = node.textContent?.trim();
+					return text ? [text] : [];
+				}),
+			),
+		});
+		await page.setViewportSize({ width: 375, height: 900 });
+		const [pill, pin, arrow] = [
+			await boxOf(map, "the map link at 375 px"),
+			await boxOf(map.locator("svg.lucide-map-pin"), "the map-pin"),
+			await boxOf(map.locator("svg.lucide-arrow-up-right"), "the arrow"),
+		];
+		seen.centredAt375 =
+			Math.abs((pin.x + arrow.x + arrow.width) / 2 - (pill.x + pill.width / 2)) <= 1;
+		await expect(map).toHaveAccessibleName(expected.name as string);
+		await expectVisuallyHidden(map.getByText(mapped.title), "the name in the map link");
+	}
+	expect(seen, "the row's map link").toEqual(expected);
+});
+
+test("a row's เปิดแผนที่ sits at the row's right from 1,024 px, under the text at its start from 640 px to 1,023 px, and across the row under the tile and the text below 640 px", async ({
+	page,
+}) => {
+	const healthService = await createHealthService("map-place", {
+		displayName: "ก ที่ของแผนที่",
+		data: { address: `${SYNTHETIC_FIXTURE_MARK} 45 หมู่ 3 ตำบลบ้านกลาง อำเภอสอง`, ...AT_SONG },
+	});
+	await publish("health_services", healthService);
+
+	await page.goto("/health-services");
+	const row = listedItem(page, healthService.title);
+	const { tile, title, map } = rowParts(row);
+	await expect(row.getByRole("link", { name: healthService.title, exact: true })).toBeVisible();
+	await expectSecondLinkPlaces(page, { row, tile, title, link: map }, "map link");
+});
+
+test("a row's name and map are its two focus stops; under the pointer its name turns brand-primary and underlined on its own link only, the row takes the deep shadow only when motion is allowed, and a press elsewhere on the row opens nothing", async ({
+	page,
+}) => {
+	const word = `ก${crypto.randomUUID().slice(0, 6)}`;
+	const first = await createHealthService("pointer-first", {
+		displayName: `${word} 1`,
+		data: AT_SONG,
+	});
+	const second = await createHealthService("pointer-second", { displayName: `${word} 2` });
+	for (const fixture of [first, second]) await publish("health_services", fixture);
+	/** Press `x`, `y` on `target` and say which address the page then shows. */
+	const pressAt = (target: Locator, x: number, y: number, label: string) =>
+		pressOpens(page, target, { x, y }, label, "/health-services");
+
+	await page.goto("/health-services");
+	const row = listedItem(page, first.title);
+	const { tile, title, map } = rowParts(row);
+	// Today's row has no tile: its official name stands in, so a red run reaches the last assertion.
+	const away = (await tile.count()) === 1 ? tile : row.getByText(first.officialName);
+	const nameLink = title.getByRole("link");
+	const focused = (part: Locator) =>
+		part.evaluate((element) => element === document.activeElement).catch(() => false);
+	await nameLink.focus();
+	await page.keyboard.press("Tab");
+	const afterName = (await map.count()) === 1 && (await focused(map));
+	await page.keyboard.press("Tab");
+	const afterThat = await focused(
+		listedItem(page, second.title).getByRole("heading", { level: 2 }).getByRole("link"),
+	);
+
+	await pointAt(page, away);
+	const onTile = { name: await textStyle(nameLink), row: await rowShadow(row) };
+	await pointAt(page, nameLink);
+	const onName = await textStyle(nameLink);
+	const awayBox = await boxOf(away, "the tile");
+	const rowBox = await boxOf(row, "the row");
+	const pressed = {
+		tile: await pressAt(
+			away,
+			awayBox.x + awayBox.width / 2,
+			awayBox.y + awayBox.height / 2,
+			"the tile",
+		),
+		// Inside the row's rounded corner, 22 px across, where nothing is drawn but the row.
+		corner: await pressAt(row, rowBox.x + rowBox.width - 12, rowBox.y + 12, "the row's corner"),
+	};
+
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.goto("/health-services");
+	await listedItem(page, first.title).scrollIntoViewIfNeeded();
+	await expect
+		.poll(() => shownOpacity(listedItem(page, first.title)), { message: "the row has come in" })
+		.toBe(1);
+	await pointAt(page, away);
+	const moving = await rowShadow(listedItem(page, first.title));
+
+	const [primary, text] = [
+		await tokenColor(page, "brand-primary"),
+		await tokenColor(page, "text-primary"),
+	];
+	expect(
+		{ afterName, afterThat, onTile, onName, pressed, moving },
+		"the row's links, under the pointer and the keyboard",
+	).toEqual({
+		// Tab goes from the name to its map, then to the next row's name.
+		afterName: true,
+		afterThat: true,
+		onTile: {
+			name: { size: 18, weight: "600", colour: text, underline: false },
+			row: "card",
+		},
+		onName: { size: 18, weight: "600", colour: primary, underline: true },
+		pressed: { tile: "/health-services", corner: "/health-services" },
+		moving: "deep",
+	});
 });
 
 test("the Area and name filters narrow /health-services alone and combined, and a shared filtered address reproduces the results", async ({
@@ -332,10 +753,6 @@ test("an unmatched filter shows the empty state, and a filtered directory pages 
 
 /** A synthetic Service draft, which a Health Service can offer. */
 const createService = (label: string) => createSyntheticService(admin, label);
-
-/** The Google Maps link the page builds from these coordinates (Maps URLs, search action). */
-const mapLinkOf = (latitude: number, longitude: number) =>
-	`https://www.google.com/maps/search/?api=1&query=${latitude}%2C${longitude}`;
 
 test("a Health Service page shows its names, type, affiliation, status, address, hours, contact, Area, map link and offered Services in staff order", async ({
 	page,

@@ -538,6 +538,161 @@ export async function pressInside(
 	await page.mouse.click(point.x, point.y);
 }
 
+/** The text styles of `part` as the page is laid out now. */
+export function textStyle(part: Locator) {
+	return part.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return {
+			size: parseFloat(style.fontSize),
+			weight: style.fontWeight,
+			colour: style.color,
+			underline: style.textDecorationLine.includes("underline"),
+		};
+	});
+}
+
+/** A row's shadow as the page is now: the `deep` one under the pointer, else the `card` one. */
+export function rowShadow(row: Locator) {
+	return row.evaluate((article) => {
+		const shadow = getComputedStyle(article).boxShadow;
+		return shadow.includes("0px 30px 60px -20px")
+			? "deep"
+			: shadow.includes("0px 10px 15px")
+				? "card"
+				: shadow;
+	});
+}
+
+/** The parts of a row with a second link (a Document's download, a Health Service's map). */
+export interface RowWithSecondLink {
+	row: Locator;
+	tile: Locator;
+	/** The row's title, the text the link lies beside or under. */
+	title: Locator;
+	link: Locator;
+}
+
+/**
+ * Fail unless a row's second link sits as a Document row's download does (Feature 010 #315; spec
+ * #311 decision 17, spec #338 "The Health Service Directory"): at the row's right, beside the
+ * text, from 1,024 px; under the text at its start from 640 px to 1,023 px; and across the row
+ * under the tile and the text below 640 px, read on both sides of each edge and at 375 and 320 px.
+ */
+export async function expectSecondLinkPlaces(
+	page: Page,
+	{ row, tile, title, link }: RowWithSecondLink,
+	label: string,
+): Promise<void> {
+	/** Where the link lies against the row, its tile and its text, rounded to the pixel. */
+	const placeOf = async () => {
+		if ((await link.count()) === 0) return `no ${label}`;
+		const [rowBox, tileBox, textBox, linkBox] = [
+			await boxOf(row, "the row"),
+			await boxOf(tile, "the tile"),
+			await boxOf(title, "the title"),
+			await boxOf(link, label),
+		];
+		const near = (a: number, b: number) => Math.abs(a - b) <= 1;
+		const textBottom = Math.max(textBox.y + textBox.height, tileBox.y + tileBox.height);
+		if (linkBox.x >= textBox.x + textBox.width - 0.5 && linkBox.y < textBox.y + textBox.height) {
+			return "beside the text, at the row's right";
+		}
+		if (linkBox.y >= textBottom - 0.5 && near(linkBox.x, textBox.x)) {
+			return "under the text, at its start";
+		}
+		if (
+			linkBox.y >= textBottom - 0.5 &&
+			near(linkBox.x, tileBox.x) &&
+			near(linkBox.x + linkBox.width, rowBox.x + rowBox.width - (tileBox.x - rowBox.x))
+		) {
+			return "across the row, under the tile and the text";
+		}
+		return `elsewhere: ${JSON.stringify({ rowBox, tileBox, textBox, linkBox })}`;
+	};
+	const seen: Record<number, string> = {};
+	const expected: Record<number, string> = {};
+	for (const [width, place] of [
+		[1440, "beside the text, at the row's right"],
+		[1024, "beside the text, at the row's right"],
+		[1023, "under the text, at its start"],
+		[640, "under the text, at its start"],
+		[639, "across the row, under the tile and the text"],
+		[375, "across the row, under the tile and the text"],
+		[320, "across the row, under the tile and the text"],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		seen[width] = await placeOf();
+		expected[width] = place;
+	}
+	expect(seen, `the ${label}'s place by width`).toEqual(expected);
+}
+
+/** Point at the middle of `part` once it shows, and give the move 0.5 s. */
+export async function pointAt(page: Page, part: Locator): Promise<void> {
+	const box = await boxOf(part, "where the pointer goes");
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.waitForTimeout(500);
+}
+
+/**
+ * Press `point` on `target`, a part of a row on the list at `list`, and say which address the page
+ * then shows; the page goes back to the list when the press opened another.
+ */
+export async function pressOpens(
+	page: Page,
+	target: Locator,
+	point: { x: number; y: number },
+	label: string,
+	list: string,
+): Promise<string> {
+	await pressInside(page, target, point, label);
+	await page
+		.waitForURL(new RegExp(`${RegExp.escape(list)}/.`), { timeout: 2_000 })
+		.catch(() => undefined);
+	const opened = new URL(page.url()).pathname;
+	if (opened !== list) await page.goBack();
+	return opened;
+}
+
+/** A row with the status `label`, and its facts line and title. */
+export interface RowWithStatus {
+	row: Locator;
+	facts: Locator;
+	title: Locator;
+	label: string;
+}
+
+/**
+ * Fail unless each row's status, an `accent-warm` attention label, lies on its own line between the
+ * row's facts line and its title, as a Document row's does (Feature 010 #315).
+ */
+export async function expectAttentionLabelsOnOwnLine(
+	page: Page,
+	rows: RowWithStatus[],
+): Promise<void> {
+	const seen: Record<string, unknown> = {};
+	const expected: Record<string, unknown> = {};
+	for (const { row, facts, title, label } of rows) {
+		const status = row.getByText(label, { exact: true });
+		const [factsBox, statusBox, titleBox] = [
+			await boxOf(facts, `${label}: the facts`),
+			await boxOf(status, `${label}: the label`),
+			await boxOf(title, `${label}: the title`),
+		];
+		seen[label] = {
+			underFacts: statusBox.y >= factsBox.y + factsBox.height - 0.5,
+			aboveTitle: titleBox.y >= statusBox.y + statusBox.height - 0.5,
+			fill: await status.evaluate((element) => getComputedStyle(element).backgroundColor),
+		};
+		expected[label] = {
+			underFacts: true,
+			aboveTitle: true,
+			fill: await tokenColor(page, "accent-warm"),
+		};
+	}
+	expect(seen, "the attention label on its own line").toEqual(expected);
+}
+
 /** How opaque `part` shows as the page is now, through everything that holds it: 0 to 1. */
 export function shownOpacity(part: Locator): Promise<number> {
 	return part.evaluate((element) => {
