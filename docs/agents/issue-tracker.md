@@ -26,7 +26,7 @@ The repository is `9GotStory/songhealth`; `gh` infers it automatically when run 
 
 A ticket's pull request fills `/pr`'s template (Summary, Evidence, Merge Danger) in this order, as PRs #131–#139 do. Leave out a section with nothing to say.
 
-1. `Builds #<spec> (Feature N, <name>) and #<ticket> ([F00N-NN]).`, then one sentence on what the change gives its user.
+1. `Builds #<spec> (Feature N, <name>) and #<ticket> ([F00N-NN]).`, then one sentence on what the change gives its user. An issue the ticket says its pull request closes, such as a follow-up the change ends, is written "Ends #<n>" with what ends it, never with a closing keyword: it closes on the Product Owner's ask with the ticket, after its `/retro`, and a closing summary's next step names that ask (#343 retro: the ticket said "#334 is closed by the pull request", and the `/implement` summary recommended "Closes #334").
 2. `## Summary`: the smallest view that shows the change (a tree, a diff sketch, pseudocode), then:
    - `### Decisions`: a table of each decision and its source (`PO, #<n> comment <id>`, or a spec section).
    - `### Built on precedent`: each choice that follows an accepted page or ticket, with that precedent.

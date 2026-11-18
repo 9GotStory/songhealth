@@ -2471,8 +2471,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   summary and the round arrow, and the reporting period. One link named by the title covers the
   row, with the lists' banded ring; a report row has no download. Under the pointer the title
   turns `brand-primary`, and with motion allowed the row moves 10 px with the `deep` shadow; each
-  row reveals as it comes into the window. §2, §3.1, §3.2, §6, §7.1, §7.3, §7.8 and §8.12 name it,
-  and `CODING_STANDARDS.md` "Public pages" the tile's measured `accent-warm`. Authority: spec #338
+  row reveals as it comes into the window. §2, §3.1, §3.2, §5, §6, §7.1, §7.3, §7.8 and §8.12 name
+  it, and `CODING_STANDARDS.md` "Public pages" the tile's measured `accent-warm`. Authority: spec #338
   "The Health Reports list" and decisions 1 and 12, and #338 comment 6941491587.
 - **v1.5 a Health Report's page (2026-11-18, Feature 011 #343):** a Health Report's page opens on
   the deep field with the Post page's header (§9.1, §9.6): "วันที่รายงาน" and its report date in
