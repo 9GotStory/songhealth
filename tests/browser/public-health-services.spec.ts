@@ -39,33 +39,45 @@ import {
 import type { Locator } from "@playwright/test";
 import {
 	DESKTOP_VIEWPORT,
+	HEADER_WIDEST,
 	HOME_CRUMB,
 	LIST_END,
 	SECTION_CRUMBS,
 	boxOf,
+	cardOverFieldEdge,
+	cardOverFieldEdgeAsSpecified,
 	deepField,
 	detailOf,
+	entersAfter,
 	expect,
 	expectAttentionLabelsOnOwnLine,
 	expectBreadcrumb,
+	expectPostTitleSizes,
 	expectPreviewRenders,
 	expectSecondLinkPlaces,
+	expectServiceCardInteraction,
 	expectSiteNotFound,
 	expectVisuallyHidden,
+	fieldEdge,
+	fieldParts,
+	itemsPerRow,
 	listedItem,
 	listedTitles,
 	ownTitles,
 	pointAt,
 	pressOpens,
+	readHeaderOnField,
 	rowShadow,
 	shownLines,
 	shownOpacity,
+	shownWhole,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
 	testListOnField,
 	textStyle,
 	tokenColor,
+	tokenShadow,
 } from "./public.helpers";
 
 /** The fixed number of Health Services a list page shows. */
@@ -205,6 +217,9 @@ test("/health-services lists only published Health Services by name, each with i
 		expect(body.includes(word), `the directory never says "${word}"`).toBe(false);
 	}
 });
+
+/** A synthetic Health Service, its title the name it is shown by. */
+type HealthServiceFixture = DraftFixture & { officialName: string };
 
 /** The Google Maps link the pages build from these coordinates (Maps URLs, search action). */
 const mapLinkOf = (latitude: number, longitude: number) =>
@@ -754,7 +769,7 @@ test("an unmatched filter shows the empty state, and a filtered directory pages 
 /** A synthetic Service draft, which a Health Service can offer. */
 const createService = (label: string) => createSyntheticService(admin, label);
 
-test("a Health Service page shows its names, type, affiliation, status, address, hours, contact, Area, map link and offered Services in staff order", async ({
+test("a Health Service page shows its shown name and its official name under it, type, affiliation, status, address, hours, contact, Area, map link and offered Services in staff order", async ({
 	page,
 }) => {
 	const type = await createTerm("facility_type", "โรงพยาบาลส่งเสริมสุขภาพตำบล");
@@ -787,12 +802,9 @@ test("a Health Service page shows its names, type, affiliation, status, address,
 	await publish("health_services", healthService);
 
 	const response = await page.goto(`/health-services/${healthService.slug}`);
-	// A Health Service's page keeps today's heading until its own ticket (#345).
-	await expect(deepField(page), "no deep field under the heading").toHaveCount(0);
 	expect(response?.status(), "GET the Health Service page").toBe(200);
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(healthService.title);
-	await expect(detailOf(page, "ชื่อทางการ")).toHaveText(healthService.officialName);
 	await expect(detailOf(page, "รหัสหน่วยบริการ")).toHaveText("07999");
 	await expect(detailOf(page, "ประเภทหน่วยบริการ")).toHaveText(type.label);
 	await expect(detailOf(page, "สังกัด")).toHaveText(affiliation);
@@ -812,8 +824,7 @@ test("a Health Service page shows its names, type, affiliation, status, address,
 	await expect(main.locator("iframe, embed, object"), "no map is embedded").toHaveCount(0);
 
 	const offered = main.getByRole("region", { name: "บริการที่ให้" });
-	await expect(offered.getByRole("link")).toHaveText([second.title, first.title]);
-	await expect(offered.getByRole("link", { name: first.title })).toHaveAttribute(
+	await expect(offered.getByRole("link", { name: first.title, exact: true })).toHaveAttribute(
 		"href",
 		`/services/${first.slug}`,
 	);
@@ -832,6 +843,20 @@ test("a Health Service page shows its names, type, affiliation, status, address,
 	for (const word of ["ใกล้บ้าน", "ในพื้นที่"]) {
 		expect(body.includes(word), `a Health Service page never says "${word}"`).toBe(false);
 	}
+
+	// Since #345 the page opens on the deep field, its official name under the H1 and out of the
+	// card, and its Services are cards named by H3s, in the order staff linked them.
+	expect({
+		field: await deepField(page).count(),
+		under: await fieldParts(page).header.locator("h1 ~ p").allInnerTexts(),
+		officialNameTerm: await main.getByRole("term").filter({ hasText: "ชื่อทางการ" }).count(),
+		services: await offered.getByRole("heading", { level: 3 }).allInnerTexts(),
+	}).toEqual({
+		field: 1,
+		under: [healthService.officialName],
+		officialNameTerm: 0,
+		services: [second.title, first.title],
+	});
 });
 
 test("a Health Service page leaves out what is not set, and the map link without both coordinates", async ({
@@ -876,6 +901,462 @@ test("a Health Service page leaves out what is not set, and the map link without
 		detailOf(page, "ที่ตั้ง").getByRole("link", { name: /เปิดแผนที่/ }),
 		"coordinates alone give the map link",
 	).toHaveAttribute("href", mapLinkOf(18.1, 100.1));
+});
+
+test.describe("a Health Service's page on the field", () => {
+	type WithServices = HealthServiceFixture & { services: DraftFixture[] };
+	/**
+	 * Shown by its display name, closed for now, with every detail: a two-line address with
+	 * coordinates, hours, contact, two Areas, and three Services linked out of their names' order,
+	 * one with a name long enough to wrap.
+	 */
+	let full: WithServices & { type: SyntheticTerm; areas: SyntheticTerm[] };
+	/** Inactive, shown by its official name, its address without coordinates, two Services. */
+	let inactive: WithServices;
+	/** Open, its location with coordinates, one Service. */
+	let active: WithServices;
+	/** Its code and Facility Type alone: the details without a location, no status. */
+	let noLocation: HealthServiceFixture;
+	/** Its address and coordinates alone: the location without the details. */
+	let locationOnly: HealthServiceFixture;
+	/** Nothing set: no row of pills, no card and no Services. */
+	let bare: HealthServiceFixture;
+	let type: SyntheticTerm;
+	const pathOf = (fixture: DraftFixture) => `/health-services/${fixture.slug}`;
+	const text = (words: string) => `${SYNTHETIC_FIXTURE_MARK} ${words}`;
+	const ADDRESS = text("45 หมู่ 3 ตำบลบ้านกลาง\nอำเภอสอง จังหวัดแพร่ 54120");
+	const DETAILS = ["รหัสหน่วยบริการ", "ประเภทหน่วยบริการ", "สังกัด", "สถานะการให้บริการ"];
+	const LOCATION = ["ที่ตั้ง", "เวลาทำการ", "ช่องทางติดต่อ"];
+	const OFFERED = { label: "บริการ", title: "บริการที่ให้" };
+
+	/** A published Service for each label, in the order given; "field-long" has a long name. */
+	const publishedServices = async (labels: string[]) => {
+		const services = [];
+		for (const label of labels) {
+			const service = await createSyntheticService(admin, label, {
+				name:
+					label === "field-long"
+						? "บริการตรวจคัดกรองและติดตามดูแลผู้ป่วยโรคเรื้อรังที่บ้าน"
+						: "บริการ",
+			});
+			await publish("services", service);
+			services.push(service);
+		}
+		return services;
+	};
+
+	test.beforeAll(async () => {
+		type = await createTerm("facility_type", "โรงพยาบาลชุมชน");
+		const areas = [
+			await createTerm("area", "ตำบลบ้านกลาง"),
+			await createTerm("area", "ตำบลห้วยหม้าย"),
+		];
+		// Linked third, first, second: the page keeps the order staff linked them.
+		const services = await publishedServices(["field-third", "field-long", "field-second"]);
+		full = {
+			...(await createHealthService("field-full", {
+				displayName: "รพ.สต.บ้านกลาง",
+				data: {
+					facility_code: "07998",
+					affiliation_text: text("องค์การบริหารส่วนจังหวัดแพร่"),
+					operational_status: "temporarily_closed",
+					address: ADDRESS,
+					opening_hours: text("จันทร์–ศุกร์ 08.30–16.30 น."),
+					public_contact: text("โทร 054 000 000"),
+					...AT_SONG,
+				},
+				taxonomies: { facility_type: [type.slug], area: areas.map((area) => area.slug) },
+				references: { offered_services: services.map((service) => service.id) },
+			})),
+			services,
+			type,
+			areas,
+		};
+		const two = await publishedServices(["field-inactive-1", "field-inactive-2"]);
+		inactive = {
+			...(await createHealthService("field-inactive", {
+				data: { operational_status: "inactive", address: text("ที่ตั้งเดิม ตำบลสอง") },
+				taxonomies: { facility_type: [type.slug] },
+				references: { offered_services: two.map((service) => service.id) },
+			})),
+			services: two,
+		};
+		const one = await publishedServices(["field-active"]);
+		active = {
+			...(await createHealthService("field-active", {
+				data: { operational_status: "active", address: text("1 หมู่ 1 ตำบลสอง"), ...AT_SONG },
+				taxonomies: { facility_type: [type.slug] },
+				references: { offered_services: one.map((service) => service.id) },
+			})),
+			services: one,
+		};
+		noLocation = await createHealthService("field-no-location", {
+			data: { facility_code: "07997" },
+			taxonomies: { facility_type: [type.slug] },
+		});
+		locationOnly = await createHealthService("field-location-only", {
+			data: { address: text("2 หมู่ 2 ตำบลสอง"), ...AT_SONG },
+		});
+		bare = await createHealthService("field-bare");
+		for (const fixture of [full, inactive, active, noLocation, locationOnly, bare]) {
+			await publish("health_services", fixture);
+		}
+	});
+
+	test("the page opens on the deep field: the breadcrumb in white, 24 px under it its Facility Type in an outlined white pill and, only when it is temporarily closed or inactive, its status in an accent-warm pill, then its shown name as the page's one H1 in today's sizes and, only when the display name differs, its official name under it, each on the field, 48 rem wide at most; without a pill the row is left out", async ({
+		page,
+	}) => {
+		const parts = fieldParts(page);
+		// What today's page already shows: one H1 in its sizes.
+		await page.goto(pathOf(full));
+		await expectPostTitleSizes(page);
+		const { seen, expected } = await readHeaderOnField(page, {
+			pills: [
+				{ words: type.label, look: "outlined" },
+				{ words: "ปิดให้บริการชั่วคราว", look: "warm" },
+			],
+			under: { text: full.officialName, lines: 1 },
+		});
+		const onField = seen.field === true;
+		seen.title = onField && (await parts.title.innerText());
+		expected.title = full.title;
+
+		/** The words of the header's row of pills, or "no pill", and its lines under the title. */
+		const header = async () => {
+			const pill = parts.field.getByText(type.label, { exact: true });
+			return {
+				row:
+					(await pill.count()) === 1
+						? await pill.locator("xpath=..").locator("span").allInnerTexts()
+						: "no pill",
+				under: await parts.header.locator("h1 ~ p").count(),
+			};
+		};
+		for (const [fixture, row] of [
+			[inactive, [type.label, "ไม่เปิดให้บริการแล้ว"]],
+			[active, [type.label]],
+			// No status at all: the type alone.
+			[noLocation, [type.label]],
+		] as const) {
+			await page.goto(pathOf(fixture));
+			seen[fixture.title] = onField && (await header());
+			// Shown by its official name: nothing under the title.
+			expected[fixture.title] = { row, under: 0 };
+		}
+
+		// Neither a type nor a status: no row of pills, the title 24 px under the breadcrumb.
+		await page.goto(pathOf(bare));
+		const bareHeader = await readHeaderOnField(page, { pills: [] });
+		seen.bare = bareHeader.seen;
+		expected.bare = bareHeader.expected;
+		expect(seen, "the header on the field").toEqual(expected);
+	});
+
+	test("the card starts 48 px above the field's lower edge below 640 px and 56 px from 640 px, where the header ends 80 and 96 px above it: white, radius 24, the deep shadow, 20 px inside, in the text column at most 48 rem wide; it holds first the location (ที่ตั้ง with the address and เปิดแผนที่ under it, named with the Health Service, เวลาทำการ, ช่องทางติดต่อ), then 20 px under it a 1 px border-default rule and 20 px under that the details (code, Facility Type, affiliation, status, Areas linking to the filtered directory), each row only when set; without a location the details alone and without the details the location alone, without the rule; a Health Service with neither has no card; nothing is past the window at 375 or 320 px", async ({
+		page,
+	}) => {
+		const widths = [320, 375, 639, 640, 1440];
+		const parts = fieldParts(page);
+		const seen: Record<string, unknown> = {};
+		const expected: Record<string, unknown> = {};
+		const ruleColour = await (async () => {
+			await page.goto(pathOf(full));
+			return tokenColor(page, "border-default");
+		})();
+		for (const [fixture, terms, rule] of [
+			[full, [...LOCATION, ...DETAILS, "พื้นที่รับผิดชอบ"], true],
+			[inactive, ["ที่ตั้ง", "ประเภทหน่วยบริการ", "สถานะการให้บริการ"], true],
+			[noLocation, ["รหัสหน่วยบริการ", "ประเภทหน่วยบริการ"], false],
+			[locationOnly, ["ที่ตั้ง"], false],
+		] as const) {
+			await page.goto(pathOf(fixture));
+			const past: number[] = [];
+			for (const width of [375, 320]) {
+				await page.setViewportSize({ width, height: 900 });
+				past.push(
+					await page.evaluate(
+						() => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+					),
+				);
+			}
+			const card = await cardOverFieldEdge(page, widths);
+			const lists = parts.card.locator("dl");
+			const separator = parts.card.getByRole("separator");
+			const ruleRead = async () => {
+				if ((await separator.count()) !== 1 || (await lists.count()) !== 2) {
+					return { rules: await separator.count(), lists: await lists.count() };
+				}
+				const line = await boxOf(separator, "the rule");
+				const location = await boxOf(lists.first(), "the location");
+				const details = await boxOf(lists.last(), "the details");
+				return {
+					aboveRule: Math.round(line.y - location.y - location.height),
+					underRule: Math.round(details.y - line.y - line.height),
+					edge: await separator.evaluate((element) => {
+						const style = getComputedStyle(element);
+						return [style.borderTopWidth, style.borderTopStyle, style.borderTopColor];
+					}),
+				};
+			};
+			seen[fixture.title] = {
+				card,
+				past,
+				inCard: card !== "no card" && {
+					terms: await parts.card.getByRole("term").allInnerTexts(),
+					rule: await ruleRead(),
+				},
+			};
+			expected[fixture.title] = {
+				card: await cardOverFieldEdgeAsSpecified(page, widths),
+				past: [0, 0],
+				inCard: {
+					terms,
+					rule: rule
+						? { aboveRule: 20, underRule: 20, edge: ["1px", "solid", ruleColour] }
+						: { rules: 0, lists: 1 },
+				},
+			};
+		}
+
+		// The location's map: today's pill without a map-pin, 12 px under the address, 44 px high,
+		// named with the Health Service.
+		await page.goto(pathOf(full));
+		const place = detailOf(page, "ที่ตั้ง");
+		const map = place.getByRole("link", { name: /^เปิดแผนที่/ });
+		const address = place.getByText(ADDRESS.split("\n")[0]!).first();
+		for (const width of [320, 640, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			const at = `at ${width} px`;
+			const shown = (await map.count()) === 1;
+			seen[`map ${at}`] = shown && {
+				underAddress: Math.round(
+					(await boxOf(map, `${at}: the map`)).y -
+						(await boxOf(address, `${at}: the address`)).y -
+						(await boxOf(address, `${at}: the address`)).height,
+				),
+				height: Math.round((await boxOf(map, `${at}: the map`)).height),
+			};
+			expected[`map ${at}`] = { underAddress: 12, height: 44 };
+		}
+		seen.map = {
+			named: await place
+				.getByRole("link", { name: `เปิดแผนที่ ${full.title} (เปิดในแท็บใหม่)`, exact: true })
+				.count(),
+			pins: await map.locator("svg.lucide-map-pin").count(),
+			address: await address.evaluate((element) => element.textContent),
+		};
+		expected.map = { named: 1, pins: 0, address: ADDRESS };
+		seen.areaLinks = (
+			await detailOf(page, "พื้นที่รับผิดชอบ")
+				.getByRole("link")
+				.evaluateAll((links) =>
+					links.map(
+						(link) => `${link.getAttribute("href")} ${link.getBoundingClientRect().height}`,
+					),
+				)
+		).sort();
+		// TermLinks' 44 px targets, each to the directory filtered by its Area.
+		expected.areaLinks = full.areas.map((area) => `/health-services?area=${area.slug} 44`).sort();
+
+		// The status: the attention label out of service, the plain label when open.
+		const statusFill = () =>
+			detailOf(page, "สถานะการให้บริการ")
+				.locator("span")
+				.evaluate((label) => getComputedStyle(label).backgroundColor);
+		const attention = await tokenColor(page, "accent-warm");
+		seen.status = { [full.title]: await statusFill() };
+		for (const fixture of [inactive, active]) {
+			await page.goto(pathOf(fixture));
+			(seen.status as Record<string, string>)[fixture.title] = await statusFill();
+		}
+		expected.status = {
+			[full.title]: attention,
+			[inactive.title]: attention,
+			[active.title]: await tokenColor(page, "surface-soft"),
+		};
+
+		// Nothing set: no card; the field is as high as the header.
+		await page.goto(pathOf(bare));
+		seen.bare = { field: await parts.field.count(), cards: await parts.card.count() };
+		expected.bare = { field: 1, cards: 0 };
+		for (const width of [375, 639, 640, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			if ((await parts.field.count()) === 0) break;
+			const label = `${bare.title} at ${width} px`;
+			const edge = await fieldEdge(parts.field, label);
+			const title = await boxOf(parts.title, `${label}: the title`);
+			seen[`bare at ${width}`] = Math.round(edge - title.y - title.height);
+			expected[`bare at ${width}`] = width < 640 ? 40 : 48;
+		}
+		expect(seen, "the card over the field's edge").toEqual(expected);
+	});
+
+	test("under the card บริการที่ให้ follows 32 px below 1,024 px and 40 px from 1,024 px, in the text column, under the Homepage's section heading (the users tile, the label บริการ, the H2), its Service cards 24 px under the heading below 640 px and 28 px from 640 px, names H3, two to a row from 640 px and one below at one, two and three Services, 20 px apart from 640 px and 12 px below, resting with the card shadow", async ({
+		page,
+	}) => {
+		const parts = fieldParts(page);
+		const region = page.getByRole("main").getByRole("region", { name: OFFERED.title });
+		const heading = region.getByRole("heading", { level: 2, name: OFFERED.title });
+		const label = region.getByText(OFFERED.label, { exact: true });
+		const tile = region.locator("svg.lucide-users").first().locator("xpath=..");
+		const items = region.getByRole("listitem");
+		const surfaces = region.getByTestId("service-surface");
+		const seen: Record<string, unknown> = {};
+		const expected: Record<string, unknown> = {};
+
+		await page.goto(pathOf(full));
+		const hasLabel = (await label.count()) === 1;
+		seen.heading = {
+			label: hasLabel && (await label.evaluate((element) => getComputedStyle(element).color)),
+			tile: hasLabel && {
+				hidden: await tile.getAttribute("aria-hidden"),
+				gradient: await tile.evaluate((element) =>
+					getComputedStyle(element).backgroundImage.startsWith("linear-gradient"),
+				),
+			},
+			h3: await region.getByRole("heading", { level: 3 }).count(),
+			resting: await surfaces.evaluateAll((elements) =>
+				elements.map((element) => getComputedStyle(element).boxShadow),
+			),
+		};
+		const cardShadow = await tokenShadow(page, "card");
+		expected.heading = {
+			label: await tokenColor(page, "brand-primary"),
+			tile: { hidden: "true", gradient: true },
+			h3: 3,
+			resting: [cardShadow, cardShadow, cardShadow],
+		};
+
+		for (const fixture of [active, inactive, full]) {
+			await page.goto(pathOf(fixture));
+			const count = fixture.services.length;
+			for (const width of [320, 639, 640, 1023, 1024, 1440]) {
+				await page.setViewportSize({ width, height: 900 });
+				const at = `${count} at ${width} px`;
+				if ((await items.count()) !== count || !hasLabel) break;
+				const card = await boxOf(parts.card, `${at}: the card`);
+				const section = await boxOf(region, `${at}: the section`);
+				const head = await boxOf(heading, `${at}: the H2`);
+				const tileBox = await boxOf(tile, `${at}: the tile`);
+				const labelBox = await boxOf(label, `${at}: the label`);
+				const boxes = [];
+				for (let index = 0; index < count; index += 1) {
+					boxes.push(await boxOf(items.nth(index), `${at}: Service ${index + 1}`));
+				}
+				const [first, second] = boxes;
+				seen[at] = {
+					underCard: Math.round(section.y - card.y - card.height),
+					column: [Math.round(section.x - card.x), Math.round(section.width) <= HEADER_WIDEST],
+					labelAboveHeading: labelBox.y < head.y,
+					tileBeforeHeading: tileBox.x + tileBox.width <= head.x,
+					cardsUnderHeading: Math.round(
+						first!.y - Math.max(tileBox.y + tileBox.height, head.y + head.height),
+					),
+					perRow: await itemsPerRow(items),
+					apart:
+						second &&
+						(Math.abs(second.y - first!.y) <= 1
+							? Math.round(second.x - first!.x - first!.width)
+							: Math.round(second.y - first!.y - first!.height)),
+				};
+				const rows = width < 640 ? Array(count).fill(1) : count === 3 ? [2, 1] : [count];
+				expected[at] = {
+					underCard: width < 1024 ? 32 : 40,
+					column: [0, true],
+					labelAboveHeading: true,
+					tileBeforeHeading: true,
+					cardsUnderHeading: width < 640 ? 24 : 28,
+					perRow: rows,
+					apart: count > 1 ? (width < 640 ? 12 : 20) : undefined,
+				};
+			}
+		}
+
+		// Each card is the catalog's, named by its H3, the card shadow at rest and deep under the
+		// pointer; read only where the page shows cards, so a red run reaches the reads above.
+		await page.goto(pathOf(full));
+		const cards = region.getByRole("article");
+		seen.cards = await cards.count();
+		expected.cards = 3;
+		if (seen.cards === 3) {
+			await expectServiceCardInteraction(page, cards.first(), full.services[0]!.title, 3);
+		}
+		expect(seen, "บริการที่ให้ under the card").toEqual(expected);
+	});
+
+	test("with motion allowed the header rises in as the page opens and the card after it, while the breadcrumb and บริการที่ให้ with its cards show at once", async ({
+		page,
+	}) => {
+		const parts = fieldParts(page);
+		const region = page.getByRole("main").getByRole("region", { name: OFFERED.title });
+		await page.emulateMedia({ reducedMotion: "no-preference" });
+		await page.goto(pathOf(full), { waitUntil: "commit" });
+		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+		const onField = (await parts.field.count()) === 1 && (await parts.card.count()) === 1;
+		const headerEnters = onField ? await entersAfter(parts.title) : "no field";
+		/** When `part` starts to enter, or "missing" for a part the page does not show. */
+		const enters = async (part: Locator) =>
+			(await part.count()) === 1 ? await entersAfter(part) : "missing";
+		const seen = {
+			title: headerEnters,
+			cardAfterHeader: onField && (await entersAfter(parts.card)) > Number(headerEnters),
+			breadcrumb: onField ? await entersAfter(parts.breadcrumb) : "no field",
+			section: await enters(region),
+			card: await enters(region.getByRole("listitem").first()),
+		};
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		expect(seen, "the header and the card rise in; the rest shows at once").toEqual({
+			title: 0,
+			cardAfterHeader: true,
+			breadcrumb: -1,
+			section: -1,
+			card: -1,
+		});
+	});
+});
+
+test.describe("a Health Service's page without JavaScript", () => {
+	test.use({ javaScriptEnabled: false });
+
+	test("a Health Service's page shows its header on the field, its card with the location, the map and the details, and its Services as cards", async ({
+		page,
+	}) => {
+		const type = await createTerm("facility_type", "สถานีอนามัย");
+		const area = await createTerm("area", "ตำบลไม่ใช้สคริปต์");
+		const service = await createService("no-script");
+		await publish("services", service);
+		const healthService = await createHealthService("no-script", {
+			displayName: "รพ.สต.ไม่ใช้สคริปต์",
+			data: {
+				operational_status: "temporarily_closed",
+				address: `${SYNTHETIC_FIXTURE_MARK} 3 หมู่ 3 ตำบลสอง`,
+				...AT_SONG,
+			},
+			taxonomies: { facility_type: [type.slug], area: [area.slug] },
+			references: { offered_services: [service.id] },
+		});
+		await publish("health_services", healthService);
+
+		await page.goto(`/health-services/${healthService.slug}`);
+		const parts = fieldParts(page);
+		const region = page.getByRole("main").getByRole("region", { name: "บริการที่ให้" });
+		const read: Array<[string, Locator]> = [
+			["the title", parts.title],
+			["the type's pill", parts.field.getByText(type.label, { exact: true })],
+			["the status's pill", parts.field.getByText("ปิดให้บริการชั่วคราว", { exact: true })],
+			["the official name", parts.header.locator("h1 ~ p")],
+			["the card", parts.card],
+			["the map", detailOf(page, "ที่ตั้ง").getByRole("link", { name: /^เปิดแผนที่/ })],
+			["the Area", detailOf(page, "พื้นที่รับผิดชอบ").getByRole("link")],
+			["the section's H2", region.getByRole("heading", { level: 2 })],
+			["the Service's card", region.getByRole("heading", { level: 3, name: service.title })],
+		];
+		const seen: Record<string, boolean> = {};
+		for (const [name, part] of read) seen[name] = await shownWhole(part);
+		expect(seen, "each part shows whole without JavaScript").toEqual(
+			Object.fromEntries(read.map(([name]) => [name, true])),
+		);
+	});
 });
 
 test("a draft, unpublished or trashed Health Service answers the site 404, and a signed preview renders a draft", async ({

@@ -2919,6 +2919,199 @@ export async function expectPostTitleSizes(page: Page): Promise<void> {
 	}
 }
 
+/** One title-named native target over the card's whole surface, and one keyboard stop. */
+export async function expectWholeCardLink(page: Page, card: Locator, title: string, level: 2 | 3) {
+	const link = card.getByRole("link", { name: title, exact: true });
+	const heading = card.getByRole("heading", { name: title, level, exact: true });
+	await expect(card.getByRole("link")).toHaveCount(1);
+	await expect(link).toHaveJSProperty("tagName", "A");
+	await expect(link).toHaveAccessibleName(title);
+	await expect(link.locator('a, button, input, select, textarea, [tabindex="0"]')).toHaveCount(0);
+	await expect(heading).toBeVisible();
+	await card.scrollIntoViewIfNeeded();
+	await page.mouse.move(0, 0);
+	expect(await link.boundingBox()).toEqual(await card.boundingBox());
+	await link.focus();
+	await page.keyboard.press("Tab");
+	expect(
+		await card.evaluate((el) => el.contains(document.activeElement)),
+		"one stop per card",
+	).toBe(false);
+	await page.keyboard.press("Shift+Tab");
+	await expect(link).toBeFocused();
+	return link;
+}
+
+/**
+ * The Service catalog's card, the Homepage's Frequently Used Service card shared (Feature 011
+ * #340; spec #338 "The Service catalog", decision 21): the whole-card link named by the name, an
+ * H2 there and an H3 under a Health Service's "บริการที่ให้" (#345, `level`); at rest a white card with
+ * the `card` shadow; under the pointer the card turns brand-primary with the `deep` shadow and,
+ * with reduced motion preferred, stays in its place; the focus ring, the global 3 px outline, lies
+ * inside the card's edge, brand-primary at rest and accent-warm while the card is brand-primary
+ * under the pointer. Its rise with motion allowed is its own case.
+ */
+export async function expectServiceCardInteraction(
+	page: Page,
+	card: Locator,
+	title: string,
+	level: 2 | 3 = 2,
+) {
+	const link = await expectWholeCardLink(page, card, title, level);
+	const surface = card.getByTestId("service-surface");
+	const green = await tokenColor(page, "brand-primary");
+	await link.blur();
+	await page.mouse.move(0, 0);
+	/** The surface's fill and shadow, and its box. */
+	const read = async () => ({
+		fill: await surface.evaluate((element) => getComputedStyle(element).backgroundColor),
+		shadow: await surface.evaluate((element) => getComputedStyle(element).boxShadow),
+		box: await boxOf(surface, "the card's surface"),
+	});
+	const { box: restingBox, ...resting } = await read();
+	await link.hover();
+	const { box: pointedBox, ...pointed } = await read();
+	await link.focus();
+	const ringPointed = await link.evaluate((element) => getComputedStyle(element).outlineColor);
+	await page.mouse.move(0, 0);
+	const ring = await link.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return { width: style.outlineWidth, offset: style.outlineOffset, colour: style.outlineColor };
+	});
+	expect({ resting, pointed, moved: pointedBox.y !== restingBox.y, ring, ringPointed }).toEqual({
+		resting: {
+			fill: await tokenColor(page, "surface-base"),
+			shadow: await tokenShadow(page, "card"),
+		},
+		pointed: { fill: green, shadow: await tokenShadow(page, "deep") },
+		// With reduced motion preferred, as the suites run, the card stays in its place.
+		moved: false,
+		// 4 px inside the link's box, which is the card's: the 3 px ring lies on the card.
+		ring: { width: "3px", offset: "-4px", colour: green },
+		ringPointed: await tokenColor(page, "accent-warm"),
+	});
+	return link;
+}
+
+/** What a page's header on the field shows, for `readHeaderOnField`. */
+export interface HeaderOnField {
+	/**
+	 * The row's pills in order, each its words on the field and its look: `outlined` white, or
+	 * `warm`, accent-warm; none for a page whose header has no row of pills.
+	 */
+	pills: Array<{ words: string; look: "outlined" | "warm" }>;
+	/** The line under the title as staff typed it, and on how many lines it shows at 1,440 px. */
+	under?: { text: string; lines: number };
+}
+
+/**
+ * A page's header on the deep field as it is now and as spec #311 and #338 "The three pages: the
+ * header" set it (docs/design/DESIGN.md §9.4): at 320, 375 and 1,440 px the breadcrumb in white;
+ * 24 px under it the row of pills, each with its 1 px edge in its look, the next 8 px beside the
+ * one before it or, where the row wraps, at the row's start 8 px under it; the title under them, or
+ * 24 px under the breadcrumb without a pill; each on the field, the header 48 rem wide at most; and
+ * the line under the title at body-large in white with the line breaks staff typed. The test
+ * compares `seen` with `expected`, beside its own reads.
+ */
+export async function readHeaderOnField(page: Page, header: HeaderOnField) {
+	const parts = fieldParts(page);
+	const onField = (await parts.field.count()) === 1;
+	const seen: Record<string, unknown> = { field: onField };
+	const expected: Record<string, unknown> = { field: true };
+	if (!onField) return { seen, expected };
+	const white = await tokenColor(page, "surface-base");
+	const look = {
+		outlined: { fill: "rgba(0, 0, 0, 0)", colour: white },
+		warm: {
+			fill: await tokenColor(page, "accent-warm"),
+			colour: await tokenColor(page, "brand-dark"),
+		},
+	};
+	const pills = header.pills.map(({ words }) => parts.field.getByText(words, { exact: true }));
+	for (const viewport of [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+		await page.setViewportSize(viewport);
+		const at = `at ${viewport.width} px`;
+		const field = await boxOf(parts.field, `${at}: the field`);
+		const crumbs = await boxOf(parts.breadcrumb, `${at}: the breadcrumb`);
+		const title = await boxOf(parts.title, `${at}: the title`);
+		const boxes: Array<Awaited<ReturnType<typeof boxOf>>> = [];
+		for (const [index, pill] of pills.entries()) {
+			boxes.push(await boxOf(pill, `${at}: ${header.pills[index]!.words}'s pill`));
+		}
+		const styles = [];
+		for (const pill of pills) styles.push(await pillStyle(pill));
+		const above = boxes.length > 0 ? boxes[0]! : title;
+		seen[viewport.width] = {
+			onField: [crumbs, ...boxes, title].every(
+				(box) => box.y >= field.y && box.y + box.height <= field.y + field.height,
+			),
+			underCrumbs: Math.round(above.y - crumbs.y - crumbs.height),
+			// Each pill follows the one before it 8 px beside it, or starts the next row at the row's
+			// start 8 px under it.
+			pillsInRow: boxes.slice(1).map((box, index) => {
+				const before = boxes[index]!;
+				return Math.abs(box.y - before.y) <= 1
+					? Math.round(box.x - before.x - before.width) === 8
+					: Math.round(box.x - boxes[0]!.x) === 0 &&
+							Math.round(box.y - before.y - before.height) === 8;
+			}),
+			titleUnderPills: boxes.every((box) => title.y >= box.y + box.height),
+			headerWidth: Math.round((await boxOf(parts.header, `${at}: the header`)).width),
+			pills: styles,
+			white: [
+				await parts.breadcrumb
+					.getByRole("link")
+					.first()
+					.evaluate((link) => getComputedStyle(link).color),
+				await parts.breadcrumb
+					.locator('[aria-current="page"]')
+					.evaluate((crumb) => getComputedStyle(crumb).color),
+				await parts.title.evaluate((heading) => getComputedStyle(heading).color),
+			],
+		};
+		expected[viewport.width] = {
+			onField: true,
+			underCrumbs: 24,
+			pillsInRow: boxes.slice(1).map(() => true),
+			titleUnderPills: true,
+			headerWidth: Math.min(HEADER_WIDEST, viewport.width - 2 * gutterAt(viewport.width)),
+			pills: header.pills.map((pill) => ({
+				...look[pill.look],
+				type: ["13px", "20px", "600"],
+				edge: "1px",
+			})),
+			white: [white, white, white],
+		};
+	}
+
+	if (header.under) {
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+		const under = parts.header.getByText(header.under.text.split("\n")[0]!);
+		const shown = (await under.count()) === 1;
+		seen.under = shown && {
+			text: await under.innerText(),
+			shown: await shownLines(under),
+			colour: await under.evaluate((text) => getComputedStyle(text).color),
+			// body-large, 18 / 30.
+			type: await under.evaluate((text) => {
+				const style = getComputedStyle(text);
+				return [style.fontSize, style.lineHeight];
+			}),
+			underTitle:
+				(await boxOf(under, "the line under the title")).y >=
+				(await boxOf(parts.title, "the title")).y + (await boxOf(parts.title, "the title")).height,
+		};
+		expected.under = {
+			text: header.under.text,
+			shown: { lines: header.under.lines, clamped: false },
+			colour: white,
+			type: ["18px", "30px"],
+			underTitle: true,
+		};
+	}
+	return { seen, expected };
+}
+
 /**
  * Where a card's unavailable notice lies, first in it under the H2 `heading` and saying `message`,
  * and what it asks and links to; false when the card holds no such H2 and notice
