@@ -647,6 +647,12 @@ this document names:
   comes into the window and shows whole while it holds the keyboard's focus (§8.12). A Service's
   page keeps the earlier row, `HealthServiceRow`, until #344 gives it this one with its names H3;
   "เปิดแผนที่" on a Health Service's page and on `/contact` keeps its look without the `map-pin`.
+  With `--all-text` at the five widths every text of a row reads 4.97:1 or more, the facts line,
+  the official name and the address in `text-secondary` the lowest; "เปิดแผนที่" 6.45:1, the
+  attention label 7.75:1 and the name 16.54:1. Both links' rings lie on the row's white: under each
+  ring 6.45:1 at the five widths, beside the map's 6.07:1 or more (#341; measured at `bf2b3d4` with
+  `scripts/measure-text-contrast.ts` on the demo dataset's directory and with
+  `scripts/screenshot-fixtures/health-services.ts`, and `scripts/measure-focus-contrast.ts`).
 - **Crops:** a list's card, a News, Health Content or Activity card, crops its picture to 16:9
   from `sm` and 4:3 below (`ContentCard.astro`), as the Homepage's small News card does; the
   Homepage's Health Content
