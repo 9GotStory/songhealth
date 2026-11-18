@@ -112,8 +112,9 @@ and why, and `.jscpd-baseline.json` records them.
   #245 comment 6812837231), and the file's type on the file tile (`FileTile`) of a Document row on
   `/documents` and in an Announcement's related Documents, and in the card on a Document's page
   (§3.2, §7.3 and §9.5; spec #311 "The Document repository", "The card over the field's edge"),
-  which also carries a Health Report row's fiscal year on `/health/reports` (§3.2, §7.3; spec #338
-  "The Health Reports list"). A change to either tile's size or gradient needs a new measure.
+  and the fiscal year on a Health Report row's tile on `/health/reports`, a tile of the file tile's
+  size and gradient (§3.2, §7.3; spec #338 "The Health Reports list"). A change to any of these
+  tiles' size or gradient needs a new measure.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
   state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`

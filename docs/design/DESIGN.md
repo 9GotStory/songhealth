@@ -294,7 +294,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, one of the two exceptions to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
-| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's page (§9.5), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, the same tile with `file-chart-column` (§7.3; #342) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342) |
+| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's page (§9.5), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, its own tile of the file tile's size and gradient with `file-chart-column` (§7.3; #342) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342) |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7, and the label on its page, §9.4) | 13.85:1 |
@@ -2408,3 +2408,13 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   window. A Service's page keeps `HealthServiceRow` until #344. §2, §5, §6, §7.1, §7.3, §7.8 and
   §8.12 name it. Authority: spec #338 "The Health Service Directory" and decisions 12, 13 and 16,
   #338 comment 6941491587, and #341 comment 6966593423.
+- **v1.5 the Health Report row (2026-11-18, Feature 011 #342):** `/health/reports` shows the
+  Health Report row (`HealthReportRow`): the Announcement row without its badge, with a tile of the
+  file tile's size and gradient holding `file-chart-column` and the fiscal year in `accent-warm`
+  (the icon alone without one); the facts line, the title an H2 in two lines at most, from `sm` the
+  summary and the round arrow, and the reporting period. One link named by the title covers the
+  row, with the lists' banded ring; a report row has no download. Under the pointer the title
+  turns `brand-primary`, and with motion allowed the row moves 10 px with the `deep` shadow; each
+  row reveals as it comes into the window. §2, §3.1, §3.2, §6, §7.1, §7.3, §7.8 and §8.12 name it,
+  and `CODING_STANDARDS.md` "Public pages" the tile's measured `accent-warm`. Authority: spec #338
+  "The Health Reports list" and decisions 1 and 12, and #338 comment 6941491587.
