@@ -956,9 +956,9 @@ test.describe("a Service's page on the field", () => {
 		await page.goto(pathOf(full));
 		await expectPostTitleSizes(page);
 
-		const pills = full.categories.map((category) =>
-			parts.field.getByText(category.label, { exact: true }),
-		);
+		// The pills in the order the card's หมวดบริการ row lists the categories.
+		const listed = await detailOf(page, "หมวดบริการ").getByRole("link").allInnerTexts();
+		const pills = listed.map((label) => parts.field.getByText(label, { exact: true }));
 		const onField = (await parts.field.count()) === 1;
 		const seen: Record<string, unknown> = { field: onField };
 		const expected: Record<string, unknown> = { field: true };
@@ -1034,6 +1034,15 @@ test.describe("a Service's page on the field", () => {
 		// breadcrumb's chevrons are the header's only icons.
 		seen.pillLinks = onField && (await parts.header.getByRole("link").allInnerTexts()).length;
 		expected.pillLinks = 2;
+		// A pill for each category, in the card's order.
+		seen.pills = onField && {
+			shown: await pills[0]!.locator("xpath=..").locator("span").allInnerTexts(),
+			categories: [...listed].sort(),
+		};
+		expected.pills = {
+			shown: listed,
+			categories: full.categories.map((category) => category.label).sort(),
+		};
 		seen.icons = onField && (await parts.header.locator("svg:not(nav svg)").count());
 		expected.icons = 0;
 

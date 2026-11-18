@@ -10,7 +10,7 @@
 > spec #311, implemented by #312–#318, and was accepted on #311 (Product Owner, 2026-11-17: #311
 > comment 6936494700). Feature 011's redesign of the Health Information hub, the Health Reports,
 > Services and Health Services pages follows spec #338, implemented by #339–#346.
-> **Updated:** 2026-11-18 (#343); first drafted 2026-10-30
+> **Updated:** 2026-11-18 (#344); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -141,7 +141,10 @@ health-service network.
   year, each one link over the whole row (§7.3; #342). A Health Report's page opens on the field
   with the Post page's header, its report date and type in pills, and lays its report Document's
   file first in one white card over the field's edge, then its details (§9.6; #343). A Service's
-  and a Health Service's page keep their look until #344 and #345.
+  page opens on the field with its categories in pills, lays its details and external link in the
+  card, and follows them with its guidance, its related Documents and the Health Services that
+  offer it as the directory's rows (§9.7; #344). A Health Service's page keeps its look until
+  #345.
   Every page outside the three features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -480,10 +483,10 @@ this document names:
 | Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services and, `kind="list"`, the Service catalog, §8.4), `QuickLinkCard`, `PersonCard` |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
 | Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5) and a Health Report's (§9.6) |
-| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's and a Health Report's page under a Post page's header (§9.4 to §9.6), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6) |
+| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's and a Service's page under a Post page's header (§9.4 to §9.7), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
-| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents` and in an Announcement's related Documents (§7.3, §9.4), where every other page keeps `DocumentRow`, with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` with `MapLink`'s row pill, where a Service's page keeps `HealthServiceRow` until #344 (§7.3); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `RelatedDocuments` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents` and in an Announcement's and a Service's related Documents (§7.3, §9.4, §9.7), where every other page keeps `DocumentRow`, with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `RelatedDocuments` |
 
 ### 7.2 Component rules
 
@@ -614,9 +617,9 @@ this document names:
   Under the pointer the title turns `brand-primary` and underlined on its own link only (#315
   comment 6908747140, item 2), and the row takes the `deep` shadow, only with motion allowed;
   the download's fill turns `brand-dark`. Each row reveals as it comes into the window and shows
-  whole while it holds the keyboard's focus (§8.12); under an Announcement's
-  "เอกสารที่เกี่ยวข้อง" it shows at once. Every other page that lists Documents (the About pages, a
-  Service's and a Basic Page's related Documents, search results) keeps the earlier row,
+  whole while it holds the keyboard's focus (§8.12); under an Announcement's and a Service's
+  "เอกสารที่เกี่ยวข้อง" it shows at once (§9.7; Feature 011 #344). Every other page that lists
+  Documents (the About pages, a Basic Page's related Documents, search results) keeps the earlier row,
   `DocumentRow`, until its own feature (decision 2); a Health Report's page shows its one Document
   as a Document's page shows its file (§9.6; Feature 011 #343). With
   `--all-text` at the five widths every text of a row reads 4.97:1 or more, the facts line, the
@@ -650,9 +653,10 @@ this document names:
   row:** the name and the map are its two links and its two focus stops, and a press elsewhere on
   it opens nothing. Under the pointer the name turns `brand-primary` and underlined on its own
   link only, and the row takes the `deep` shadow, only with motion allowed. Each row reveals as it
-  comes into the window and shows whole while it holds the keyboard's focus (§8.12). A Service's
-  page keeps the earlier row, `HealthServiceRow`, until #344 gives it this one with its names H3;
-  "เปิดแผนที่" on a Health Service's page and on `/contact` keeps its look without the `map-pin`.
+  comes into the window and shows whole while it holds the keyboard's focus (§8.12). Under a
+  Service's "หน่วยบริการสุขภาพที่ให้บริการนี้" the same row shows at once, its name an H3 (§9.7;
+  Feature 011 #344). "เปิดแผนที่" on a Health Service's page and on `/contact` keeps its look
+  without the `map-pin`.
   With `--all-text` at the five widths every text of a row reads 4.97:1 or more, the facts line,
   the official name and the address in `text-secondary` the lowest; "เปิดแผนที่" 6.45:1, the
   attention label 7.75:1 and the name 16.54:1. Both links' rings lie on the row's white: under each
@@ -1549,13 +1553,15 @@ stays the submit state (§8.9).
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
   show at once (`public-posts.spec.ts` "a post moves only when motion is allowed: …").
-- **An Announcement's, a Document's and a Health Report's page's motion.** The header's text rises
-  in as a Post page's does, starting at 0 s, and the card at 0.25 s, as a Post page's frame (§9.4
-  to §9.6; Feature 010 #316, #317; Feature 011 #343). The breadcrumb, an Announcement's details
-  text and related Documents, and a Document's successor note show at once
+- **An Announcement's, a Document's, a Health Report's and a Service's page's motion.** The
+  header's text rises in as a Post page's does, starting at 0 s, and the card at 0.25 s, as a Post
+  page's frame (§9.4 to §9.7; Feature 010 #316, #317; Feature 011 #343, #344). The breadcrumb, an
+  Announcement's details text and related Documents, a Document's successor note, and a Service's
+  guidance and its two sections show at once
   (`public-announcements.spec.ts` "with motion allowed the header rises in as the page opens and
-  the card after it, …"; a Document's and a Health Report's page have the same `CardOverField` and
-  `PostHeader`, and `public-health.spec.ts` reads a Health Report's).
+  the card after it, …"; a Document's, a Health Report's and a Service's page have the same
+  `CardOverField` and `PostHeader`, and `public-health.spec.ts` and `public-services.spec.ts` read a
+  Health Report's and a Service's).
 - **Hover** ships with each section (§8.1, §8.4, §8.6 to §8.10).
 - **Reduced motion and paper.** All of it runs only on a screen under
   `prefers-reduced-motion: no-preference`. With reduced motion preferred, and in print, nothing
@@ -1657,9 +1663,9 @@ text"; Product Owner, #285 comment 6877659654).
     post with a picture alone (`scripts/screenshot-fixtures/post-empty-row.ts`, a landscape
     picture) is 900, 929, 1,183, 1,163 and 1,261 px, and a Health Content post without a picture
     900, 900, 900, 900 and 913 px, the shell's minimum height.
-- An Announcement's, a Document's and a Health Report's page take this header on this field, though
-  none is a Post page (§9.4 to §9.6). A Service's and a Health Service's page keep their layout
-  until #344 and #345.
+- An Announcement's, a Document's, a Health Report's and a Service's page take this header on this
+  field, though none is a Post page (§9.4 to §9.7). A Health Service's page keeps its layout until
+  #345.
 
 ### 9.2 An Activity's photos
 
@@ -1724,9 +1730,9 @@ A Document's page takes the same header and card (§9.5).
   heading on the page's colour (§8): the gradient tile with the 24 px `folder-open`, the label
   "เอกสารเผยแพร่" and the H2 in `section-title`. The Document rows with their downloads (§7.3)
   follow 24 px under it below `sm` and 28 px from `sm`, as an Activity's photos under theirs
-  (§9.2), titles H3, in the order staff attached them, 14 px apart. A Service's and a Basic Page's
-  related Documents keep the earlier heading and row until their own feature (spec #311
-  decision 2).
+  (§9.2), titles H3, in the order staff attached them, 14 px apart. A Service's page has the same
+  section (§9.7; spec #338 decision 3); a Basic Page's related Documents keep the earlier heading
+  and row until their own feature (spec #311 decision 2).
 - **Motion** (§8.12): with motion allowed the header's text rises in as the page opens and the card
   0.25 s after it; the breadcrumb, the details' text and the related Documents show at once.
 - `tests/browser/public-announcements.spec.ts` reads the header's parts in order on the field,
@@ -1855,6 +1861,65 @@ Feature 011 #343 (spec #338 "The three pages: the header", "The card over the fi
   tile's "PDF" 5.68:1; the H2 12.21:1, the Document's title 6.45:1, the type and size 4.97:1 and
   the download's words 6.45:1; the details' terms 4.97:1 and values 16.54:1; the notice's
   "เอกสารรายงานไม่พร้อมให้บริการ" 10.94:1, its line 5.07:1 and "ติดต่อเรา" 5.78:1.
+
+### 9.7 A Service's page: its details in the card over the field's edge, then its guidance
+
+Feature 011 #344 (spec #338 "The three pages: the header", "The card over the field's edge",
+"Motion", decisions 3, 8 and 10; Product Owner, #344 comment 6979384685). The page takes §9.4's
+field, header and card (`PostHeader`, `CardOverField`), though a Service is not a Post page.
+
+- **The header**, as §9.4's: the breadcrumb in white; 24 px under it each Service Category in its
+  own outlined white pill, as text, in the order the card's "หมวดบริการ" row lists them (item 2),
+  13 / 20 semibold with its 1 px edge, the next pill 8 px beside it or 8 px under it where the row
+  wraps; the title as the page's one H1 in its sizes; and the summary at body-large with the line
+  breaks staff typed. No icon of the Service shows in the header. A Service without a category has
+  no row of pills.
+- **The card** over the field's edge, as §9.4's in place and look, holds today's details
+  (ผู้ให้บริการ, หน่วยงานผู้ให้บริการ, หมวดบริการ with each category linking to the catalog filtered
+  by it), each row only when set, then 20 px under them the external link "ไปยังเว็บไซต์ของบริการ"
+  (the `brand-primary` pill, 44 px high, marked as leaving the site) and its note
+  "ลิงก์นี้พาออกจากเว็บไซต์ของสำนักงานไปยัง {host}", as before. **A Service with neither** details
+  nor an external link has no card, and its field reaches 40 px under the header below `sm` and
+  48 px from `sm`, as §9.4's.
+- **The text**, on the page's colour in the text column, starts 32 px under the card, or under the
+  field, below `lg` and 40 px from `lg`, each part 32 px apart: the guidance in its order
+  (channels, eligibility, steps, documents to prepare, contact and location, duration, fees,
+  notes), each section only when it holds something, under its H2 in `text-h3` `brand-dark`,
+  without an icon (`DetailSection`); then "เอกสารที่เกี่ยวข้อง" as §9.4's, with each Document's
+  download, in the order staff attached them; then "หน่วยบริการสุขภาพที่ให้บริการนี้" under the
+  Homepage's section heading on the page's colour (the gradient tile with the 24 px `hospital`,
+  the label "หน่วยบริการ" in `brand-primary` and the H2 in `section-title`), its rows 24 px under
+  it below `sm` and 28 px from `sm`, 14 px apart: the directory's Health Service row (§7.3), its
+  name an H3, with "เปิดแผนที่" at the row's right from `lg` in the text column, under the text from
+  `sm` and across the row below `sm`. The Health Services follow by name, as before: the relation
+  is linked from the Health Service's side, so the Service's side has no order staff set
+  (item 1).
+- **Motion** (§8.12): with motion allowed the header's text rises in and the card 0.25 s after it;
+  the breadcrumb, the guidance and both sections show at once, their rows without a reveal.
+- `tests/browser/public-services.spec.ts` "a Service's page on the field" reads the header's parts
+  in order on the field, the pills' look and order, the title's sizes on both sides of 640 and
+  1,024 px, the summary's line break, the header without an icon and a Service without a
+  category; the card's place over the edge at 320, 375, 639, 640 and 1,440 px with the details
+  and the link, the details alone and the link alone, nothing past the window at 375 and 320 px,
+  the link 20 px under the details, and a Service with neither; the text's spaces, the guidance's
+  H2s and the two sections' headings and rows at seven widths; a row's map by width; and the
+  motion. Its top-level tests read the details for each ownership type, the guidance's order, the
+  external link and the two sections' rows with their downloads and maps, and "a Service's page
+  without JavaScript" the page whole without JavaScript.
+- **Measured** on the development runtime at `e5ea613` (#344), `scripts/measure-text-contrast.ts
+  --all-text --fold` at 1,440, 1,024, 768, 375 and 320 px on `main` of
+  `/services/demo-service-flu-vaccine` (three offering Health Services),
+  `/services/demo-service-complaint` (every guidance field and a related Document),
+  `/services/demo-service-health-rights` (the external link) and two synthetic Services
+  (`scripts/screenshot-fixtures/service-page.ts`: two categories with a closed and an inactive
+  Health Service, and one without a card), the lowest of each text: the breadcrumb's links 8.49:1
+  and its current page 5.55:1 (320 px); a category's pill 6.53:1 (320 px); the H1 5.86:1 (375 px)
+  and the summary 6.45:1; the card's terms 4.97:1 and values 16.54:1, the category links 6.45:1,
+  "ไปยังเว็บไซต์ของบริการ" 6.45:1 and its note 4.97:1; the guidance's H2s 10.22:1, its text
+  15.61:1 and a channel's link 6.09:1; the labels "เอกสารเผยแพร่" and "หน่วยบริการ" 6.09:1 and
+  their H2s 15.47:1; a Document row's "PDF" 5.60:1, facts and summary 4.97:1, title 16.54:1 and
+  download 6.45:1; a Health Service row's facts, official name and address 4.97:1, name 16.54:1,
+  "เปิดแผนที่" 6.45:1, and "ปิดให้บริการชั่วคราว" and "ไม่เปิดให้บริการแล้ว" 7.75:1.
 
 ## 10. Acceptance and known limits
 
@@ -2487,3 +2552,14 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (`dateWords`). §2, §3.1, §3.2, §7.1, §7.3, §8.12, §9.1, §9.5 and §9.6 name it. Authority: spec #338 "The three pages: the
   header", "The card over the field's edge" and decisions 4, 8 and 9, and #338 comment
   6941491587.
+- **v1.5 a Service's page (2026-11-18, Feature 011 #344):** a Service's page opens on the deep
+  field with the Post page's header (§9.1, §9.7): an outlined pill for each Service Category, as
+  text, the H1 and the summary, with no icon. One white card over the field's edge holds its
+  details and its external link with the leaving note, and a Service with neither has no card.
+  The guidance follows on the page's colour with its H2s, then "เอกสารที่เกี่ยวข้อง" with each
+  Document's download as an Announcement's page has it (§9.4), and "หน่วยบริการสุขภาพที่ให้บริการนี้"
+  under the Homepage's section heading with the directory's rows, names H3, still by name.
+  `PostHeader` takes a list of outlined pills, and `HealthServiceRow`, which this page alone used,
+  is removed. §2, §7.1, §7.3, §8.12, §9.1, §9.4 and §9.7 name it. Authority: spec #338 "The three
+  pages: the header", "The card over the field's edge" and decisions 3, 8 and 10, #338 comment
+  6941491587, and #344 comment 6979384685.
