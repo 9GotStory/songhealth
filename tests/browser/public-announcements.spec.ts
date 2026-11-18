@@ -73,10 +73,11 @@ import {
 	expectSiteNotFound,
 	listedItem,
 	listedTitles,
+	movingSurface,
 	ownTitles,
 	pillStyle,
+	pointAtRowEdge,
 	shownLines,
-	shownOpacity,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
@@ -592,26 +593,8 @@ test("under the pointer a row moves 10 px to the right with the deep shadow only
 	});
 	await publishLeading(first);
 	await publishLeading(second);
-	/** The row's white surface, which moves inside the row's place: its left edge and shadow. */
-	const surfaceOf = async (row: Locator) => {
-		const surface = row.getByTestId("announcement-surface");
-		if ((await surface.count()) === 0) return undefined;
-		return surface.evaluate((element) => ({
-			x: Math.round(element.getBoundingClientRect().x),
-			deepShadow: getComputedStyle(element).boxShadow.includes("0px 30px 60px -20px"),
-		}));
-	};
-	/** Point at the row's left edge, where the moved row leaves a strip, once it has come in. */
-	const pointAtEdge = async (row: Locator) => {
-		await row.scrollIntoViewIfNeeded();
-		await expect.poll(() => shownOpacity(row), { message: "the row has come in" }).toBe(1);
-		const place = await boxOf(row, "the row's place");
-		const edge = { x: place.x + 3, y: place.y + place.height / 2 };
-		await page.mouse.move(edge.x, edge.y);
-		// The move takes 0.3 s.
-		await page.waitForTimeout(500);
-		return { x: Math.round(place.x), edge };
-	};
+	const surfaceOf = (row: Locator) => movingSurface(row, "announcement-surface");
+	const pointAtEdge = (row: Locator) => pointAtRowEdge(page, row);
 
 	// Today's rows: one focus stop each, in order.
 	await page.goto("/announcements");

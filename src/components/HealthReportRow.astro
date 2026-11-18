@@ -1,8 +1,31 @@
 ---
-// A Health Report in a list (Feature 003 #59; spec #51 "Public reads" (Health Reports), user story
-// 45), shaped like a Document row (DocumentRow.astro): its title linking to its own page, its
-// Report Type, the date it is listed by (its report date, else its publication), its fiscal year,
-// its summary and its reporting period.
+// A Health Report as a row in the Health Reports list (Feature 003 #59; spec #51 "Public reads"
+// (Health Reports), user story 45; Feature 011 #342, spec #338 "The Health Reports list",
+// decisions 1 and 12): the Announcement row (AnnouncementRow, §8.7) without its badge, a white row
+// with the report's tile, the facts line, the title in two lines at most, from `sm` the summary,
+// the reporting period, and from `sm` the round arrow.
+//
+// The tile is the Document row's file tile in size and gradient (FileTile: 68 px below `sm`, 92 px
+// from `sm`) with the 24 px file-chart-column and under it the fiscal year at small size,
+// semibold, in accent-warm, the measured exception FileTile's "PDF" is (docs/design/DESIGN.md
+// §3.2), or the icon alone for a report without one; it is decorative, since the facts line names
+// the year too. The facts line is MetaLine's: the Report Type, the date the list orders by (the
+// report date, else the publication: src/lib/health-reports.ts healthReportDate) and the fiscal
+// year, which wraps between facts. The summary is at label size in text-secondary, two lines at
+// most, and none below `sm`; the period as before.
+//
+// A native link named by the title covers the whole row; the facts and the period stay readable
+// outside the link's name (WCAG 2.2 SC 2.5.3). A report row has no download: the list does not
+// read its Document (decision 1). The row lies over the deep field's lower edge in the first place,
+// so its focus ring has a white band on both sides (`focus-ring-banded`), as the Announcements'.
+//
+// Under the pointer the title turns brand-primary, the arrow's circle accent-warm, and the row
+// moves 10 px to the right with the `deep` shadow, the movement only under
+// `prefers-reduced-motion: no-preference`. The article keeps its place and its surface moves
+// inside it; while it has moved, the link reaches back over the 10 px the surface left, so a press
+// there still opens the report, as on the Announcement row.
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+import FileChartColumn from "@lucide/astro/icons/file-chart-column";
 import { healthReportDate, healthReportPath, type HealthReportEntry } from "../lib/health-reports";
 import { termsOf } from "../lib/terms";
 import MetaLine from "./MetaLine.astro";
@@ -16,28 +39,56 @@ const { report } = Astro.props;
 const data = report.data;
 const type = termsOf(data, "report_type")[0];
 const date = healthReportDate(data);
+const titleId = `report-${crypto.randomUUID()}`;
 ---
 
-<article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
-	<MetaLine
-		facts={[
-			type && { text: type.label },
-			date && { date },
-			data.fiscal_year && { text: `ปีงบประมาณ ${data.fiscal_year}` },
-		]}
-	/>
-	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
-		<a
-			class="underline-offset-4 hover:text-brand-primary hover:underline"
-			href={healthReportPath(report.id)}
+<article class="group">
+	<div
+		data-testid="report-surface"
+		class="relative flex items-center gap-3.5 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:translate-x-2.5 motion-safe:group-hover:shadow-deep sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5"
+	>
+		<p
+			aria-hidden="true"
+			class="flex size-17 shrink-0 flex-col items-center justify-center gap-1 rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-surface-base sm:size-23 sm:rounded-18"
 		>
-			<ThaiTitle text={data.title} />
-		</a>
-	</h2>
-	{data.summary && <p class="line-clamp-2 text-text-secondary">{data.summary}</p>}
-	{data.reporting_period && (
-		<p class="text-small wrap-anywhere text-text-secondary">
-			ช่วงเวลาของรายงาน: {data.reporting_period}
+			<FileChartColumn class="shrink-0" size={24} />
+			{data.fiscal_year ? (
+				<span class="text-small font-semibold text-accent-warm">{data.fiscal_year}</span>
+			) : null}
 		</p>
-	)}
+		<div class="flex min-w-0 flex-1 flex-col gap-1">
+			<MetaLine
+				facts={[
+					type && { text: type.label },
+					date && { date },
+					data.fiscal_year && { text: `ปีงบประมาณ ${data.fiscal_year}` },
+				]}
+			/>
+			<h2
+				id={titleId}
+				class="line-clamp-2 text-body font-semibold wrap-anywhere group-hover:text-brand-primary sm:text-body-large"
+			>
+				<ThaiTitle text={data.title} />
+			</h2>
+			{data.summary && (
+				<p class="line-clamp-2 text-label text-text-secondary max-sm:hidden">{data.summary}</p>
+			)}
+			{data.reporting_period && (
+				<p class="text-small wrap-anywhere text-text-secondary">
+					ช่วงเวลาของรายงาน: {data.reporting_period}
+				</p>
+			)}
+		</div>
+		<span
+			aria-hidden="true"
+			class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-soft text-brand-primary group-hover:bg-accent-warm group-hover:text-brand-dark motion-safe:transition-colors max-sm:hidden"
+		>
+			<ArrowRight class="shrink-0" size={20} />
+		</span>
+		<a
+			href={healthReportPath(report.id)}
+			aria-labelledby={titleId}
+			class="focus-ring-banded absolute inset-0 rounded-22 after:absolute after:inset-y-0 after:right-full after:hidden after:w-2.5 motion-safe:group-hover:after:block"
+		></a>
+	</div>
 </article>

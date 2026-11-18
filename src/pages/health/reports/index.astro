@@ -9,8 +9,9 @@
 //
 // The page opens on the deep field as Health Content does (Feature 011 #339; spec #338
 // "Decisions", 5; ListHeading), under the label "สุขภาพ" with the file-chart-column icon and no
-// link; the rows, the empty state and the pager follow over the field's lower edge (ListBody),
-// in today's look until #342.
+// link; the rows, the empty state and the pager follow over the field's lower edge (ListBody).
+// The rows are 14 px apart, and each reveals as it comes into the window (`scroll-reveal`;
+// Feature 011 #342, spec #338 "The Health Reports list", "Motion").
 import FileChartColumn from "@lucide/astro/icons/file-chart-column";
 import EmptyState from "../../../components/EmptyState.astro";
 import HealthReportRow from "../../../components/HealthReportRow.astro";
@@ -41,9 +42,9 @@ const listUrl = new URL(HEALTH_REPORTS_PATH, Astro.url);
 	</ListHeading>
 	<ListBody>
 		{entries.length > 0 ? (
-			<ul class="flex flex-col gap-4">
+			<ul class="flex flex-col gap-3.5">
 				{entries.map((report) => (
-					<li>
+					<li class="scroll-reveal">
 						<HealthReportRow report={report} />
 					</li>
 				))}

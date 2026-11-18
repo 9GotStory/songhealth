@@ -19,7 +19,9 @@
 // /health and /health/reports open on it too (Feature 011 #339; spec #338 "Decisions", 5 and 13):
 // /health under the label สุขภาพ with its two destinations as the Homepage's Quick Access tiles over
 // the field's lower edge, and /health/reports under the same label with its rows and pager there
-// (testListOnField). A Health Report's page keeps today's heading until #343.
+// (testListOnField), each report a white row with the report's tile and one link over the whole
+// row (#342; spec #338 "The Health Reports list"). A Health Report's page keeps today's heading
+// until #343.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -45,7 +47,7 @@
 // - POST …/preview-url mints the signed preview link of a draft
 //   (src/astro/routes/api/content/[collection]/[id]/preview-url.ts).
 
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import {
 	createOwnedTerm,
@@ -75,6 +77,7 @@ import {
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
 	LIST_END,
+	LeadingEntries,
 	SECTION_CRUMBS,
 	boxOf,
 	cardList,
@@ -97,8 +100,12 @@ import {
 	listHeading,
 	listedItem,
 	listedTitles,
+	movingSurface,
 	offeredLabels,
 	ownTitles,
+	pointAtRowEdge,
+	pressInside,
+	shownLines,
 	shownOpacity,
 	siteTitleParts,
 	test,
@@ -107,6 +114,7 @@ import {
 	testHeadingOnField,
 	testListCards,
 	testListOnField,
+	textStyle,
 	thaiDate,
 	tokenColor,
 	whileNonePublished,
@@ -235,6 +243,8 @@ testListOnField({
 		await publishReport(report, LIST_END);
 		return report;
 	},
+	// Each row reveals as it comes into the window (Feature 011 #342; spec #338 "Motion").
+	itemsMove: "rows",
 });
 
 testHeadingOnField({
@@ -763,6 +773,366 @@ test("/health/reports lists only published Health Reports by report date, an und
 	await expect(dated.getByText(type.label)).toBeVisible();
 	await expect(dated.getByText("ปีงบประมาณ 2569", { exact: true })).toBeVisible();
 	await expect(dated.getByText("ไตรมาสที่ 4 ปีงบประมาณ 2569")).toBeVisible();
+});
+
+/** The `day`th of `month` 2032, after any real Health Report and the paging test's, so it leads. */
+const in2032 = (month: number, day: number) =>
+	`2032-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
+
+/** The Health Reports a test published to lead the list, returned to draft after it. */
+const leading = new LeadingEntries();
+
+/** Publish `report` now, until the test ends (`LeadingEntries`). Returns its publication. */
+async function publishLeading(report: DraftFixture): Promise<string> {
+	const at = await publishReport(report);
+	leading.hold("health_reports", report);
+	return at;
+}
+
+test.afterEach(() => leading.release(admin));
+
+/** A title longer than two lines of a report row at every width. */
+const LONG_REPORT_TITLE =
+	"สถานการณ์โรคไข้เลือดออกและโรคติดต่อนำโดยยุงลายในพื้นที่อำเภอสองทุกตำบล พร้อมผลการดำเนินงานควบคุมโรค การสำรวจลูกน้ำยุงลาย และข้อเสนอแนะต่อหน่วยบริการสุขภาพและองค์กรปกครองส่วนท้องถิ่นในพื้นที่ ตลอดไตรมาสแรกของปีงบประมาณ รวมถึงแผนการเฝ้าระวังโรคในช่วงฤดูฝนถัดไป";
+
+/** A summary longer than two lines of a report row at every width from 640 px. */
+const LONG_REPORT_SUMMARY = `${SYNTHETIC_FIXTURE_MARK} ${"สรุปจำนวนผู้ป่วย อัตราป่วยต่อแสนประชากร และพื้นที่ที่พบผู้ป่วยต่อเนื่อง พร้อมมาตรการที่หน่วยบริการดำเนินการแล้ว ".repeat(3)}`;
+
+/**
+ * A synthetic Health Report draft titled with `LONG_REPORT_TITLE`, pointing to the suite's
+ * Document.
+ */
+const createLongReport = (label: string, fields: DraftFields = {}) =>
+	createSyntheticDraft(admin, "health_reports", `รายงานสุขภาพ ${LONG_REPORT_TITLE}`, label, {
+		...fields,
+		references: { report_document: [reportDocument.id] },
+	});
+
+/**
+ * The parts of a Health Report row a citizen meets, found by what they show: the tile by its icon,
+ * the title by its heading, the arrow by its icon; and the row's white surface, which moves inside
+ * the row's place under the pointer.
+ */
+function reportRowParts(row: Locator) {
+	return {
+		tile: row.locator("svg.lucide-file-chart-column").locator("xpath=.."),
+		title: row.getByRole("heading", { level: 2 }),
+		arrow: row.locator("svg.lucide-arrow-right"),
+		surface: row.getByTestId("report-surface"),
+	};
+}
+
+/** A row's facts line, found by `fact`, the words of one of its facts. */
+const reportFacts = (row: Locator, fact: string) =>
+	row.getByText(fact, { exact: true }).locator("xpath=..");
+
+/** The row that follows `row` in its list, or none. */
+const rowAfter = (row: Locator) =>
+	row.locator("xpath=ancestor::li[1]/following-sibling::li[1]").getByRole("article");
+
+/** Whether the row's one link covers the whole row. */
+const linkCoversRow = (row: Locator) =>
+	row.evaluate((article) => {
+		const link = article.querySelector("a")?.getBoundingClientRect();
+		const box = article.getBoundingClientRect();
+		return (
+			!!link &&
+			(["x", "y", "width", "height"] as const).every((side) => Math.abs(link[side] - box[side]) < 1)
+		);
+	});
+
+test("each /health/reports row: the file-chart-column tile, 68 px below 640 px and 92 px from 640 px, with the fiscal year under the icon in accent-warm, or the icon alone without one; the facts line with the Report Type, the date the list orders by and the fiscal year, each only when set; the title as an H2 in two lines at most; from 640 px the summary in two lines at most; the reporting period; from 640 px the round arrow; one link named by the title covers the row, and the rows are 14 px apart", async ({
+	page,
+}) => {
+	const type = await createTerm("report_type", "รายงานสถานการณ์โรค");
+	const period = "ไตรมาสที่ 1 ปีงบประมาณ 2569";
+	const full = await createLongReport("row-full", {
+		data: {
+			summary: LONG_REPORT_SUMMARY,
+			report_at: in2032(1, 2),
+			reporting_period: period,
+			fiscal_year: 2569,
+		},
+		taxonomies: { report_type: [type.slug] },
+	});
+	// Without a report date, a fiscal year, a type, a summary or a period: placed and dated by its
+	// publication.
+	const bare = await createReport("row-bare");
+	await publishLeading(full);
+	const bareAt = await publishLeading(bare);
+
+	await page.goto("/health/reports");
+	const row = listedItem(page, full.title);
+	const bareRow = listedItem(page, bare.title);
+	const parts = reportRowParts(row);
+	const facts = reportFacts(row, type.label);
+	const bareFacts = reportFacts(bareRow, thaiDate(bareAt));
+	const summary = row.getByText(LONG_REPORT_SUMMARY.trim());
+	const periodLine = row.getByText(`ช่วงเวลาของรายงาน: ${period}`);
+	// What today's rows already show: the title as an H2 naming the link to the report's page.
+	await expect(parts.title).toHaveText(full.title);
+	await expect(row.getByRole("link")).toHaveAccessibleName(full.title);
+	await expect(row.getByRole("link")).toHaveAttribute("href", `/health/reports/${full.slug}`);
+
+	/** The tile as it shows now: decorative, its gradient, its icon, and the words under it. */
+	const tileOf = async (tile: Locator) => {
+		if ((await tile.count()) === 0) return undefined;
+		return tile.evaluate((element) => {
+			const icon = element.querySelector("svg");
+			const year = element.querySelector("span");
+			return {
+				decorative: element.closest('[aria-hidden="true"]') !== null,
+				gradient: getComputedStyle(element).backgroundImage.includes("linear-gradient"),
+				icon: [icon?.getBoundingClientRect().width, getComputedStyle(icon ?? element).color],
+				year: year && {
+					text: year.textContent?.trim(),
+					colour: getComputedStyle(year).color,
+					size: parseFloat(getComputedStyle(year).fontSize),
+					weight: getComputedStyle(year).fontWeight,
+					underIcon:
+						!!icon && year.getBoundingClientRect().top >= icon.getBoundingClientRect().bottom,
+				},
+			};
+		});
+	};
+	const factsParts = (line: Locator) =>
+		line.evaluate((element) => [...element.children].map((part) => part.textContent?.trim()));
+	const [secondary, primary] = [
+		await tokenColor(page, "text-secondary"),
+		await tokenColor(page, "text-primary"),
+	];
+	const seen: Record<string, unknown> = {
+		tile: await tileOf(parts.tile),
+		bareTile: await tileOf(reportRowParts(bareRow).tile),
+		factsParts: await factsParts(facts),
+		factsStyle: await textStyle(facts),
+		bareFacts: await factsParts(bareFacts),
+		titleColour: (await textStyle(parts.title)).colour,
+		summaryStyle: (await summary.count()) > 0 ? await textStyle(summary) : undefined,
+		period: await textStyle(periodLine),
+		bareText: (await bareRow.innerText())
+			.split("\n")
+			.map((line) => line.trim())
+			.filter(Boolean),
+		surface:
+			(await parts.surface.count()) > 0
+				? await parts.surface.evaluate((element) => {
+						const style = getComputedStyle(element);
+						return [style.backgroundColor, style.borderTopLeftRadius];
+					})
+				: undefined,
+	};
+	const expected: Record<string, unknown> = {
+		tile: {
+			decorative: true,
+			gradient: true,
+			icon: [24, await tokenColor(page, "surface-base")],
+			year: {
+				text: "2569",
+				colour: await tokenColor(page, "accent-warm"),
+				size: 13,
+				weight: "600",
+				underIcon: true,
+			},
+		},
+		bareTile: {
+			decorative: true,
+			gradient: true,
+			icon: [24, await tokenColor(page, "surface-base")],
+			year: null,
+		},
+		factsParts: [type.label, "•", thaiDate(in2032(1, 2)), "•", "ปีงบประมาณ 2569"],
+		factsStyle: { size: 13, weight: "400", colour: secondary, underline: false },
+		bareFacts: [thaiDate(bareAt)],
+		// The title's colour as the Announcement row's.
+		titleColour: primary,
+		summaryStyle: { size: 14, weight: "500", colour: secondary, underline: false },
+		period: { size: 13, weight: "400", colour: secondary, underline: false },
+		// The bare row shows its publication date and its title, and nothing else.
+		bareText: [thaiDate(bareAt), bare.title],
+		surface: [await tokenColor(page, "surface-base"), "22px"],
+	};
+	for (const width of [1440, 1024, 1023, 768, 640, 639, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		const wide = width >= 640;
+		const [upper, lower] = [
+			await boxOf(row, "the first row"),
+			await boxOf(rowAfter(row), "the next row"),
+		];
+		const tile = (await parts.tile.count()) > 0 ? await boxOf(parts.tile, "the tile") : undefined;
+		seen[width] = {
+			tile: tile && [Math.round(tile.width), Math.round(tile.height)],
+			titleSize: (await textStyle(parts.title)).size,
+			title: await shownLines(parts.title),
+			summary: (await summary.isVisible()) ? await shownLines(summary) : "hidden",
+			arrow: await parts.arrow.isVisible(),
+			links: await row.getByRole("link").count(),
+			linkCoversRow: await linkCoversRow(row),
+			gap: Math.round(lower.y - (upper.y + upper.height)),
+		};
+		expected[width] = {
+			tile: wide ? [92, 92] : [68, 68],
+			titleSize: wide ? 18 : 16,
+			title: { lines: 2, clamped: true },
+			summary: wide ? { lines: 2, clamped: true } : "hidden",
+			arrow: wide,
+			links: 1,
+			linkCoversRow: true,
+			gap: 14,
+		};
+	}
+	expect(seen, "the row's parts").toEqual(expected);
+});
+
+test("a report row's facts line wraps between its facts, and inside a fact only when that fact alone is wider than the line", async ({
+	page,
+}) => {
+	const near = await createTerm("report_type", "รายงานสถานการณ์โรค");
+	const far = await createTerm(
+		"report_type",
+		"รายงานที่มีชื่อประเภทรายงานยาวกว่าหนึ่งบรรทัดของแถวบนจอแคบและจอขนาดกลางของแท็บเล็ต",
+	);
+	const between = await createReport("facts-between", {
+		data: { report_at: in2032(2, 2), fiscal_year: 2569 },
+		taxonomies: { report_type: [near.slug] },
+	});
+	const inside = await createReport("facts-inside", {
+		data: { report_at: in2032(2, 1) },
+		taxonomies: { report_type: [far.slug] },
+	});
+	for (const report of [between, inside]) await publishLeading(report);
+
+	await page.goto("/health/reports");
+	/** The line's lines, and each fact's lines and whether it alone is wider than the line. */
+	const factsOf = (report: DraftFixture, fact: string) =>
+		reportFacts(listedItem(page, report.title), fact).evaluate((line) => {
+			const lineHeight = parseFloat(getComputedStyle(line).lineHeight);
+			const lines = (part: Element) =>
+				Math.round(part.getBoundingClientRect().height / lineHeight) > 1 ? "more" : 1;
+			const facts = [...line.children].filter(
+				(part) => part.getAttribute("aria-hidden") !== "true",
+			);
+			return {
+				lines: lines(line),
+				facts: facts.map((fact) => {
+					// The fact on one line, in the line's own type.
+					const alone = fact.cloneNode(true) as HTMLElement;
+					alone.style.cssText = "position:absolute;white-space:nowrap;visibility:hidden";
+					line.append(alone);
+					const width = alone.getBoundingClientRect().width;
+					alone.remove();
+					return { lines: lines(fact), widerThanLine: width > line.clientWidth };
+				}),
+			};
+		});
+	const seen: Record<number, unknown> = {};
+	for (const width of [1440, 640]) {
+		await page.setViewportSize({ width, height: 900 });
+		seen[width] = {
+			between: await factsOf(between, near.label),
+			inside: await factsOf(inside, far.label),
+		};
+	}
+	const one = { lines: 1, widerThanLine: false };
+	// A term's label opens with the suites' mark, so a synthetic fact is long: at 640 px the first
+	// row's three facts fit the line apart, not together, and the second row's type alone is wider.
+	const expected = {
+		1440: {
+			between: { lines: 1, facts: [one, one, one] },
+			inside: { lines: 1, facts: [one, one] },
+		},
+		640: {
+			between: { lines: "more", facts: [one, one, one] },
+			inside: { lines: "more", facts: [{ lines: "more", widerThanLine: true }, one] },
+		},
+	};
+	expect(seen, "where the facts line wraps").toEqual(expected);
+});
+
+test("under the pointer a report row moves 10 px to the right with the deep shadow only when motion is allowed, and its title turns brand-primary either way; a press on the row away from its title, and on the strip the moved row left, opens the report; the keyboard reaches each row once, its ring banded over the field", async ({
+	page,
+}) => {
+	const first = await createReport("hover-first", { data: { report_at: in2032(3, 2) } });
+	const second = await createReport("hover-second", { data: { report_at: in2032(3, 1) } });
+	for (const report of [first, second]) await publishLeading(report);
+	const reportPage = `/health/reports/${first.slug}`;
+	const surfaceOf = (row: Locator) => movingSurface(row, "report-surface");
+	const pointAtEdge = (row: Locator) => pointAtRowEdge(page, row);
+	/** What the row shows under the pointer: its surface, its title's colour, its arrow's circle. */
+	const underPointer = async (row: Locator) => {
+		const { title, arrow } = reportRowParts(row);
+		return {
+			surface: await surfaceOf(row),
+			title: (await textStyle(title)).colour,
+			arrow:
+				(await arrow.count()) > 0
+					? await arrow
+							.locator("xpath=..")
+							.evaluate((circle) => getComputedStyle(circle).backgroundColor)
+					: undefined,
+		};
+	};
+	/** Press `row` at `point`, and the page it opens, or the list when it opens none. */
+	const opensFrom = async (row: Locator, point: { x: number; y: number }, label: string) => {
+		await pressInside(page, row, point, label);
+		// Today's row opens nothing there: the reading follows either way.
+		await page.waitForURL(/\/health\/reports\/./, { timeout: 5_000 }).catch(() => undefined);
+		return new URL(page.url()).pathname;
+	};
+
+	// One focus stop each, in order; the first row lies over the field's edge.
+	await page.goto("/health/reports");
+	const firstRow = listedItem(page, first.title);
+	await firstRow.getByRole("link").focus();
+	await page.keyboard.press("Tab");
+	await expect(
+		listedItem(page, second.title).getByRole("link"),
+		"the next row's link follows",
+	).toBeFocused();
+	await firstRow.getByRole("link").focus();
+	const band = await firstRow
+		.getByRole("link")
+		.evaluate((link) => getComputedStyle(link).boxShadow);
+
+	const still = await pointAtEdge(firstRow);
+	const stillRow = await underPointer(firstRow);
+	// Away from the title: the row's lower right, under the arrow and clear of the rounded corner.
+	const place = await boxOf(firstRow, "the row's place");
+	const fromCorner = await opensFrom(
+		firstRow,
+		{ x: place.x + place.width - 30, y: place.y + place.height - 8 },
+		"the row's lower right",
+	);
+
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.goto("/health/reports");
+	const row = listedItem(page, first.title);
+	const moving = await pointAtEdge(row);
+	const movedRow = await underPointer(row);
+	const fromStrip = await opensFrom(row, moving.edge, "the part the row left");
+	const [brandPrimary, accentWarm] = [
+		await tokenColor(page, "brand-primary"),
+		await tokenColor(page, "accent-warm"),
+	];
+	expect(
+		{ band, stillRow, movedRow, fromCorner, fromStrip },
+		"the row under the pointer, and its ring",
+	).toEqual({
+		// The first row lies over the field's edge: its ring has a white band on both sides.
+		band: expect.stringContaining(`${await tokenColor(page, "surface-base")} 0px 0px 0px 7px`),
+		stillRow: {
+			surface: { x: still.x, deepShadow: false },
+			title: brandPrimary,
+			arrow: accentWarm,
+		},
+		movedRow: {
+			surface: { x: moving.x + 10, deepShadow: true },
+			title: brandPrimary,
+			arrow: accentWarm,
+		},
+		fromCorner: reportPage,
+		fromStrip: reportPage,
+	});
 });
 
 test("/health/reports pages through older Health Reports in the same order, with the page number in the address", async ({
