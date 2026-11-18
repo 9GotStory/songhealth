@@ -14,6 +14,13 @@ set -euo pipefail
 (($# == 2)) || { echo "usage: scripts/evidence-branch.sh <ticket> <dir of PNGs>" >&2; exit 2; }
 ticket=$1 dir=$2
 [[ $ticket =~ ^([0-9]{3}-)?[0-9]+$ ]] || { echo "evidence-branch: the ticket looks like 003-61 or 169" >&2; exit 2; }
+# A ticket built on a feature's branch takes the feature's number, as its branch does (#344 retro:
+# "344" on feat/011-344-service-page made evidence/344-screenshots beside Feature 011's).
+current=$(git branch --show-current)
+if [[ $ticket =~ ^[0-9]+$ && $current =~ ^[a-z]+/([0-9]{3})-$ticket- ]]; then
+  echo "evidence-branch: $current is Feature ${BASH_REMATCH[1]}'s; use ${BASH_REMATCH[1]}-$ticket" >&2
+  exit 2
+fi
 shopt -s nullglob
 images=("$dir"/*.png)
 ((${#images[@]})) || { echo "evidence-branch: no PNG in $dir" >&2; exit 1; }

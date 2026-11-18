@@ -139,6 +139,7 @@ import {
 	thaiDate,
 	tokenColor,
 	whileNonePublished,
+	shownWhole,
 } from "./public.helpers";
 
 /** The fixed number of Health Content items a list page shows. */
@@ -414,16 +415,15 @@ test.describe("/health without JavaScript", () => {
 		await page.goto(`/health/reports/${report.slug}`);
 		const parts = fieldParts(page);
 		const block = fileBlockOf(parts.card, "เอกสารรายงาน", "PDF, 2 KB");
-		const shown = async (part: Locator) => (await part.count()) === 1 && part.isVisible();
 		const seen: Record<string, boolean> = {
-			title: await shown(parts.title.filter({ hasText: report.title })),
-			date: await shown(parts.field.getByText(`วันที่รายงาน ${REPORT_DAY}`, { exact: true })),
-			document: await shown(
+			title: await shownWhole(parts.title.filter({ hasText: report.title })),
+			date: await shownWhole(parts.field.getByText(`วันที่รายงาน ${REPORT_DAY}`, { exact: true })),
+			document: await shownWhole(
 				parts.card.getByRole("link", { name: reportDocument.title, exact: true }),
 			),
 		};
 		for (const name of ["tile", "heading", "download", "rule", "details"] as const) {
-			seen[name] = await shown(block[name]);
+			seen[name] = await shownWhole(block[name]);
 		}
 		expect(seen, "the header, the file and the details without JavaScript").toEqual(
 			Object.fromEntries(Object.keys(seen).map((name) => [name, true])),
