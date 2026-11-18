@@ -20,6 +20,13 @@ import type { Reporter, TestCase, TestResult } from "@playwright/test/reporter";
 /** A call of `expect`, or of a helper named after what it expects, such as expectCrop. */
 const ASSERTION = /\bexpect\w*(?:\.\w+)*\(/;
 
+/**
+ * An asymmetric matcher, such as `expect.stringMatching(…)` inside a `toEqual`'s expected value:
+ * part of the assertion it sits in, not one of its own (#340 retro).
+ */
+const MATCHER =
+	/\bexpect\.(?:not\.)?(?:any|anything|arrayContaining|closeTo|objectContaining|stringContaining|stringMatching)\(/g;
+
 /** A line that opens a loop. */
 const LOOP = /^\s*(?:for\s*(?:await\s*)?\(|while\s*\()|\.forEach\(/;
 
@@ -51,7 +58,7 @@ export function stoppedShort(
 
 	const after = lines
 		.slice(failed + 1, end)
-		.filter((line) => !isComment(line) && ASSERTION.test(line)).length;
+		.filter((line) => !isComment(line) && ASSERTION.test(line.replace(MATCHER, ""))).length;
 
 	// The blocks around the failing line, innermost first: each line above it with less indentation
 	// than the last one found. A head that runs over several lines ends on a line that closes a
