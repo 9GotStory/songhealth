@@ -859,24 +859,22 @@ test("a Service page links its related Documents in staff order, each with its d
 
 	// Each Document row has its download, named with the Document (#344; spec #338 decision 3), and
 	// a Health Service with coordinates its map, named with the Health Service (decision 12).
-	const namesOf = (scope: Locator, words: RegExp) =>
-		scope.getByRole("link", { name: words }).evaluateAll((links) =>
-			links.map((link) => {
-				const named = link.getAttribute("aria-label") ?? link.textContent ?? "";
-				return named.replace(/\s+/g, " ").trim();
-			}),
-		);
-	const downloads = await namesOf(documents, /^ดาวน์โหลด/);
-	const maps = await namesOf(offering, /^เปิดแผนที่/);
-	const names = (read: string[], fixtures: DraftFixture[]) =>
-		read.map((name, index) => name.includes(fixtures[index]?.title ?? "∅") || name);
+	/** How many links of each row, in order, have an accessible name of `words` and its title. */
+	const namedLinks = async (scope: Locator, words: string, fixtures: DraftFixture[]) => {
+		const counts = [];
+		for (const [index, fixture] of fixtures.entries()) {
+			const name = new RegExp(`^${words} .*${RegExp.escape(fixture.title)}`);
+			counts.push(await scope.getByRole("article").nth(index).getByRole("link", { name }).count());
+		}
+		return counts;
+	};
 	expect(
 		{
-			downloads: names(downloads, [secondDocument, firstDocument]),
-			maps: names(maps, [sooner]),
+			downloads: await namedLinks(documents, "ดาวน์โหลด", [secondDocument, firstDocument]),
+			maps: await namedLinks(offering, "เปิดแผนที่", [sooner, later]),
 		},
 		"a download for each Document and a map for the Health Service with coordinates",
-	).toEqual({ downloads: [true, true], maps: [true] });
+	).toEqual({ downloads: [1, 1], maps: [1, 0] });
 });
 
 test.describe("a Service's page on the field", () => {
@@ -978,10 +976,10 @@ test.describe("a Service's page on the field", () => {
 					(box) => box.y >= field.y && box.y + box.height <= field.y + field.height,
 				),
 				pillsUnderCrumbs: Math.round(first.y - crumbs.y - crumbs.height),
-				// The second follows the first on its row, or starts the next row 8 px under it.
+				// The second follows the first 8 px beside it, or starts the next row 8 px under it.
 				secondAfterFirst:
 					Math.abs(second.y - first.y) <= 1
-						? second.x > first.x + first.width
+						? Math.round(second.x - first.x - first.width) === 8
 						: Math.round(second.x - first.x) === 0 &&
 							Math.round(second.y - first.y - first.height) === 8,
 				titleUnderPills: title.y >= Math.max(first.y + first.height, second.y + second.height),
@@ -1087,12 +1085,21 @@ test.describe("a Service's page on the field", () => {
 				terms: await parts.card.getByRole("term").allInnerTexts(),
 				external: await external.count(),
 				note: await note.count(),
+				// Each category link in the card is a 44 px target (TermLinks).
+				categoryLinks: await detailOf(page, "หมวดบริการ")
+					.getByRole("link")
+					.evaluateAll((links) => links.map((link) => link.getBoundingClientRect().height)),
 			};
 			seen[fixture.title] = { card, past, inCard };
 			expected[fixture.title] = {
 				card: await cardOverFieldEdgeAsSpecified(page, widths),
 				past: [0, 0],
-				inCard: { terms, external: linked ? 1 : 0, note: linked ? 1 : 0 },
+				inCard: {
+					terms,
+					external: linked ? 1 : 0,
+					note: linked ? 1 : 0,
+					categoryLinks: fixture === full ? [44, 44] : [],
+				},
 			};
 		}
 
@@ -1117,8 +1124,21 @@ test.describe("a Service's page on the field", () => {
 		// Neither details nor an external link: no card; the field is as high as the header, and the
 		// guidance follows it.
 		await page.goto(pathOf(bare));
-		seen.bare = { cards: await parts.card.count() };
-		expected.bare = { cards: 0 };
+		const barePast: number[] = [];
+		for (const width of [375, 320]) {
+			await page.setViewportSize({ width, height: 900 });
+			barePast.push(
+				await page.evaluate(
+					() => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+				),
+			);
+		}
+		seen.bare = {
+			field: await parts.field.count(),
+			cards: await parts.card.count(),
+			past: barePast,
+		};
+		expected.bare = { field: 1, cards: 0, past: [0, 0] };
 		const guidance = page.getByRole("main").getByRole("heading", { level: 2 }).first();
 		for (const width of [375, 639, 640, 1023, 1024, 1440]) {
 			await page.setViewportSize({ width, height: 900 });
@@ -1194,6 +1214,9 @@ test.describe("a Service's page on the field", () => {
 				h3: 2,
 			};
 		}
+		// The widths are read only on a page with the card and the sections' headings.
+		seen.parts = { card: await parts.card.count(), label: await listed[0]!.label.count() };
+		expected.parts = { card: 1, label: 1 };
 		for (const width of [320, 375, 639, 640, 1023, 1024, 1440]) {
 			await page.setViewportSize({ width, height: 900 });
 			const at = `at ${width} px`;
@@ -1410,6 +1433,8 @@ test.describe("a Service's page without JavaScript", () => {
 					.getByRole("region", { name: "หน่วยบริการสุขภาพที่ให้บริการนี้" })
 					.getByRole("link", { name: /^เปิดแผนที่/ }),
 			),
+			// Nothing waits for an effect that needs a script to finish.
+			whole: (await heldBack(main)).length === 0,
 		};
 		expect(
 			seen,
@@ -1497,7 +1522,7 @@ test.describe("accessibility and reflow", () => {
 		});
 		await publish("services", detailed);
 		const offering = await createHealthService("a11y", "รพ.สต.บ้านกลาง", {
-			data: { operational_status: "temporarily_closed" },
+			data: { ...AT_SONG, operational_status: "temporarily_closed" },
 			services: [detailed.id],
 		});
 		await publish("health_services", offering);

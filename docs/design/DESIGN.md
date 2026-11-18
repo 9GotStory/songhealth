@@ -1874,11 +1874,11 @@ field, header and card (`PostHeader`, `CardOverField`), though a Service is not 
   wraps; the title as the page's one H1 in its sizes; and the summary at body-large with the line
   breaks staff typed. No icon of the Service shows in the header. A Service without a category has
   no row of pills.
-- **The card** over the field's edge, as §9.4's in place and look, holds today's details
+- **The card** over the field's edge, as §9.4's in place and look, holds the Service's details
   (ผู้ให้บริการ, หน่วยงานผู้ให้บริการ, หมวดบริการ with each category linking to the catalog filtered
   by it), each row only when set, then 20 px under them the external link "ไปยังเว็บไซต์ของบริการ"
   (the `brand-primary` pill, 44 px high, marked as leaving the site) and its note
-  "ลิงก์นี้พาออกจากเว็บไซต์ของสำนักงานไปยัง {host}", as before. **A Service with neither** details
+  "ลิงก์นี้พาออกจากเว็บไซต์ของสำนักงานไปยัง {host}". **A Service with neither** details
   nor an external link has no card, and its field reaches 40 px under the header below `sm` and
   48 px from `sm`, as §9.4's.
 - **The text**, on the page's colour in the text column, starts 32 px under the card, or under the
@@ -1891,7 +1891,7 @@ field, header and card (`PostHeader`, `CardOverField`), though a Service is not 
   the label "หน่วยบริการ" in `brand-primary` and the H2 in `section-title`), its rows 24 px under
   it below `sm` and 28 px from `sm`, 14 px apart: the directory's Health Service row (§7.3), its
   name an H3, with "เปิดแผนที่" at the row's right from `lg` in the text column, under the text from
-  `sm` and across the row below `sm`. The Health Services follow by name, as before: the relation
+  `sm` and across the row below `sm`. The Health Services follow by name: the relation
   is linked from the Health Service's side, so the Service's side has no order staff set
   (item 1).
 - **Motion** (§8.12): with motion allowed the header's text rises in and the card 0.25 s after it;
