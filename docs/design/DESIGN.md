@@ -1829,9 +1829,7 @@ Feature 011 #343 (spec #338 "The three pages: the header", "The card over the fi
   `sm`, across the card 16 px under the tile and the text below `sm`. **A Document that is not
   published, or whose file cannot be served,** shows the H2 and the unavailable notice
   (`UnavailableNotice`: "เอกสารรายงานไม่พร้อมให้บริการ", "หากต้องการเอกสารนี้ โปรดติดต่อสำนักงาน",
-  "ติดต่อเรา" to `/contact`), with no tile, no download and no link to the Document. Before #343 a
-  report whose Document's file could not be served showed the Document's row with "ไฟล์ไม่พร้อม
-  ให้บริการ"; it now says the report Document is unavailable, as spec #338 sets. Then, 20 px
+  "ติดต่อเรา" to `/contact`), with no tile, no download and no link to the Document. Then, 20 px
   apart, a 1 px `border-default` rule and the details (Report Type, report date, reporting period,
   fiscal year, owner or source), each row only when set. **A report with no details row** has its
   card all the same, holding the file alone, without the rule.
@@ -2482,8 +2480,9 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   Document's page holds its file (`FileBlock`, shared with §9.5): the tile, the H2 "เอกสารรายงาน",
   the Document's title linking to its page, the type and size and the download; or, when the
   Document is unpublished or its file cannot be served, the H2 and "เอกสารรายงานไม่พร้อม
-  ให้บริการ". Then the rule and the details. `DocumentDownload.astro`, which served this page
-  alone, is removed (#334). `PostHeader`'s date pill takes its words (`dateWords`). §2, §3.1,
-  §7.1, §7.3, §8.12, §9.1, §9.5 and §9.6 name it. Authority: spec #338 "The three pages: the
+  ให้บริการ". Then the rule and the details. Before, a report whose Document's file could not be
+  served showed the Document's row with "ไฟล์ไม่พร้อมให้บริการ". `DocumentDownload.astro`, which
+  served this page alone, is removed (#334). `PostHeader`'s date pill takes its words
+  (`dateWords`). §2, §3.1, §3.2, §7.1, §7.3, §8.12, §9.1, §9.5 and §9.6 name it. Authority: spec #338 "The three pages: the
   header", "The card over the field's edge" and decisions 4, 8 and 9, and #338 comment
   6941491587.

@@ -413,7 +413,7 @@ test.describe("/health without JavaScript", () => {
 		await publishReport(report);
 		await page.goto(`/health/reports/${report.slug}`);
 		const parts = fieldParts(page);
-		const block = fileBlockOf(parts.card, "เอกสารรายงาน", "PDF, 2 KB", "ดาวน์โหลดเอกสาร");
+		const block = fileBlockOf(parts.card, "เอกสารรายงาน", "PDF, 2 KB");
 		const shown = async (part: Locator) => (await part.count()) === 1 && part.isVisible();
 		const seen: Record<string, boolean> = {
 			title: await shown(parts.title.filter({ hasText: report.title })),
@@ -1466,6 +1466,11 @@ test.describe("a Health Report's page on the field", () => {
 			text: await summary.innerText(),
 			shown: await shownLines(summary),
 			colour: await summary.evaluate((text) => getComputedStyle(text).color),
+			// body-large, 18 / 30.
+			type: await summary.evaluate((text) => {
+				const style = getComputedStyle(text);
+				return [style.fontSize, style.lineHeight];
+			}),
 			underTitle:
 				(await boxOf(summary, "the summary")).y >=
 				(await boxOf(parts.title, "the title")).y + (await boxOf(parts.title, "the title")).height,
@@ -1474,10 +1479,13 @@ test.describe("a Health Report's page on the field", () => {
 			text: REPORT_SUMMARY,
 			shown: { lines: 2, clamped: false },
 			colour: white,
+			type: ["18px", "30px"],
 			underTitle: true,
 		};
 
 		/** The words of the row that holds `pill`, or "no pill". */
+		/** The terms of the card's details, in order. */
+		const terms = () => parts.card.locator("dl").getByRole("term").allInnerTexts();
 		const rowOf = async (pill: Locator) =>
 			(await pill.count()) === 1 ? (await pill.locator("xpath=..").innerText()).trim() : "no pill";
 		// A report without a report date: its type's pill alone, and no date in the header, not even
@@ -1486,13 +1494,17 @@ test.describe("a Health Report's page on the field", () => {
 		seen.typeOnly = onField && {
 			row: await rowOf(parts.field.getByText(typeOnly.type.label, { exact: true })),
 			dates: await parts.header.locator("time").count(),
+			details: await terms(),
 		};
-		expected.typeOnly = { row: typeOnly.type.label, dates: 0 };
+		expected.typeOnly = { row: typeOnly.type.label, dates: 0, details: ["ประเภทรายงาน"] };
 
 		// A report date without a type: its date's pill alone.
 		await page.goto(pathOf(dateOnly));
-		seen.dateOnly = onField && (await rowOf(parts.field.getByText(/^วันที่รายงาน /)));
-		expected.dateOnly = `วันที่รายงาน ${REPORT_DAY}`;
+		seen.dateOnly = onField && {
+			row: await rowOf(parts.field.getByText(/^วันที่รายงาน /)),
+			details: await terms(),
+		};
+		expected.dateOnly = { row: `วันที่รายงาน ${REPORT_DAY}`, details: ["วันที่รายงาน"] };
 
 		// Neither: no row of pills, the title 24 px under the breadcrumb.
 		await page.goto(pathOf(bare));
@@ -1536,12 +1548,7 @@ test.describe("a Health Report's page on the field", () => {
 		page,
 	}) => {
 		await page.goto(pathOf(full));
-		const block = fileBlockOf(
-			fieldParts(page).card,
-			"เอกสารรายงาน",
-			"PDF, 11.8 KB",
-			"ดาวน์โหลดเอกสาร",
-		);
+		const block = fileBlockOf(fieldParts(page).card, "เอกสารรายงาน", "PDF, 11.8 KB");
 		const title = block.card.getByRole("link", { name: full.document.title, exact: true });
 		const look = await fileBlockLook(block);
 		const seen: Record<string, unknown> = {
@@ -1571,7 +1578,7 @@ test.describe("a Health Report's page on the field", () => {
 			if (!look || !seen.title) break;
 			seen[width] = await fileBlockAt(block, [title.locator("xpath=.."), block.typeAndSize], width);
 			// The type and size stay on one line, and the words take two lines at 320 px.
-			expected[width] = fileBlockAsSpecified(width, 2, width === 320 ? 2 : 1);
+			expected[width] = fileBlockAsSpecified(width, { lines: 2, wordLines: width === 320 ? 2 : 1 });
 		}
 		expect(seen, "the card's file block, rule and details").toEqual(expected);
 	});

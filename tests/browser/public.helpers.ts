@@ -2954,17 +2954,18 @@ function wordsIn(download: Locator) {
 
 /**
  * The file block first in a page's card over the field's edge, a Document's (spec #311 "The card
- * over the field's edge") and a Health Report's (spec #338 "The card over the field's edge"): the
- * file's tile, the H2 `heading`, the file's type and size `label`, the download reading `words`
- * and the label, then the rule and the details.
+ * over the field's edge") and a Health Report's (spec #338 "The card over the field's edge"), and
+ * what follows it in the card: the file's tile, the H2 `heading`, the file's type and size `label`,
+ * the download reading "ดาวน์โหลดเอกสาร" and the label (src/components/FileBlock.astro), then the
+ * card's rule and details.
  */
-export function fileBlockOf(card: Locator, heading: string, label: string, words: string) {
+export function fileBlockOf(card: Locator, heading: string, label: string) {
 	return {
 		card,
 		tile: card.locator("svg.lucide-file-text").locator("xpath=.."),
 		heading: card.getByRole("heading", { level: 2, name: heading }),
 		typeAndSize: card.getByText(label, { exact: true }),
-		download: card.getByRole("link", { name: `${words} (${label})`, exact: true }),
+		download: card.getByRole("link", { name: `ดาวน์โหลดเอกสาร (${label})`, exact: true }),
 		label,
 		rule: card.getByRole("separator"),
 		details: card.locator("dl"),
@@ -3004,7 +3005,8 @@ export async function fileBlockLook(block: FileBlock) {
 }
 
 /**
- * A file block's look as spec #311 sets it (docs/design/DESIGN.md §9.5): the tile decorative, on
+ * A file block's look as spec #311 sets it and spec #338 takes it (docs/design/DESIGN.md §9.5,
+ * §9.6): the tile decorative, on
  * the gradient, with the type in accent-warm; the H2 at body-large, semibold, brand-dark; the type
  * and size at small size in text-secondary; the brand-primary download with its words semibold,
  * the type and size regular and the 20 px icon, linking to `file` at EmDash's media URL under its
@@ -3098,7 +3100,8 @@ export async function fileBlockAt(block: FileBlock, lines: Locator[], width: num
 }
 
 /**
- * A file block's places at `width` as spec #311 sets them (docs/design/DESIGN.md §9.5): the block
+ * A file block's places at `width` as spec #311 sets them and spec #338 takes them
+ * (docs/design/DESIGN.md §9.5, §9.6): the block
  * 20 px inside the card's corner, the tile centred on the text, 68 px below `sm` and 92 px from
  * `sm`, the H2 16 px beside it and each of `lines` lines straight under it; from `sm` the download
  * at the card's right, 52 px high and 16 px or more beside the text, below `sm` across the card
@@ -3106,7 +3109,10 @@ export async function fileBlockAt(block: FileBlock, lines: Locator[], width: num
  * card and the details 20 px under it. The download's words take `wordLines` lines, centred, the
  * type and size kept on one, 8 px inside its edges.
  */
-export function fileBlockAsSpecified(width: number, lines: number, wordLines: number) {
+export function fileBlockAsSpecified(
+	width: number,
+	{ lines, wordLines }: { lines: number; wordLines: number },
+) {
 	const wide = width >= 640;
 	return {
 		tileFirst: [0, 0],

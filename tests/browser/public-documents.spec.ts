@@ -1161,12 +1161,7 @@ test.describe("a Document's page on the field", () => {
 	}) => {
 		// A superseded Document's download is a current one's (#315 comment 6909993217).
 		await page.goto(pathOf(superseded));
-		const block = fileBlockOf(
-			fieldParts(page).card,
-			"ไฟล์เอกสาร",
-			"PDF, 11.8 KB",
-			"ดาวน์โหลดเอกสาร",
-		);
+		const block = fileBlockOf(fieldParts(page).card, "ไฟล์เอกสาร", "PDF, 11.8 KB");
 		const look = await fileBlockLook(block);
 		const seen: Record<string, unknown> = { parts: look };
 		const expected: Record<string, unknown> = {
@@ -1176,7 +1171,7 @@ test.describe("a Document's page on the field", () => {
 			if (!look) break;
 			seen[width] = await fileBlockAt(block, [block.typeAndSize], width);
 			// The type and size stay on one line, and the words take two lines at 320 px.
-			expected[width] = fileBlockAsSpecified(width, 1, width === 320 ? 2 : 1);
+			expected[width] = fileBlockAsSpecified(width, { lines: 1, wordLines: width === 320 ? 2 : 1 });
 		}
 		expect(seen, "the card's file block, rule and details").toEqual(expected);
 	});
