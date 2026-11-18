@@ -294,7 +294,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, one of the two exceptions to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
-| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's page (§9.5), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, the same tile with `file-chart-column` (§7.3; #342) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317) |
+| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's page (§9.5), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, the same tile with `file-chart-column` (§7.3; #342) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342) |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7, and the label on its page, §9.4) | 13.85:1 |
@@ -677,7 +677,14 @@ this document names:
   title turns `brand-primary` and the arrow's circle `accent-warm` with a `brand-dark` arrow; with
   motion allowed the row also moves 10 px to the right with the `deep` shadow, and the link
   reaches back over the strip it left, as the Announcement row's. Each row reveals as it comes
-  into the window and shows whole while it holds the keyboard's focus (§8.12).
+  into the window and shows whole while it holds the keyboard's focus (§8.12). With `--all-text`
+  at the five widths every text of a row reads 4.97:1 or more, the facts line, the summary and the
+  period in `text-secondary` the lowest; the tile's fiscal year 5.60:1 or more and the title
+  16.54:1. The first row's ring, over the field's edge, reads 1.00:1 under it on about half its
+  length, and with the band 5.43:1 or more beside it, none under 3:1; a later row's 5.39:1 under
+  it and 6.07:1 beside it (#342; measured at `7b49b6e` with `scripts/measure-text-contrast.ts` on
+  the demo dataset's list and with `scripts/screenshot-fixtures/lists-by-count.ts`, and
+  `scripts/measure-focus-contrast.ts`).
 - **Crops:** a list's card, a News, Health Content or Activity card, crops its picture to 16:9
   from `sm` and 4:3 below (`ContentCard.astro`), as the Homepage's small News card does; the
   Homepage's Health Content
