@@ -1,0 +1,80 @@
+---
+// A Health Service as a row with its map, in the Health Service Directory (Feature 011 #341; spec
+// #338 "The Health Service Directory", decisions 12 and 16). A Service's page keeps
+// HealthServiceRow until #344 gives it this row with its names H3. A white row as the Document
+// row (DocumentDownloadRow): the hospital tile, the facts line (the Facility Type and the Area), a
+// temporarily closed or inactive Health Service's attention label on its own line, the shown name
+// linking to its page, the official name when the display name differs, the address, and
+// "เปิดแผนที่" when it has coordinates. Its name is a heading one level below the list's own: H2
+// in the directory, H3 under a Service's section heading.
+//
+// The tile is the Document row's file tile in size and gradient (68 px below `sm`, 92 px from
+// `sm`) with the 24 px hospital in accent-warm; it is decorative. The facts line is MetaLine's,
+// which wraps between facts (#341 comment 6966593423, item 2). The name is text-primary, body size
+// below `sm` and body-large from `sm`, two lines at most, as the Document row's title; the address
+// keeps the line breaks staff typed, at label size, two lines at most at every width (spec #338
+// "How this differs from the prototype").
+//
+// No link covers the row: the name and the map are its two links and its two focus stops. The
+// name turns brand-primary and underlined under the pointer on its own link only, and the row
+// takes the `deep` shadow, only with motion allowed. The map is MapLink's row pill, named with the
+// shown name; from `lg` it sits at the row's right, from `sm` under the text at its start, and
+// below `sm` across the row under the tile and the text, as the Document row's download. Without
+// valid coordinates it renders nothing and its place stays empty.
+import Hospital from "@lucide/astro/icons/hospital";
+import { healthServiceRowParts, type HealthServiceEntry } from "../lib/health-services";
+import HealthServiceStatus from "./HealthServiceStatus.astro";
+import MapLink from "./MapLink.astro";
+import MetaLine from "./MetaLine.astro";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	healthService: HealthServiceEntry;
+	headingLevel?: 2 | 3;
+}
+
+const { healthService, headingLevel = 2 } = Astro.props;
+const Heading = headingLevel === 3 ? "h3" : "h2";
+const data = healthService.data;
+const { name, href, facts, status } = healthServiceRowParts(healthService);
+---
+
+<article class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3.5 gap-y-3 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition-shadow motion-safe:duration-300 motion-safe:hover:shadow-deep sm:gap-x-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
+	<p
+		aria-hidden="true"
+		class="flex size-17 shrink-0 items-center justify-center rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-accent-warm sm:size-23 sm:rounded-18"
+	>
+		<Hospital class="shrink-0" size={24} />
+	</p>
+	<div class="flex min-w-0 flex-col gap-1">
+		<MetaLine facts={facts} />
+		{status && (
+			<p class="flex pb-0.5">
+				<HealthServiceStatus status={status} />
+			</p>
+		)}
+		<Heading class="text-body font-semibold wrap-anywhere sm:text-body-large">
+			<a
+				class="line-clamp-2 w-fit underline-offset-4 hover:text-brand-primary hover:underline"
+				href={href}
+			>
+				<ThaiTitle text={name} />
+			</a>
+		</Heading>
+		{name !== data.title && (
+			<p class="text-small wrap-anywhere text-text-secondary">{data.title}</p>
+		)}
+		{data.address && (
+			<p class="line-clamp-2 text-label wrap-anywhere whitespace-pre-line text-text-secondary">
+				{data.address}
+			</p>
+		)}
+	</div>
+	<MapLink
+		latitude={data.latitude}
+		longitude={data.longitude}
+		inRow
+		context={name}
+		class="max-sm:col-span-2 sm:col-start-2 sm:justify-self-start lg:col-start-3"
+	/>
+</article>

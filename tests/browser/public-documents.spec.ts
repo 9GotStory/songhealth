@@ -56,7 +56,8 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
-	pressInside,
+	pointAt,
+	pressOpens,
 	SECTION_CRUMBS,
 	boxOf,
 	cardOverFieldEdge,
@@ -64,7 +65,9 @@ import {
 	detailOf,
 	entersAfter,
 	expect,
+	expectAttentionLabelsOnOwnLine,
 	expectBreadcrumb,
+	expectSecondLinkPlaces,
 	expectFilteredEmpty,
 	expectPreviewRenders,
 	expectSiteNotFound,
@@ -75,6 +78,7 @@ import {
 	listedItem,
 	listedTitles,
 	offeredLabels,
+	rowShadow,
 	ownTitles,
 	pillStyle,
 	shownLines,
@@ -83,6 +87,7 @@ import {
 	test,
 	testAccessibilityAndReflow,
 	testListOnField,
+	textStyle,
 	thaiDate,
 	tokenColor,
 } from "./public.helpers";
@@ -227,19 +232,6 @@ function rowParts(row: Locator) {
 		download: row.getByRole("link", { name: /^ดาวน์โหลด/ }),
 		facts: row.locator("time").locator("xpath=.."),
 	};
-}
-
-/** The text styles of `part` as the page is laid out now. */
-function textStyle(part: Locator) {
-	return part.evaluate((element) => {
-		const style = getComputedStyle(element);
-		return {
-			size: parseFloat(style.fontSize),
-			weight: style.fontWeight,
-			colour: style.color,
-			underline: style.textDecorationLine.includes("underline"),
-		};
-	});
 }
 
 test("each /documents row: the file's tile with file-text and the file's type, 68 px below 640 px and 92 px from 640 px; the facts line; the title as an H2 in two lines at most, linking to its page; from 640 px the summary in two lines at most; exactly two links; rows 14 px apart", async ({
@@ -447,32 +439,18 @@ test("a superseded or an expired Document's row shows its attention label on its
 	await expect(listedItem(page, current.title)).not.toContainText(
 		/ถูกแทนที่แล้ว|หมดอายุแล้ว|ฉบับปัจจุบัน/,
 	);
-	const seen: Record<string, unknown> = {};
-	const expected: Record<string, unknown> = {};
-	for (const [document, label] of [
-		[superseded, "ถูกแทนที่แล้ว"],
-		[expired, "หมดอายุแล้ว"],
-	] as const) {
-		const row = listedItem(page, document.title);
-		const { facts, title } = rowParts(row);
-		const status = row.getByText(label, { exact: true });
-		const [factsBox, statusBox, titleBox] = [
-			await boxOf(facts, `${label}: the facts`),
-			await boxOf(status, `${label}: the label`),
-			await boxOf(title, `${label}: the title`),
-		];
-		seen[label] = {
-			underFacts: statusBox.y >= factsBox.y + factsBox.height - 0.5,
-			aboveTitle: titleBox.y >= statusBox.y + statusBox.height - 0.5,
-			fill: await status.evaluate((element) => getComputedStyle(element).backgroundColor),
-		};
-		expected[label] = {
-			underFacts: true,
-			aboveTitle: true,
-			fill: await tokenColor(page, "accent-warm"),
-		};
-	}
-	expect(seen, "the attention label on its own line").toEqual(expected);
+	await expectAttentionLabelsOnOwnLine(
+		page,
+		(
+			[
+				[superseded, "ถูกแทนที่แล้ว"],
+				[expired, "หมดอายุแล้ว"],
+			] as const
+		).map(([document, label]) => {
+			const row = listedItem(page, document.title);
+			return { ...rowParts(row), row, label };
+		}),
+	);
 });
 
 test("a row's download sits at the row's right from 1,024 px, under the text at its start from 640 px to 1,023 px, and across the row under the tile and the text below 640 px", async ({
@@ -487,48 +465,7 @@ test("a row's download sits at the row's right from 1,024 px, under the text at 
 	const row = listedItem(page, document.title);
 	const { tile, title, download } = rowParts(row);
 	await expect(row.getByRole("link", { name: document.title, exact: true })).toBeVisible();
-	/** Where the download lies against the row, its tile and its text, rounded to the pixel. */
-	const placeOf = async () => {
-		if ((await download.count()) === 0) return "no download";
-		const [rowBox, tileBox, textBox, linkBox] = [
-			await boxOf(row, "the row"),
-			await boxOf(tile, "the tile"),
-			await boxOf(title, "the title"),
-			await boxOf(download, "the download"),
-		];
-		const near = (a: number, b: number) => Math.abs(a - b) <= 1;
-		const textBottom = Math.max(textBox.y + textBox.height, tileBox.y + tileBox.height);
-		if (linkBox.x >= textBox.x + textBox.width - 0.5 && linkBox.y < textBox.y + textBox.height) {
-			return "beside the text, at the row's right";
-		}
-		if (linkBox.y >= textBottom - 0.5 && near(linkBox.x, textBox.x)) {
-			return "under the text, at its start";
-		}
-		if (
-			linkBox.y >= textBottom - 0.5 &&
-			near(linkBox.x, tileBox.x) &&
-			near(linkBox.x + linkBox.width, rowBox.x + rowBox.width - (tileBox.x - rowBox.x))
-		) {
-			return "across the row, under the tile and the text";
-		}
-		return `elsewhere: ${JSON.stringify({ rowBox, tileBox, textBox, linkBox })}`;
-	};
-	const seen: Record<number, string> = {};
-	const expected: Record<number, string> = {};
-	for (const [width, place] of [
-		[1440, "beside the text, at the row's right"],
-		[1024, "beside the text, at the row's right"],
-		[1023, "under the text, at its start"],
-		[640, "under the text, at its start"],
-		[639, "across the row, under the tile and the text"],
-		[375, "across the row, under the tile and the text"],
-		[320, "across the row, under the tile and the text"],
-	] as const) {
-		await page.setViewportSize({ width, height: 900 });
-		seen[width] = await placeOf();
-		expected[width] = place;
-	}
-	expect(seen, "the download's place by width").toEqual(expected);
+	await expectSecondLinkPlaces(page, { row, tile, title, link: download }, "download");
 });
 
 test("a row's title and download are its two focus stops; under the pointer its title turns brand-primary and underlined on its own link only, the download's fill turns brand-dark, the row takes the deep shadow only when motion is allowed, and a press elsewhere on the row opens nothing", async ({
@@ -539,30 +476,9 @@ test("a row's title and download are its two focus stops; under the pointer its 
 	const second = await createDocument("pointer-second", dated);
 	await publishLeading(first, in2031(6, 2));
 	await publishLeading(second, in2031(6, 1));
-	/** The row's shadow: the `deep` one under the pointer, else the `card` one. */
-	const shadowOf = (row: Locator) =>
-		row.evaluate((article) => {
-			const shadow = getComputedStyle(article).boxShadow;
-			return shadow.includes("0px 30px 60px -20px")
-				? "deep"
-				: shadow.includes("0px 10px 15px")
-					? "card"
-					: shadow;
-		});
-	/** Point at the middle of `part` once its row has come in, and give a move 0.5 s. */
-	const pointAt = async (part: Locator) => {
-		const box = await boxOf(part, "where the pointer goes");
-		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-		await page.waitForTimeout(500);
-	};
 	/** Press `x`, `y` on `target` and say which address the page then shows. */
-	const pressAt = async (target: Locator, x: number, y: number, label: string) => {
-		await pressInside(page, target, { x, y }, label);
-		await page.waitForURL(/\/documents\/./, { timeout: 2_000 }).catch(() => undefined);
-		const opened = new URL(page.url()).pathname;
-		if (opened !== "/documents") await page.goBack();
-		return opened;
-	};
+	const pressAt = (target: Locator, x: number, y: number, label: string) =>
+		pressOpens(page, target, { x, y }, label, "/documents");
 
 	await page.goto("/documents");
 	const row = listedItem(page, first.title);
@@ -578,11 +494,11 @@ test("a row's title and download are its two focus stops; under the pointer its 
 	await page.keyboard.press("Tab");
 	const afterThat = await focused(rowParts(listedItem(page, second.title)).title.getByRole("link"));
 
-	await pointAt(away);
-	const onTile = { title: await textStyle(titleLink), row: await shadowOf(row) };
-	await pointAt(titleLink);
+	await pointAt(page, away);
+	const onTile = { title: await textStyle(titleLink), row: await rowShadow(row) };
+	await pointAt(page, titleLink);
 	const onTitle = await textStyle(titleLink);
-	await pointAt(download);
+	await pointAt(page, download);
 	const downloadFill = await download.evaluate((link) => getComputedStyle(link).backgroundColor);
 	const tileBox = await boxOf(away, "the tile");
 	const rowBox = await boxOf(row, "the row");
@@ -603,8 +519,8 @@ test("a row's title and download are its two focus stops; under the pointer its 
 	await expect
 		.poll(() => shownOpacity(listedItem(page, first.title)), { message: "the row has come in" })
 		.toBe(1);
-	await pointAt(away);
-	const moving = await shadowOf(listedItem(page, first.title));
+	await pointAt(page, away);
+	const moving = await rowShadow(listedItem(page, first.title));
 
 	const [primary, text, dark] = [
 		await tokenColor(page, "brand-primary"),

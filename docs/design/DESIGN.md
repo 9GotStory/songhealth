@@ -10,7 +10,7 @@
 > spec #311, implemented by #312–#318, and was accepted on #311 (Product Owner, 2026-11-17: #311
 > comment 6936494700). Feature 011's redesign of the Health Information hub, the Health Reports,
 > Services and Health Services pages follows spec #338, implemented by #339–#346.
-> **Updated:** 2026-11-17 (#340); first drafted 2026-10-30
+> **Updated:** 2026-11-18 (#341); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -135,8 +135,10 @@ health-service network.
   Health Information hub, the Health Reports list, the Service catalog and the Health Service
   Directory (spec #338; §7.8; #339): `/services` with its two related links under the lead, and
   `/health` with its two destinations as the Homepage's Quick Access tiles over the field's edge
-  (§7.3, §8.11). `/services` shows the Homepage's Frequently Used Service cards (§8.4; #340). The
-  Health Service and report rows, and the three item pages, keep their look until #341 to #345.
+  (§7.3, §8.11). `/services` shows the Homepage's Frequently Used Service cards (§8.4; #340), and
+  `/health-services` rows with the Health Service's tile, its name, its address and "เปิดแผนที่" in
+  the row (§7.3; #341). The report rows and the three item pages keep their look until #342 to
+  #345.
   Every page outside the three features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -379,7 +381,9 @@ own module.
   icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's cards, small and large, `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3; in a
   list heading's tile `heart` on `/activities`, `file-text` on `/announcements` and `folder-open` on
   `/documents`, §7.8), and so does a Document row's file tile on `/documents`, with `file-text`
-  (§7.3). A Service card shows
+  (§7.3), and a Health Service row's tile on `/health-services`, with `hospital`, whose
+  "เปิดแผนที่" opens with a 20 px `map-pin` and ends in the 16 px `arrow-up-right` (§7.3; Feature
+  011 #341). A Service card shows
   the Service's icon (below).
 - **Service icons** (Product Owner, 2026-11-12: #248 comment 6826430670): a Service card's tile
   shows the icon staff chose for the Service in the Service editor, on the Homepage (§8.4) and in
@@ -429,16 +433,18 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
     go two to a row, and the Services' grid overlaps the deep field's edge (§8.4). A list's
     heading has its link at its right, and the field under it or under a post's header the small
     glow in its corner (§7.8, §9.1); a list's small cards go two to a row, each with its picture
-    above its text and its summary, and its large card spans the row (§7.3);
+    above its text and its summary, and its large card spans the row (§7.3); a Document row's and
+    a Health Service row's tile grows from 68 to 92 px, and the row's name or title from body to
+    body-large size (§7.3);
   - `lg`, from 1,024 px: desktop, with the main navigation in the header (§7.4), the two-column
     layouts (the post pages, the MOIT page's table of contents) and, on the Homepage, up to
     three Services and four Health Content cards to a row, the Leadership strip in one row, the large
     News card and the large Activity tile beside their small ones, and the Current Announcements'
     heading beside their rows (§8.4 to §8.11). The field under a list's heading has its ring
     (§7.8), a list's small cards go three to a row and its large card takes two columns or the
-    whole row by the number of items (§7.3), a Document row's download sits beside its text at
-    the row's right, where from `sm` to `lg` it is under the text at its start and below `sm`
-    across the row (§7.3), and a
+    whole row by the number of items (§7.3), a Document row's download and a Health Service
+    row's "เปิดแผนที่" sit beside its text at the row's right, where from `sm` to `lg` each is
+    under the text at its start and below `sm` across the row (§7.3), and a
     Post page's frame starts on the field beside the text and stays in view while the text is the
     longer (§9.1, §10).
   - `md` and `xl` are not used.
@@ -472,7 +478,7 @@ this document names:
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's and a Document's page under a Post page's header (§9.4, §9.5) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
-| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents` and in an Announcement's related Documents (§7.3, §9.4), where every other page keeps `DocumentRow`, with `FileTile` and `FileDownloadLink`, which a Document's page shares (§9.5); `RelatedDocuments` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents` and in an Announcement's related Documents (§7.3, §9.4), where every other page keeps `DocumentRow`, with `FileTile` and `FileDownloadLink`, which a Document's page shares (§9.5); `HealthServiceMapRow`, the Health Service row on `/health-services` with `MapLink`'s row pill, where a Service's page keeps `HealthServiceRow` until #344 (§7.3); `RelatedDocuments` |
 
 ### 7.2 Component rules
 
@@ -613,6 +619,34 @@ this document names:
   links' rings lie on the row's white: under each ring 6.45:1 at the five widths, beside the
   download's 6.07:1 or more (#315; measured at `fac3acd` with `scripts/measure-text-contrast.ts`,
   `scripts/measure-focus-contrast.ts` and `scripts/screenshot-fixtures/lists-by-count.ts`).
+- **The Health Service row** on `/health-services` (Feature 011 #341; spec #338 "The Health
+  Service Directory", decisions 12 and 16), `HealthServiceMapRow`: the Document row's white row,
+  radius 22, the `card` shadow and padding, 14 px apart, after the filter form, in one column at
+  any count (decision 13). It holds the Document row's tile in size and gradient (68 px, radius
+  14, below `sm`; 92 px, radius 18, from `sm`) with the 24 px `hospital` in `accent-warm`; it is
+  decorative. Beside the tile: the facts line (`MetaLine`: the Facility Type and the Area,
+  separated by "•", at small size in `text-secondary`), which wraps between facts and inside a fact
+  only when that fact alone is wider than the line (Product Owner, 2026-11-18: #341 comment
+  6966593423, item 2); a temporarily closed or inactive Health Service's `accent-warm` attention
+  label on its own line, and none for an active one; the shown name, an H2, `text-primary`,
+  semibold, body size below `sm` and body-large from `sm`, two lines at most, linking to the Health
+  Service's page; the official name when the display name differs, at small size in
+  `text-secondary`; and the address with the line breaks staff typed, at label size in
+  `text-secondary`, two lines at most at every width. Then "เปิดแผนที่" when the Health Service has
+  valid coordinates: the outlined pill (`border-input` edge, `brand-primary` label, 44 px high),
+  semibold as the prototype's (#341 comment 6966593423, item 1), with the 20 px `map-pin` before the
+  words and the 16 px `arrow-up-right` after, linking to the map address its coordinates build
+  (`src/lib/map-link.ts`) in a new tab. Its accessible name adds the shown name after the visible
+  words, then "(เปิดในแท็บใหม่)", for assistive technology only. A Health Service without both
+  coordinates shows no map link, and its place stays empty. The map sits as the Document row's
+  download: at the row's right, beside the text, from `lg`; under the text at its start from `sm`;
+  across the row under the tile and the text below `sm`, its words centred. **No link covers the
+  row:** the name and the map are its two links and its two focus stops, and a press elsewhere on
+  it opens nothing. Under the pointer the name turns `brand-primary` and underlined on its own
+  link only, and the row takes the `deep` shadow, only with motion allowed. Each row reveals as it
+  comes into the window and shows whole while it holds the keyboard's focus (§8.12). A Service's
+  page keeps the earlier row, `HealthServiceRow`, until #344 gives it this one with its names H3;
+  "เปิดแผนที่" on a Health Service's page and on `/contact` keeps its look without the `map-pin`.
 - **Crops:** a list's card, a News, Health Content or Activity card, crops its picture to 16:9
   from `sm` and 4:3 below (`ContentCard.astro`), as the Homepage's small News card does; the
   Homepage's Health Content
@@ -837,8 +871,9 @@ Directory (`/health-services`).
   Document rows follow it (§7.3; Feature 010 #315), 14 px apart, each with two links, its title
   and its download, whose rings lie on the row's white, 6.45:1 (§7.3). On `/services` and
   `/health-services` the filter form is the block over the edge, then the Service cards (§7.3,
-  §8.4; Feature 011 #340) or today's Health Service rows; on `/health/reports` today's report rows
-  are the block; the rows in their look until Feature 011's #341 and #342. On `/health` the
+  §8.4; Feature 011 #340) or the Health Service rows (§7.3; #341), 14 px apart, each with two
+  links, its name and its map, whose rings lie on the row's white; on `/health/reports` today's
+  report rows are the block, in their look until Feature 011's #342. On `/health` the
   block is the two Quick Access tiles (§7.3), their rings with the lists' band (Feature 011
   #339). The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
@@ -850,8 +885,8 @@ Directory (`/health-services`).
   lead 0.1 s after it. Each card reveals as it comes into the window (§7.3), and on
   `/announcements` and `/documents` each row (§7.3, §8.7) and on `/health` each tile (§7.3). The
   breadcrumb, the link, the links under the lead, the filter form, the empty state and the pager
-  show at once, and so do the Health Service and report rows until their own tickets (#341,
-  #342); `/services`' cards reveal as the other lists' cards do (#340).
+  show at once, and so do the report rows until their own ticket (#342); `/services`' cards reveal
+  as the other lists' cards do (#340), and `/health-services`' rows as the Documents' (#341).
 - **Measured** on the development runtime at `fb11b3e`, the head of `009-news-post-redesign`,
   with the demo dataset's six News and five Health Content (#287,
   `docs/evidence/287-news-post-redesign-evidence-round.md`):
@@ -1465,7 +1500,8 @@ stays the submit state (§8.9).
   Activities, Announcements and Documents lists: the Activities list's cards move as `/news`'s
   since Feature 010 #313, the Announcements' rows reveal as the Homepage's do since #314, without a
   picture to shimmer, and the Documents' rows as the Announcements' since #315; `/services`'
-  cards reveal without a picture since Feature 011 #340, `testListOnField`'s `itemsMove`).
+  cards reveal without a picture since Feature 011 #340, and `/health-services`' rows since #341,
+  `testListOnField`'s `itemsMove`).
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
@@ -2323,3 +2359,12 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   `text-secondary-on-soft` on the Homepage too, the one change there. §2, §3.1, §7.1, §7.3, §7.8,
   §8.4 and §8.12 name it. Authority: spec #338 "The Service catalog" and decisions 13, 15, 20 and
   21, and #338 comment 6941491587.
+- **v1.5 the Health Service row (2026-11-18, Feature 011 #341):** `/health-services` shows the
+  Health Service row with its map (`HealthServiceMapRow`): the Document row's white row and tile,
+  with `hospital`; the facts line, the attention label on its own line, the name an H2 in
+  `text-primary`, the official name and the address in two lines at most at every width; and
+  "เปิดแผนที่", semibold with a 20 px `map-pin`, named with the Health Service's shown name, placed
+  as the Document row's download. No link covers the row; each row reveals as it comes into the
+  window. A Service's page keeps `HealthServiceRow` until #344. §2, §5, §6, §7.1, §7.3, §7.8 and
+  §8.12 name it. Authority: spec #338 "The Health Service Directory" and decisions 12, 13 and 16,
+  #338 comment 6941491587, and #341 comment 6966593423.

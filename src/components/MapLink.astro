@@ -6,7 +6,15 @@
 // 6536052180), which is decorative (docs/agents/lucide-astro-1.59.0.md). On a dark surface, the
 // Homepage's contact card, it is surface-base underlined text in place of the outlined pill
 // (Feature 008 #247): accent-warm small text is below 4.5:1 on the card's brand-primary end.
+//
+// A Health Service row's pill (Feature 011 #341; spec #338 "The Health Service Directory",
+// decision 12) opens with the 20 px map-pin and is semibold, as the prototype's (Product Owner,
+// 2026-11-18: #341 comment 6966593423, item 1), its words centred where it spans the row; it takes
+// the Health Service's shown name as `context`, read after the visible words by assistive
+// technology only, so a page of rows tells its maps apart (WCAG 2.2 SC 2.4.4, 2.5.3), as a
+// Document row's download does.
 import ArrowUpRight from "@lucide/astro/icons/arrow-up-right";
+import MapPin from "@lucide/astro/icons/map-pin";
 import { mapHref } from "../lib/map-link";
 
 interface Props {
@@ -14,9 +22,22 @@ interface Props {
 	longitude: number | null | undefined;
 	/** The link sits on a dark surface. */
 	onDark?: boolean;
+	/** The pill of a Health Service row: the map-pin before the words, semibold. */
+	inRow?: boolean;
+	/** Read after the words by assistive technology only, such as the place's name. */
+	context?: string;
+	/** Where the pill sits in its parent. */
+	class?: string;
 }
 
-const { latitude, longitude, onDark = false } = Astro.props;
+const {
+	latitude,
+	longitude,
+	onDark = false,
+	inRow = false,
+	context,
+	class: className,
+} = Astro.props;
 const href = mapHref(latitude, longitude);
 ---
 
@@ -27,13 +48,16 @@ const href = mapHref(latitude, longitude);
 			onDark
 				? "gap-1 font-semibold text-surface-base underline underline-offset-4"
 				: "gap-2 rounded-pill border border-border-input px-5 text-label text-brand-primary hover:bg-surface-soft",
+			inRow && "justify-center font-semibold",
+			className,
 		]}
 		href={href}
 		target="_blank"
 		rel="noopener"
 	>
+		{inRow && <MapPin class="shrink-0" size={20} />}
 		เปิดแผนที่
-		<span class="sr-only">(เปิดในแท็บใหม่)</span>
+		<span class="sr-only">{context && `${context} `}(เปิดในแท็บใหม่)</span>
 		<ArrowUpRight class="shrink-0" size={16} />
 	</a>
 )}
