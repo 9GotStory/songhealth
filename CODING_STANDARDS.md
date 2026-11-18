@@ -104,9 +104,9 @@ and why, and `.jscpd-baseline.json` records them.
   box (#315 retro: axe's focus check failed the Document row's title).
 - `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
   the Homepage's and the one under a list's heading or a Post page's, an Announcement's, a
-  Document's or a Health Report's header (spec #280 "The field under a heading"; spec #311 "An
-  Announcement's page and a Document's page: the header"; spec #338 "The three pages: the
-  header"), it is 4.10:1 or less, so small text there is `surface-base`
+  Document's, a Health Report's, a Service's or a Health Service's header (spec #280 "The field
+  under a heading"; spec #311 "An Announcement's page and a Document's page: the header"; spec
+  #338 "The three pages: the header"), it is 4.10:1 or less, so small text there is `surface-base`
   (`docs/design/DESIGN.md` §3.2; Product Owner, 2026-11-11: #242 comment 6797113372, item 1). Two
   measured exceptions, on the same gradient tile: the month and year on a current Announcement's
   date tile (its readings in `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12:
