@@ -22,7 +22,8 @@
 //   the third, whose Document is unpublished after the report is; the second has no fiscal year,
 //   and every third no report date, so its publication places it. Both are captured on their
 //   pages too, as health-report-no-fiscal-year-<width> and health-report-document-unpublished-
-//   <width>.
+//   <width>. The fourth describes a published Document whose file is deleted (#343), captured as
+//   health-report-file-gone-<width>.
 //
 //   LIST=activities LIST_COUNT=4 scripts/dev-runtime-env.sh \
 //     node scripts/capture-with-fixtures.ts scripts/screenshot-fixtures/lists-by-count.ts <out-dir>
@@ -296,14 +297,16 @@ async function healthReports({ admin, helpers, term }: FixtureKit): Promise<Capt
 			taxonomies: { document_type: [await term("document_type", "รายงาน")] },
 		});
 		await helpers.publishEntryAt(admin, "documents", document.id);
-		return document.id;
+		return document;
 	};
-	const shared = await reportDocument("[ตัวอย่าง] เอกสารรายงานฉบับเต็ม");
+	const shared = (await reportDocument("[ตัวอย่าง] เอกสารรายงานฉบับเต็ม")).id;
 	const pages = new Map<string, string>();
 	for (let index = 0; index < count; index += 1) {
 		const slug = helpers.syntheticSlug("shot");
 		const own =
 			index === 2 ? await reportDocument("[ตัวอย่าง] เอกสารรายงานที่เลิกเผยแพร่") : undefined;
+		const fileGone =
+			index === 3 ? await reportDocument("[ตัวอย่าง] เอกสารรายงานที่ไฟล์ถูกลบ") : undefined;
 		const entry = await helpers.createSyntheticEntry(admin, "health_reports", {
 			slug,
 			data: {
@@ -319,16 +322,21 @@ async function healthReports({ admin, helpers, term }: FixtureKit): Promise<Capt
 				...(index % 3 === 2 ? {} : { report_at: daysAgo(index + 2) }),
 			},
 			taxonomies: { report_type: [types[index % types.length]!] },
-			references: { report_document: [own ?? shared] },
+			references: { report_document: [(own ?? fileGone)?.id ?? shared] },
 		});
 		if (!entry.result.ok) {
 			throw new Error(`health report: ${helpers.nativeRefusalOf(entry.result)}`);
 		}
 		await helpers.publishEntryAt(admin, "health_reports", entry.entryId!, daysAgo(index + 1));
 		if (own !== undefined) {
-			const unpublished = await helpers.unpublishEntry(admin, "documents", own);
+			const unpublished = await helpers.unpublishEntry(admin, "documents", own.id);
 			if (!unpublished.ok) throw new Error(`unpublish: ${helpers.nativeRefusalOf(unpublished)}`);
 			pages.set("health-report-document-unpublished", slug);
+		}
+		if (fileGone !== undefined) {
+			const removed = await helpers.deleteMedia(admin, fileGone.file.mediaId);
+			if (!removed.ok) throw new Error(`delete file: ${helpers.nativeRefusalOf(removed)}`);
+			pages.set("health-report-file-gone", slug);
 		}
 		if (index === 1) pages.set("health-report-no-fiscal-year", slug);
 	}

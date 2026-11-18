@@ -10,7 +10,7 @@
 > spec #311, implemented by #312–#318, and was accepted on #311 (Product Owner, 2026-11-17: #311
 > comment 6936494700). Feature 011's redesign of the Health Information hub, the Health Reports,
 > Services and Health Services pages follows spec #338, implemented by #339–#346.
-> **Updated:** 2026-11-18 (#342); first drafted 2026-10-30
+> **Updated:** 2026-11-18 (#343); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -138,8 +138,10 @@ health-service network.
   (§7.3, §8.11). `/services` shows the Homepage's Frequently Used Service cards (§8.4; #340), and
   `/health-services` rows with the Health Service's tile, its name, its address and "เปิดแผนที่" in
   the row (§7.3; #341), and `/health/reports` rows with the report's tile carrying its fiscal
-  year, each one link over the whole row (§7.3; #342). The three item pages keep their look until
-  #343 to #345.
+  year, each one link over the whole row (§7.3; #342). A Health Report's page opens on the field
+  with the Post page's header, its report date and type in pills, and lays its report Document's
+  file first in one white card over the field's edge, then its details (§9.6; #343). A Service's
+  and a Health Service's page keep their look until #344 and #345.
   Every page outside the three features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -208,7 +210,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's page, the file's type on its tile (§7.3, §9.4, §9.5); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), and on a Document's header the pill of a superseded or expired status (§9.5) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's and a Health Report's page, the file's type on its tile (§7.3, §9.4, §9.5, §9.6); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), on a Document's header the pill of a superseded or expired status (§9.5), and on a Health Report's header the pill of "วันที่รายงาน" and the report date (§9.6) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -216,7 +218,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | `surface-soft` | `#eaf5f0` | soft bands, the Current Announcements' band and its general category badge |
 | `border-default` | `#dce7e2` | borders |
 | `topic-blue` | `#f0f5fc` | the procurement Announcement badge's fill (§8.7); `topic-green`, the old Health Information cards' other fill, left the tokens with them (#246), `contact-visual-from` and `-to`, the map stand-in's fill, with it (#247), and `activity-visual-from` and `-to`, the old Activity card's fill without a picture, with that card (#313) |
-| `divider` | `#dbe8e3` | separators inside a white box: the ITA year's rows, the line above a post's topics; the rule in the card on a Document's page is `border-default` (§9.5) |
+| `divider` | `#dbe8e3` | separators inside a white box: the ITA year's rows, the line above a post's topics; the rule in the card on a Document's and a Health Report's page is `border-default` (§9.5, §9.6) |
 | `hero-chip`, `hero-secondary-fill`, `hero-secondary-border` | white at 12 %, 6 %, 28 % | the hero's chip; a secondary link on a dark surface |
 | `text-secondary-on-soft` | `#5d6a64` | secondary text on `surface-soft` (contrast fix, #51) |
 | `border-input` | `#7a8a83` | input boundaries (contrast fix, #51) |
@@ -294,7 +296,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, one of the two exceptions to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
-| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's page (§9.5), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, its own tile of the file tile's size and gradient with `file-chart-column` (§7.3; #342) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342) |
+| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's and a Health Report's page (§9.5, §9.6), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, its own tile of the file tile's size and gradient with `file-chart-column` (§7.3; #342) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342); on a Health Report's page 5.68:1 (#343) |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7, and the label on its page, §9.4) | 13.85:1 |
@@ -477,11 +479,11 @@ this document names:
 | Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
 | Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services and, `kind="list"`, the Service catalog, §8.4), `QuickLinkCard`, `PersonCard` |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
-| Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4) and a Document's (§9.5) |
-| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's and a Document's page under a Post page's header (§9.4, §9.5) |
+| Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5) and a Health Report's (§9.6) |
+| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's and a Health Report's page under a Post page's header (§9.4 to §9.6), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
-| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents` and in an Announcement's related Documents (§7.3, §9.4), where every other page keeps `DocumentRow`, with `FileTile` and `FileDownloadLink`, which a Document's page shares (§9.5); `HealthServiceMapRow`, the Health Service row on `/health-services` with `MapLink`'s row pill, where a Service's page keeps `HealthServiceRow` until #344 (§7.3); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `RelatedDocuments` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents` and in an Announcement's related Documents (§7.3, §9.4), where every other page keeps `DocumentRow`, with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` with `MapLink`'s row pill, where a Service's page keeps `HealthServiceRow` until #344 (§7.3); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `RelatedDocuments` |
 
 ### 7.2 Component rules
 
@@ -613,9 +615,10 @@ this document names:
   comment 6908747140, item 2), and the row takes the `deep` shadow, only with motion allowed;
   the download's fill turns `brand-dark`. Each row reveals as it comes into the window and shows
   whole while it holds the keyboard's focus (§8.12); under an Announcement's
-  "เอกสารที่เกี่ยวข้อง" it shows at once. Every other page that lists Documents (a
-  Health Report's page, the About pages, a Service's and a Basic Page's related Documents, search
-  results) keeps the earlier row, `DocumentRow`, until its own feature (decision 2). With
+  "เอกสารที่เกี่ยวข้อง" it shows at once. Every other page that lists Documents (the About pages, a
+  Service's and a Basic Page's related Documents, search results) keeps the earlier row,
+  `DocumentRow`, until its own feature (decision 2); a Health Report's page shows its one Document
+  as a Document's page shows its file (§9.6; Feature 011 #343). With
   `--all-text` at the five widths every text of a row reads 4.97:1 or more, the facts line, the
   summary and "ไฟล์ไม่พร้อมให้บริการ" in `text-secondary` the lowest; the tile's "PDF" 5.60:1 or
   more, the download's words 6.45:1, the attention label 7.75:1 and the title 16.54:1. Both
@@ -1546,12 +1549,13 @@ stays the submit state (§8.9).
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
   show at once (`public-posts.spec.ts` "a post moves only when motion is allowed: …").
-- **An Announcement's and a Document's page's motion.** The header's text rises in as a Post
-  page's does, starting at 0 s, and the card at 0.25 s, as a Post page's frame (§9.4, §9.5;
-  Feature 010 #316, #317). The breadcrumb, an Announcement's details text and related Documents,
-  and a Document's successor note show at once (`public-announcements.spec.ts` "with motion
-  allowed the header rises in as the page opens and the card after it, …"; a Document's page has
-  the same `CardOverField` and `PostHeader`).
+- **An Announcement's, a Document's and a Health Report's page's motion.** The header's text rises
+  in as a Post page's does, starting at 0 s, and the card at 0.25 s, as a Post page's frame (§9.4
+  to §9.6; Feature 010 #316, #317; Feature 011 #343). The breadcrumb, an Announcement's details
+  text and related Documents, and a Document's successor note show at once
+  (`public-announcements.spec.ts` "with motion allowed the header rises in as the page opens and
+  the card after it, …"; a Document's and a Health Report's page have the same `CardOverField` and
+  `PostHeader`, and `public-health.spec.ts` reads a Health Report's).
 - **Hover** ships with each section (§8.1, §8.4, §8.6 to §8.10).
 - **Reduced motion and paper.** All of it runs only on a screen under
   `prefers-reduced-motion: no-preference`. With reduced motion preferred, and in print, nothing
@@ -1653,8 +1657,9 @@ text"; Product Owner, #285 comment 6877659654).
     post with a picture alone (`scripts/screenshot-fixtures/post-empty-row.ts`, a landscape
     picture) is 900, 929, 1,183, 1,163 and 1,261 px, and a Health Content post without a picture
     900, 900, 900, 900 and 913 px, the shell's minimum height.
-- An Announcement's and a Document's page take this header on this field, though neither is a Post
-  page (§9.4, §9.5). The other detail templates, such as Service, keep their layout.
+- An Announcement's, a Document's and a Health Report's page take this header on this field, though
+  none is a Post page (§9.4 to §9.6). A Service's and a Health Service's page keep their layout
+  until #344 and #345.
 
 ### 9.2 An Activity's photos
 
@@ -1745,7 +1750,8 @@ A Document's page takes the same header and card (§9.5).
 
 Feature 010 #317 (spec #311 "An Announcement's page and a Document's page: the header", "The card
 over the field's edge", "Motion", decisions 8, 9 and 15). The page takes §9.4's field, header and
-card (`PostHeader`, `CardOverField`).
+card (`PostHeader`, `CardOverField`). A Health Report's page holds its report Document's file the
+same way (`FileBlock`, §9.6).
 
 - **The header**, as §9.4's: the breadcrumb in white; 24 px under it the Document's type (every
   type's label, as the details row joins them) in the outlined white pill, then "ถูกแทนที่แล้ว" or
@@ -1799,6 +1805,56 @@ card (`PostHeader`, `CardOverField`).
   10.56:1 and its link 5.58:1. `scripts/measure-focus-contrast.ts` read the download's and a
   topic link's rings on the card's white at 6.45:1 under them and 5.38:1 or more beside them; the
   successor's link, unchanged, 4.83:1 or more under its ring.
+
+### 9.6 A Health Report's page: its report Document first in the card over the field's edge
+
+Feature 011 #343 (spec #338 "The three pages: the header", "The card over the field's edge",
+"Motion", decisions 4, 8 and 9). The page takes §9.4's field, header and card (`PostHeader`,
+`CardOverField`), though a Health Report is not a Post page, and §9.5's file block (`FileBlock`).
+
+- **The header**, as §9.4's: the breadcrumb in white; 24 px under it "วันที่รายงาน" and the report
+  date in the `accent-warm` pill (`PostHeader`'s `date` with `dateWords`), only when the report has
+  a report date, never its publication date; then its Report Type (every type's label, as the
+  details row joins them) in the outlined white pill, 13 / 20 semibold, each with its 1 px edge;
+  the title as the page's one H1 in its sizes; and the summary at body-large with the line breaks
+  staff typed. A pill the report lacks is left out, and so is the row without a pill. The report
+  date shows in the details too.
+- **The card** over the field's edge, as §9.4's in place and look, holds first the report
+  Document, as §9.5's file: `FileTile`, centred on the text beside it, which the Document's title
+  makes the taller (as in the prototype); 16 px beside it the H2 "เอกสารรายงาน" at body-large,
+  semibold, `brand-dark`, the Document's title under it as a semibold `brand-primary` underlined
+  link to `/documents/<slug>`, text-line high, as a Document row's title (24 px a line; Product
+  Owner, #343 comment 6975126191), and the file's type and size at small size in `text-secondary`; and
+  the download "ดาวน์โหลดเอกสาร" with the type and size (`FileDownloadLink`), linking to the file
+  at EmDash's media URL under the uploaded file's name, at the card's right and 52 px high from
+  `sm`, across the card 16 px under the tile and the text below `sm`. **A Document that is not
+  published, or whose file cannot be served,** shows the H2 and the unavailable notice
+  (`UnavailableNotice`: "เอกสารรายงานไม่พร้อมให้บริการ", "หากต้องการเอกสารนี้ โปรดติดต่อสำนักงาน",
+  "ติดต่อเรา" to `/contact`), with no tile, no download and no link to the Document. Then, 20 px
+  apart, a 1 px `border-default` rule and the details (Report Type, report date, reporting period,
+  fiscal year, owner or source), each row only when set. **A report with no details row** has its
+  card all the same, holding the file alone, without the rule.
+- **Motion** (§8.12): with motion allowed the header's text rises in and the card 0.25 s after it;
+  the breadcrumb shows at once.
+- `tests/browser/public-health.spec.ts` "a Health Report's page on the field" reads the header's
+  parts in order on the field, their pills and colours, the title's sizes on both sides of 640 and
+  1,024 px and the summary's line break, a report without a report date (the type's pill alone,
+  no date), one without a type and one with neither; the card's place over the edge at 320, 375,
+  639, 640 and 1,440 px with nothing past the window at 375 and 320 px; the file block, the
+  Document's link, the rule and the details at seven widths; the unavailable notice for an
+  unpublished Document and for a file that cannot be served; and the motion. Its top-level report
+  test reads the details, the download's address and file name, the breadcrumb and the canonical
+  address, and "/health without JavaScript" the page whole without JavaScript.
+- **Measured** on the development runtime at `a683d48` (#343), `scripts/measure-text-contrast.ts
+  --all-text --fold` at 1,440, 1,024, 768, 375 and 320 px on `main` of
+  `/health/reports/demo-report-dengue-q4` (every field), `/health/reports/demo-report-performance-2569`
+  (no report date) and two synthetic reports (`scripts/screenshot-fixtures/lists-by-count.ts`,
+  `LIST=health-reports`: the report Document unpublished, and its file deleted), the lowest of each
+  text: the breadcrumb's links 6.61:1 and its current page 5.34:1 (375 px); "วันที่รายงาน" and the
+  date 7.75:1; the type's pill 5.79:1 (375 px); the H1 6.19:1 (375 px) and the summary 6.45:1; the
+  tile's "PDF" 5.68:1; the H2 12.21:1, the Document's title 6.45:1, the type and size 4.97:1 and
+  the download's words 6.45:1; the details' terms 4.97:1 and values 16.54:1; the notice's
+  "เอกสารรายงานไม่พร้อมให้บริการ" 10.94:1, its line 5.07:1 and "ติดต่อเรา" 5.78:1.
 
 ## 10. Acceptance and known limits
 
@@ -2418,3 +2474,16 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   row reveals as it comes into the window. §2, §3.1, §3.2, §6, §7.1, §7.3, §7.8 and §8.12 name it,
   and `CODING_STANDARDS.md` "Public pages" the tile's measured `accent-warm`. Authority: spec #338
   "The Health Reports list" and decisions 1 and 12, and #338 comment 6941491587.
+- **v1.5 a Health Report's page (2026-11-18, Feature 011 #343):** a Health Report's page opens on
+  the deep field with the Post page's header (§9.1, §9.6): "วันที่รายงาน" and its report date in
+  the `accent-warm` pill only when it has one, its Report Type in the outlined white pill, the H1
+  and the summary. One white card over the field's edge holds first its report Document as a
+  Document's page holds its file (`FileBlock`, shared with §9.5): the tile, the H2 "เอกสารรายงาน",
+  the Document's title linking to its page, the type and size and the download; or, when the
+  Document is unpublished or its file cannot be served, the H2 and "เอกสารรายงานไม่พร้อม
+  ให้บริการ". Then the rule and the details. Before, a report whose Document's file could not be
+  served showed the Document's row with "ไฟล์ไม่พร้อมให้บริการ". `DocumentDownload.astro`, which
+  served this page alone, is removed (#334). `PostHeader`'s date pill takes its words
+  (`dateWords`). §2, §3.1, §3.2, §7.1, §7.3, §8.12, §9.1, §9.5 and §9.6 name it. Authority: spec #338 "The three pages: the
+  header", "The card over the field's edge" and decisions 4, 8 and 9, and #338 comment
+  6941491587.

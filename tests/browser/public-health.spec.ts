@@ -20,8 +20,11 @@
 // /health under the label สุขภาพ with its two destinations as the Homepage's Quick Access tiles over
 // the field's lower edge, and /health/reports under the same label with its rows and pager there
 // (testListOnField), each report a white row with the report's tile and one link over the whole
-// row (#342; spec #338 "The Health Reports list"). A Health Report's page keeps today's heading
-// until #343.
+// row (#342; spec #338 "The Health Reports list"). A Health Report's page opens on the field with
+// the Post page's header and one white card over the field's edge, its report Document's file
+// first, then a rule and its details (#343; spec #338 "The three pages: the header", "The card over
+// the field's edge", decision 9); a report whose Document is unpublished or whose file cannot be
+// served shows the report's unavailable notice there instead.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -66,6 +69,7 @@ import {
 	trashEntry,
 	unpublishEntry,
 	uploadSyntheticMedia,
+	uploadSyntheticPdf,
 	uploadSyntheticPicture,
 	type CmsActor,
 	type DraftFields,
@@ -82,7 +86,6 @@ import {
 	SECTION_CRUMBS,
 	boxOf,
 	cardList,
-	deepField,
 	detailOf,
 	expect,
 	expectArrowBesideLabel,
@@ -97,6 +100,22 @@ import {
 	expectNoHorizontalScroll,
 	expectPreviewRenders,
 	expectSiteNotFound,
+	entersAfter,
+	fieldParts,
+	cardOverFieldEdge,
+	cardOverFieldEdgeAsSpecified,
+	fileBlockAt,
+	fileBlockAsSpecified,
+	fileBlockLook,
+	fileBlockLookAsSpecified,
+	fileBlockOf,
+	expectPostTitleSizes,
+	unavailableNoticeIn,
+	gutterAt,
+	HEADER_WIDEST,
+	MOBILE_VIEWPORT,
+	PHONE_VIEWPORT,
+	pillStyle,
 	itemsPerRow,
 	listHeading,
 	listedItem,
@@ -379,6 +398,36 @@ test.describe("/health without JavaScript", () => {
 				label,
 			).toBeVisible();
 		}
+	});
+
+	test("a Health Report's page shows its header on the field, then its card with the report Document's file and download, the rule and the details", async ({
+		page,
+	}) => {
+		const report = await createReport("no-script", {
+			data: {
+				summary: `${SYNTHETIC_FIXTURE_MARK} สรุปรายงานที่อ่านได้โดยไม่ใช้สคริปต์`,
+				report_at: "2026-09-23T17:30:00.000Z",
+				owner_source: `${SYNTHETIC_FIXTURE_MARK} กลุ่มงาน`,
+			},
+		});
+		await publishReport(report);
+		await page.goto(`/health/reports/${report.slug}`);
+		const parts = fieldParts(page);
+		const block = fileBlockOf(parts.card, "เอกสารรายงาน", "PDF, 2 KB");
+		const shown = async (part: Locator) => (await part.count()) === 1 && part.isVisible();
+		const seen: Record<string, boolean> = {
+			title: await shown(parts.title.filter({ hasText: report.title })),
+			date: await shown(parts.field.getByText(`วันที่รายงาน ${REPORT_DAY}`, { exact: true })),
+			document: await shown(
+				parts.card.getByRole("link", { name: reportDocument.title, exact: true }),
+			),
+		};
+		for (const name of ["tile", "heading", "download", "rule", "details"] as const) {
+			seen[name] = await shown(block[name]);
+		}
+		expect(seen, "the header, the file and the details without JavaScript").toEqual(
+			Object.fromEntries(Object.keys(seen).map((name) => [name, true])),
+		);
 	});
 });
 
@@ -1231,8 +1280,6 @@ test("a Health Report page shows its summary, type, report date, reporting perio
 
 	const response = await page.goto(`/health/reports/${report.slug}`);
 	expect(response?.status(), "GET the Health Report page").toBe(200);
-	// A Health Report's page keeps today's heading until its own ticket (#343).
-	await expect(deepField(page), "no deep field under the heading").toHaveCount(0);
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(report.title);
 	await expect(main.getByText(summary)).toBeVisible();
@@ -1244,10 +1291,9 @@ test("a Health Report page shows its summary, type, report date, reporting perio
 
 	const documentSection = main.getByRole("region", { name: "เอกสารรายงาน" });
 	await expect(
-		documentSection.getByRole("link", { name: reportDocument.title }),
+		documentSection.getByRole("link", { name: reportDocument.title, exact: true }),
 		"the report Document's own page",
 	).toHaveAttribute("href", `/documents/${reportDocument.slug}`);
-	await expect(documentSection.getByText("ไฟล์ PDF, 2 KB")).toBeVisible();
 	// The report's file downloads from the report page itself (Product Owner, 2026-10-30: #59
 	// comment 6515961560).
 	const download = documentSection.getByRole("link", { name: /ดาวน์โหลด/ });
@@ -1264,49 +1310,359 @@ test("a Health Report page shows its summary, type, report date, reporting perio
 		"href",
 		`${origin}/health/reports/${report.slug}`,
 	);
+	// The file's type and size under the Document's title, as a Document's page states them.
+	await expect(documentSection.getByText("PDF, 2 KB", { exact: true })).toBeVisible();
 });
 
-test("a Health Report whose report Document is not published says the report Document is unavailable, without a link to it", async ({
-	page,
-}) => {
-	const draftDocument = await createSyntheticDocument(admin, "report-draft");
-	const report = await createReport("document-draft", { document: draftDocument });
-	await publishReport(report);
+/** A Health Report's summary in two lines, as staff typed them. */
+const REPORT_SUMMARY = `${SYNTHETIC_FIXTURE_MARK} สรุปสถานการณ์โรคไข้เลือดออก\nรายตำบลประจำไตรมาส`;
 
-	const response = await page.goto(`/health/reports/${report.slug}`);
-	expect(response?.status(), "the Health Report page still renders").toBe(200);
-	const documentSection = page.getByRole("main").getByRole("region", { name: "เอกสารรายงาน" });
-	await expect(documentSection.getByText("เอกสารรายงานไม่พร้อมให้บริการ")).toBeVisible();
-	await expect(documentSection.getByRole("link", { name: "ติดต่อเรา" })).toHaveAttribute(
-		"href",
-		"/contact",
-	);
-	await expect(documentSection.getByText(draftDocument.title)).toHaveCount(0);
-	await expect(
-		page.getByRole("main").locator(`a[href="/documents/${draftDocument.slug}"]`),
-	).toHaveCount(0);
-	await expect(documentSection.getByRole("link", { name: /ดาวน์โหลด/ })).toHaveCount(0);
-});
+/** The report date the page fixtures carry, 23 Sep 2026 17:30 UTC, already 24 Sep in Bangkok. */
+const REPORT_AT = "2026-09-23T17:30:00.000Z";
+const REPORT_DAY = "24 ก.ย. 2569";
 
-test("a Health Report whose report Document's file was deleted says so once, without a download", async ({
-	page,
-}) => {
-	const document = await createSyntheticDocument(admin, "report-file-gone");
-	await publishEntryAt(admin, "documents", document.id);
-	const removed = await deleteMedia(admin, document.file.mediaId);
-	expect(removed.ok, `deleting the file: ${nativeRefusalOf(removed)}`).toBe(true);
-	const report = await createReport("document-file-gone", { document });
-	await publishReport(report);
+test.describe("a Health Report's page on the field", () => {
+	type WithDocument = DraftFixture & { document: DraftFixture & { file: SyntheticPdf } };
+	/** Every field, its Document's file 11.8 KB: both pills, the summary, the file, every detail. */
+	let full: WithDocument & { type: SyntheticTerm };
+	/** A Report Type and no report date: the type's pill alone, never its publication date. */
+	let typeOnly: DraftFixture & { type: SyntheticTerm };
+	/** A report date and no Report Type: the date's pill alone. */
+	let dateOnly: DraftFixture;
+	/** No type, date, summary or detail: no row of pills, and a card that holds the file alone. */
+	let bare: DraftFixture;
+	/** Its Document unpublished: the report's unavailable notice, then its fiscal year. */
+	let unpublished: WithDocument;
+	/** Its Document's file deleted: the same notice. */
+	let fileGone: WithDocument;
+	const pathOf = (fixture: DraftFixture) => `/health/reports/${fixture.slug}`;
 
-	const response = await page.goto(`/health/reports/${report.slug}`);
-	expect(response?.status(), "the Health Report page still renders").toBe(200);
-	const documentSection = page.getByRole("main").getByRole("region", { name: "เอกสารรายงาน" });
-	await expect(documentSection.getByRole("link", { name: document.title })).toHaveAttribute(
-		"href",
-		`/documents/${document.slug}`,
-	);
-	await expect(documentSection.getByText("ไฟล์ไม่พร้อมให้บริการ")).toHaveCount(1);
-	await expect(documentSection.getByRole("link", { name: /ดาวน์โหลด/ })).toHaveCount(0);
+	test.beforeAll(async () => {
+		const type = await createTerm("report_type", "รายงานสถานการณ์โรค");
+		const document = await createSyntheticDocument(admin, "field-full", {
+			// 11.8 KB, a size whose words take two lines of the download at 320 px.
+			file: await uploadSyntheticPdf(admin, undefined, 12_083),
+		});
+		await publishEntryAt(admin, "documents", document.id);
+		const created = await createReport("field-full", {
+			document,
+			data: {
+				summary: REPORT_SUMMARY,
+				report_at: REPORT_AT,
+				reporting_period: "ตุลาคม 2568 – กันยายน 2569",
+				fiscal_year: 2569,
+				owner_source: `${SYNTHETIC_FIXTURE_MARK} กลุ่มงานควบคุมโรค`,
+			},
+			taxonomies: { report_type: [type.slug] },
+		});
+		full = { ...created, type, document };
+		const typed = await createReport("field-type-only", {
+			taxonomies: { report_type: [type.slug] },
+		});
+		typeOnly = { ...typed, type };
+		dateOnly = await createReport("field-date-only", { data: { report_at: REPORT_AT } });
+		bare = await createReport("field-bare");
+		const draftDocument = await createSyntheticDocument(admin, "field-unpublished");
+		unpublished = {
+			...(await createReport("field-unpublished", {
+				document: draftDocument,
+				data: { fiscal_year: 2569 },
+			})),
+			document: draftDocument,
+		};
+		const goneDocument = await createSyntheticDocument(admin, "field-file-gone");
+		await publishEntryAt(admin, "documents", goneDocument.id);
+		fileGone = {
+			...(await createReport("field-file-gone", {
+				document: goneDocument,
+				data: { fiscal_year: 2569 },
+			})),
+			document: goneDocument,
+		};
+		for (const fixture of [full, typeOnly, dateOnly, bare, unpublished, fileGone]) {
+			await publishReport(fixture);
+		}
+		const removed = await deleteMedia(admin, goneDocument.file.mediaId);
+		expect(removed.ok, `deleting the media item: ${nativeRefusalOf(removed)}`).toBe(true);
+	});
+
+	test("the page opens on the deep field: the breadcrumb in white, 24 px under it วันที่รายงาน and the report date in an accent-warm pill, only when the report has a report date and never its publication date, then its Report Type in an outlined white pill, the title as the page's one H1 in today's sizes and the summary with the line breaks staff typed, each on the field, 48 rem wide at most; a pill the report lacks is left out, and so is the row without a pill", async ({
+		page,
+	}) => {
+		const parts = fieldParts(page);
+		// What today's page already shows: one H1 in its sizes.
+		await page.goto(pathOf(full));
+		await expectPostTitleSizes(page);
+
+		const white = await tokenColor(page, "surface-base");
+		const onField = (await parts.field.count()) === 1;
+		const date = parts.field.getByText(`วันที่รายงาน ${REPORT_DAY}`, { exact: true });
+		const type = parts.field.getByText(full.type.label, { exact: true });
+		const seen: Record<string, unknown> = { field: onField };
+		const expected: Record<string, unknown> = { field: true };
+		for (const viewport of [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+			if (!onField) break;
+			await page.setViewportSize(viewport);
+			const at = `at ${viewport.width} px`;
+			const field = await boxOf(parts.field, `${at}: the field`);
+			const crumbs = await boxOf(parts.breadcrumb, `${at}: the breadcrumb`);
+			const dateBox = await boxOf(date, `${at}: the report date's pill`);
+			const typeBox = await boxOf(type, `${at}: the type's pill`);
+			const title = await boxOf(parts.title, `${at}: the title`);
+			seen[viewport.width] = {
+				onField: [crumbs, dateBox, typeBox, title].every(
+					(box) => box.y >= field.y && box.y + box.height <= field.y + field.height,
+				),
+				pillsUnderCrumbs: Math.round(dateBox.y - crumbs.y - crumbs.height),
+				// The type follows the date on its row, or, with no room left on it, starts the next
+				// row 8 px under it at the row's start.
+				typeAfterDate:
+					Math.abs(typeBox.y - dateBox.y) <= 1
+						? typeBox.x > dateBox.x + dateBox.width
+						: Math.round(typeBox.x - dateBox.x) === 0 &&
+							Math.round(typeBox.y - dateBox.y - dateBox.height) === 8,
+				titleUnderPills:
+					title.y >= Math.max(dateBox.y + dateBox.height, typeBox.y + typeBox.height),
+				headerWidth: Math.round((await boxOf(parts.header, `${at}: the header`)).width),
+				pills: { date: await pillStyle(date), type: await pillStyle(type) },
+				white: [
+					await parts.breadcrumb
+						.getByRole("link")
+						.first()
+						.evaluate((link) => getComputedStyle(link).color),
+					await parts.breadcrumb
+						.locator('[aria-current="page"]')
+						.evaluate((crumb) => getComputedStyle(crumb).color),
+					await parts.title.evaluate((title) => getComputedStyle(title).color),
+				],
+			};
+			expected[viewport.width] = {
+				onField: true,
+				pillsUnderCrumbs: 24,
+				typeAfterDate: true,
+				titleUnderPills: true,
+				headerWidth: Math.min(HEADER_WIDEST, viewport.width - 2 * gutterAt(viewport.width)),
+				pills: {
+					date: {
+						fill: await tokenColor(page, "accent-warm"),
+						colour: await tokenColor(page, "brand-dark"),
+						type: ["13px", "20px", "600"],
+						edge: "1px",
+					},
+					type: {
+						fill: "rgba(0, 0, 0, 0)",
+						colour: white,
+						type: ["13px", "20px", "600"],
+						edge: "1px",
+					},
+				},
+				white: [white, white, white],
+			};
+		}
+
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+		const summary = parts.header.getByText(REPORT_SUMMARY.split("\n")[0]!);
+		seen.summary = onField && {
+			text: await summary.innerText(),
+			shown: await shownLines(summary),
+			colour: await summary.evaluate((text) => getComputedStyle(text).color),
+			// body-large, 18 / 30.
+			type: await summary.evaluate((text) => {
+				const style = getComputedStyle(text);
+				return [style.fontSize, style.lineHeight];
+			}),
+			underTitle:
+				(await boxOf(summary, "the summary")).y >=
+				(await boxOf(parts.title, "the title")).y + (await boxOf(parts.title, "the title")).height,
+		};
+		expected.summary = {
+			text: REPORT_SUMMARY,
+			shown: { lines: 2, clamped: false },
+			colour: white,
+			type: ["18px", "30px"],
+			underTitle: true,
+		};
+
+		/** The words of the row that holds `pill`, or "no pill". */
+		/** The terms of the card's details, in order. */
+		const terms = () => parts.card.locator("dl").getByRole("term").allInnerTexts();
+		const rowOf = async (pill: Locator) =>
+			(await pill.count()) === 1 ? (await pill.locator("xpath=..").innerText()).trim() : "no pill";
+		// A report without a report date: its type's pill alone, and no date in the header, not even
+		// its publication date.
+		await page.goto(pathOf(typeOnly));
+		seen.typeOnly = onField && {
+			row: await rowOf(parts.field.getByText(typeOnly.type.label, { exact: true })),
+			dates: await parts.header.locator("time").count(),
+			details: await terms(),
+		};
+		expected.typeOnly = { row: typeOnly.type.label, dates: 0, details: ["ประเภทรายงาน"] };
+
+		// A report date without a type: its date's pill alone.
+		await page.goto(pathOf(dateOnly));
+		seen.dateOnly = onField && {
+			row: await rowOf(parts.field.getByText(/^วันที่รายงาน /)),
+			details: await terms(),
+		};
+		expected.dateOnly = { row: `วันที่รายงาน ${REPORT_DAY}`, details: ["วันที่รายงาน"] };
+
+		// Neither: no row of pills, the title 24 px under the breadcrumb.
+		await page.goto(pathOf(bare));
+		const crumbs = onField && (await boxOf(parts.breadcrumb, "the bare report's breadcrumb"));
+		seen.bare =
+			crumbs &&
+			Math.round(
+				(await boxOf(parts.title, "the bare report's title")).y - crumbs.y - crumbs.height,
+			);
+		expected.bare = 24;
+		expect(seen, "the header on the field").toEqual(expected);
+	});
+
+	test("the card starts 48 px above the field's lower edge below 640 px and 56 px from 640 px, where the header ends 80 and 96 px above it: white, radius 24, the deep shadow, 20 px inside, in the text column at most 48 rem wide, whether it holds the file and the details, the file alone or the unavailable notice; nothing is past the window at 375 or 320 px", async ({
+		page,
+	}) => {
+		const widths = [320, 375, 639, 640, 1440];
+		const seen: Record<string, unknown> = {};
+		const expected: Record<string, unknown> = {};
+		for (const fixture of [full, bare, unpublished]) {
+			await page.goto(pathOf(fixture));
+			const past: number[] = [];
+			for (const width of [375, 320]) {
+				await page.setViewportSize({ width, height: 900 });
+				past.push(
+					await page.evaluate(
+						() => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+					),
+				);
+			}
+			seen[fixture.title] = { card: await cardOverFieldEdge(page, widths), past };
+			expected[fixture.title] = {
+				card: await cardOverFieldEdgeAsSpecified(page, widths),
+				past: [0, 0],
+			};
+		}
+		expect(seen, "the card over the field's edge").toEqual(expected);
+	});
+
+	test("the card holds first the report Document: the tile with file-text and the type in accent-warm, 68 px below 640 px and 92 px from 640 px, beside it the H2 เอกสารรายงาน, the Document's title as a semibold brand-primary underlined link to its page and the type and size under it, and the download ดาวน์โหลดเอกสาร with the type and size, at the card's right and 52 px high from 640 px, across the card under them below 640 px; then a 1 px border-default rule and the details, 20 px apart", async ({
+		page,
+	}) => {
+		await page.goto(pathOf(full));
+		const block = fileBlockOf(fieldParts(page).card, "เอกสารรายงาน", "PDF, 11.8 KB");
+		const title = block.card.getByRole("link", { name: full.document.title, exact: true });
+		const look = await fileBlockLook(block);
+		const seen: Record<string, unknown> = {
+			parts: look,
+			title:
+				(await title.count()) === 1 &&
+				(await title.evaluate((link) => {
+					const style = getComputedStyle(link);
+					return {
+						href: link.getAttribute("href"),
+						colour: style.color,
+						underline: style.textDecorationLine,
+						weight: style.fontWeight,
+					};
+				})),
+		};
+		const expected: Record<string, unknown> = {
+			parts: await fileBlockLookAsSpecified(page, "PDF", full.document.file),
+			title: {
+				href: `/documents/${full.document.slug}`,
+				colour: await tokenColor(page, "brand-primary"),
+				underline: "underline",
+				weight: "600",
+			},
+		};
+		for (const width of [320, 375, 639, 640, 1023, 1024, 1440]) {
+			if (!look || !seen.title) break;
+			seen[width] = await fileBlockAt(block, [title.locator("xpath=.."), block.typeAndSize], width);
+			// The type and size stay on one line, and the words take two lines at 320 px.
+			expected[width] = fileBlockAsSpecified(width, { lines: 2, wordLines: width === 320 ? 2 : 1 });
+		}
+		expect(seen, "the card's file block, rule and details").toEqual(expected);
+	});
+
+	test("a report whose Document is not published, or whose Document's file was deleted, answers 200 and shows first in its card the H2 เอกสารรายงาน and the notice เอกสารรายงานไม่พร้อมให้บริการ with ติดต่อเรา, without a tile, a download or a link to the Document, then the rule and the details; a report with no detail has its file alone, without the rule", async ({
+		page,
+	}) => {
+		const main = page.getByRole("main");
+		const seen: Record<string, unknown> = {};
+		const expected: Record<string, unknown> = {};
+		for (const [name, fixture] of [
+			["unpublished", unpublished],
+			["fileGone", fileGone],
+		] as const) {
+			const response = await page.goto(pathOf(fixture));
+			const card = fieldParts(page).card;
+			const notice = await unavailableNoticeIn(
+				card,
+				"เอกสารรายงาน",
+				"เอกสารรายงานไม่พร้อมให้บริการ",
+			);
+			seen[name] = {
+				status: response?.status(),
+				notice: notice && {
+					...notice,
+					rule: await card.getByRole("separator").count(),
+					fiscalYear: await card.locator("dl").getByText("2569", { exact: true }).count(),
+				},
+				fileNotices: await main.getByText("ไฟล์ไม่พร้อมให้บริการ").count(),
+				tiles: await main.locator("svg.lucide-file-text").count(),
+				downloads: await main.getByRole("link", { name: /ดาวน์โหลด/ }).count(),
+				documentLinks: await main.locator(`a[href="/documents/${fixture.document.slug}"]`).count(),
+			};
+			expected[name] = {
+				status: 200,
+				notice: {
+					headingFirst: 20,
+					noticeUnderHeading: true,
+					asks: 1,
+					contact: "/contact",
+					rule: 1,
+					fiscalYear: 1,
+				},
+				fileNotices: 0,
+				tiles: 0,
+				downloads: 0,
+				documentLinks: 0,
+			};
+		}
+
+		await page.goto(pathOf(bare));
+		const card = fieldParts(page).card;
+		seen.bare = {
+			downloads: await card.getByRole("link", { name: /^ดาวน์โหลดเอกสาร / }).count(),
+			rules: await card.getByRole("separator").count(),
+			details: await card.locator("dl").count(),
+		};
+		expected.bare = { downloads: 1, rules: 0, details: 0 };
+		expect(seen, "the unavailable notice first in the card, and a card without details").toEqual(
+			expected,
+		);
+	});
+
+	test("with motion allowed the header rises in as the page opens and the card after it, while the breadcrumb shows at once", async ({
+		page,
+	}) => {
+		const parts = fieldParts(page);
+		await page.emulateMedia({ reducedMotion: "no-preference" });
+		await page.goto(pathOf(full), { waitUntil: "commit" });
+		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+		const onField = (await parts.field.count()) === 1 && (await parts.card.count()) === 1;
+		const headerEnters = onField ? await entersAfter(parts.title) : "no field";
+		const seen = {
+			title: headerEnters,
+			cardAfterHeader: onField && (await entersAfter(parts.card)) > Number(headerEnters),
+			breadcrumb: onField ? await entersAfter(parts.breadcrumb) : "no field",
+		};
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		expect(seen, "the header and the card rise in; the breadcrumb shows at once").toEqual({
+			title: 0,
+			cardAfterHeader: true,
+			breadcrumb: -1,
+		});
+	});
 });
 
 test("a draft, unpublished or trashed Health Content or Health Report answers the site 404 and stays out of every list", async ({
@@ -1398,6 +1754,8 @@ test("the Health Information pages carry their title and description, with the s
 test.describe("accessibility and reflow", () => {
 	let content: DraftFixture;
 	let report: DraftFixture;
+	/** A report whose Document is not published: the card's unavailable notice. */
+	let unavailable: DraftFixture;
 
 	test.beforeAll(async () => {
 		const topic = await createTerm("topic", "โรคติดต่อ");
@@ -1424,8 +1782,14 @@ test.describe("accessibility and reflow", () => {
 			},
 			taxonomies: { report_type: [type.slug], topic: [topic.slug] },
 		});
+		unavailable = await createReport("a11y-unavailable", {
+			document: await createSyntheticDocument(admin, "a11y-unpublished"),
+			data: { report_at: "2030-01-01T03:00:00.000Z" },
+			taxonomies: { report_type: [type.slug] },
+		});
 		await publishContent(content);
 		await publishReport(report);
+		await publishReport(unavailable);
 	});
 
 	const paths = () => [
@@ -1434,6 +1798,7 @@ test.describe("accessibility and reflow", () => {
 		`/health/content/${content.slug}`,
 		"/health/reports",
 		`/health/reports/${report.slug}`,
+		`/health/reports/${unavailable.slug}`,
 	];
 
 	testAccessibilityAndReflow("the Health Information pages", paths);

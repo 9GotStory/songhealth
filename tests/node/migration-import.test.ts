@@ -1874,7 +1874,7 @@ describe("verify", () => {
 			.map((slug) => `<li><a href="/documents/${slug}">เอกสาร</a></li>`)
 			.join("")}</ul></section><a href="/documents/in-the-footer">ท้ายหน้า</a>`;
 
-	/** A Document's page offering a file under `name`, as `DocumentDownload.astro` writes it. */
+	/** A Document's page offering a file under `name`, as `FileDownloadLink.astro` writes it. */
 	const offering = (name: string) =>
 		`<a class="inline-flex" href="/_emdash/api/media/file/01K.pdf" download="${name}"><span>ดาวน์โหลดเอกสาร</span></a>`;
 

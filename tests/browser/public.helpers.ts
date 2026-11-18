@@ -2882,6 +2882,253 @@ export async function cardOverFieldEdgeAsSpecified(page: Page, widths: number[])
 	};
 }
 
+/**
+ * The page's one H1 in a Post page's sizes on both sides of `sm` and `lg`: H3 below 640 px, H2
+ * from 640 px and H1 from 1,024 px (docs/design/DESIGN.md §9.1).
+ */
+export async function expectPostTitleSizes(page: Page): Promise<void> {
+	await expect(page.getByRole("heading", { level: 1 }), "one H1").toHaveCount(1);
+	for (const [width, size] of [
+		[639, "24px"],
+		[640, "34px"],
+		[1023, "34px"],
+		[1024, "46px"],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		await expect(
+			page.getByRole("heading", { level: 1 }),
+			`the title at ${width} px: H3 below 640 px, H2 from 640 px and H1 from 1,024 px`,
+		).toHaveCSS("font-size", size);
+	}
+}
+
+/**
+ * Where a card's unavailable notice lies, first in it under the H2 `heading` and saying `message`,
+ * and what it asks and links to; false when the card holds no such H2 and notice
+ * (src/components/UnavailableNotice.astro).
+ */
+export async function unavailableNoticeIn(card: Locator, heading: string, message: string) {
+	const title = card.getByRole("heading", { level: 2, name: heading });
+	const notice = card.getByText(message, { exact: true });
+	if ((await title.count()) !== 1 || (await notice.count()) !== 1) return false;
+	return {
+		headingFirst: Math.round((await boxOf(title, "the H2")).y - (await boxOf(card, "the card")).y),
+		noticeUnderHeading: (await boxOf(notice, "the notice")).y > (await boxOf(title, "the H2")).y,
+		asks: await card.getByText("หากต้องการเอกสารนี้ โปรดติดต่อสำนักงาน", { exact: true }).count(),
+		contact: await card.getByRole("link", { name: "ติดต่อเรา", exact: true }).getAttribute("href"),
+	};
+}
+
+/** A part's type size, weight and colour as the page is laid out now. */
+function typeOf(part: Locator) {
+	return part.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return [parseFloat(style.fontSize), style.fontWeight, style.color];
+	});
+}
+
+/**
+ * How a download's words lie in it: on how many lines they and their type and size in parentheses
+ * run, how they align, and whether they keep 8 px or more from its upper and lower edges.
+ */
+function wordsIn(download: Locator) {
+	return download.evaluate((link) => {
+		const size = [...link.querySelectorAll("span")].find((span) =>
+			span.textContent?.trim().startsWith("("),
+		);
+		const words = size?.parentElement;
+		if (!size || !words) return "no type and size";
+		const box = link.getBoundingClientRect();
+		const text = words.getBoundingClientRect();
+		const range = document.createRange();
+		range.selectNodeContents(words);
+		const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+		return {
+			lines: tops.size,
+			align: getComputedStyle(words).textAlign,
+			sizeLines: size.getClientRects().length,
+			inset: Math.min(text.top - box.top, box.bottom - text.bottom) >= 8 - 0.5,
+		};
+	});
+}
+
+/**
+ * The file block first in a page's card over the field's edge, a Document's (spec #311 "The card
+ * over the field's edge") and a Health Report's (spec #338 "The card over the field's edge"), and
+ * what follows it in the card: the file's tile, the H2 `heading`, the file's type and size `label`,
+ * the download reading "ดาวน์โหลดเอกสาร" and the label (src/components/FileBlock.astro), then the
+ * card's rule and details.
+ */
+export function fileBlockOf(card: Locator, heading: string, label: string) {
+	return {
+		card,
+		tile: card.locator("svg.lucide-file-text").locator("xpath=.."),
+		heading: card.getByRole("heading", { level: 2, name: heading }),
+		typeAndSize: card.getByText(label, { exact: true }),
+		download: card.getByRole("link", { name: `ดาวน์โหลดเอกสาร (${label})`, exact: true }),
+		label,
+		rule: card.getByRole("separator"),
+		details: card.locator("dl"),
+	};
+}
+
+type FileBlock = ReturnType<typeof fileBlockOf>;
+
+/** How a file block's tile, H2, type and size, download and rule look; false without one. */
+export async function fileBlockLook(block: FileBlock) {
+	if ((await block.download.count()) !== 1 || (await block.rule.count()) !== 1) return false;
+	return {
+		tile: await block.tile.evaluate((element) => ({
+			decorative: element.closest('[aria-hidden="true"]') !== null,
+			gradient: getComputedStyle(element).backgroundImage.includes("linear-gradient"),
+			type: element.textContent?.trim(),
+			typeColour: getComputedStyle(element.querySelector("span") ?? element).color,
+		})),
+		heading: await typeOf(block.heading),
+		typeAndSize: await typeOf(block.typeAndSize),
+		download: {
+			fill: await block.download.evaluate((link) => getComputedStyle(link).backgroundColor),
+			words: await typeOf(block.download),
+			typeAndSize: (await typeOf(block.download.getByText(`(${block.label})`, { exact: true })))[1],
+			icon: await block.download.locator("svg.lucide-download").evaluate((icon) => {
+				const box = icon.getBoundingClientRect();
+				return [box.width, box.height];
+			}),
+			href: await block.download.getAttribute("href"),
+			filename: await block.download.getAttribute("download"),
+		},
+		rule: await block.rule.evaluate((element) => {
+			const style = getComputedStyle(element);
+			return [style.borderTopWidth, style.borderTopStyle, style.borderTopColor];
+		}),
+	};
+}
+
+/**
+ * A file block's look as spec #311 sets it and spec #338 takes it (docs/design/DESIGN.md §9.5,
+ * §9.6): the tile decorative, on
+ * the gradient, with the type in accent-warm; the H2 at body-large, semibold, brand-dark; the type
+ * and size at small size in text-secondary; the brand-primary download with its words semibold,
+ * the type and size regular and the 20 px icon, linking to `file` at EmDash's media URL under its
+ * name; a 1 px border-default rule.
+ */
+export async function fileBlockLookAsSpecified(
+	page: Page,
+	type: string,
+	file: { storageKey: string; filename: string },
+) {
+	return {
+		tile: {
+			decorative: true,
+			gradient: true,
+			type,
+			typeColour: await tokenColor(page, "accent-warm"),
+		},
+		heading: [18, "600", await tokenColor(page, "brand-dark")],
+		typeAndSize: [13, "400", await tokenColor(page, "text-secondary")],
+		download: {
+			fill: await tokenColor(page, "brand-primary"),
+			words: [14, "600", await tokenColor(page, "surface-base")],
+			typeAndSize: "400",
+			icon: [20, 20],
+			href: `/_emdash/api/media/file/${file.storageKey}`,
+			filename: file.filename,
+		},
+		rule: ["1px", "solid", await tokenColor(page, "border-default")],
+	};
+}
+
+/**
+ * Where a file block's parts lie at `width`: the block at the card's inner corner, the tile
+ * centred on the text beside it (the taller of the two sets the block's height) and its size, the
+ * H2 beside it, the gap above each of `lines` (the parts under the H2, the type and size last),
+ * the download at the card's right from `sm` or across it below, the rule under the block and the
+ * details under the rule, and how the download's words lie.
+ */
+export async function fileBlockAt(block: FileBlock, lines: Locator[], width: number) {
+	await block.card.page().setViewportSize({ width, height: 900 });
+	const wide = width >= 640;
+	const at = `at ${width} px`;
+	const cardBox = await boxOf(block.card, `${at}: the card`);
+	const tileBox = await boxOf(block.tile, `${at}: the tile`);
+	const text = [await boxOf(block.heading, `${at}: the H2`)];
+	for (const [index, line] of lines.entries()) {
+		text.push(await boxOf(line, `${at}: line ${index + 1} under the H2`));
+	}
+	const downloadBox = await boxOf(block.download, `${at}: the download`);
+	const ruleBox = await boxOf(block.rule, `${at}: the rule`);
+	const detailsBox = await boxOf(block.details, `${at}: the details`);
+	const inner = { left: cardBox.x + 20, width: cardBox.width - 40 };
+	const textRight = Math.max(...text.map((box) => box.x + box.width));
+	const last = text.at(-1)!;
+	const textTop = text[0]!.y;
+	const textEnd = last.y + last.height;
+	const fileEnd = Math.max(tileBox.y + tileBox.height, downloadBox.y + downloadBox.height, textEnd);
+	return {
+		tileFirst: [
+			Math.round(tileBox.x - inner.left),
+			Math.round(Math.min(tileBox.y, textTop) - cardBox.y - 20),
+		],
+		tileCentred: Math.abs(tileBox.y + tileBox.height / 2 - (textTop + textEnd) / 2) <= 1,
+		tile: [Math.round(tileBox.width), Math.round(tileBox.height)],
+		headingBesideTile: Math.round(text[0]!.x - tileBox.x - tileBox.width),
+		linesUnderHeading: text
+			.slice(1)
+			.map((box, index) => Math.round(box.y - text[index]!.y - text[index]!.height)),
+		download: wide
+			? {
+					right: Math.round(inner.left + inner.width - downloadBox.x - downloadBox.width),
+					height: Math.round(downloadBox.height),
+					besideText: downloadBox.x - textRight >= 16,
+				}
+			: {
+					across: [
+						Math.round(downloadBox.x - inner.left),
+						Math.round(downloadBox.width - inner.width),
+					],
+					tall: downloadBox.height >= 44,
+					under: Math.round(downloadBox.y - Math.max(tileBox.y + tileBox.height, textEnd)),
+				},
+		rule: [
+			Math.round(ruleBox.y - fileEnd),
+			Math.round(ruleBox.height),
+			Math.round(ruleBox.width - inner.width),
+		],
+		detailsUnderRule: Math.round(detailsBox.y - ruleBox.y - ruleBox.height),
+		words: await wordsIn(block.download),
+	};
+}
+
+/**
+ * A file block's places at `width` as spec #311 sets them and spec #338 takes them
+ * (docs/design/DESIGN.md §9.5, §9.6): the block
+ * 20 px inside the card's corner, the tile centred on the text, 68 px below `sm` and 92 px from
+ * `sm`, the H2 16 px beside it and each of `lines` lines straight under it; from `sm` the download
+ * at the card's right, 52 px high and 16 px or more beside the text, below `sm` across the card
+ * 16 px under the tile and the text, 44 px high or more; the rule 20 px under the block across the
+ * card and the details 20 px under it. The download's words take `wordLines` lines, centred, the
+ * type and size kept on one, 8 px inside its edges.
+ */
+export function fileBlockAsSpecified(
+	width: number,
+	{ lines, wordLines }: { lines: number; wordLines: number },
+) {
+	const wide = width >= 640;
+	return {
+		tileFirst: [0, 0],
+		tileCentred: true,
+		tile: wide ? [92, 92] : [68, 68],
+		headingBesideTile: 16,
+		linesUnderHeading: Array.from({ length: lines }, () => 0),
+		download: wide
+			? { right: 0, height: 52, besideText: true }
+			: { across: [0, 0], tall: true, under: 16 },
+		rule: [20, 1, 0],
+		detailsUnderRule: 20,
+		words: { lines: wordLines, align: "center", sizeLines: 1, inset: true },
+	};
+}
+
 /** The value a record page states for one of its details, by the detail's Thai name. */
 export function detailOf(page: Page, name: string) {
 	return page

@@ -1,0 +1,56 @@
+---
+// A file first in a page's card over the field's edge (CardOverField.astro): a Document's page
+// (Feature 010 #317; spec #311 "The card over the field's edge") and a Health Report's page
+// (Feature 011 #343; spec #338 "The card over the field's edge", decision 9). The file's tile
+// (FileTile.astro); 16 px beside it the H2 at body-large, semibold, brand-dark, what the page puts
+// under it (a Health Report's Document title linking to its page) and the file's type and size at
+// small size in text-secondary; and the download (FileDownloadLink.astro) "ดาวน์โหลดเอกสาร" with
+// the type and size, at the card's right and 52 px high from `sm`, across the card under the tile
+// and the text below `sm`. When there is no file to serve, the H2 and the unavailable notice
+// (UnavailableNotice.astro) with the page's message, and no tile.
+import type { DownloadableFile } from "../lib/media";
+import FileDownloadLink from "./FileDownloadLink.astro";
+import FileTile from "./FileTile.astro";
+import ThaiTitle from "./ThaiTitle.astro";
+import UnavailableNotice from "./UnavailableNotice.astro";
+
+interface Props {
+	/** The H2's id, which names the section. */
+	id: string;
+	heading: string;
+	/** The file the page offers, or none when it cannot be served. */
+	file: DownloadableFile | undefined;
+	/** What the unavailable notice says when there is no file. */
+	unavailable: string;
+}
+
+const { id, heading, file, unavailable } = Astro.props;
+---
+
+{file ? (
+	<section
+		aria-labelledby={id}
+		class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+	>
+		<FileTile type={file.type} />
+		<div class="min-w-0">
+			<h2 id={id} class="text-body-large font-semibold text-brand-dark">
+				<ThaiTitle text={heading} />
+			</h2>
+			<slot />
+			<p class="text-small text-text-secondary">{file.label}</p>
+		</div>
+		<FileDownloadLink
+			file={file}
+			words="ดาวน์โหลดเอกสาร"
+			class="max-sm:col-span-2 sm:min-h-13 sm:px-7"
+		/>
+	</section>
+) : (
+	<section aria-labelledby={id} class="flex flex-col gap-3">
+		<h2 id={id} class="text-body-large font-semibold text-brand-dark">
+			<ThaiTitle text={heading} />
+		</h2>
+		<UnavailableNotice message={unavailable} />
+	</section>
+)}
