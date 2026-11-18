@@ -1823,7 +1823,8 @@ Feature 011 #343 (spec #338 "The three pages: the header", "The card over the fi
   Document, as §9.5's file: `FileTile`, centred on the text beside it, which the Document's title
   makes the taller (as in the prototype); 16 px beside it the H2 "เอกสารรายงาน" at body-large,
   semibold, `brand-dark`, the Document's title under it as a semibold `brand-primary` underlined
-  link to `/documents/<slug>`, and the file's type and size at small size in `text-secondary`; and
+  link to `/documents/<slug>`, text-line high, as a Document row's title (24 px a line; Product
+  Owner, #343 comment 6975126191), and the file's type and size at small size in `text-secondary`; and
   the download "ดาวน์โหลดเอกสาร" with the type and size (`FileDownloadLink`), linking to the file
   at EmDash's media URL under the uploaded file's name, at the card's right and 52 px high from
   `sm`, across the card 16 px under the tile and the text below `sm`. **A Document that is not
