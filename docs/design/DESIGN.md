@@ -10,7 +10,7 @@
 > spec #311, implemented by #312–#318, and was accepted on #311 (Product Owner, 2026-11-17: #311
 > comment 6936494700). Feature 011's redesign of the Health Information hub, the Health Reports,
 > Services and Health Services pages follows spec #338, implemented by #339–#346.
-> **Updated:** 2026-11-17 (#339); first drafted 2026-10-30
+> **Updated:** 2026-11-17 (#340); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -135,8 +135,9 @@ health-service network.
   Health Information hub, the Health Reports list, the Service catalog and the Health Service
   Directory (spec #338; §7.8; #339): `/services` with its two related links under the lead, and
   `/health` with its two destinations as the Homepage's Quick Access tiles over the field's edge
-  (§7.3, §8.11). Their cards and rows, and the three item pages, keep their look until #340 to
-  #345. Every page outside the three features keeps its design under the new shell until its own
+  (§7.3, §8.11). `/services` shows the Homepage's Frequently Used Service cards (§8.4; #340). The
+  Health Service and report rows, and the three item pages, keep their look until #341 to #345.
+  Every page outside the three features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
@@ -204,7 +205,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's page, the file's type on its tile (§7.3, §9.4, §9.5); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), and on a Document's header the pill of a superseded or expired status (§9.5) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's page, the file's type on its tile (§7.3, §9.4, §9.5); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), and on a Document's header the pill of a superseded or expired status (§9.5) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -368,7 +369,7 @@ own module.
 - **Sizes by role** (Product Owner, 2026-10-31: #105 comment 6536890963): 16 px for a direction
   icon beside label or small text (onward and external links, pagination, the breadcrumb); 20 px
   for an icon that shows the action itself at the start of its button (the menu, a download);
-  24 px on a card (Service and Quick Link cards).
+  24 px on a card (a Quick Link card's corner, a Service card's icon in its tile).
 - **Direction:** an onward link on this site ends in `chevron-right`, and a link that leaves it in
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
@@ -465,7 +466,7 @@ this document names:
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
 | Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
-| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `ServiceCard`, `QuickLinkCard`, `PersonCard` |
+| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services and, `kind="list"`, the Service catalog, §8.4), `QuickLinkCard`, `PersonCard` |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
 | Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4) and a Document's (§9.5) |
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's and a Document's page under a Post page's header (§9.4, §9.5) |
@@ -487,17 +488,24 @@ this document names:
 ### 7.3 Cards and their pictures
 
 - **Whole-card navigation** (#193; Product Owner, #190 comment 6707205912): each shared
-  ContentCard (the News, Health News, Health Content and Activities lists) and ServiceCard (the
-  catalog) has one native link named by its title alone. The
+  ContentCard (the News, Health News, Health Content and Activities lists) and the Service card
+  (the Homepage's and the catalog's, §8.4) has one native link named by its title alone. The
   picture/fallback, icon, metadata, summary and padding all open its original destination.
   H2 titles on lists and H3 under Homepage sections name a full-surface native link through
   `aria-labelledby`. Other content stays outside the link's visible label and remains readable,
   with no nested anchors or another focus stop. Enter, modified clicks and new-tab actions work.
-- **Interaction:** on a ServiceCard, hover adds a 2 px `brand-primary` ring
-  without moving/resizing the card and makes its title green and underlined. The resting
-  border/shadow remains; keyboard focus uses the global 3 px outline around the whole card. The
-  Homepage's own Service cards (§8.4), News cards (§8.6), Health Content cards (§8.8) and Activity
-  tiles (§8.10), and multi-action cards, keep their own interactions.
+- **Interaction:** each card keeps its own: the Service card (§8.4), News cards (§8.6), Health
+  Content cards (§8.8), Activity tiles (§8.10) and multi-action cards. No card has a hover ring:
+  the catalog's own Service card, with its 2 px `brand-primary` ring under the pointer, left with
+  Feature 011 #340.
+- **The Service catalog's card** (Feature 011 #340; spec #338 "The Service catalog", decisions 13,
+  20 and 21) is the Homepage's Frequently Used Service card (§8.4), `HomeServiceCard` with
+  `kind="list"`: its name an H2, at rest the `card` shadow and under the pointer `deep`, as the
+  lists' cards. `/services` lays the cards in a plain grid, three to a row from `lg`, two from `sm`
+  and one below at any count from one to twelve, 20 px apart from `sm` and 12 px below, without
+  the Homepage's rule for four or its overhang below the field; each card reveals as it comes into
+  the window (§8.12). The cards follow the filter form over the field's edge (§7.8), and their
+  focus ring lies on the card's white, inside its edge, so it needs no band.
 - **The list card**, on the News, Health News and Health Content lists (Feature 009 #283; spec
   #280 "The cards", decisions 4, 10 and 15) and the Activities list (Feature 010 #313; spec #311
   "The Activities list", decisions 6 and 12), is the Homepage's small News card (§8.6),
@@ -828,10 +836,11 @@ Directory (`/health-services`).
   `/documents` the filter form is the block over the edge, its ring on its own white card, and the
   Document rows follow it (§7.3; Feature 010 #315), 14 px apart, each with two links, its title
   and its download, whose rings lie on the row's white, 6.45:1 (§7.3). On `/services` and
-  `/health-services` the filter form is the block over the edge, then today's Service cards or
-  Health Service rows; on `/health/reports` today's report rows are the block; each in its look
-  until Feature 011's #340 to #342. On `/health` the block is the two Quick Access tiles (§7.3),
-  their rings with the lists' band (Feature 011 #339). The cards are the Homepage's News
+  `/health-services` the filter form is the block over the edge, then the Service cards (§7.3,
+  §8.4; Feature 011 #340) or today's Health Service rows; on `/health/reports` today's report rows
+  are the block; the rows in their look until Feature 011's #341 and #342. On `/health` the
+  block is the two Quick Access tiles (§7.3), their rings with the lists' band (Feature 011
+  #339). The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
   ring alone was faint, so a card's ring has a `surface-base` band on both sides
@@ -841,8 +850,8 @@ Directory (`/health-services`).
   lead 0.1 s after it. Each card reveals as it comes into the window (§7.3), and on
   `/announcements` and `/documents` each row (§7.3, §8.7) and on `/health` each tile (§7.3). The
   breadcrumb, the link, the links under the lead, the filter form, the empty state and the pager
-  show at once, and so do `/services`' cards and the Health Service and report rows until their
-  own tickets (#340 to #342).
+  show at once, and so do the Health Service and report rows until their own tickets (#341,
+  #342); `/services`' cards reveal as the other lists' cards do (#340).
 - **Measured** on the development runtime at `fb11b3e`, the head of `009-news-post-redesign`,
   with the demo dataset's six News and five Health Content (#287,
   `docs/evidence/287-news-post-redesign-evidence-round.md`):
@@ -872,6 +881,13 @@ Directory (`/health-services`).
     no pixel under 3:1 at any width, the lowest 5.22:1 from 768 px and 2.80:1 on a few blended
     pixels at 375 px; the ring alone over the field read under 3:1 on 56 to 61 % of its pixels,
     which the band answers.
+  - At `fad2249` (#340), the same on the whole of `/services`, with the demo dataset's nine Services
+    and with a full first page of twelve synthetic ones (`lists-by-count.ts`, `LIST_COUNT=24`): a
+    Service card's summary 5.07:1 where it crosses the corner circle (1,024 and 768 px) and 5.66:1
+    on the card's white, its name 14.82:1 (375 and 320 px), the form's button 6.45:1 and the
+    pager's "หน้า 1" under the last row 4.69:1 (each width). `scripts/measure-focus-contrast.ts` on
+    the first card: its ring lies on the card's white, under it 5.78:1 at the lowest and beside it
+    4.35:1 (1,440 px), no pixel under 3:1 at any width.
   - `scripts/capture-screenshots.mjs`, the pages' heights in px at 1,440, 1,024, 768, 375 and
     320 px: `/news` 1,801, 1,765, 2,242, 1,791 and 1,917, where it was 1,501, 1,494, 2,030, 3,447
     and 3,449 at `668d3e5` (#281's before screenshots); Health News 1,945, 1,909, 1,969, 1,777 and
@@ -1070,15 +1086,24 @@ hero on the same deep field, under the section heading with its "ทั้งห
   out and the field ends under the hero, with no room left under it.
 - **A card** is white, radius 22, with the `deep` shadow and 24 px of padding (16 px below `sm`).
   It holds the Service's icon (§5), 24 px, in a `surface-soft` tile of 56 px (48 px below `sm`),
-  the name as an H3 at 18 / 30 semibold, the summary at 14 / 22 in `text-secondary`, clamped to
-  three lines and hidden below `sm`, and a 20 px `arrow-right`. A `surface-soft` circle shows in
-  its lower right corner. The Service catalog keeps `ServiceCard` (§7.3).
+  the name as an H3 at 18 / 30 semibold, the summary at 14 / 22 in `text-secondary-on-soft`,
+  clamped to three lines and hidden below `sm`, and a 20 px `arrow-right`. A `surface-soft` circle
+  shows in its lower right corner, and the summary can lie over it, where `text-secondary` read
+  4.45:1 (spec #338 decision 20; Feature 011 #340). At `fad2249` (#340), `--all-text --fold` on
+  the section with the demo dataset's six Services read each summary 5.07:1 at the lowest, where
+  it crosses the corner circle (1,440 and 1,024 px), and each name 14.82:1 at the lowest (375 and
+  320 px).
+- **The Service catalog shares the card** (`kind="list"`, §7.3; Feature 011 #340): its name an
+  H2, and at rest the `card` shadow, taking `deep` under the pointer (spec #338 decision 21), where
+  the Homepage's cards keep `deep` at rest on the field. The link, the pointer and the focus
+  ring's colours below hold for both; the catalog's cards lie on the page, below the filter form,
+  so there the ring lies on the card's white alone (§7.3).
 - **One link** named by the Service's name covers the card, as on the shared cards (§7.3).
 - **Under the pointer** the card and its circle turn `brand-primary`, its name, summary and arrow
   `surface-base`, and its tile `accent-warm` with a `brand-dark` icon. Without a reduced-motion
   preference the card also rises 8 px inside its place, the tile turns, and the circle grows.
-- **The focus ring** lies inside the card's edge, because from `sm` the card lies partly on the
-  field and partly on the page: `brand-primary` on the white card, and `accent-warm` while the
+- **The focus ring** lies inside the card's edge, because from `sm` the Homepage's card lies
+  partly on the field and partly on the page: `brand-primary` on the white card, and `accent-warm` while the
   card is `brand-primary` under the pointer.
 - **The heading's label is `surface-base`**: under it the field is about as light as
   `brand-primary`, where `accent-warm` would be 4.10:1 (§3.2), below the 4.5:1 its small text
@@ -1439,7 +1464,8 @@ stays the submit state (§8.9).
   `testFilteredListOnField`'s motion case for the other two, and `testListOnField`'s for the
   Activities, Announcements and Documents lists: the Activities list's cards move as `/news`'s
   since Feature 010 #313, the Announcements' rows reveal as the Homepage's do since #314, without a
-  picture to shimmer, and the Documents' rows as the Announcements' since #315).
+  picture to shimmer, and the Documents' rows as the Announcements' since #315; `/services`'
+  cards reveal without a picture since Feature 011 #340, `testListOnField`'s `itemsMove`).
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
@@ -2289,3 +2315,11 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   unchanged), two to a row at every width (§7.3, §8.11). §2, §7.3, §7.8, §8.11 and §8.12 name the
   pages, and the Status line and a Feature 011 banner name the feature. Authority: spec #338
   "Decisions", 2, 5, 6, 13 and 15, #338 comment 6941491587, and #339 comment 6941979791.
+- **v1.5 the Service catalog's cards (2026-11-17, Feature 011 #340):** `/services` shows the
+  Homepage's Frequently Used Service card, shared (`HomeServiceCard kind="list"`): the name an H2,
+  the `card` shadow at rest and `deep` under the pointer, in a plain grid of three from `lg`, two
+  from `sm` and one below at any count, each card revealed as it comes into the window. The
+  catalog's own card, `ServiceCard`, and its 2 px ring hover are gone. The summary takes
+  `text-secondary-on-soft` on the Homepage too, the one change there. §2, §3.1, §7.1, §7.3, §7.8,
+  §8.4 and §8.12 name it. Authority: spec #338 "The Service catalog" and decisions 13, 15, 20 and
+  21, and #338 comment 6941491587.

@@ -14,15 +14,20 @@
 // The page opens on the deep field as the News lists do (Feature 011 #339; spec #338 "Decisions",
 // 5, 6 and 15; ListHeading): the label "บริการ", as the Homepage's Frequently Used Services, with
 // the users icon over its H1, and the two related links under the lead. The filter form comes
-// first over the field's lower edge, then the cards, the empty state and the pager (ListBody),
-// the cards in today's look until #340.
+// first over the field's lower edge, then the cards, the empty state and the pager (ListBody).
+//
+// The cards are the Homepage's Frequently Used Service cards, shared (HomeServiceCard
+// `kind="list"`; Feature 011 #340; spec #338 "The Service catalog", decisions 13, 15, 20 and 21):
+// a plain grid of three from `lg`, two from `sm` and one below at any count, 20 px apart from `sm`
+// and 12 px below, without the Homepage's rule for four or its overhang below the field. Each card
+// reveals as it comes into the window (`scroll-reveal`), as the lists' cards do.
 import Users from "@lucide/astro/icons/users";
 import EmptyState from "../../components/EmptyState.astro";
 import FilterForm from "../../components/FilterForm.astro";
+import HomeServiceCard from "../../components/HomeServiceCard.astro";
 import ListBody from "../../components/ListBody.astro";
 import ListHeading from "../../components/ListHeading.astro";
 import Pagination from "../../components/Pagination.astro";
-import ServiceCard from "../../components/ServiceCard.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { directoryPath } from "../../lib/health-service-directory";
 import { documentsPath } from "../../lib/documents";
@@ -78,10 +83,10 @@ const relatedLinks = [
 			]}
 		/>
 		{entries.length > 0 ? (
-			<ul class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+			<ul class="grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
 				{entries.map((service) => (
-					<li>
-						<ServiceCard service={service} />
+					<li class="scroll-reveal min-w-0">
+						<HomeServiceCard service={service} kind="list" />
 					</li>
 				))}
 			</ul>

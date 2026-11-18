@@ -57,6 +57,7 @@ import {
 	MOBILE_VIEWPORT,
 	SECTION_CRUMBS,
 	boxOf,
+	cardList,
 	deepField,
 	detailOf,
 	expect,
@@ -65,6 +66,7 @@ import {
 	expectPreviewRenders,
 	expectServiceIcon,
 	expectSiteNotFound,
+	itemsPerRow,
 	leadLinksOf,
 	listedItem,
 	listedTitles,
@@ -75,6 +77,7 @@ import {
 	testAccessibilityAndReflow,
 	testListOnField,
 	tokenColor,
+	whileNonePublished,
 } from "./public.helpers";
 
 /** The fixed number of Services a catalog page shows. */
@@ -146,6 +149,110 @@ testListOnField({
 		await publishEntryAt(admin, "services", service.id, LIST_END);
 		return service;
 	},
+	itemsMove: "cards",
+});
+
+/** The demo dataset's longest Service name (scripts/demo-dataset/content.ts), without its mark. */
+const LONGEST_SERVICE_NAME = "ร้องเรียนการปฏิบัติงานหรือการให้บริการ";
+
+/** A summary longer than the three lines a card shows of it, at every width. */
+const LONG_SUMMARY = `${SYNTHETIC_FIXTURE_MARK} ${"สรุปบริการที่ยาวกว่าสามบรรทัดของการ์ด เพื่อทดสอบว่าการ์ดตัดสรุปไว้ที่สามบรรทัด ".repeat(6)}`;
+
+test("the catalog's card is the Homepage's: white, radius 22, 144 px high or more from 640 px, the Service's name an H2 at 18 / 30 semibold, the summary at 14 / 22 in text-secondary-on-soft, three lines at most from 640 px and hidden below, the 20 px arrow-right and the surface-soft circle in its lower right corner; below 640 px the icon, the name and the arrow sit centred on one line, with the demo dataset's longest Service name, on both sides of 640 px and down to 320 px", async ({
+	page,
+}) => {
+	const service = await createService("card-parts", {
+		name: `กา ${LONGEST_SERVICE_NAME}`,
+		data: { summary: LONG_SUMMARY },
+	});
+	await publish("services", service);
+	await page.goto("/services");
+	const card = listedItem(page, service.title);
+	const seen: Record<number, unknown> = {};
+	const expected: Record<number, unknown> = {};
+	for (const width of [1440, 768, 640, 639, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		await card.scrollIntoViewIfNeeded();
+		await page.mouse.move(0, 0);
+		const phone = width < 640;
+		// Read in the page, so a part today's card lacks reads as missing rather than stopping here.
+		seen[width] = await card.evaluate((article, phone) => {
+			const style = (element: Element) => getComputedStyle(element);
+			const centre = (element: Element | null) => {
+				if (!element) return undefined;
+				const box = element.getBoundingClientRect();
+				return box.y + box.height / 2;
+			};
+			const heading = article.querySelector("h2, h3");
+			const summary = [...article.querySelectorAll("p")].find((p) =>
+				p.textContent?.includes("สรุปบริการที่ยาว"),
+			);
+			const arrow = article.querySelector("svg.lucide-arrow-right");
+			const icon = article.querySelector('[data-testid="service-icon"]');
+			const surface = article.querySelector('[data-testid="service-surface"]');
+			const box = (surface ?? article).getBoundingClientRect();
+			// 16 px in from the corner, inside the card's 22 px rounding and the circle.
+			const corner = document
+				.elementsFromPoint(box.right - 16, box.bottom - 16)
+				.find(
+					(element) =>
+						article.contains(element) &&
+						!/^rgba\(.*,\s*0\)$|^transparent$/.test(style(element).backgroundColor),
+				);
+			const shown = summary !== undefined && summary.getClientRects().length > 0;
+			return {
+				heading: heading && {
+					level: heading.tagName,
+					type: [style(heading).fontSize, style(heading).lineHeight, style(heading).fontWeight],
+				},
+				surface: surface && {
+					fill: style(surface).backgroundColor,
+					radius: style(surface).borderTopLeftRadius,
+					tall: phone ? undefined : box.height >= 144,
+				},
+				summary: shown
+					? {
+							colour: style(summary).color,
+							type: [style(summary).fontSize, style(summary).lineHeight],
+							lines: Math.round(
+								summary.getBoundingClientRect().height /
+									Number.parseFloat(style(summary).lineHeight),
+							),
+							clamped: summary.scrollHeight > summary.clientHeight,
+						}
+					: "hidden",
+				arrow: arrow && [arrow.getBoundingClientRect().width, arrow.getBoundingClientRect().height],
+				corner: corner && style(corner).backgroundColor,
+				oneLine:
+					phone && icon && heading && arrow
+						? [centre(heading)! - centre(icon)!, centre(arrow)! - centre(icon)!].map((gap) =>
+								Math.round(Math.abs(gap)),
+							)
+						: undefined,
+			};
+		}, phone);
+		expected[width] = {
+			heading: { level: "H2", type: ["18px", "30px", "600"] },
+			surface: {
+				fill: await tokenColor(page, "surface-base"),
+				radius: "22px",
+				tall: phone ? undefined : true,
+			},
+			summary: phone
+				? "hidden"
+				: {
+						colour: await tokenColor(page, "text-secondary-on-soft"),
+						type: ["14px", "22px"],
+						lines: 3,
+						clamped: true,
+					},
+			arrow: [20, 20],
+			corner: await tokenColor(page, "surface-soft"),
+			// From 640 px the parts sit at the card's top, which this does not read.
+			oneLine: phone ? [0, 0] : undefined,
+		};
+	}
+	expect(seen).toEqual(expected);
 });
 
 test("/services' two related links lie under its lead on the field, 16 px under it: surface-base words, semibold, at label size and underlined, each with a 16 px arrow-right after them and 44 px high; they sit 24 px apart on one row and, where they wrap, 4 px apart one under the other, and keep their colour under the pointer", async ({
@@ -263,6 +370,70 @@ test("a Service's card shows the icon staff chose, or the standard icon without 
 	] as const) {
 		await expectServiceIcon(listedItem(page, service.title), icon, service.title);
 	}
+});
+
+/** The numbers of Services the catalog's grid is read with (spec #338 decision 13). */
+const GRID_COUNTS = [1, 2, 4, 12];
+
+test("the catalog's cards go three to a row from 1,024 px, two from 640 px and one below, 20 px apart from 640 px and 12 px below, at one, two, four and twelve Services, with no rule for four", async ({
+	page,
+}) => {
+	test.setTimeout(240_000);
+	const published: DraftFixture[] = [];
+	const seen: unknown[] = [];
+	const expected: unknown[] = [];
+	try {
+		await whileNonePublished(admin, "services", async () => {
+			const cells = cardList(page).grid.getByRole("listitem");
+			for (const count of GRID_COUNTS) {
+				while (published.length < count) {
+					const service = await createService(`grid-${String(published.length).padStart(2, "0")}`);
+					await publish("services", service);
+					published.push(service);
+				}
+				await page.setViewportSize(DESKTOP_VIEWPORT);
+				await page.goto("/services");
+				await expect(cells).toHaveCount(count);
+				for (const width of [1440, 1024, 1023, 768, 640, 639, 375]) {
+					await page.setViewportSize({ width, height: 900 });
+					const rows = await itemsPerRow(cells);
+					const boxes = [];
+					for (const index of [0, 1, rows[0]!]) {
+						boxes.push(
+							index < count ? await boxOf(cells.nth(index), `card ${index + 1}`) : undefined,
+						);
+					}
+					const [first, second, below] = boxes;
+					seen.push({
+						count,
+						width,
+						rows,
+						across: rows[0]! > 1 ? Math.round(second!.x - (first!.x + first!.width)) : undefined,
+						down: below ? Math.round(below.y - (first!.y + first!.height)) : undefined,
+					});
+					const perRow = width >= 1024 ? 3 : width >= 640 ? 2 : 1;
+					const gap = width >= 640 ? 20 : 12;
+					const rowsExpected: number[] = [];
+					for (let left = count; left > 0; left -= perRow)
+						rowsExpected.push(Math.min(perRow, left));
+					expected.push({
+						count,
+						width,
+						rows: rowsExpected,
+						across: rowsExpected[0]! > 1 ? gap : undefined,
+						down: rowsExpected.length > 1 ? gap : undefined,
+					});
+				}
+			}
+		});
+	} finally {
+		for (const service of published) {
+			expect
+				.soft((await unpublishEntry(admin, "services", service.id)).ok, service.slug)
+				.toBe(true);
+		}
+	}
+	expect(seen).toEqual(expected);
 });
 
 test("the Service Category filter offers only the categories of published Services in label order, narrows /services, stays in the address and reproduces from a shared address", async ({

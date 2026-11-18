@@ -91,6 +91,7 @@ import {
 	test,
 	thaiDate,
 	tokenColor,
+	tokenShadow,
 } from "./public.helpers";
 
 /** The Featured card's label, which its date follows (spec #239 "Hero and Featured"). */
@@ -942,6 +943,22 @@ test("on hover a Service card turns brand green with white text, and its icon ti
 			.toBeCloseTo(place.y - 8, 0);
 		await pressInside(page, card, edge, "the part the card left");
 		await expect(page).toHaveURL(`/services/${service.slug}`);
+		// At rest the Homepage's card keeps its own look where the catalog shares it (Feature 011
+		// #340; spec #338 decision 21): the name an H3 and the `deep` shadow; its summary takes
+		// text-secondary-on-soft for SC 1.4.3 over the corner circle (decision 20; DESIGN.md
+		// §8.4). Read last, the summary's colour being new in #340.
+		await page.goto("/");
+		await page.mouse.move(0, 0);
+		const atRest = {
+			name: "H3",
+			shadow: await tokenShadow(page, "deep"),
+			summary: await tokenColor(page, "text-secondary-on-soft"),
+		};
+		expect({
+			name: await card.getByRole("heading", { name: service.title }).evaluate((h) => h.tagName),
+			shadow: await surface.evaluate((element) => getComputedStyle(element).boxShadow),
+			summary: await card.getByText(summary).evaluate((p) => getComputedStyle(p).color),
+		}).toEqual(atRest);
 	});
 });
 

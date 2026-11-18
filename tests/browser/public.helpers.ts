@@ -594,13 +594,14 @@ export function selfRunningEnds(scope: Locator): Promise<number[]> {
 }
 
 /**
- * Move the pointer to just above the resting lower edge of `card`, whose `surface` then rises 6 px,
- * and press there. The card rises only where motion is allowed.
+ * Move the pointer to just above the resting lower edge of `card`, whose `surface` then rises
+ * `rise` px, 6 unless given, and press there. The card rises only where motion is allowed.
  */
 export async function expectRisesUnderPointer(
 	page: Page,
 	card: Locator,
 	surface: Locator,
+	rise = 6,
 ): Promise<void> {
 	await page.emulateMedia({ reducedMotion: "no-preference" });
 	await card.scrollIntoViewIfNeeded();
@@ -615,9 +616,9 @@ export async function expectRisesUnderPointer(
 	await page.mouse.move(edge.x, edge.y);
 	await expect
 		.poll(async () => (await boxOf(surface, "the card's surface")).y, {
-			message: "the card under the pointer has risen 6 px",
+			message: `the card under the pointer has risen ${rise} px`,
 		})
-		.toBeCloseTo(place.y - 6, 0);
+		.toBeCloseTo(place.y - rise, 0);
 	await pressInside(page, card, edge, "the part the card left");
 }
 
@@ -657,6 +658,26 @@ export function tokenColor(page: Page, name: string): Promise<string> {
 		probe.remove();
 		return color;
 	}, name);
+}
+
+/**
+ * A matcher for a computed `box-shadow` whose last layer is the shadow token `shadow-<name>`
+ * (src/styles/global.css) as the page's browser computes it. Tailwind writes a shadow token's value
+ * into its utility and leaves no `--shadow-<name>` on the page, so a probe takes the utility's
+ * class and is read. Tailwind puts its transparent ring layers before a shadow, so the token is
+ * matched as the value's last layer.
+ */
+export async function tokenShadow(page: Page, name: string) {
+	const shadow = await page.evaluate((token) => {
+		const probe = document.createElement("span");
+		probe.className = `shadow-${token}`;
+		document.body.append(probe);
+		const layers = getComputedStyle(probe).boxShadow;
+		probe.remove();
+		if (layers === "none") throw new Error(`the page's stylesheet has no shadow-${token}`);
+		return layers.split(/,\s*(?![^(]*\))/).at(-1)!;
+	}, name);
+	return expect.stringMatching(new RegExp(`(?:^|, )${RegExp.escape(shadow)}$`));
 }
 
 /**
@@ -1946,10 +1967,10 @@ export interface ListOnField extends HeadingOnField {
 	 */
 	publishPictured?: (label: string) => Promise<DraftFixture>;
 	/**
-	 * For a list whose rows move (Feature 010 #314): the motion case reads each row's reveal. Rows
-	 * have no picture, so it reads no shimmer.
+	 * For a list whose rows or cards move without a picture (Feature 010 #314: rows; Feature 011
+	 * #340: `/services`' cards): the motion case reads each item's reveal, and no shimmer.
 	 */
-	rowsMove?: boolean;
+	itemsMove?: "rows" | "cards";
 }
 
 /**
@@ -2081,8 +2102,8 @@ export function testListOnField(list: ListOnField): void {
 	/** What the motion case says the items do. */
 	const itemsMotion = list.publishPictured
 		? "; each card reveals as it comes into the window and shows whole while it holds the keyboard's focus, and a picture's box shimmers as the page opens while a missing picture's visual does not"
-		: list.rowsMove
-			? "; each row reveals as it comes into the window and shows whole while it holds the keyboard's focus"
+		: list.itemsMove
+			? `; each ${list.itemsMove === "rows" ? "row" : "card"} reveals as it comes into the window and shows whole while it holds the keyboard's focus`
 			: "";
 	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, ${list.leadLinks ? "the links under the lead, " : ""}${list.form ? "the filter form, " : ""}${itemsMotion ? "" : "the items, "}the pager and an empty state show at once${itemsMotion}, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
 		page,
@@ -2098,7 +2119,7 @@ export function testListOnField(list: ListOnField): void {
 					pictured: listedItem(page, pictured.title),
 					plain: cards.filter({ hasNot: page.locator("img") }).last(),
 				}
-			: list.rowsMove
+			: list.itemsMove
 				? { grid, cards }
 				: { grid };
 		await expectListMovesOnlyWhenAllowed(
