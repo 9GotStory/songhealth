@@ -13,7 +13,9 @@
 // (src/pages/documents/[slug].astro). A Health Report's page takes it too (Feature 011 #343; spec
 // #338 "The three pages: the header", decision 9): "วันที่รายงาน" and its report date in the
 // accent-warm pill, never its publication date, then its Report Type outlined, and its summary
-// (src/pages/health/reports/[slug].astro).
+// (src/pages/health/reports/[slug].astro). A Service's page takes it too (#344; spec #338 decision
+// 10): an outlined pill for each of its Service Categories, as text, with no date, and its summary
+// (src/pages/services/[slug].astro; Product Owner, #344 comment 6979384685, item 2).
 // The summary keeps the line breaks staff typed. A part the post lacks is left out, and so is the
 // row when it holds no pill, as a draft's preview has no publication date. Its
 // text takes the field's surface-base (DeepField.astro).
@@ -41,8 +43,11 @@ interface Props {
 	date?: Instant;
 	/** The words before the date in its pill. */
 	dateWords?: "เผยแพร่" | "วันที่รายงาน";
-	/** The outlined pill's words beside the date: a News item's category, an Announcement's type. */
-	outlined?: string;
+	/**
+	 * The outlined pill's words beside the date, such as a News item's category or an Announcement's
+	 * type, or a list of them, one pill each, such as a Service's categories.
+	 */
+	outlined?: string | string[];
 	/** An accent-warm pill's words after the outlined one, such as a Document's status. */
 	attention?: string;
 }
@@ -57,6 +62,7 @@ const {
 	outlined,
 	attention,
 } = Astro.props;
+const outlinedPills = [outlined ?? []].flat().filter(Boolean);
 /** An accent-warm pill, its edge transparent so it is as high as the outlined one. */
 const warmPill =
 	"rounded-pill border border-transparent bg-accent-warm px-3 py-0.5 text-brand-dark";
@@ -65,18 +71,18 @@ const warmPill =
 <header class="flex max-w-3xl flex-col gap-6">
 	<Breadcrumb onField items={breadcrumbTrail(section, crumbs)} />
 	<div class="hero-enter flex flex-col gap-3">
-		{(date || outlined || attention) && (
+		{(date || outlinedPills.length > 0 || attention) && (
 			<p class="flex flex-wrap items-center gap-2 text-small font-semibold">
 				{date && (
 					<span class={warmPill}>
 						{dateWords} <DateText value={date} />
 					</span>
 				)}
-				{outlined && (
+				{outlinedPills.map((words) => (
 					<span class="rounded-pill border border-surface-base/40 px-3 py-0.5 wrap-anywhere">
-						{outlined}
+						{words}
 					</span>
-				)}
+				))}
 				{attention && <span class={warmPill}>{attention}</span>}
 			</p>
 		)}
