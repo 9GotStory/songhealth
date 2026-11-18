@@ -160,7 +160,12 @@ and why, and `.jscpd-baseline.json` records them.
   dates, list titles, an image's load) to `tests/browser/public.helpers.ts`, native API fixtures
   (entries, media, terms) and refusal checks (`expectValidationRefusal`) to
   `tests/browser/cms.helpers.ts`, and a node test's builders to `tests/node/<area>.helpers.ts`,
-  named as the browser suites name theirs (`tests/node/ita.helpers.ts` `fileBlock`).
+  named as the browser suites name theirs (`tests/node/ita.helpers.ts` `fileBlock`). A clone
+  `npm run jscpd` reports is resolved the same way; lines reordered or reshaped until the copy falls
+  under its threshold still hold the clone (#344 retro: a Service's header test and a Health
+  Report's).
+- A page shown without JavaScript is read with `shownWhole` (`tests/browser/public.helpers.ts`):
+  `isVisible` counts a part held back at `opacity: 0` as shown (#344 retro).
 - A card whose whole surface is one link joins the Homepage or list table of
   `tests/browser/public-cards.spec.ts`: one link named by its title, a press on the part a citizen
   points at (its picture, or the tile of the visual in its place), a press on its lower corner, and

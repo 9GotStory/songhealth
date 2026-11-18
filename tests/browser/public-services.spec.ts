@@ -97,6 +97,7 @@ import {
 	testListOnField,
 	tokenColor,
 	whileNonePublished,
+	shownWhole,
 } from "./public.helpers";
 
 /** The fixed number of Services a catalog page shows. */
@@ -1416,25 +1417,24 @@ test.describe("a Service's page without JavaScript", () => {
 		await page.goto(`/services/${service.slug}`);
 		const main = page.getByRole("main");
 		const parts = fieldParts(page);
-		const shown = async (part: Locator) => (await part.count()) === 1 && part.isVisible();
 		const seen: Record<string, boolean> = {
-			title: await shown(parts.title.filter({ hasText: service.title })),
-			pill: await shown(parts.field.getByText(category.label, { exact: true })),
-			details: await shown(parts.card.getByRole("term").filter({ hasText: "ผู้ให้บริการ" })),
-			external: await shown(parts.card.getByRole("link", { name: /^ไปยังเว็บไซต์ของบริการ/ })),
-			guidance: await shown(main.getByRole("heading", { level: 2, name: "ระยะเวลาดำเนินการ" })),
-			download: await shown(
+			title: await shownWhole(parts.title.filter({ hasText: service.title })),
+			pill: await shownWhole(parts.field.getByText(category.label, { exact: true })),
+			details: await shownWhole(parts.card.getByRole("term").filter({ hasText: "ผู้ให้บริการ" })),
+			external: await shownWhole(parts.card.getByRole("link", { name: /^ไปยังเว็บไซต์ของบริการ/ })),
+			guidance: await shownWhole(
+				main.getByRole("heading", { level: 2, name: "ระยะเวลาดำเนินการ" }),
+			),
+			download: await shownWhole(
 				main.getByRole("region", { name: "เอกสารที่เกี่ยวข้อง" }).getByRole("link", {
 					name: /^ดาวน์โหลด/,
 				}),
 			),
-			map: await shown(
+			map: await shownWhole(
 				main
 					.getByRole("region", { name: "หน่วยบริการสุขภาพที่ให้บริการนี้" })
 					.getByRole("link", { name: /^เปิดแผนที่/ }),
 			),
-			// Nothing waits for an effect that needs a script to finish.
-			whole: (await heldBack(main)).length === 0,
 		};
 		expect(
 			seen,

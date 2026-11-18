@@ -764,6 +764,23 @@ export function entersAfter(part: Locator): Promise<number> {
 }
 
 /**
+ * Whether a part shows whole on a page without JavaScript: there once, visible, and neither it, a
+ * part inside it nor a part around it waiting on an effect (`heldBack`'s opacity or translate),
+ * which `isVisible` alone counts as shown (#344 retro).
+ */
+export async function shownWhole(part: Locator): Promise<boolean> {
+	if ((await part.count()) !== 1 || !(await part.isVisible())) return false;
+	if ((await heldBack(part)).length > 0) return false;
+	return part.evaluate((element) => {
+		for (let node = element.parentElement; node; node = node.parentElement) {
+			const style = getComputedStyle(node);
+			if (style.opacity !== "1" || style.translate !== "none") return false;
+		}
+		return true;
+	});
+}
+
+/**
  * When each effect that runs by itself, on the page's clock, is over, in milliseconds after it
  * began; Infinity for one that never ends. A reveal runs on the visitor's scrolling and is left
  * out. `scope` is the part of the page to read.
