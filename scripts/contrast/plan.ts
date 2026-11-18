@@ -97,7 +97,19 @@ export function fixturePath(captures: readonly Capture[], name: string): string 
 			(capture.name.startsWith(`${name}-`) && /^\d+$/.test(capture.name.slice(name.length + 1))),
 	);
 	if (found === undefined) {
-		throw new Error(`no capture named ${name}: ${named.map((capture) => capture.name).join(", ")}`);
+		// A plain path has no name: it is measured by that path (#341 retro).
+		const plain = new Set(
+			captures.flatMap((capture) =>
+				typeof capture === "string" ? [capture.replace(/[@!].*$/, "")] : [],
+			),
+		);
+		const paths =
+			plain.size > 0
+				? `; its plain paths, measured as written without "fixture:": ${[...plain].join(", ")}`
+				: "";
+		throw new Error(
+			`no capture named ${name}: ${named.map((capture) => capture.name).join(", ")}${paths}`,
+		);
 	}
 	return found.path.replace(/[@!].*$/, "");
 }
