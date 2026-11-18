@@ -1152,12 +1152,12 @@ test("under the pointer a report row moves 10 px to the right with the deep shad
 		// The first row lies over the field's edge: its ring has a white band on both sides.
 		band: expect.stringContaining(`${await tokenColor(page, "surface-base")} 0px 0px 0px 7px`),
 		stillRow: {
-			surface: { x: still.x, deepShadow: false },
+			surface: { x: still.x, shadow: "card" },
 			title: brandPrimary,
 			arrow: accentWarm,
 		},
 		movedRow: {
-			surface: { x: moving.x + 10, deepShadow: true },
+			surface: { x: moving.x + 10, shadow: "deep" },
 			title: brandPrimary,
 			arrow: accentWarm,
 		},

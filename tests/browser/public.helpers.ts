@@ -553,16 +553,17 @@ export function textStyle(part: Locator) {
 
 /**
  * The white surface of a row that moves inside its place under the pointer (the Announcement row,
- * the Health Report row), found by its test id: its left edge and whether it has the `deep`
- * shadow, or nothing when the row has no such surface.
+ * the Health Report row), found by its test id: its left edge and its shadow as `rowShadow` reads
+ * it, so a surface with no shadow reads as neither `card` nor `deep` (#342 retro); or nothing when
+ * the row has no such surface.
  */
 export async function movingSurface(row: Locator, testId: string) {
 	const surface = row.getByTestId(testId);
 	if ((await surface.count()) === 0) return undefined;
-	return surface.evaluate((element) => ({
-		x: Math.round(element.getBoundingClientRect().x),
-		deepShadow: getComputedStyle(element).boxShadow.includes("0px 30px 60px -20px"),
-	}));
+	return {
+		x: await surface.evaluate((element) => Math.round(element.getBoundingClientRect().x)),
+		shadow: await rowShadow(surface),
+	};
 }
 
 /**

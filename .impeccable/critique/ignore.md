@@ -7,7 +7,7 @@ Each entry is a detector or review finding that `docs/design/DESIGN.md` settles,
   Features 008 and 009 (#313 comment 6905240669).
 - `low-contrast` on a current Announcement row's month and year (`accent-warm` on the date tile's
   `brand-primary` to `brand-dark` gradient, `src/components/AnnouncementRow.astro`): the detector
-  reads the gradient's lightest stop, 4.1:1, where the text sits darker; DESIGN.md §3.2 and §8.7
+  reads the gradient's lightest stop, where the text sits darker; DESIGN.md §3.2 and §8.7
   record its readings, the one measured exception to `accent-warm` small text (#245 comment
   6812837231; #314).
 - `low-contrast` on a Document's file type ("PDF", or "ไฟล์") on its tile (`accent-warm` on the
