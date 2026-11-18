@@ -10,10 +10,10 @@
 // the "เปิดแผนที่" link built from the coordinates and named with the Health Service, the opening
 // hours, the public contact), then a rule and its details (facility code, `01` §6; type;
 // affiliation; operational status in text; Areas linking to the filtered directory), each row only
-// when set; the rule only between the two, and no card without either (src/components/
-// CardOverField.astro). The map keeps its pill without the map-pin a directory row's takes (Product
-// Owner, #341 comment 6966593423, item 1). The page gives the shell no crumbs, since the header
-// shows them on the field.
+// when set; the rule only between the two, and no card without either
+// (src/components/CardOverField.astro). The map keeps its pill without the map-pin a directory
+// row's takes (Product Owner, #341 comment 6966593423, item 1). The page gives the shell no crumbs,
+// since the header shows them on the field.
 //
 // The Services it offers follow under the Homepage's section heading, "บริการที่ให้", as the
 // catalog's cards, names H3, two to a row from `sm` (HomeServiceCard.astro `kind="section"`), in
@@ -65,12 +65,12 @@ if (!entry) return Astro.rewrite("/404");
 const healthService = entry.data;
 const name = shownName(healthService);
 const status = healthService.operational_status;
-const types = termsOf(healthService, "facility_type");
+const typeLabels = termsOf(healthService, "facility_type").map((type) => type.label);
 const areas = termsOf(healthService, "area");
 const hasMap = mapHref(healthService.latitude, healthService.longitude) !== undefined;
 // EmDash types a reference's targets as plain records unless the site declares
 // EmDashCollectionReferences (emdash 1.1.0 src/query.ts InferCollectionReferences); these are
-// Services, each with every field.
+// Services with the fields a card reads, without their terms (src/loader.ts loadEntriesByGroups).
 const services = (entry.references?.offered_services.entries ?? []).flatMap((service) =>
 	typeof service.data.title === "string"
 		? [{ ...service, data: service.data as unknown as ServiceData }]
@@ -83,7 +83,7 @@ const hasLocation =
 	!!healthService.public_contact;
 const hasDetails =
 	!!healthService.facility_code ||
-	types.length > 0 ||
+	typeLabels.length > 0 ||
 	!!healthService.affiliation_text ||
 	!!status ||
 	areas.length > 0;
@@ -110,7 +110,7 @@ const hasDetails =
 				crumbs={[{ label: DIRECTORY_TITLE, href: directoryPath() }, { label: name }]}
 				title={name}
 				summary={name !== healthService.title ? healthService.title : undefined}
-				outlined={types.map((type) => type.label)}
+				outlined={typeLabels}
 				attention={status && isOutOfService(status) ? OPERATIONAL_STATUS_LABELS[status] : undefined}
 			/>
 			{(hasLocation || hasDetails) && (
@@ -149,10 +149,8 @@ const hasDetails =
 							{healthService.facility_code && (
 								<DetailItem term="รหัสหน่วยบริการ">{healthService.facility_code}</DetailItem>
 							)}
-							{types.length > 0 && (
-								<DetailItem term="ประเภทหน่วยบริการ">
-									{types.map((type) => type.label).join(", ")}
-								</DetailItem>
+							{typeLabels.length > 0 && (
+								<DetailItem term="ประเภทหน่วยบริการ">{typeLabels.join(", ")}</DetailItem>
 							)}
 							{healthService.affiliation_text && (
 								<DetailItem term="สังกัด">{healthService.affiliation_text}</DetailItem>
