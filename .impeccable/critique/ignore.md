@@ -15,3 +15,7 @@ Each entry is a detector or review finding that `docs/design/DESIGN.md` settles,
   Document's page): the detector reads the gradient's lightest stop, where the text sits darker;
   DESIGN.md §3.2, §7.3 and §9.5 record its readings, the other measured exception (spec #311 "The
   Document repository"; #315, #317).
+- `low-contrast` on a Health Report row's fiscal year on its tile (`accent-warm` on a tile of the
+  file tile's size and gradient, `src/components/HealthReportRow.astro`, on `/health/reports`): the
+  detector reads the gradient's lightest stop, where the text sits darker; DESIGN.md §3.2 and §7.3
+  record its readings (spec #338 "The Health Reports list"; #342).

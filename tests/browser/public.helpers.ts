@@ -551,6 +551,34 @@ export function textStyle(part: Locator) {
 	});
 }
 
+/**
+ * The white surface of a row that moves inside its place under the pointer (the Announcement row,
+ * the Health Report row), found by its test id: its left edge and whether it has the `deep`
+ * shadow, or nothing when the row has no such surface.
+ */
+export async function movingSurface(row: Locator, testId: string) {
+	const surface = row.getByTestId(testId);
+	if ((await surface.count()) === 0) return undefined;
+	return surface.evaluate((element) => ({
+		x: Math.round(element.getBoundingClientRect().x),
+		deepShadow: getComputedStyle(element).boxShadow.includes("0px 30px 60px -20px"),
+	}));
+}
+
+/**
+ * Point at `row`'s left edge, where a moved row leaves a strip, once it has come in, and wait out
+ * the 0.3 s move: the row's resting left edge and the point.
+ */
+export async function pointAtRowEdge(page: Page, row: Locator) {
+	await row.scrollIntoViewIfNeeded();
+	await expect.poll(() => shownOpacity(row), { message: "the row has come in" }).toBe(1);
+	const place = await boxOf(row, "the row's place");
+	const edge = { x: place.x + 3, y: place.y + place.height / 2 };
+	await page.mouse.move(edge.x, edge.y);
+	await page.waitForTimeout(500);
+	return { x: Math.round(place.x), edge };
+}
+
 /** A row's shadow as the page is now: the `deep` one under the pointer, else the `card` one. */
 export function rowShadow(row: Locator) {
 	return row.evaluate((article) => {
@@ -2952,6 +2980,10 @@ export class BorrowedEntries {
 		expect(failures, "the runtime's own entries are published again as they were").toEqual([]);
 	}
 }
+
+/** The `day`th of `month` of `year` at 10:00 in Thailand, as a fixture's stored instant. */
+export const isoDay = (year: number, month: number, day: number) =>
+	`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
 
 /**
  * The entries a test publishes to lead an ordered list (newest first, a page boundary), returned

@@ -53,6 +53,7 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
+	isoDay,
 	pressInside,
 	SECTION_CRUMBS,
 	MOBILE_VIEWPORT,
@@ -73,10 +74,11 @@ import {
 	expectSiteNotFound,
 	listedItem,
 	listedTitles,
+	movingSurface,
 	ownTitles,
 	pillStyle,
+	pointAtRowEdge,
 	shownLines,
-	shownOpacity,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
@@ -328,8 +330,7 @@ test("an Announcement closing today is current and open, one that closed yesterd
 });
 
 /** The `day`th of `month` 2031, after any real Announcement, so the row leads its group. */
-const in2031 = (month: number, day: number) =>
-	`2031-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
+const in2031 = (month: number, day: number) => isoDay(2031, month, day);
 
 /** The 2031 Announcements a test published, returned to draft after it (`publishLeading`). */
 const leading = new LeadingEntries();
@@ -592,26 +593,8 @@ test("under the pointer a row moves 10 px to the right with the deep shadow only
 	});
 	await publishLeading(first);
 	await publishLeading(second);
-	/** The row's white surface, which moves inside the row's place: its left edge and shadow. */
-	const surfaceOf = async (row: Locator) => {
-		const surface = row.getByTestId("announcement-surface");
-		if ((await surface.count()) === 0) return undefined;
-		return surface.evaluate((element) => ({
-			x: Math.round(element.getBoundingClientRect().x),
-			deepShadow: getComputedStyle(element).boxShadow.includes("0px 30px 60px -20px"),
-		}));
-	};
-	/** Point at the row's left edge, where the moved row leaves a strip, once it has come in. */
-	const pointAtEdge = async (row: Locator) => {
-		await row.scrollIntoViewIfNeeded();
-		await expect.poll(() => shownOpacity(row), { message: "the row has come in" }).toBe(1);
-		const place = await boxOf(row, "the row's place");
-		const edge = { x: place.x + 3, y: place.y + place.height / 2 };
-		await page.mouse.move(edge.x, edge.y);
-		// The move takes 0.3 s.
-		await page.waitForTimeout(500);
-		return { x: Math.round(place.x), edge };
-	};
+	const surfaceOf = (row: Locator) => movingSurface(row, "announcement-surface");
+	const pointAtEdge = (row: Locator) => pointAtRowEdge(page, row);
 
 	// Today's rows: one focus stop each, in order.
 	await page.goto("/announcements");

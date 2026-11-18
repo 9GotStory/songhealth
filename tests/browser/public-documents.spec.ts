@@ -56,6 +56,7 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
+	isoDay,
 	pointAt,
 	pressOpens,
 	SECTION_CRUMBS,
@@ -203,8 +204,7 @@ test("/documents lists only published Documents, newest first, each row with its
 });
 
 /** The `day`th of `month` 2031, after any real Document, so the row leads the list. */
-const in2031 = (month: number, day: number) =>
-	`2031-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
+const in2031 = (month: number, day: number) => isoDay(2031, month, day);
 
 /** The 2031 Documents a test published, returned to draft after it (`publishLeading`). */
 const leading = new LeadingEntries();
