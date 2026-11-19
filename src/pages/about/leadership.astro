@@ -38,7 +38,14 @@ const leaders = await listLeadership();
 		{leaders.length > 0 ? (
 			<ol class="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
 				{leaders.map((person, index) => (
-					<li class:list={["scroll-reveal min-w-0", index === 0 && "col-span-full mb-4 sm:mb-3"]}>
+					<li
+						class:list={[
+							"scroll-reveal min-w-0",
+							index === 0 && "col-span-full",
+							// 32 px to the cards under it, the grid's gap included.
+							index === 0 && leaders.length > 1 && "mb-4 sm:mb-3",
+						]}
+					>
 						<LeaderCard person={person} featured={index === 0} />
 					</li>
 				))}

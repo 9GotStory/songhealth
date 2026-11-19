@@ -429,10 +429,12 @@ async function leadersLayout(page: Page) {
 			tops.length > 1
 				? Math.round(tops[1]! - Math.max(...firstRow.map(({ bottom }) => bottom)))
 				: "none",
+		// The list ends where its last card does, with no room of its own below.
+		roomBelow: Math.round(list.y + list.height - Math.max(...boxes.map(({ bottom }) => bottom))),
 	};
 }
 
-test("the first leader by Leadership order takes the featured card across the row with each part they have and none they lack, and the others follow in Leadership order 32 px under it, three to a row from 1,024 px, two from 640 px and one below, 20 px apart from 640 px and 16 px below, at one, two, three and six leaders, with nothing past the window; with one the featured card shows alone", async ({
+test("the first leader by Leadership order takes the featured card across the row with each part they have and none they lack, and the others follow in Leadership order 32 px under it, three to a row from 1,024 px, two from 640 px and one below, 20 px apart from 640 px and 16 px below, at one, two, three and six leaders, with nothing past the window; with one the featured card shows alone, and the list ends with its last card", async ({
 	page,
 }) => {
 	test.setTimeout(240_000);
@@ -485,6 +487,7 @@ test("the first leader by Leadership order takes the featured card across the ro
 				underFeatured: count > 1 ? 32 : "none",
 				across: (rows[0] ?? 0) > 1 ? gap : "none",
 				down: rows.length > 1 ? gap : "none",
+				roomBelow: 0,
 			};
 		}
 	}
