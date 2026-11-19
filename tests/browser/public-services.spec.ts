@@ -63,7 +63,6 @@ import {
 	LIST_END,
 	MOBILE_VIEWPORT,
 	SECTION_CRUMBS,
-	PHONE_VIEWPORT,
 	boxOf,
 	cardList,
 	cardOverFieldEdge,
@@ -88,6 +87,7 @@ import {
 	listedTitles,
 	offeredLabels,
 	ownTitles,
+	placesAtTwoWidths,
 	readHeaderOnField,
 	shownWhole,
 	siteTitleParts,
@@ -1254,27 +1254,11 @@ test.describe("a Service's page on the field", () => {
 			return read;
 		};
 		const running = () => page.evaluate(() => document.getAnimations().length);
-		const layouts = async () => {
-			const read = [];
-			for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
-				await page.setViewportSize(viewport);
-				await page.evaluate(() => window.scrollTo(0, 0));
-				const places = [];
-				for (const [name, part] of placed) {
-					places.push([name, (await part.count()) === 1 ? await boxOf(part, name) : "missing"]);
-				}
-				read.push({
-					height: await page.evaluate(() => document.documentElement.scrollHeight),
-					places,
-				});
-			}
-			return read;
-		};
 
 		await page.emulateMedia({ reducedMotion: "reduce" });
 		await page.goto(pathOf(full));
 		const reduced = { running: await running(), heldBack: await heldBack(main) };
-		const still = await layouts();
+		const still = await placesAtTwoWidths(page, placed);
 
 		await page.emulateMedia({ reducedMotion: "no-preference" });
 		await page.goto(pathOf(full), { waitUntil: "commit" });
@@ -1284,7 +1268,7 @@ test.describe("a Service's page on the field", () => {
 		await expect
 			.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
 			.toEqual([]);
-		const moved = await layouts();
+		const moved = await placesAtTwoWidths(page, placed);
 
 		await page.emulateMedia({ media: "print", reducedMotion: "no-preference" });
 		await page.goto(pathOf(full));

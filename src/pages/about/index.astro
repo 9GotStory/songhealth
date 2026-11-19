@@ -7,10 +7,15 @@
 // เกี่ยวกับเรา with only the links, so the About section always has its landing page. A draft opens
 // here only through its signed preview link, which /pages/about passes on. As the section's
 // landing page, its breadcrumb ends at the section, เกี่ยวกับเรา, whatever the page's title.
-import BasicPageContent from "../../components/BasicPageContent.astro";
+//
+// Until #371 (spec #365 "`/about`") it keeps its earlier heading: the page's title as the H1 and
+// its summary as the lead on the page's colour. Its body and related Documents are already every
+// Basic Page's (src/components/BasicPageText.astro; Feature 012 #368, spec #365 decision 3).
+import BasicPageText from "../../components/BasicPageText.astro";
 import DetailSection from "../../components/DetailSection.astro";
 import PageHeading from "../../components/PageHeading.astro";
 import QuickLinkCard from "../../components/QuickLinkCard.astro";
+import ThaiTitle from "../../components/ThaiTitle.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { ABOUT_SUBPAGES, ABOUT_TITLE } from "../../lib/about";
 import { basicPagePath, readBasicPage } from "../../lib/basic-pages";
@@ -41,7 +46,19 @@ const title = data?.title ?? ABOUT_TITLE;
 	noindex={page?.isPreview}
 >
 	<div class="page-container flex flex-col gap-12 pt-6 pb-16 lg:pb-20">
-		{page ? <BasicPageContent page={page} /> : <PageHeading title={title} />}
+		{page ? (
+			<article class="flex flex-col gap-8">
+				<header class="flex max-w-3xl flex-col gap-3">
+					<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
+						<ThaiTitle text={title} />
+					</h1>
+					{data?.summary && <p class="text-body-large text-text-secondary">{data.summary}</p>}
+				</header>
+				<BasicPageText page={page} />
+			</article>
+		) : (
+			<PageHeading title={title} />
+		)}
 		<DetailSection id="about-subpages" heading="ข้อมูลเกี่ยวกับสำนักงาน">
 			<ul class="grid gap-4 sm:grid-cols-2">
 				{ABOUT_SUBPAGES.map((subpage) => (

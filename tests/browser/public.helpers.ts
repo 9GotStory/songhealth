@@ -594,12 +594,13 @@ export function rowShadow(row: Locator) {
 
 /**
  * The parts of a Document row a citizen meets, found by what they say and do: on /documents and
- * the About Document pages (Feature 010 #315; Feature 012 #366).
+ * the About Document pages, titled H2 (Feature 010 #315; Feature 012 #366), and under a page's
+ * "เอกสารที่เกี่ยวข้อง", titled H3 (Feature 012 #368).
  */
-export function documentRowParts(row: Locator) {
+export function documentRowParts(row: Locator, level: 2 | 3 = 2) {
 	return {
 		tile: row.locator("svg.lucide-file-text").locator("xpath=.."),
-		title: row.getByRole("heading", { level: 2 }),
+		title: row.getByRole("heading", { level }),
 		download: row.getByRole("link", { name: /^ดาวน์โหลด/ }),
 		facts: row.locator("time").locator("xpath=.."),
 	};
@@ -782,6 +783,29 @@ export function entersAfter(part: Locator): Promise<number> {
 		}
 		return -1;
 	});
+}
+
+/**
+ * The page's height and where each of `placed` lies at 375 and 1440 px, scrolled to the top, or
+ * "missing" for a part the page does not show: a motion test compares the page with motion after
+ * its entrance with the page without it (Feature 011 #344; Feature 012 #368). The viewport ends at
+ * 1440 px.
+ */
+export async function placesAtTwoWidths(page: Page, placed: Array<[string, Locator]>) {
+	const read = [];
+	for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+		await page.setViewportSize(viewport);
+		await page.evaluate(() => window.scrollTo(0, 0));
+		const places = [];
+		for (const [name, part] of placed) {
+			places.push([name, (await part.count()) === 1 ? await boxOf(part, name) : "missing"]);
+		}
+		read.push({
+			height: await page.evaluate(() => document.documentElement.scrollHeight),
+			places,
+		});
+	}
+	return read;
 }
 
 /**

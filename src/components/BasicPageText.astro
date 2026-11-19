@@ -1,0 +1,26 @@
+---
+// A Basic Page's text after its header (Feature 012 #368; spec #365 "A Basic Page", decision 3):
+// its body in the 48 rem text column, in the `rich-text` typography, then 48 px under it the
+// published Documents it links to (RelatedDocuments.astro) in the same column. A part the page
+// lacks is left out with its room, and with neither it renders nothing, so PostColumns.astro
+// leaves out the text and the page ends with its field (spec #365 decision 9). Both show at once
+// (spec #365 "Motion").
+import type { BasicPage } from "../lib/basic-pages";
+import RelatedDocuments from "./RelatedDocuments.astro";
+import RichText from "./RichText.astro";
+
+interface Props {
+	page: BasicPage;
+}
+
+const { entry, documents } = Astro.props.page;
+const body = entry.data.body;
+const hasBody = body && body.length > 0;
+---
+
+{(hasBody || documents.length > 0) && (
+	<div class="flex max-w-3xl flex-col gap-12">
+		{hasBody && <RichText value={body} />}
+		<RelatedDocuments documents={documents} />
+	</div>
+)}

@@ -20,6 +20,10 @@
 // row when it holds no pill, as a draft's preview has no publication date. Its
 // text takes the field's surface-base (DeepField.astro).
 //
+// A Basic Page takes it too (Feature 012 #368; spec #365 "A Basic Page", decision 2): its title
+// and summary alone, with no row of pills, and on /pages/{slug} no section
+// (src/components/BasicPageContent.astro).
+//
 // The page passes no `crumbs` to the shell, which then shows no breadcrumb above the page
 // (src/layouts/SiteLayout.astro), and gives them here with its section, as ListHeading.astro does.
 //
@@ -33,8 +37,11 @@ import DateText from "./DateText.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
-	/** The main-navigation section the page belongs to, which its breadcrumb goes through. */
-	section: NavigationSection;
+	/**
+	 * The main-navigation section the page belongs to, which its breadcrumb goes through; none for
+	 * a page in no section, such as a Basic Page on /pages/{slug}.
+	 */
+	section?: NavigationSection;
 	/** The page's own crumbs, as the shell takes them (src/layouts/SiteLayout.astro). */
 	crumbs: Crumb[];
 	title: string;

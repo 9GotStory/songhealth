@@ -39,6 +39,9 @@ describe("headings on public pages", () => {
 			"components/ContentCard.astro",
 			"components/SectionHeading.astro",
 			"components/HomeActivityTile.astro",
+			// A Basic Page's H1 and its related Documents' H3s (Feature 012 #368).
+			"components/PostHeader.astro",
+			"components/DocumentDownloadRow.astro",
 			BODY_HEADING,
 		]) {
 			assert.ok(files.has(file), `a heading in ${file}`);
