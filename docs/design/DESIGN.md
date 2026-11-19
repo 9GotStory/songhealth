@@ -1102,6 +1102,18 @@ About Document pages (`/about/policies`, `/about/plans` and `/about/results`), a
     was 900, 900, 900, 979 and 1,191 at `00ab334` (Feature 012's before screenshots);
     `leadership-six` 1,265, 1,417, 1,581, 1,945 and 2,395, where it was 951, 1,051, 1,225, 1,693 and
     2,169; `leadership-one` 900, 900, 900, 973 and 1,163, where it was 900, 900, 900, 900 and 993.
+  - At `fbc27a6` (Feature 012 #370), `scripts/measure-text-contrast.ts --all-text --fold` on the
+    whole of `/about/personnel` with the demo dataset's six Personnel in three units and with
+    `scripts/screenshot-fixtures/about-contact-cases.ts`' `personnel-many` (22 staff in five units,
+    three without one), at the five widths, the lowest reading of each text: the lead 6.36:1, the
+    H1 8.03:1, the label 8.48:1, the breadcrumb's links 9.34:1 and its current page 8.60:1
+    (320 px); a unit's H2 and a name 16.54:1, a position 4.97:1, "ช่องทางติดต่อ" 4.97:1 and the
+    contact 16.54:1 (every width). No row holds a link or a control, so no focus ring meets the
+    field. `scripts/capture-screenshots.mjs`, the page's heights in px at 1,440, 1,024, 768, 375
+    and 320 px: with the demo dataset 1,348, 1,348, 1,470, 1,640 and 1,866, where it was 1,243,
+    1,307, 1,417, 1,757 and 2,103 at `00ab334` (Feature 012's before screenshots);
+    `personnel-many` 2,533, 2,625, 3,053, 4,055 and 5,081, where it was 2,723, 3,087, 3,845, 5,805
+    and 6,545.
   - `scripts/capture-screenshots.mjs`, the pages' heights in px at 1,440, 1,024, 768, 375 and
     320 px: `/news` 1,801, 1,765, 2,242, 1,791 and 1,917, where it was 1,501, 1,494, 2,030, 3,447
     and 3,449 at `668d3e5` (#281's before screenshots); Health News 1,945, 1,909, 1,969, 1,777 and
