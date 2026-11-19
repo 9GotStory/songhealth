@@ -920,7 +920,9 @@ async function panelLook(
 					: "none",
 			besideHeading: own.x + own.width <= title.x,
 		};
-		padding = { left: Math.round(own.x - box.x), top: Math.round(own.y - box.y) };
+		// The head is the panel's first part; its tile is centred on a heading that may wrap.
+		const top = await boxOf(head, "the head");
+		padding = { left: Math.round(top.x - box.x), top: Math.round(top.y - box.y) };
 		rule = await head.evaluate(
 			(element, { bottom }) => {
 				const style = getComputedStyle(element);
