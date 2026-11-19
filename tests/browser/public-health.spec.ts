@@ -82,11 +82,13 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
-	isoDay,
 	SECTION_CRUMBS,
 	boxOf,
 	cardList,
+	cardOverFieldEdge,
+	cardOverFieldEdgeAsSpecified,
 	detailOf,
+	entersAfter,
 	expect,
 	expectArrowBesideLabel,
 	expectBlocksOverFieldEdge,
@@ -98,36 +100,30 @@ import {
 	expectLabelAboveArrow,
 	expectListMovesOnlyWhenAllowed,
 	expectNoHorizontalScroll,
+	expectPostTitleSizes,
 	expectPreviewRenders,
 	expectSiteNotFound,
-	entersAfter,
 	fieldParts,
-	cardOverFieldEdge,
-	cardOverFieldEdgeAsSpecified,
-	fileBlockAt,
 	fileBlockAsSpecified,
+	fileBlockAt,
 	fileBlockLook,
 	fileBlockLookAsSpecified,
 	fileBlockOf,
-	expectPostTitleSizes,
-	unavailableNoticeIn,
-	gutterAt,
-	HEADER_WIDEST,
-	MOBILE_VIEWPORT,
-	PHONE_VIEWPORT,
-	pillStyle,
+	isoDay,
 	itemsPerRow,
-	listHeading,
 	listedItem,
 	listedTitles,
+	listHeading,
 	movingSurface,
 	offeredLabels,
 	ownTitles,
 	pointAtRowEdge,
 	pressInside,
+	readHeaderOnField,
 	rowShadow,
 	shownLines,
 	shownOpacity,
+	shownWhole,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
@@ -138,8 +134,8 @@ import {
 	textStyle,
 	thaiDate,
 	tokenColor,
+	unavailableNoticeIn,
 	whileNonePublished,
-	shownWhole,
 } from "./public.helpers";
 
 /** The fixed number of Health Content items a list page shows. */
@@ -1394,98 +1390,18 @@ test.describe("a Health Report's page on the field", () => {
 		await page.goto(pathOf(full));
 		await expectPostTitleSizes(page);
 
-		const white = await tokenColor(page, "surface-base");
-		const onField = (await parts.field.count()) === 1;
-		const date = parts.field.getByText(`วันที่รายงาน ${REPORT_DAY}`, { exact: true });
-		const type = parts.field.getByText(full.type.label, { exact: true });
-		const seen: Record<string, unknown> = { field: onField };
-		const expected: Record<string, unknown> = { field: true };
-		for (const viewport of [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
-			if (!onField) break;
-			await page.setViewportSize(viewport);
-			const at = `at ${viewport.width} px`;
-			const field = await boxOf(parts.field, `${at}: the field`);
-			const crumbs = await boxOf(parts.breadcrumb, `${at}: the breadcrumb`);
-			const dateBox = await boxOf(date, `${at}: the report date's pill`);
-			const typeBox = await boxOf(type, `${at}: the type's pill`);
-			const title = await boxOf(parts.title, `${at}: the title`);
-			seen[viewport.width] = {
-				onField: [crumbs, dateBox, typeBox, title].every(
-					(box) => box.y >= field.y && box.y + box.height <= field.y + field.height,
-				),
-				pillsUnderCrumbs: Math.round(dateBox.y - crumbs.y - crumbs.height),
-				// The type follows the date on its row, or, with no room left on it, starts the next
-				// row 8 px under it at the row's start.
-				typeAfterDate:
-					Math.abs(typeBox.y - dateBox.y) <= 1
-						? typeBox.x > dateBox.x + dateBox.width
-						: Math.round(typeBox.x - dateBox.x) === 0 &&
-							Math.round(typeBox.y - dateBox.y - dateBox.height) === 8,
-				titleUnderPills:
-					title.y >= Math.max(dateBox.y + dateBox.height, typeBox.y + typeBox.height),
-				headerWidth: Math.round((await boxOf(parts.header, `${at}: the header`)).width),
-				pills: { date: await pillStyle(date), type: await pillStyle(type) },
-				white: [
-					await parts.breadcrumb
-						.getByRole("link")
-						.first()
-						.evaluate((link) => getComputedStyle(link).color),
-					await parts.breadcrumb
-						.locator('[aria-current="page"]')
-						.evaluate((crumb) => getComputedStyle(crumb).color),
-					await parts.title.evaluate((title) => getComputedStyle(title).color),
-				],
-			};
-			expected[viewport.width] = {
-				onField: true,
-				pillsUnderCrumbs: 24,
-				typeAfterDate: true,
-				titleUnderPills: true,
-				headerWidth: Math.min(HEADER_WIDEST, viewport.width - 2 * gutterAt(viewport.width)),
-				pills: {
-					date: {
-						fill: await tokenColor(page, "accent-warm"),
-						colour: await tokenColor(page, "brand-dark"),
-						type: ["13px", "20px", "600"],
-						edge: "1px",
-					},
-					type: {
-						fill: "rgba(0, 0, 0, 0)",
-						colour: white,
-						type: ["13px", "20px", "600"],
-						edge: "1px",
-					},
-				},
-				white: [white, white, white],
-			};
-		}
+		const { seen, expected } = await readHeaderOnField(page, {
+			pills: [
+				{ words: `วันที่รายงาน ${REPORT_DAY}`, look: "warm" },
+				{ words: full.type.label, look: "outlined" },
+			],
+			under: { text: REPORT_SUMMARY, lines: 2 },
+		});
+		const onField = seen.field === true;
 
-		await page.setViewportSize(DESKTOP_VIEWPORT);
-		const summary = parts.header.getByText(REPORT_SUMMARY.split("\n")[0]!);
-		seen.summary = onField && {
-			text: await summary.innerText(),
-			shown: await shownLines(summary),
-			colour: await summary.evaluate((text) => getComputedStyle(text).color),
-			// body-large, 18 / 30.
-			type: await summary.evaluate((text) => {
-				const style = getComputedStyle(text);
-				return [style.fontSize, style.lineHeight];
-			}),
-			underTitle:
-				(await boxOf(summary, "the summary")).y >=
-				(await boxOf(parts.title, "the title")).y + (await boxOf(parts.title, "the title")).height,
-		};
-		expected.summary = {
-			text: REPORT_SUMMARY,
-			shown: { lines: 2, clamped: false },
-			colour: white,
-			type: ["18px", "30px"],
-			underTitle: true,
-		};
-
-		/** The words of the row that holds `pill`, or "no pill". */
 		/** The terms of the card's details, in order. */
 		const terms = () => parts.card.locator("dl").getByRole("term").allInnerTexts();
+		/** The words of the row that holds `pill`, or "no pill". */
 		const rowOf = async (pill: Locator) =>
 			(await pill.count()) === 1 ? (await pill.locator("xpath=..").innerText()).trim() : "no pill";
 		// A report without a report date: its type's pill alone, and no date in the header, not even
@@ -1508,13 +1424,9 @@ test.describe("a Health Report's page on the field", () => {
 
 		// Neither: no row of pills, the title 24 px under the breadcrumb.
 		await page.goto(pathOf(bare));
-		const crumbs = onField && (await boxOf(parts.breadcrumb, "the bare report's breadcrumb"));
-		seen.bare =
-			crumbs &&
-			Math.round(
-				(await boxOf(parts.title, "the bare report's title")).y - crumbs.y - crumbs.height,
-			);
-		expected.bare = 24;
+		const bareHeader = await readHeaderOnField(page, { pills: [] });
+		seen.bare = bareHeader.seen;
+		expected.bare = bareHeader.expected;
 		expect(seen, "the header on the field").toEqual(expected);
 	});
 

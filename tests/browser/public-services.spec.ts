@@ -81,7 +81,6 @@ import {
 	expectSiteNotFound,
 	fieldEdge,
 	fieldParts,
-	gutterAt,
 	heldBack,
 	itemsPerRow,
 	leadLinksOf,
@@ -89,15 +88,14 @@ import {
 	listedTitles,
 	offeredLabels,
 	ownTitles,
-	pillStyle,
-	shownLines,
+	readHeaderOnField,
+	shownWhole,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
 	testListOnField,
 	tokenColor,
 	whileNonePublished,
-	shownWhole,
 } from "./public.helpers";
 
 /** The fixed number of Services a catalog page shows. */
@@ -957,85 +955,19 @@ test.describe("a Service's page on the field", () => {
 
 		// The pills in the order the card's หมวดบริการ row lists the categories.
 		const listed = await detailOf(page, "หมวดบริการ").getByRole("link").allInnerTexts();
-		const pills = listed.map((label) => parts.field.getByText(label, { exact: true }));
-		const onField = (await parts.field.count()) === 1;
-		const seen: Record<string, unknown> = { field: onField };
-		const expected: Record<string, unknown> = { field: true };
-		const white = await tokenColor(page, "surface-base");
-		for (const viewport of onField ? [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT] : []) {
-			await page.setViewportSize(viewport);
-			const at = `at ${viewport.width} px`;
-			const crumbs = await boxOf(parts.breadcrumb, `${at}: the breadcrumb`);
-			const field = await boxOf(parts.field, `${at}: the field`);
-			const [first, second] = [
-				await boxOf(pills[0]!, `${at}: the first category's pill`),
-				await boxOf(pills[1]!, `${at}: the second category's pill`),
-			];
-			const title = await boxOf(parts.title, `${at}: the title`);
-			seen[viewport.width] = {
-				onField: [crumbs, first, second, title].every(
-					(box) => box.y >= field.y && box.y + box.height <= field.y + field.height,
-				),
-				pillsUnderCrumbs: Math.round(first.y - crumbs.y - crumbs.height),
-				// The second follows the first 8 px beside it, or starts the next row 8 px under it.
-				secondAfterFirst:
-					Math.abs(second.y - first.y) <= 1
-						? Math.round(second.x - first.x - first.width) === 8
-						: Math.round(second.x - first.x) === 0 &&
-							Math.round(second.y - first.y - first.height) === 8,
-				titleUnderPills: title.y >= Math.max(first.y + first.height, second.y + second.height),
-				headerWidth: Math.round((await boxOf(parts.header, `${at}: the header`)).width),
-				pills: [await pillStyle(pills[0]!), await pillStyle(pills[1]!)],
-				white: [
-					await parts.breadcrumb
-						.getByRole("link")
-						.first()
-						.evaluate((link) => getComputedStyle(link).color),
-					await parts.title.evaluate((title) => getComputedStyle(title).color),
-				],
-			};
-			const outlined = {
-				fill: "rgba(0, 0, 0, 0)",
-				colour: white,
-				type: ["13px", "20px", "600"],
-				edge: "1px",
-			};
-			expected[viewport.width] = {
-				onField: true,
-				pillsUnderCrumbs: 24,
-				secondAfterFirst: true,
-				titleUnderPills: true,
-				headerWidth: Math.min(HEADER_WIDEST, viewport.width - 2 * gutterAt(viewport.width)),
-				pills: [outlined, outlined],
-				white: [white, white],
-			};
-		}
-
-		await page.setViewportSize(DESKTOP_VIEWPORT);
-		const summary = parts.header.getByText(SUMMARY.split("\n")[0]!);
-		seen.summary = onField && {
-			text: await summary.innerText(),
-			shown: await shownLines(summary),
-			colour: await summary.evaluate((text) => getComputedStyle(text).color),
-			// body-large, 18 / 30.
-			type: await summary.evaluate((text) => {
-				const style = getComputedStyle(text);
-				return [style.fontSize, style.lineHeight];
-			}),
-		};
-		expected.summary = {
-			text: SUMMARY,
-			shown: { lines: 2, clamped: false },
-			colour: white,
-			type: ["18px", "30px"],
-		};
+		const { seen, expected } = await readHeaderOnField(page, {
+			pills: listed.map((words) => ({ words, look: "outlined" as const })),
+			under: { text: SUMMARY, lines: 2 },
+		});
+		const onField = seen.field === true;
 		// The categories are words, not links, and the header shows no icon of the Service: the
 		// breadcrumb's chevrons are the header's only icons.
 		seen.pillLinks = onField && (await parts.header.getByRole("link").allInnerTexts()).length;
 		expected.pillLinks = 2;
 		// A pill for each category, in the card's order.
+		const firstPill = parts.field.getByText(listed[0]!, { exact: true });
 		seen.pills = onField && {
-			shown: await pills[0]!.locator("xpath=..").locator("span").allInnerTexts(),
+			shown: await firstPill.locator("xpath=..").locator("span").allInnerTexts(),
 			categories: [...listed].sort(),
 		};
 		expected.pills = {
@@ -1047,13 +979,9 @@ test.describe("a Service's page on the field", () => {
 
 		// No category: no row of pills, the title 24 px under the breadcrumb.
 		await page.goto(pathOf(bare));
-		const crumbs = onField && (await boxOf(parts.breadcrumb, "the bare Service's breadcrumb"));
-		seen.bare =
-			crumbs &&
-			Math.round(
-				(await boxOf(parts.title, "the bare Service's title")).y - crumbs.y - crumbs.height,
-			);
-		expected.bare = 24;
+		const bareHeader = await readHeaderOnField(page, { pills: [] });
+		seen.bare = bareHeader.seen;
+		expected.bare = bareHeader.expected;
 		expect(seen, "the header on the field").toEqual(expected);
 	});
 

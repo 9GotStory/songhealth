@@ -30,7 +30,9 @@ import {
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectRisesUnderPointer,
+	expectServiceCardInteraction,
 	expectVisibleFocusOnEveryStop,
+	expectWholeCardLink,
 	homepageSection,
 	HOMEPAGE_HEADINGS,
 	boxOf,
@@ -39,7 +41,6 @@ import {
 	shownOpacity,
 	test,
 	tokenColor,
-	tokenShadow,
 } from "./public.helpers";
 
 let admin: CmsActor;
@@ -144,74 +145,6 @@ async function pointAtCardSurface(page: Page, target: Locator) {
 	await target.scrollIntoViewIfNeeded();
 	const box = await boxOf(target, "the part pointed at");
 	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-}
-
-/** One title-named native target over the card's whole surface, and one keyboard stop. */
-async function expectWholeCardLink(page: Page, card: Locator, title: string, level: 2 | 3) {
-	const link = card.getByRole("link", { name: title, exact: true });
-	const heading = card.getByRole("heading", { name: title, level, exact: true });
-	await expect(card.getByRole("link")).toHaveCount(1);
-	await expect(link).toHaveJSProperty("tagName", "A");
-	await expect(link).toHaveAccessibleName(title);
-	await expect(link.locator('a, button, input, select, textarea, [tabindex="0"]')).toHaveCount(0);
-	await expect(heading).toBeVisible();
-	await card.scrollIntoViewIfNeeded();
-	await page.mouse.move(0, 0);
-	expect(await link.boundingBox()).toEqual(await card.boundingBox());
-	await link.focus();
-	await page.keyboard.press("Tab");
-	expect(
-		await card.evaluate((el) => el.contains(document.activeElement)),
-		"one stop per card",
-	).toBe(false);
-	await page.keyboard.press("Shift+Tab");
-	await expect(link).toBeFocused();
-	return link;
-}
-
-/**
- * The Service catalog's card, the Homepage's Frequently Used Service card shared (Feature 011
- * #340; spec #338 "The Service catalog", decision 21): the whole-card link named by the name, an
- * H2; at rest a white card with the `card` shadow; under the pointer the card turns brand-primary
- * with the `deep` shadow and, with reduced motion preferred, stays in its place; the focus ring,
- * the global 3 px outline, lies inside the card's edge, brand-primary at rest and accent-warm while
- * the card is brand-primary under the pointer. Its rise with motion allowed is its own case.
- */
-async function expectServiceCardInteraction(page: Page, card: Locator, title: string) {
-	const link = await expectWholeCardLink(page, card, title, 2);
-	const surface = card.getByTestId("service-surface");
-	const green = await tokenColor(page, "brand-primary");
-	await link.blur();
-	await page.mouse.move(0, 0);
-	/** The surface's fill and shadow, and its box. */
-	const read = async () => ({
-		fill: await surface.evaluate((element) => getComputedStyle(element).backgroundColor),
-		shadow: await surface.evaluate((element) => getComputedStyle(element).boxShadow),
-		box: await boxOf(surface, "the card's surface"),
-	});
-	const { box: restingBox, ...resting } = await read();
-	await link.hover();
-	const { box: pointedBox, ...pointed } = await read();
-	await link.focus();
-	const ringPointed = await link.evaluate((element) => getComputedStyle(element).outlineColor);
-	await page.mouse.move(0, 0);
-	const ring = await link.evaluate((element) => {
-		const style = getComputedStyle(element);
-		return { width: style.outlineWidth, offset: style.outlineOffset, colour: style.outlineColor };
-	});
-	expect({ resting, pointed, moved: pointedBox.y !== restingBox.y, ring, ringPointed }).toEqual({
-		resting: {
-			fill: await tokenColor(page, "surface-base"),
-			shadow: await tokenShadow(page, "card"),
-		},
-		pointed: { fill: green, shadow: await tokenShadow(page, "deep") },
-		// With reduced motion preferred, as the suites run, the card stays in its place.
-		moved: false,
-		// 4 px inside the link's box, which is the card's: the 3 px ring lies on the card.
-		ring: { width: "3px", offset: "-4px", colour: green },
-		ringPointed: await tokenColor(page, "accent-warm"),
-	});
-	return link;
 }
 
 /**

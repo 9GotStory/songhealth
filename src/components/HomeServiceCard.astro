@@ -10,7 +10,9 @@
 // 13, 15 and 21), `kind="list"`: there the name is an H2, the cards being a list's under no other
 // heading, and the card rests with the `card` shadow and takes `deep` under the pointer, as the
 // lists' cards do. On the Homepage the name is an H3 under the section's H2, and the card keeps
-// `deep` at rest on the field. The summary is text-secondary-on-soft on both, since it can lie
+// `deep` at rest on the field. A Health Service's page shows them under its "บริการที่ให้" (#345;
+// spec #338 decisions 11, 18 and 21), `kind="section"`: an H3 under the section's H2, with the
+// list's shadows. The summary is text-secondary-on-soft on all three, since it can lie
 // over the surface-soft circle, where text-secondary falls below SC 1.4.3 (decision 20;
 // docs/design/DESIGN.md §8.4).
 //
@@ -34,9 +36,9 @@
 //
 // The focus ring lies inside the card's edge: from `sm` the Homepage's card lies partly on the
 // deep field and partly on the page, and a ring around the card would need to show on both; on the
-// catalog it lies on the card's white as well, so it needs no band of its own. It is brand-primary
-// on the white card, and accent-warm while the card is brand-primary under the pointer
-// (Product Owner, 2026-11-11: #242 comment 6797113372, item 2).
+// catalog and a page's section it lies on the card's white as well, so it needs no band of its own.
+// It is brand-primary on the white card, and accent-warm while the card is brand-primary under the
+// pointer (Product Owner, 2026-11-11: #242 comment 6797113372, item 2).
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import { servicePath } from "../lib/service-catalog";
 import type { ServiceEntry } from "../lib/services";
@@ -45,8 +47,11 @@ import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
 	service: ServiceEntry;
-	/** Where the card shows: the Homepage's Frequently Used Services, or the Service catalog. */
-	kind?: "home" | "list";
+	/**
+	 * Where the card shows: the Homepage's Frequently Used Services, the Service catalog, or a
+	 * page's section, such as a Health Service's "บริการที่ให้".
+	 */
+	kind?: "home" | "list" | "section";
 }
 
 const { service, kind = "home" } = Astro.props;
@@ -59,7 +64,7 @@ const titleId = `service-card-${crypto.randomUUID()}`;
 		data-testid="service-surface"
 		class:list={[
 			"relative flex h-full items-center gap-4 rounded-22 bg-surface-base p-4 text-text-primary group-hover:bg-brand-primary group-hover:text-surface-base motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:-translate-y-2 sm:min-h-36 sm:items-start sm:p-6",
-			kind === "list" ? "shadow-card group-hover:shadow-deep" : "shadow-deep",
+			kind === "home" ? "shadow-deep" : "shadow-card group-hover:shadow-deep",
 		]}
 	>
 		<span aria-hidden="true" class="absolute inset-0 overflow-hidden rounded-22">
