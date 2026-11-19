@@ -97,6 +97,7 @@ import {
 	listedItem,
 	listedTitles,
 	ownTitles,
+	ringedCircle,
 	selfRunningEnds,
 	shownLines,
 	shownOpacity,
@@ -596,6 +597,12 @@ test("the Leadership strip shows the first three Leadership in Leadership order 
 	// picture; everyone stacked below.
 	const heading = strip.getByRole("heading", { level: 2 });
 	const label = strip.getByText("บุคลากร", { exact: true });
+	// The ringed circle the Leadership page shares (Feature 012 #367; spec #365 "Scope of the
+	// change") keeps the strip's measures: 60 px and 76 px from 640 px, a 4 px gap, the first
+	// person's 3 px accent-warm ring and the others' 2 px border-default ring.
+	const borderDefault = await tokenColor(page, "border-default");
+	const rings: Record<string, unknown> = {};
+	const ringsAsBefore: Record<string, unknown> = {};
 	for (const [width, rows, beside] of [
 		[639, [1, 1, 1], false],
 		[640, [1, 2], false],
@@ -609,6 +616,19 @@ test("the Leadership strip shows the first three Leadership in Leadership order 
 		const person = await boxOf(first, `the first person at ${width} px`);
 		const picture = await boxOf(first.locator("img"), `the first picture at ${width} px`);
 		expect(picture.width, `the picture's width at ${width} px`).toBe(width < 640 ? 60 : 76);
+		for (const [index, colour, ring] of [
+			[0, accentWarm, 3],
+			[1, borderDefault, 2],
+		] as const) {
+			rings[`person ${index + 1} at ${width}`] = await ringedCircle(
+				people.nth(index).getByTestId("person-picture"),
+			);
+			ringsAsBefore[`person ${index + 1} at ${width}`] = {
+				circle: width < 640 ? 60 : 76,
+				gap: 4,
+				ring: { width: ring, colour },
+			};
+		}
 		await expect(label, `the heading's label at ${width} px`).toBeVisible({ visible: beside });
 		if (beside) {
 			expect(title.x + title.width, `the heading at the left at ${width} px`).toBeLessThanOrEqual(
@@ -628,6 +648,7 @@ test("the Leadership strip shows the first three Leadership in Leadership order 
 			`the News section's space follows the strip at ${width} px`,
 		).toBe(0);
 	}
+	expect(rings, "the strip's ringed circles").toEqual(ringsAsBefore);
 	await expectAccessibleAtEachWidth(page, "/ with three Leadership");
 	await page.setViewportSize(MOBILE_VIEWPORT);
 	await expectNoHorizontalScroll(page, "/ with three Leadership");

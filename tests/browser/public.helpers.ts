@@ -1236,6 +1236,64 @@ export function cardList(page: Page) {
 	};
 }
 
+/** The widths a list's field is read at, on both sides of 640 and 1,024 px. */
+const LIST_FIELD_WIDTHS = [1440, 1024, 1023, 640, 639, 320] as const;
+
+/**
+ * What a list's deep field shows at each of `LIST_FIELD_WIDTHS` (spec #280 "The field under a
+ * heading", DESIGN.md §7.8): whether it has its corner glow and how many of its rings show, or "no
+ * field". The viewport ends at 320 px.
+ */
+export async function readListField(page: Page): Promise<Record<number, unknown>> {
+	const field = deepField(page);
+	const seen: Record<number, unknown> = {};
+	for (const width of LIST_FIELD_WIDTHS) {
+		await page.setViewportSize({ width, height: 900 });
+		seen[width] =
+			(await field.count()) === 1
+				? {
+						glow: await field.evaluate((element) =>
+							getComputedStyle(element).backgroundImage.includes("radial-gradient"),
+						),
+						rings: await field
+							.locator('[aria-hidden="true"] > span')
+							.evaluateAll(
+								(spans) => spans.filter((span) => span.getClientRects().length > 0).length,
+							),
+					}
+				: "no field";
+	}
+	return seen;
+}
+
+/** What `readListField` reads on a list's field: the glow, and the large ring from 1,024 px. */
+export const LIST_FIELD_LOOK = Object.fromEntries(
+	LIST_FIELD_WIDTHS.map((width) => [width, { glow: true, rings: width >= 1024 ? 1 : 0 }]),
+);
+
+/**
+ * A person's picture in its ring (the Homepage's Leadership strip, the Leadership page; spec #365
+ * "Scope of the change"), read from `frame`, the ring's box around the circle: the circle's width,
+ * the gap between it and the ring, and the ring's width and colour, the one layer of the frame's
+ * `box-shadow` with a spread. Every measure in px.
+ */
+export function ringedCircle(frame: Locator) {
+	return frame.evaluate((element) => {
+		const own = element.getBoundingClientRect();
+		const circle = element.firstElementChild!.getBoundingClientRect();
+		const rings = getComputedStyle(element)
+			.boxShadow.split(/,\s*(?![^(]*\))/)
+			.map((layer) => /^(.*) 0px 0px 0px ([\d.]+)px$/.exec(layer))
+			.filter((match) => match !== null && Number(match[2]) > 0)
+			.map((match) => ({ width: Number(match![2]), colour: match![1] }));
+		return {
+			circle: Math.round(circle.width),
+			gap: Math.round(((own.width - circle.width) / 2) * 10) / 10,
+			ring: rings.length === 1 ? rings[0] : rings,
+		};
+	});
+}
+
 /**
  * Fail unless a list's heading lies on its deep field at 375 px: the breadcrumb, the label, the
  * H1, the lead and then each of `after`, one under another and each on the field, with every text

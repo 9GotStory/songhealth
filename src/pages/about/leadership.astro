@@ -3,9 +3,19 @@
 // the publicly visible Personnel that have a Leadership order, ascending with ties by name
 // (src/lib/personnel-directory.ts). Everyone is on one page, unpaged like /about/personnel (#61
 // comment 6514145827).
+//
+// The page opens on the deep field with the list heading (Feature 012 #367; spec #365 decisions 4,
+// 8, 9 and 11; ListHeading), under the label "บุคลากร" of the Homepage's Leadership strip with the
+// user-round icon, and no link. Over the field's lower edge (ListBody) the first leader takes the
+// featured card across the row, and the others follow 32 px under it, three to a row from `lg`,
+// two from `sm` and one below, 20 px apart from `sm` and 16 px below (LeaderCard). They stay one
+// ordered list. Each card reveals as it comes into the window (spec #365 "Motion"); with no leader
+// the empty state lies over the edge and shows at once.
+import UserRound from "@lucide/astro/icons/user-round";
 import EmptyState from "../../components/EmptyState.astro";
-import PageHeading from "../../components/PageHeading.astro";
-import PersonCard from "../../components/PersonCard.astro";
+import LeaderCard from "../../components/LeaderCard.astro";
+import ListBody from "../../components/ListBody.astro";
+import ListHeading from "../../components/ListHeading.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { LEADERSHIP_PAGE } from "../../lib/about";
 import { listLeadership } from "../../lib/personnel";
@@ -14,25 +24,27 @@ const { path, title, lead } = LEADERSHIP_PAGE;
 const leaders = await listLeadership();
 ---
 
-<SiteLayout
-	title={title}
-	section="about"
-	description={lead}
-	canonical={path}
-	crumbs={[{ label: title }]}
->
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={title} lead={lead} />
+<SiteLayout title={title} section="about" description={lead} canonical={path}>
+	<ListHeading
+		section="about"
+		crumbs={[{ label: title }]}
+		label="บุคลากร"
+		title={title}
+		lead={lead}
+	>
+		<UserRound slot="icon" class="shrink-0" size={24} />
+	</ListHeading>
+	<ListBody>
 		{leaders.length > 0 ? (
-			<ol class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-				{leaders.map((person) => (
-					<li>
-						<PersonCard person={person} />
+			<ol class="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+				{leaders.map((person, index) => (
+					<li class:list={["scroll-reveal min-w-0", index === 0 && "col-span-full mb-4 sm:mb-3"]}>
+						<LeaderCard person={person} featured={index === 0} />
 					</li>
 				))}
 			</ol>
 		) : (
 			<EmptyState message="ยังไม่มีข้อมูลผู้บริหาร" />
 		)}
-	</div>
+	</ListBody>
 </SiteLayout>
