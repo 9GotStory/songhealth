@@ -1,6 +1,6 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.5, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.6, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
@@ -10,8 +10,9 @@
 > spec #311, implemented by #312–#318, and was accepted on #311 (Product Owner, 2026-11-17: #311
 > comment 6936494700). Feature 011's redesign of the Health Information hub, the Health Reports,
 > Services and Health Services pages follows spec #338, implemented by #339–#346, and was accepted
-> on #338 (Product Owner, 2026-11-19: #338 comment 6999055380).
-> **Updated:** 2026-11-19 (#346); first drafted 2026-10-30
+> on #338 (Product Owner, 2026-11-19: #338 comment 6999055380). Feature 012's redesign of the
+> About pages, the Contact page and a Basic Page follows spec #365, implemented by #366–#372.
+> **Updated:** 2026-11-19 (#366); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -85,6 +86,17 @@
 > #345 implement the seven pages, each with its own decisions in §13's change history, and #346
 > the documents, the measures and the limits. Every page outside the feature keeps its design.
 
+> **Feature 012 decision (Product Owner, 2026-11-19; spec #365, #365 comment 7000119315):** the
+> About pages (`/about`, `/about/organization`, `/about/leadership`, `/about/personnel`,
+> `/about/policies`, `/about/plans`, `/about/results`), the Contact page and a Basic Page are
+> redesigned after the Homepage and Features 009 to 011's pages as they are built, in the look the
+> Product Owner picked from a prototype. The About Document pages are headed on the deep field as
+> the other lists are (§7.8), under the label "เกี่ยวกับเรา", with the Document repository's rows
+> and their downloads over the field's edge (§7.3). Every address, read and behaviour stays, and no
+> colour, type size, radius or shadow joins the tokens. #366 to #371 implement the pages, each with
+> its own decisions in §13's change history, and #372 the documents, the measures and the limits.
+> Every page outside the feature keeps its design.
+
 ## 1. Scope, authority and status
 
 This document records the public presentation of Songhealth: its tokens, its components, the
@@ -147,8 +159,11 @@ health-service network.
   offer it as the directory's rows (§9.7; #344). A Health Service's page opens on the field with
   its Facility Type and, when out of service, its status in pills and its official name under the
   H1, lays its location first in the card, then its details, and follows them with the Services it
-  offers as the catalog's cards (§9.8; #345).
-  Every page outside the three features keeps its design under the new shell until its own
+  offers as the catalog's cards (§9.8; #345). Feature 012 brings the list's heading to the About
+  Document pages, `/about/policies`, `/about/plans` and `/about/results` (spec #365; §7.8; #366),
+  under the label "เกี่ยวกับเรา", and over the field's edge the Document repository's rows with
+  their downloads (§7.3).
+  Every page outside these features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
@@ -489,7 +504,7 @@ this document names:
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
-| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents` and in an Announcement's and a Service's related Documents (§7.3, §9.4, §9.7), where every other page keeps `DocumentRow`, with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `RelatedDocuments` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's and a Service's related Documents (§7.3, §7.8, §9.4, §9.7), where a Basic Page's related Documents keep `DocumentRow`, with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `RelatedDocuments` |
 
 ### 7.2 Component rules
 
@@ -624,9 +639,11 @@ this document names:
   comment 6908747140, item 2), and the row takes the `deep` shadow, only with motion allowed;
   the download's fill turns `brand-dark`. Each row reveals as it comes into the window and shows
   whole while it holds the keyboard's focus (§8.12); under an Announcement's and a Service's
-  "เอกสารที่เกี่ยวข้อง" it shows at once (§9.7; Feature 011 #344). Every other page that lists
-  Documents (the About pages, a Basic Page's related Documents, search results) keeps the earlier row,
-  `DocumentRow`, until its own feature (decision 2); a Health Report's page shows its one Document
+  "เอกสารที่เกี่ยวข้อง" it shows at once (§9.7; Feature 011 #344). The About Document pages show
+  the same row, titles H2, over the field's edge, as `/documents` without its filter form (§7.8;
+  Feature 012 #366). A Basic Page's related Documents keep the earlier row, `DocumentRow`, until
+  their own ticket (spec #365 decision 3), and search results keep their own; a Health Report's
+  page shows its one Document
   as a Document's page shows its file (§9.6; Feature 011 #343). With
   `--all-text` at the five widths every text of a row reads 4.97:1 or more, the facts line, the
   summary and "ไฟล์ไม่พร้อมให้บริการ" in `text-secondary` the lowest; the tile's "PDF" 5.60:1 or
@@ -858,7 +875,8 @@ since Feature 010 #312 (spec #311 "Decisions", 3 and 4) the Activities list (`/a
 Announcements list (`/announcements`) and the Document repository (`/documents`), and since
 Feature 011 #339 (spec #338 "Decisions", 5, 6 and 15) the Health Information hub (`/health`), the
 Health Reports list (`/health/reports`), the Service catalog (`/services`) and the Health Service
-Directory (`/health-services`).
+Directory (`/health-services`), and since Feature 012 #366 (spec #365 decisions 4 and 5) the
+About Document pages (`/about/policies`, `/about/plans` and `/about/results`).
 
 - **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
   `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
@@ -902,6 +920,10 @@ Directory (`/health-services`).
   Homepage's Health Service band (§8.9), whose H2 it does not take (spec #338 "Decisions", 14).
   None has a pill link, and each keeps its lead, its title in the head and its breadcrumb (spec
   #338 "Decisions", 5).
+- **The About Document pages** are labelled "เกี่ยวกับเรา", the About section's title, over their
+  H1s "นโยบาย", "แผนงาน" and "ผลการดำเนินงาน", with `scroll-text`, `clipboard-list` and
+  `chart-column`, their breadcrumbs through เกี่ยวกับเรา. None has a pill link or links under the
+  lead, and each keeps its lead, its title in the head and its breadcrumb (spec #365 decision 4).
 - **The links under the lead.** `/services` has two, "ค้นหาหน่วยบริการสุขภาพที่เกี่ยวข้อง" to the
   directory and "คู่มือและแบบฟอร์ม" to `/documents`, its related pages that are not Services (spec
   #338 "The Service catalog", decision 15): 16 px under the lead, `surface-base` words, semibold,
@@ -928,7 +950,10 @@ Directory (`/health-services`).
   whole row, whose ring lies around the row and over the field in the first row, with the lists'
   band, as on `/announcements`. On `/health` the
   block is the two Quick Access tiles (§7.3), their rings with the lists' band (Feature 011
-  #339). The cards are the Homepage's News
+  #339). On the About Document pages the block is the Document rows of `/documents` without its
+  filter form (§7.3; Feature 012 #366), 14 px apart, each with its title and its download, whose
+  rings lie on the row's white in the first row too; then the pager, or the type's empty state
+  or, past the last page, its way back. The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
   ring alone was faint, so a card's ring has a `surface-base` band on both sides
@@ -936,7 +961,8 @@ Directory (`/health-services`).
   #283 comment 6854670042).
 - **Motion** (§8.12): with motion allowed the heading block rises in as the page opens, and the
   lead 0.1 s after it. Each card reveals as it comes into the window (§7.3), and on
-  `/announcements` and `/documents` each row (§7.3, §8.7) and on `/health` each tile (§7.3). The
+  `/announcements`, `/documents` and the About Document pages each row (§7.3, §8.7; Feature 012
+  #366) and on `/health` each tile (§7.3). The
   breadcrumb, the link, the links under the lead, the filter form, the empty state and the pager
   show at once; `/services`' cards reveal as the other lists' cards do (#340), `/health-services`'
   rows as the Documents' (#341), and `/health/reports`' rows as the Announcements' (#342).
@@ -1006,7 +1032,10 @@ Directory (`/health-services`).
   under the lead (`leadLinks`: on the field after the lead, in the keyboard's order after the
   breadcrumb, shown at once), and `public-filter-form.spec.ts` reads their forms over the edge;
   `/health` takes `testHeadingOnField` alone, with its own cases for its tiles over the edge, their
-  layout at seven widths, their reveal and the page without JavaScript.
+  layout at seven widths, their reveal and the page without JavaScript. Since Feature 012 #366
+  `public-about.spec.ts` takes `testListOnField` for each About Document page, with its own cases
+  for the field's ring on both sides of 1,024 px and the rows' parts, attention labels and
+  downloads.
 
 ## 8. Homepage
 
@@ -1544,8 +1573,8 @@ stays the submit state (§8.9).
   has its blurred copy behind it (§8.1), or a Leadership portrait in its ring (§8.5) (Product
   Owner: the same comment, item 2).
 - **A list's motion.** On `/news`, Health News, Health Content, `/activities`, `/announcements`,
-  `/documents`, and since Feature 011 #339 `/health`, `/health/reports`, `/services` and
-  `/health-services`, the heading block rises in as the hero's parts do, starting at 0 s, and the lead
+  `/documents`, since Feature 011 #339 `/health`, `/health/reports`, `/services` and
+  `/health-services`, and since Feature 012 #366 the About Document pages, the heading block rises in as the hero's parts do, starting at 0 s, and the lead
   at 0.1 s (§7.8). Each card reveals as a
   section's card does and shows whole while it holds the keyboard's focus, and its picture's box
   shimmers as the page opens; a missing picture's visual does not (§7.3; Feature 009 #283). The
@@ -1557,7 +1586,8 @@ stays the submit state (§8.9).
   picture to shimmer, and the Documents' rows as the Announcements' since #315; `/health`'s
   tiles reveal since Feature 011 #339 (`public-health.spec.ts` "/health moves only when motion is
   allowed: …"), `/services`' cards without a picture since #340, `/health-services`' rows since
-  #341 and `/health/reports`' rows since #342, `testListOnField`'s `itemsMove`).
+  #341, `/health/reports`' rows since #342 and the About Document pages' rows since Feature 012
+  #366, `testListOnField`'s `itemsMove`).
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
@@ -2295,6 +2325,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - Feature 009: spec #280 and tickets #281 to #287.
 - Feature 010: spec #311 and tickets #312 to #318.
 - Feature 011: spec #338 and tickets #339 to #346.
+- Feature 012: spec #365 and tickets #366 to #372.
 - Figma, as history: [Songhealth — Homepage Concept v1](https://www.figma.com/design/Lxdfd1dBgNNO28Rx62zGYO),
   described in `docs/design/homepage-concept-v1.md`.
 - Tailwind official: [Astro installation](https://tailwindcss.com/docs/installation/framework-guides/astro),
@@ -2728,3 +2759,15 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (`docs/evidence/346-health-reports-services-health-services-evidence-round.md`). Authority: spec
   #338 "Documents" and "Decisions the Product Owner made", the decisions on #339 to #345, the notes
   on #346, and #346 comment 6997998925. No page changed.
+- **v1.6 the About Document pages (2026-11-19, Feature 012 #366):** `/about/policies`,
+  `/about/plans` and `/about/results` open on the deep field with the list heading (§7.8): the
+  label "เกี่ยวกับเรา" and the icons `scroll-text`, `clipboard-list` and `chart-column` are new to
+  these pages, and the H1s, the leads, the titles in the head and the breadcrumbs stay. Over the
+  field's edge they show the Document repository's rows with their downloads
+  (`DocumentDownloadRow`, titles H2, 14 px apart, each revealed as it comes into the window), the
+  pager 32 px under them, and the type's empty state or a page past the last with its way back;
+  there is no filter form. The About Document page's `PageHeading` and `DocumentRow` go from
+  these pages; `DocumentRow` stays for a Basic Page's related Documents. §2, §7.1, §7.3, §7.8 and
+  §8.12 name the pages, and the Status line and a Feature 012 banner name the feature. Authority:
+  spec #365 "The About Document pages", "Motion" and decisions 4 and 5, and #365 comment
+  7000119315.

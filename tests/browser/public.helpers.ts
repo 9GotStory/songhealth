@@ -593,6 +593,19 @@ export function rowShadow(row: Locator) {
 }
 
 /** The parts of a row with a second link (a Document's download, a Health Service's map). */
+/**
+ * The parts of a Document row a citizen meets, found by what they say and do: on /documents and
+ * the About Document pages (Feature 010 #315; Feature 012 #366).
+ */
+export function documentRowParts(row: Locator) {
+	return {
+		tile: row.locator("svg.lucide-file-text").locator("xpath=.."),
+		title: row.getByRole("heading", { level: 2 }),
+		download: row.getByRole("link", { name: /^ดาวน์โหลด/ }),
+		facts: row.locator("time").locator("xpath=.."),
+	};
+}
+
 export interface RowWithSecondLink {
 	row: Locator;
 	tile: Locator;

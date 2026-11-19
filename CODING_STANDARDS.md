@@ -111,9 +111,10 @@ and why, and `.jscpd-baseline.json` records them.
   measured exceptions, on the same gradient tile: the month and year on a current Announcement's
   date tile (its readings in `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12:
   #245 comment 6812837231), and the file's type on the file tile (`FileTile`) of a Document row on
-  `/documents` and in an Announcement's related Documents, and in the card on a Document's and a
-  Health Report's page (§3.2, §7.3, §9.5 and §9.6; spec #311 "The Document repository", "The card
-  over the field's edge"; spec #338 "The card over the field's edge"), and the fiscal year on a
+  `/documents`, on the About Document pages and in an Announcement's related Documents, and in the
+  card on a Document's and a Health Report's page (§3.2, §7.3, §9.5 and §9.6; spec #311 "The
+  Document repository", "The card over the field's edge"; spec #338 "The card over the field's
+  edge"; spec #365 "The About Document pages"), and the fiscal year on a
   Health Report row's tile on `/health/reports`, a tile of the file tile's size and gradient
   (§3.2, §7.3; spec #338 "The Health Reports list"). A change to any of these tiles' size or
   gradient needs a new measure.
