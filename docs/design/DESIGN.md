@@ -2185,6 +2185,15 @@ and keeps its earlier heading until then, with the same body and related Documen
   reach, a page without a summary; the body's and the related Documents' places and column at six
   widths, their heading, rows and downloads; a page with its title alone; a draft's preview; the
   motion; and the page without JavaScript.
+- **Measured** on the development runtime at `b020cc4` (#368), `scripts/measure-text-contrast.ts
+  --all-text --fold` at 1,440, 1,024, 768, 375 and 320 px on `/pages/privacy`,
+  `/about/organization` and the `page-related` case of
+  `scripts/screenshot-fixtures/about-contact-cases.ts` (a summary, a body and two related
+  Documents, one superseded), the lowest of each text: the breadcrumb's links 9.09:1 and its
+  current page 5.27:1 (320 px); the H1 5.34:1 (`/pages/privacy`, 375 px) and the summary 6.19:1;
+  the body's headings 11.52:1 and text 15.61:1; the label "เอกสารเผยแพร่" 6.09:1 and the H2
+  15.47:1; a row's facts and summary 4.97:1, its title 16.54:1, "PDF" 5.60:1, the download
+  6.45:1 and "ถูกแทนที่แล้ว" 7.75:1.
 
 ## 10. Acceptance and known limits
 
