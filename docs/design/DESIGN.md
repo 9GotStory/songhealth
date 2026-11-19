@@ -2221,7 +2221,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - **"ติดต่อเรา" in the unavailable notice** on a Document's page is a link about 22 px high inside
   its sentence, as it was before Feature 010 (read on #317's page: the note from #317, #318 comment
   6919234068; the same comment), and so is it on a Health Report's page, which shows the same
-  notice since Feature 011 #343 (52 × 22 px at the five widths, measured at `9f31dc0` on the report pages of `lists-by-count.ts`; #346 comment 6997998925, item 3).
+  notice since Feature 011 #343 (52 × 22 px at the five widths, measured at `9f31dc0` with `scripts/capture-with-fixtures.ts`'s close-up on the report pages of `scripts/screenshot-fixtures/lists-by-count.ts`, `docs/evidence/346-health-reports-services-health-services-evidence-round.md`; #346 comment 6997998925, item 3).
 - **A Service card's focus ring on the Homepage:** beside the ring 2 to 3 % of its neighbours read
   under 3:1 at its rounded corners over the field; on the card it lies on it reads 5.51:1 or more,
   as Feature 008 accepted it (#242 comment 6797113372, item 2; #340 comment 6947302659, item 3).

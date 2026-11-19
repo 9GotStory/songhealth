@@ -18,8 +18,8 @@ acceptance, which the Product Owner gives on #338.
 ## Checks
 
 The browser suites ran at `9f31dc0` between 01:11Z and 01:47Z on 2026-11-19, T021 at 01:47Z, the
-captures between 01:48Z and 01:51Z and the measures between 01:51Z and 02:25Z, and one more at
-02:26Z. The local checks ran on
+captures between 01:48Z and 01:51Z, the measures between 01:51Z and 02:25Z, and the box of the
+unavailable notice's "ติดต่อเรา" link at 02:27Z. The local checks ran on
 #346's working tree between 02:27Z and 02:31Z, before the review. The pull request states the checks at its head.
 
 | Check | Command | Result |
@@ -69,7 +69,10 @@ without a report date (`health-report-no-date`), its complaint and health-rights
 (`service-complaint`, `service-external`), Song hospital (`health-service-song-hospital`) and
 Huai Mai, closed for now (`health-service-closed`); `lists-by-count.ts`'s report whose file is gone
 (`health-report-file-gone`); `service-page.ts`'s Service with two categories and one with no card;
-and `health-service-page.ts`'s Health Service without a location and one with no detail. The demo
+and `health-service-page.ts`'s Health Service without a location and one with no detail. That
+module's inactive Health Service with three Services is not captured, as its name is
+`lists-by-count.ts`'s inactive one's, which is; its page is measured below (`hs-page-inactive`), and
+its images are on `evidence/011-345-screenshots`. The demo
 dataset did not change between `0d55a16` and `9f31dc0`; the synthetic titles and slugs are made
 again on each run.
 
@@ -146,12 +149,15 @@ width, as the note from #340 found at `08eba5d`.
 addresses, the Homepage's Frequently Used Services, and fourteen synthetic cases. Small text needs
 4.5:1 and large text 3:1 (WCAG 2.2 SC 1.4.3). No run named a text it could not read. The lowest
 reading of any text is 4.69:1, the pager's "หน้า 1" under the catalog's last row (decision 21);
-the breadcrumb's link to the directory on a Health Service's page reads 4.88:1 at 375 px, and every
-other text 4.94:1 or more. Each run's closing lines follow whole: a text, its lowest reading over
+the breadcrumb's link to the directory reads 4.88:1 at 375 px on the Health Service with no detail
+(`fixture:health-service-bare`) and 4.94:1 on Song hospital's and the inactive one's pages, and
+every other text 4.97:1 or more. Each run's closing lines follow whole: a text, its lowest reading over
 the five widths and the widths that read it; a line ending "(N texts)" folds texts whose words
 differ only in their numbers, written "#".
 
-Every reading Feature 011's tickets recorded in `DESIGN.md` is read the same at `9f31dc0`: the
+Every reading Feature 011's tickets recorded in `DESIGN.md` is read the same at `9f31dc0`, the
+texts by these runs and the focus rings by the five runs of `scripts/measure-focus-contrast.ts`
+under "Focus rings" below: the
 lists' field (§3.2, §7.8; #339 at `06b4b58`), the catalog's cards and the Homepage's (§7.8, §8.4;
 #340 at `fad2249`), the Health Service row (§7.3; #341 at `bf2b3d4`), the Health Report row and its
 tile's fiscal year (§3.2, §7.3; #342 at `7b49b6e`), and a Health Report's, a Service's and a Health
@@ -1011,7 +1017,11 @@ it, "A รับตามนี้ (แนะนำ)" (#346 comment 6997998925, 
 - The H1's lone last word on a page with `PostHeader`, now also on a Health Report's, a Service's
   and a Health Service's page, as on an Announcement's and a Document's (§10).
 - "ติดต่อเรา" in the unavailable notice on a Health Report's page is the Document page's link
-  about 22 px high inside its sentence (`UnavailableNotice`, §10).
+  about 22 px high inside its sentence (`UnavailableNotice`, §10): its box reads 52 × 22 px at the
+  five widths on the reports whose Document is unpublished and whose file is gone, at `9f31dc0`
+  (`LIST=health-reports LIST_COUNT=4 scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts`
+  with a module that keeps `lists-by-count.ts`'s two report pages, and the close-up selector
+  `main a[href="/contact"]`).
 - Reduced motion in the walkthrough, and print: the suites prefer reduced motion on every page but
   the tests of motion (`DESIGN.md` §8.12), and no run of the round prints a page.
 - The Admin: the feature changes no model, field or Admin screen, so the walkthrough has no Admin
