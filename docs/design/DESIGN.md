@@ -1,6 +1,6 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.6, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.7, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
@@ -12,7 +12,7 @@
 > Services and Health Services pages follows spec #338, implemented by #339–#346, and was accepted
 > on #338 (Product Owner, 2026-11-19: #338 comment 6999055380). Feature 012's redesign of the
 > About pages, the Contact page and a Basic Page follows spec #365, implemented by #366–#372.
-> **Updated:** 2026-11-19 (#366); first drafted 2026-10-30
+> **Updated:** 2026-11-19 (#367); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -92,7 +92,10 @@
 > redesigned after the Homepage and Features 009 to 011's pages as they are built, in the look the
 > Product Owner picked from a prototype. The About Document pages are headed on the deep field as
 > the other lists are (§7.8), under the label "เกี่ยวกับเรา", with the Document repository's rows
-> and their downloads over the field's edge (§7.3). Every address, read and behaviour stays, and no
+> and their downloads over the field's edge (§7.3). `/about/leadership` takes the same heading
+> under the label "บุคลากร", with the first leader in a featured card across the row and the others
+> in white cards over the field's edge, each with the Homepage Leadership strip's ringed circle
+> (§7.3, §8.5). Every address, read and behaviour stays, and no
 > colour, type size, radius or shadow joins the tokens. #366 to #371 implement the pages, each with
 > its own decisions in §13's change history, and #372 the documents, the measures and the limits.
 > Every page outside the feature keeps its design.
@@ -162,7 +165,9 @@ health-service network.
   offers as the catalog's cards (§9.8; #345). Feature 012 brings the list's heading to the About
   Document pages, `/about/policies`, `/about/plans` and `/about/results` (spec #365; §7.8; #366),
   under the label "เกี่ยวกับเรา", and over the field's edge the Document repository's rows with
-  their downloads (§7.3).
+  their downloads (§7.3). `/about/leadership` is headed the same way under the label "บุคลากร",
+  with the first leader in a featured card across the row and the others in white cards over the
+  field's edge, each with the Leadership strip's ringed circle (§7.3, §8.5; #367).
   Every page outside these features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -231,7 +236,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip, the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's and a Health Report's page, the file's type on its tile (§7.3, §9.4, §9.5, §9.6); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), on a Document's header the pill of a superseded or expired status (§9.5), and on a Health Report's header the pill of "วันที่รายงาน" and the report date (§9.6) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip and, on `/about/leadership`, of the featured first leader (§7.3), the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's and a Health Report's page, the file's type on its tile (§7.3, §9.4, §9.5, §9.6); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), on a Document's header the pill of a superseded or expired status (§9.5), and on a Health Report's header the pill of "วันที่รายงาน" and the report date (§9.6) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -498,7 +503,7 @@ this document names:
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
 | Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
-| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog; and `kind="section"`, a Health Service's "บริการที่ให้", §8.4, §9.8), `QuickLinkCard`, `PersonCard` |
+| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog; and `kind="section"`, a Health Service's "บริการที่ให้", §8.4, §9.8), `QuickLinkCard`, `PersonCard` (`/about/personnel`), `LeaderCard` (`/about/leadership`, §7.3); a person's picture in its ring, `PersonPicture`, which `LeaderCard` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact` |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
 | Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5), a Health Report's (§9.6), a Service's (§9.7) and a Health Service's (§9.8) |
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6) |
@@ -719,8 +724,9 @@ this document names:
   from `sm` and 4:3 below (`ContentCard.astro`), as the Homepage's small News card does; the
   Homepage's Health Content
   cards and its Activity tiles have their own boxes (§8.8, §8.10), an Activity's photos are
-  squares (§9.2), and a person's portrait is a circle, on a personnel card (`PersonCard.astro`)
-  and in the Homepage's Leadership strip (§8.5). Every picture a
+  squares (§9.2), and a person's portrait is a circle, on a personnel card (`PersonCard.astro`),
+  and inside its ring (`PersonPicture.astro`) on a leader's card and in the Homepage's Leadership
+  strip (§8.5). Every picture a
   page crops keeps in view the focal point that its field's value carries: its `object-position`
   is that point. Without a focal point a card, a tile and a photo show the picture's middle, and
   a portrait its top, where the face is (#284 comment 6870867641, item 2; #298 comment
@@ -747,6 +753,30 @@ this document names:
     Homepage's label is plain text under its section's H2 (Product Owner, 2026-11-17: #339
     comment 6941979791), and its link's focus ring has the lists' `surface-base` band
     (`focus-ring-banded`, §3). Each tile reveals as it comes into the window (§8.12).
+- **A leader's card** (`LeaderCard`; Feature 012 #367; spec #365 "Leadership", decision 11) shows a
+  leader on `/about/leadership`, over the field's lower edge (§7.8), and links nowhere: Personnel
+  has no page of its own (`03` §5).
+  - **The featured card** holds the first leader by Leadership order, across the row: white, the
+    `deep` shadow, radius 24, 24 px of padding, 32 px from `sm` and 32 by 40 px from `lg`; the
+    picture in its ringed circle (`PersonPicture`, §8.5) at 96 px, 128 px from `sm`, with a 6 px
+    gap and the 3 px `accent-warm` ring; the shown name as an H2 at H3 size, H2 size from `sm`, in
+    `text-primary`; the position at body-large in `brand-primary`; the unit at small size in
+    `text-secondary`; the public contact under "ช่องทางติดต่อ" (`PublicContact`). Below `sm` the
+    picture lies above the text, 20 px over it; from `sm` beside it, 32 px away, the two centred
+    on each other. From `sm` a decorative `surface-soft` circle of 240 px lies at the lower right,
+    cut by the card's edge.
+  - **The others' cards** follow 32 px under it, three to a row from `lg`, two from `sm` and one
+    below, 20 px apart from `sm` and 16 px below, the cards of a row one height: white, the `card`
+    shadow, radius 24, 20 px of padding; the ringed circle at 60 px, 76 px from `sm`, with a 4 px
+    gap and the 2 px `border-default` ring, as the strip's people after the first; beside it, 16 px
+    away and 20 px from `sm`, from its top, the name as an H2 at body-large, semibold, in
+    `text-primary`, the position in `text-secondary`, the unit at small size in `brand-primary` and
+    the public contact under "ช่องทางติดต่อ".
+  - Each part shows only when it is set. A picture is decorative and covers its circle from its top
+    or around its focal point, with no placeholder; without one, or with one whose media item was
+    deleted, the circle is plain `surface-soft`. With one leader the featured card shows alone.
+    The leaders stay one ordered list. Each card, the featured one too, reveals as it comes into
+    the window (§8.12); no card holds a link or a control, so none takes the keyboard's focus.
 
 ### 7.4 Header and navigation
 
@@ -876,7 +906,8 @@ Announcements list (`/announcements`) and the Document repository (`/documents`)
 Feature 011 #339 (spec #338 "Decisions", 5, 6 and 15) the Health Information hub (`/health`), the
 Health Reports list (`/health/reports`), the Service catalog (`/services`) and the Health Service
 Directory (`/health-services`), and since Feature 012 #366 (spec #365 decisions 4 and 5) the
-About Document pages (`/about/policies`, `/about/plans` and `/about/results`).
+About Document pages (`/about/policies`, `/about/plans` and `/about/results`), and since #367
+(spec #365 decisions 4 and 11) the Leadership page (`/about/leadership`).
 
 - **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
   `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
@@ -924,6 +955,10 @@ About Document pages (`/about/policies`, `/about/plans` and `/about/results`).
   H1s "นโยบาย", "แผนงาน" and "ผลการดำเนินงาน", with `scroll-text`, `clipboard-list` and
   `chart-column`, their breadcrumbs through เกี่ยวกับเรา. None has a pill link or links under the
   lead, and each keeps its lead, its title in the head and its breadcrumb (spec #365 decision 4).
+- **`/about/leadership`** is labelled "บุคลากร", the Homepage Leadership strip's label (§8.5), over
+  its H1 "ผู้บริหาร", with `user-round`, its breadcrumb through เกี่ยวกับเรา. It has no link, and
+  keeps its lead, its title in the head and its breadcrumb (spec #365 decision 4; Feature 012
+  #367).
 - **The links under the lead.** `/services` has two, "ค้นหาหน่วยบริการสุขภาพที่เกี่ยวข้อง" to the
   directory and "คู่มือและแบบฟอร์ม" to `/documents`, its related pages that are not Services (spec
   #338 "The Service catalog", decision 15): 16 px under the lead, `surface-base` words, semibold,
@@ -953,7 +988,10 @@ About Document pages (`/about/policies`, `/about/plans` and `/about/results`).
   #339). On the About Document pages the block is the Document rows of `/documents` without its
   filter form (§7.3; Feature 012 #366), 14 px apart, each with its title and its download, whose
   rings lie on the row's white in the first row too; then the pager, or the type's empty state
-  or, past the last page, its way back. The cards are the Homepage's News
+  or, past the last page, its way back. On `/about/leadership` the block is the leaders' list
+  (§7.3; Feature 012 #367), the featured first leader across the row and the others' cards 32 px
+  under it, or the empty state; it has no pager, and no card holds a link, so no focus ring meets
+  the field. The cards are the Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
   ring alone was faint, so a card's ring has a `surface-base` band on both sides
@@ -962,7 +1000,8 @@ About Document pages (`/about/policies`, `/about/plans` and `/about/results`).
 - **Motion** (§8.12): with motion allowed the heading block rises in as the page opens, and the
   lead 0.1 s after it. Each card reveals as it comes into the window (§7.3), and on
   `/announcements`, `/documents` and the About Document pages each row (§7.3, §8.7; Feature 012
-  #366) and on `/health` each tile (§7.3). The
+  #366), on `/health` each tile (§7.3) and on `/about/leadership` each leader's card, the
+  featured one too (§7.3; Feature 012 #367). The
   breadcrumb, the link, the links under the lead, the filter form, the empty state and the pager
   show at once; `/services`' cards reveal as the other lists' cards do (#340), `/health-services`'
   rows as the Documents' (#341), and `/health/reports`' rows as the Announcements' (#342).
@@ -1056,7 +1095,10 @@ About Document pages (`/about/policies`, `/about/plans` and `/about/results`).
   layout at seven widths, their reveal and the page without JavaScript. Since Feature 012 #366
   `public-about.spec.ts` takes `testListOnField` for each About Document page, with its own cases
   for the field's ring on both sides of 1,024 px and the rows' parts, attention labels and
-  downloads.
+  downloads. Since #367 `public-personnel.spec.ts` takes `testHeadingOnField` for
+  `/about/leadership`, with its own cases for the field's glow and ring (`readListField`, which
+  the About Document pages' case shares), the cards over the edge, the cards by count and width,
+  their reveal, the empty state over the edge and the page without JavaScript.
 
 ## 8. Homepage
 
@@ -1270,7 +1312,10 @@ in the page colour:
   contact are not shown, and no person is a link. Around the picture, 4 px away, the first person
   has a 3 px `accent-warm` ring, its only mark (#243 comment 6809325869, item 2), and the others a
   2 px `border-default` one. Without a picture the
-  circle is `surface-soft`, as on `PersonCard`.
+  circle is `surface-soft`. The circle and its ring are `PersonPicture`, which the Leadership
+  page's cards share, each place at its own size, gap and ring (§7.3; Feature 012 #367); the
+  strip keeps the measures above (`public-homepage.spec.ts` "the Leadership strip shows …",
+  `ringedCircle`).
 - **From `lg`** the strip is one row: the heading at the left, ended by a `border-default` line,
   then the people, who divide the rest of the row equally, three, two or one. **Below `lg`** the
   heading lies above, with the link at its right over a `border-default` line. **From `sm`** the
@@ -1595,7 +1640,8 @@ stays the submit state (§8.9).
   Owner: the same comment, item 2).
 - **A list's motion.** On `/news`, Health News, Health Content, `/activities`, `/announcements`,
   `/documents`, since Feature 011 #339 `/health`, `/health/reports`, `/services` and
-  `/health-services`, and since Feature 012 #366 the About Document pages, the heading block rises in as the hero's parts do, starting at 0 s, and the lead
+  `/health-services`, since Feature 012 #366 the About Document pages and since #367
+  `/about/leadership`, the heading block rises in as the hero's parts do, starting at 0 s, and the lead
   at 0.1 s (§7.8). Each card reveals as a
   section's card does and shows whole while it holds the keyboard's focus, and its picture's box
   shimmers as the page opens; a missing picture's visual does not (§7.3; Feature 009 #283). The
@@ -1608,7 +1654,9 @@ stays the submit state (§8.9).
   tiles reveal since Feature 011 #339 (`public-health.spec.ts` "/health moves only when motion is
   allowed: …"), `/services`' cards without a picture since #340, `/health-services`' rows since
   #341, `/health/reports`' rows since #342 and the About Document pages' rows since Feature 012
-  #366, `testListOnField`'s `itemsMove`).
+  #366, `testListOnField`'s `itemsMove`; `/about/leadership`'s cards, the featured one too, since
+  #367, `public-personnel.spec.ts` "with motion allowed each leader's card …", without a picture's
+  shimmer, as the Leadership strip's portraits).
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
@@ -2791,4 +2839,16 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   these pages; `DocumentRow` stays for a Basic Page's related Documents. §2, §7.1, §7.3, §7.8 and
   §8.12 name the pages, and the Status line and a Feature 012 banner name the feature. Authority:
   spec #365 "The About Document pages", "Motion" and decisions 4 and 5, and #365 comment
+  7000119315.
+- **v1.7 the Leadership page (2026-11-19, Feature 012 #367):** `/about/leadership` opens on the
+  deep field with the list heading (§7.8): the label "บุคลากร" and the icon `user-round` are new to
+  the page, and the H1, the lead, the title in the head, the breadcrumb and the empty state's words
+  stay. Over the field's edge the first leader by Leadership order takes a featured card across the
+  row and the others follow in white cards, three to a row from `lg`, two from `sm` and one below
+  (`LeaderCard`, §7.3), each revealed as it comes into the window; with none the empty state lies
+  over the edge. The Homepage Leadership strip's ringed circle becomes `PersonPicture`, which the
+  strip and the cards share, each at its own size, gap and ring (§8.5); the strip's look is
+  unchanged. The Leadership page's `PageHeading` and `PersonCard` go from it; `PersonCard` stays on
+  `/about/personnel` until #370. §2, §3.1 (`accent-warm`), §7.1, §7.3, §7.8, §8.5 and §8.12 name the
+  page. Authority: spec #365 "Leadership", "Motion" and decisions 4, 8, 9 and 11, and #365 comment
   7000119315.
