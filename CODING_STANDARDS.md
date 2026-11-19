@@ -321,7 +321,9 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   document's version and names the ticket in the Updated line, as #298's did. The feature's
   hand-off ticket alone rewrites the banner's sentence on which tickets build what, so it names
   every ticket and no page the feature has since built as still to come (#250 retro, #250 comment
-  6841500044).
+  6841500044). On a feature's ticket branch the pre-commit hook holds the banner as `HEAD` has it,
+  and the hand-off ticket commits its rewrite with `SONGHEALTH_BANNER_REWRITE=<ticket>` (#370
+  retro: #366 and #367 each added a sentence to Feature 012's banner).
 - **Model changes.** A field or collection added to `seed/seed.json` is listed in its resource's
   section of `02-content-model.md`, under the feature's banner (#248 retro: `02` §12 lacked the
   Service's icon until review).
