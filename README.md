@@ -316,7 +316,9 @@ the dataset does not hold, such as a Document whose file was deleted, takes its 
 runner makes the module's synthetic content, captures the paths the module returns, and removes
 everything it made. A selector as a third argument, such as
 `'section[aria-labelledby=home-leadership]'`, captures that element alone on each page, to look at
-one part of a long page. `scripts/screenshot-fixtures/news.ts` is the example. The Admin's sidebar, as an
+one part of a long page. `--only <name-prefix>` keeps the pages whose capture's name starts with it,
+for a selector the module's other pages lack. A module whose capture's name another module already
+took into the folder stops before it captures. `scripts/screenshot-fixtures/news.ts` is the example. The Admin's sidebar, as an
 Administrator, an Editor or an Author sees it, comes from
 `scripts/dev-runtime-env.sh node scripts/capture-admin.ts <out-dir> [<role>]`.
 

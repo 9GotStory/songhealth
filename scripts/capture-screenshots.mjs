@@ -1,6 +1,6 @@
 // Pull-request screenshots of public pages, taken from the development runtime.
 //
-//   node scripts/capture-screenshots.mjs [--in-window] <out-dir> <target> [<target>...]
+//   node scripts/capture-screenshots.mjs [--in-window] [--source <name>] <out-dir> <target>...
 //
 // A target `[name=]path` is captured full-page at 1440 px (desktop), 375 px and 320 px (mobile),
 // into <name>-<width>.png. Without a name, the path gives it ("/news/x" is "news-x"), so name a
@@ -23,6 +23,14 @@
 // later ticket that captures the same pages again reads their paths there (#282 retro: a
 // feature's before screenshots named no `?topic=`, and a guessed slug matched nothing).
 //
+// It also records which source took each file, in <out-dir>/captured-by.txt: the --source a caller
+// names, such as scripts/capture-with-fixtures.ts's fixtures module, else this command. A file
+// another source took into the folder stops the run before a browser opens, with the file and both
+// sources: a second module's capture of the same name would overwrite the first (#346 retro:
+// health-service-inactive). The same source takes its files again, and a before image copied in
+// is free. scripts/evidence-branch.sh leaves the record out of the branch
+// (scripts/capture-plan.ts).
+//
 // While a window holds the runtime (docs/operations/development-quadlet.md "A window") its pages
 // show the window's content in place of the demo dataset, so the script stops and names the
 // window. The window's holder passes --in-window, as to scripts/dev-runtime-env.sh (#240 retro:
@@ -41,15 +49,13 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { chromium } from "@playwright/test";
+import { clashes, planShots } from "./capture-plan.ts";
 
-const WIDTHS = [
-	{ name: "desktop", viewport: { width: 1440, height: 900 } },
-	{ name: "375", viewport: { width: 375, height: 812 } },
-	{ name: "320", viewport: { width: 320, height: 640 } },
-];
-
-const args = process.argv.slice(2);
-const inWindow = args[0] === "--in-window";
+let args = process.argv.slice(2);
+const inWindow = args.includes("--in-window");
+const sourceAt = args.indexOf("--source");
+const source = sourceAt === -1 ? "capture-screenshots.mjs" : args[sourceAt + 1];
+if (sourceAt !== -1) args = args.toSpliced(sourceAt, 2);
 /** scripts/dev-runtime-common.sh's WINDOW_LOCK. */
 const windowLock = join(homedir(), ".local/state/songhealth-qdev/window");
 if (!inWindow && existsSync(windowLock)) {
@@ -59,42 +65,51 @@ if (!inWindow && existsSync(windowLock)) {
 	console.error("wait until it closes (scripts/dev-runtime-window.sh status)");
 	process.exit(1);
 }
-const [outDir, ...targets] = inWindow ? args.slice(1) : args;
-if (outDir === undefined || targets.length === 0) {
+const [outDir, ...targets] = args.filter((arg) => arg !== "--in-window");
+if (outDir === undefined || targets.length === 0 || source === undefined) {
 	console.error(
-		"usage: node scripts/capture-screenshots.mjs [--in-window] <out-dir> <target> [<target>...]",
+		"usage: node scripts/capture-screenshots.mjs [--in-window] [--source <name>] <out-dir> <target> [<target>...]",
 	);
 	process.exit(2);
 }
 const origin = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:4324";
 
-/** A file-name stem for a path: "/" is "home", "/news/x" is "news-x". Thai letters stay. */
-function stem(path) {
-	const trimmed = path.replace(/^\/+|\/+$/g, "").replace(/[^\p{L}\p{M}\p{N}]+/gu, "-");
-	return trimmed === "" ? "home" : trimmed;
+/** A record's lines of a file's name, a tab and its value, by the file. */
+function readRecord(record) {
+	return new Map(
+		existsSync(record)
+			? readFileSync(record, "utf8")
+					.split("\n")
+					.filter((line) => line !== "")
+					.map((line) => line.split("\t", 2))
+			: [],
+	);
 }
 
-/**
- * A target as its file-name base, its path, the one width and element it names, if any, and the
- * text of what to click first, if any: "name=/path" names it, a bare "/path" names itself,
- * "@width>selector" follows the path, and "!text" ends the target.
- */
-const pages = targets.map((target) => {
-	const split = target.startsWith("/") ? -1 : target.indexOf("=");
-	const name = split === -1 ? undefined : target.slice(0, split);
-	const unnamed = split === -1 ? target : target.slice(split + 1);
-	const bang = unnamed.indexOf("!");
-	const rest = bang === -1 ? unnamed : unnamed.slice(0, bang);
-	const one = /^(?<path>.*?)@(?<width>\d+)(?:>(?<selector>.+))?$/.exec(rest)?.groups;
-	const path = one?.path ?? rest;
-	return {
-		base: name ?? (one ? `${stem(path)}-${one.width}` : stem(path)),
-		path,
-		width: one && Number(one.width),
-		selector: one?.selector,
-		click: bang === -1 ? undefined : unnamed.slice(bang + 1),
-	};
-});
+/** `lines` written to `record`, sorted by the file. */
+async function writeRecord(record, lines) {
+	await writeFile(
+		record,
+		[...lines]
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([file, value]) => `${file}\t${value}\n`)
+			.join(""),
+	);
+}
+
+const shots = planShots(targets);
+const record = join(outDir, "captures.txt");
+const lines = readRecord(record);
+const takenByRecord = join(outDir, "captured-by.txt");
+const takenBy = readRecord(takenByRecord);
+const taken = clashes(shots, takenBy, source);
+if (taken.length > 0) {
+	for (const { file, takenBy: other } of taken) {
+		console.error(`capture-screenshots: ${file}: ${other} took it, this run is ${source}`);
+	}
+	console.error("name the capture apart, or take it into another folder");
+	process.exit(1);
+}
 
 await mkdir(outDir, { recursive: true });
 const browser = await chromium.launch();
@@ -131,60 +146,37 @@ async function openPage(path, viewport, click) {
 }
 
 try {
-	for (const [index, { base, path, width, selector, click }] of pages.entries()) {
-		if (width !== undefined) {
-			const page = await openPage(path, { width, height: 900 }, click);
-			const file = join(outDir, `${base}.png`);
-			if (selector === undefined) await page.screenshot({ path: file, fullPage: true });
-			else {
-				const element = page.locator(selector).first();
-				await element.evaluate((node) => {
-					for (const select of node.querySelectorAll("select")) select.size = select.length;
-				});
-				await element.screenshot({ path: file });
-				const box = await element.boundingBox();
-				elementSizes.set(file, `${box.width}×${box.height}`);
-			}
-			const closeUp = selector === undefined ? "" : `>${selector}`;
-			written.set(file, `${path}@${width}${closeUp}${click === undefined ? "" : `!${click}`}`);
-			await page.close();
-			continue;
+	for (const { file: name, target, path, viewport, selector, click, menu } of shots) {
+		const page = await openPage(path, viewport, click);
+		const file = join(outDir, name);
+		if (selector === undefined) await page.screenshot({ path: file, fullPage: true });
+		else {
+			const element = page.locator(selector).first();
+			await element.evaluate((node) => {
+				for (const select of node.querySelectorAll("select")) select.size = select.length;
+			});
+			await element.screenshot({ path: file });
+			const box = await element.boundingBox();
+			elementSizes.set(file, `${box.width}×${box.height}`);
 		}
-		for (const { name, viewport } of WIDTHS) {
-			const page = await openPage(path, viewport, click);
-			const file = join(outDir, `${base}-${name}.png`);
-			await page.screenshot({ path: file, fullPage: true });
-			const target = `${path}@${viewport.width}${click === undefined ? "" : `!${click}`}`;
-			written.set(file, target);
-			if (index === 0 && name !== "desktop") {
-				await page.locator("summary").filter({ hasText: "เปิดเมนู" }).click();
-				const menuFile = join(outDir, `${base}-${name}-menu.png`);
-				await page.screenshot({ path: menuFile, fullPage: true });
-				written.set(menuFile, `${target} menu open`);
-			}
-			await page.close();
+		written.set(file, target);
+		if (menu !== undefined) {
+			await page.locator("summary").filter({ hasText: "เปิดเมนู" }).click();
+			const menuFile = join(outDir, menu.file);
+			await page.screenshot({ path: menuFile, fullPage: true });
+			written.set(menuFile, menu.target);
 		}
+		await page.close();
 	}
 } finally {
 	await browser.close();
 }
-const record = join(outDir, "captures.txt");
-const lines = new Map(
-	existsSync(record)
-		? readFileSync(record, "utf8")
-				.split("\n")
-				.filter((line) => line !== "")
-				.map((line) => line.split("\t", 2))
-		: [],
-);
-for (const [file, target] of written) lines.set(basename(file), target);
-await writeFile(
-	record,
-	[...lines]
-		.sort(([a], [b]) => a.localeCompare(b))
-		.map(([file, target]) => `${file}\t${target}\n`)
-		.join(""),
-);
+for (const [file, target] of written) {
+	lines.set(basename(file), target);
+	takenBy.set(basename(file), source);
+}
+await writeRecord(record, lines);
+await writeRecord(takenByRecord, takenBy);
 for (const file of written.keys()) {
 	const element = elementSizes.has(file) ? ` (element ${elementSizes.get(file)})` : "";
 	console.log(`${file} ${await pngSize(file)}${element}`);
