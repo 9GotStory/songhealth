@@ -209,7 +209,11 @@ and why, and `.jscpd-baseline.json` records them.
   source and topic cases ran). A browser run ends with "stopped short", the failed tests that had
   assertions after their failing line or failed inside a loop
   (`tests/browser/stopped-short-reporter.ts`): a red run's is empty, each test failing at its last
-  assertion (#298 retro: two tests judged the new case first and two inside a loop).
+  assertion (#298 retro: two tests judged the new case first and two inside a loop). A shared
+  helper that reads a structure the page lacks altogether, such as `testListOnField` on a page
+  before its deep field, stops at its first reading of it: the evidence log names those lines as
+  such stops, and no other test stops short (#339 and #366 retros: the field's label and the
+  empty-state loop).
 - A test that reads the source to enforce a rule counts what it cannot read as breaking the rule:
   classes held in a constant, a list or a prop, a component imported under another name (#298
   retro: `tests/node/public-media.test.ts` first read only a tag's own text, so a cropped picture
@@ -230,9 +234,9 @@ and why, and `.jscpd-baseline.json` records them.
   under the text than above it, where a stricter stand-in such as "in the lower half" fails at
   320 px on a card the spec allows (#284 retro: it cost a 24-minute repeat run). A synthetic
   file's type and size read "PDF, 2 KB", shorter than the demo dataset's longest, "PDF, 12.8 KB",
-  so a test that places a download's words gives `uploadSyntheticPdf` a size in bytes as its third
-  argument whose label is as long, such as 12,083 for "PDF, 11.8 KB" (#317 retro: at 320 px the
-  download broke "(PDF, 11.8" from "KB)", and only the frontend gate saw it).
+  so a test that places a download's words gives `uploadSyntheticPdf` 12,083 bytes, "PDF, 11.8 KB"
+  (#317 retro: at 320 px the download broke "(PDF, 11.8" from "KB)", and only the frontend gate
+  saw it); `expectSecondLinkPlaces` fails a download without such a size (#366 retro).
 - A fixture's label carries `SYNTHETIC_FIXTURE_MARK` before its words and a suffix after them,
   some 33 characters more than a real label, so a row of such labels can wrap where real ones
   would not. A
