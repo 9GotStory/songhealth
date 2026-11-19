@@ -1062,6 +1062,19 @@ About Document pages (`/about/policies`, `/about/plans` and `/about/results`), a
     and 1,297; `/about/results` 900, 900, 900, 900 and 959, where it was 900, 900, 900, 900 and
     1,013; the full first page of plans 3,569, 3,569, 4,727, 4,549 and 4,675, where it was 4,005,
     4,005, 4,037, 5,127 and 5,473.
+  - At `992a442` (Feature 012 #367), `scripts/measure-text-contrast.ts --all-text --fold` on the
+    whole of `/about/leadership` with the demo dataset's two leaders, both with a picture, and with
+    `scripts/screenshot-fixtures/about-contact-cases.ts`' `leadership-six` (six leaders, two
+    without a picture) and `leadership-one`, at the five widths, the lowest reading of each text:
+    the lead 6.36:1, the H1 8.03:1, the label 8.60:1, the breadcrumb's links 9.34:1 and its
+    current page 8.60:1 (320 px); the featured card's name 16.54:1, its position 6.45:1 and its
+    unit 4.97:1; another card's name 16.12:1, its position 4.97:1 and its unit 6.45:1; "ช่องทางติดต่อ"
+    4.97:1 and the contact 16.54:1 (every width). No card holds a link or a control, so no focus
+    ring meets the field. `scripts/capture-screenshots.mjs`, the page's heights in px at 1,440,
+    1,024, 768, 375 and 320 px: with the demo dataset 1,039, 1,115, 1,097, 1,185 and 1,397, where it
+    was 900, 900, 900, 979 and 1,191 at `00ab334` (Feature 012's before screenshots);
+    `leadership-six` 1,265, 1,417, 1,581, 1,945 and 2,395, where it was 951, 1,051, 1,225, 1,693 and
+    2,169; `leadership-one` 900, 900, 900, 989 and 1,179, where it was 900, 900, 900, 900 and 993.
   - `scripts/capture-screenshots.mjs`, the pages' heights in px at 1,440, 1,024, 768, 375 and
     320 px: `/news` 1,801, 1,765, 2,242, 1,791 and 1,917, where it was 1,501, 1,494, 2,030, 3,447
     and 3,449 at `668d3e5` (#281's before screenshots); Health News 1,945, 1,909, 1,969, 1,777 and
