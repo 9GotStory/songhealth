@@ -1002,6 +1002,27 @@ About Document pages (`/about/policies`, `/about/plans` and `/about/results`).
     pager's "หน้า 1" under the last row 4.69:1 (each width). `scripts/measure-focus-contrast.ts` on
     the first card: its ring lies on the card's white, under it 5.78:1 at the lowest and beside it
     4.35:1 (1,440 px), no pixel under 3:1 at any width.
+  - At `7dd9722` (Feature 012 #366), `scripts/measure-text-contrast.ts --all-text --fold` on the
+    whole of `/about/policies`, `/about/plans`, `/about/results` and `/about/policies?page=2` with
+    the demo dataset's Documents, and of `/about/plans` with a full first page of twenty-one
+    synthetic plans and its second page (`scripts/screenshot-fixtures/about-contact-cases.ts`,
+    `CASE=plans-full`), at the five widths, the lowest reading of each text: the lead 6.36:1
+    (`/about/policies`, 320 px), the H1 6.80:1 (`/about/results`, 320 px), the label 8.48:1
+    (320 px), the breadcrumb's links 9.34:1 and its current page 6.52:1 (`/about/results`,
+    320 px); a row's facts line and summary 4.97:1, the tile's "PDF" 5.60:1, the download's words
+    6.45:1, "ถูกแทนที่แล้ว" 7.75:1 and the title 16.54:1, as on `/documents` (§7.3); the pager's
+    "หน้า 1" under the last row 4.69:1 and its links 6.45:1; a page past the last, the empty
+    state's message 16.54:1 and "กลับไปหน้าแรกของรายการ" 6.45:1. `scripts/measure-focus-contrast.ts`
+    on the first row's title and download on each page: both rings lie on the row's white, under
+    them 6.45:1 (the title on `/about/results` 5.04:1 from 768 px) and no pixel under 3:1 at any
+    width, beside them 4.69:1 or more but a few blended pixels at the title's ring on
+    `/about/results` from 768 px, 1.44:1. `scripts/capture-screenshots.mjs`, the pages' heights in
+    px at 1,440, 1,024, 768, 375 and 320 px with the demo dataset: `/about/policies` 900, 900,
+    1,039, 1,023 and 1,149, where it was 900, 900, 925, 1,129 and 1,295 at `00ab334` (#366's before
+    screenshots); `/about/plans` 900, 900, 1,037, 1,051 and 1,177, where it was 900, 900, 927, 1,071
+    and 1,297; `/about/results` 900, 900, 900, 900 and 959, where it was 900, 900, 900, 900 and
+    1,013; the full first page of plans 3,569, 3,569, 4,727, 4,549 and 4,675, where it was 4,005,
+    4,005, 4,037, 5,127 and 5,473.
   - `scripts/capture-screenshots.mjs`, the pages' heights in px at 1,440, 1,024, 768, 375 and
     320 px: `/news` 1,801, 1,765, 2,242, 1,791 and 1,917, where it was 1,501, 1,494, 2,030, 3,447
     and 3,449 at `668d3e5` (#281's before screenshots); Health News 1,945, 1,909, 1,969, 1,777 and
