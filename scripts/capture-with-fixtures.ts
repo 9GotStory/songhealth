@@ -4,11 +4,15 @@
 //
 //   scripts/dev-runtime-env.sh \
 //     node scripts/capture-with-fixtures.ts scripts/screenshot-fixtures/<name>.ts <out-dir> \
-//     [<selector>]
+//     [--only <name-prefix>] [<selector>]
 //
 // With a selector, each page the module returns at one width ("path@width") is captured as a
 // close-up of the first element the selector matches, such as one Homepage section, to look at a
 // part of a long page (#243 retro).
+//
+// With --only, it captures only the named pages whose name starts with the prefix, such as
+// health-report-file-gone of scripts/screenshot-fixtures/lists-by-count.ts, for a close-up the
+// module's other pages lack (#346 retro; scripts/capture-plan.ts).
 //
 // scripts/evidence-branch.sh then puts the screenshots on an image-only branch for the PR.
 //
@@ -25,9 +29,10 @@ import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { onlyNamed } from "./capture-plan.ts";
 import { withFixtureKit, type FixtureKit } from "./fixture-kit.ts";
 
 export type { FixtureKit };
@@ -41,10 +46,13 @@ export type Capture = string | { name: string; path: string };
 
 export type Fixtures = (kit: FixtureKit) => Promise<Capture[]>;
 
-const [fixturesPath, outDir, selector] = process.argv.slice(2);
-if (fixturesPath === undefined || outDir === undefined) {
+const args = process.argv.slice(2);
+const only = args.indexOf("--only");
+const prefix = only === -1 ? undefined : args[only + 1];
+const [fixturesPath, outDir, selector] = only === -1 ? args : args.toSpliced(only, 2);
+if (fixturesPath === undefined || outDir === undefined || (only !== -1 && prefix === undefined)) {
 	console.error(
-		"usage: node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir> [<selector>]",
+		"usage: node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir> [--only <name-prefix>] [<selector>]",
 	);
 	process.exit(2);
 }
@@ -79,15 +87,23 @@ function closeUp(path: string): string {
 
 await withFixtureKit(async (kit) => {
 	const fixtures = (await import(pathToFileURL(resolve(fixturesPath)).href)).default as Fixtures;
-	const targets = (await fixtures(kit)).map((page) =>
+	const targets = onlyNamed(await fixtures(kit), prefix).map((page) =>
 		typeof page === "string" ? closeUp(page) : `${page.name}=${closeUp(page.path)}`,
 	);
 	// The capture runs while this process waits without blocking. A blocked event loop never sees the
 	// runtime close its idle keep-alive connections, so the cleanup's first request went out on a
 	// closed one and failed ("fetch failed"), leaving that entry behind (#64).
-	const capture = spawn("node", ["scripts/capture-screenshots.mjs", outDir, ...targets], {
-		stdio: "inherit",
-	});
+	const capture = spawn(
+		"node",
+		[
+			"scripts/capture-screenshots.mjs",
+			"--source",
+			relative(".", resolve(fixturesPath)),
+			outDir,
+			...targets,
+		],
+		{ stdio: "inherit" },
+	);
 	const [code] = await once(capture, "exit");
 	if (code !== 0) throw new Error("capture-screenshots.mjs failed");
 });
