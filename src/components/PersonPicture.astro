@@ -4,6 +4,8 @@
 // the ring. Each place picks its circle's size, which sets the gap, and its ring:
 // - 60 px, 76 px from `sm`, with a 4 px gap: the strip's people and a leader's card;
 // - 96 px, 128 px from `sm`, with a 6 px gap: the featured first leader on the Leadership page;
+// - 52 px, 60 px from `sm`, with a 2 px gap: a person's row in a unit's panel on the Personnel page
+//   (Feature 012 #370; UnitPanel.astro);
 // - the `warm` ring is 3 px of `accent-warm`, the strip's first person and the featured leader's;
 //   the `plain` ring 2 px of `border-default`, everyone else's.
 //
@@ -25,7 +27,7 @@ interface Props {
 	/** The person's profile image, as their entry holds it. */
 	picture: PersonnelEntry["data"]["profile_image"];
 	/** The circle's width below `sm`, in px. */
-	size: 60 | 96;
+	size: 52 | 60 | 96;
 	ring: "warm" | "plain";
 	/** Classes for the ring's box, such as its place in a layout. */
 	class?: string;
@@ -35,6 +37,12 @@ const { picture: value, size, ring, class: className } = Astro.props;
 const image = await availableMedia(value, Astro.locals.emdash);
 
 const SIZES = {
+	52: {
+		circle: "size-13 sm:size-15",
+		gap: "p-0.5",
+		/** The picture's width: 3.25rem, and 3.75rem from `sm`. */
+		sizes: "(min-width: 40rem) 3.75rem, 3.25rem",
+	},
 	60: {
 		circle: "size-15 sm:size-19",
 		gap: "p-1",
