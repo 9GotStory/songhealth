@@ -619,12 +619,20 @@ export interface RowWithSecondLink {
  * #311 decision 17, spec #338 "The Health Service Directory"): at the row's right, beside the
  * text, from 1,024 px; under the text at its start from 640 px to 1,023 px; and across the row
  * under the tile and the text below 640 px, read on both sides of each edge and at 375 and 320 px.
+ * A download's size must read as long as the demo dataset's, such as "PDF, 11.8 KB": a synthetic
+ * file's "PDF, 2 KB" leaves room a real one lacks (CODING_STANDARDS "Tests", #317 retro).
  */
 export async function expectSecondLinkPlaces(
 	page: Page,
 	{ row, tile, title, link }: RowWithSecondLink,
 	label: string,
 ): Promise<void> {
+	if (label === "download") {
+		expect(
+			await link.textContent(),
+			"the download's size has a decimal, such as 11.8 KB: give uploadSyntheticPdf 12,083 bytes",
+		).toMatch(/\d+\.\d+ [KM]B/);
+	}
 	/** Where the link lies against the row, its tile and its text, rounded to the pixel. */
 	const placeOf = async () => {
 		if ((await link.count()) === 0) return `no ${label}`;

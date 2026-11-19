@@ -455,6 +455,8 @@ test("a row's download sits at the row's right from 1,024 px, under the text at 
 	page,
 }) => {
 	const document = await createDocument("row-place", {
+		// 11.8 KB, a size whose words take two lines of the download at 320 px.
+		file: await uploadSyntheticPdf(admin, undefined, 12_083),
 		data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปเอกสารสำหรับประชาชน` },
 	});
 	await publishLeading(document, in2031(5, 1));
