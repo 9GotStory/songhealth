@@ -1065,6 +1065,8 @@ test("/about/personnel moves only when motion is allowed: the heading and then t
 test("with motion allowed each unit's panel on /about/personnel waits below the window and shows as it comes into it", async ({
 	page,
 }) => {
+	test.setTimeout(120_000);
+	await borrowPersonnel();
 	const run = crypto.randomUUID().slice(0, 6);
 	for (const letter of ["ก", "ข", "ค"]) {
 		await publish(
@@ -1079,6 +1081,7 @@ test("with motion allowed each unit's panel on /about/personnel waits below the 
 	await page.setViewportSize(short);
 	await page.goto(PERSONNEL.path);
 	const { panels } = unitPanels(page);
+	await expect(panels, "a panel per unit").toHaveCount(3);
 	const seen: Record<string, number> = {};
 	const expected: Record<string, number> = {};
 	// Every panel is read before any comes into the window.
