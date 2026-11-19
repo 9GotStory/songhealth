@@ -1,0 +1,16 @@
+---
+// A person's public contact under "ช่องทางติดต่อ", at small size, only when it is set (Feature 003
+// #61; spec #51 "Public reads" (About)): the text staff wrote, its lines kept.
+interface Props {
+	contact: string | null | undefined;
+}
+
+const { contact } = Astro.props;
+---
+
+{contact && (
+	<div class="mt-2 text-small">
+		<p class="font-medium text-text-secondary">ช่องทางติดต่อ</p>
+		<p class="wrap-anywhere whitespace-pre-line">{contact}</p>
+	</div>
+)}

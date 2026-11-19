@@ -56,9 +56,9 @@ import {
 	HOME_CRUMB,
 	LeadingEntries,
 	LIST_END,
+	LIST_FIELD_LOOK,
 	SECTION_CRUMBS,
 	boxOf,
-	deepField,
 	documentRowParts,
 	expect,
 	expectAboutSubpage,
@@ -70,6 +70,7 @@ import {
 	listedItem,
 	listedTitles,
 	ownTitles,
+	readListField,
 	shownLines,
 	siteTitleParts,
 	test,
@@ -351,24 +352,8 @@ test.describe("an About Document page's rows", () => {
 		const expected: Record<string, unknown> = {};
 		for (const { path } of ABOUT_DOCUMENT_PAGES) {
 			await page.goto(path);
-			const field = deepField(page);
-			for (const width of [1440, 1024, 1023, 640, 639, 320]) {
-				await page.setViewportSize({ width, height: 900 });
-				seen[`${path} at ${width}`] =
-					(await field.count()) === 1
-						? {
-								glow: await field.evaluate((element) =>
-									getComputedStyle(element).backgroundImage.includes("radial-gradient"),
-								),
-								rings: await field
-									.locator('[aria-hidden="true"] > span')
-									.evaluateAll(
-										(spans) => spans.filter((span) => span.getClientRects().length > 0).length,
-									),
-							}
-						: "no field";
-				expected[`${path} at ${width}`] = { glow: true, rings: width >= 1024 ? 1 : 0 };
-			}
+			seen[path] = await readListField(page);
+			expected[path] = LIST_FIELD_LOOK;
 		}
 		expect(seen, "the field's glow and ring").toEqual(expected);
 	});

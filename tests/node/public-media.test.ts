@@ -141,8 +141,9 @@ describe("a CMS picture cropped to its box", () => {
 		for (const { file, source } of await publicSources()) {
 			if (imageTags(source).some(({ tag }) => mayCrop(tag))) cropped.push(file);
 		}
-		// A class written in the tag, and one in a list beside a constant.
-		for (const file of ["components/ContentCard.astro", "components/HomeLeadershipStrip.astro"]) {
+		// A class written in the tag, and one in a list beside a constant: a person's portrait in its
+		// ring, which the Homepage's Leadership strip and the Leadership page share (#367).
+		for (const file of ["components/ContentCard.astro", "components/PersonPicture.astro"]) {
 			assert.ok(cropped.includes(file), `${file} is not among ${cropped.join(", ")}`);
 		}
 	});
