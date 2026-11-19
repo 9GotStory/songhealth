@@ -20,6 +20,8 @@
 # published while it is installed. One that is not, such as an entry a browser suite returned to
 # draft and failed to give back, is listed and the exit status is 1:
 # `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` publishes it again (#244 retro).
+# The RESIDUE line reads FOUND whenever the exit status is 1, naming an incomplete demo dataset
+# (#367 retro: "RESIDUE: NONE" above "DEMO DATASET: INCOMPLETE" read as clean in a `tail -2`).
 # --clear-404-log first clears that log through the native API, just before the Product Owner's
 # review (#67 retro), and only while every miss in it is synthetic: otherwise it lists the others,
 # clears nothing and exits 3 (#123 retro). --clear-404-log-including-others clears them too, once
@@ -149,7 +151,10 @@ if demo_unpublished:
 if left["Office Contact values"] or left["social handles"]:
     print("SETTINGS: a test's (scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add)")
 found = any(left.values())
-print("RESIDUE: FOUND" if found else "RESIDUE: NONE")
+if demo_unpublished:
+    print("RESIDUE: FOUND (the demo dataset is incomplete)")
+else:
+    print("RESIDUE: FOUND" if found else "RESIDUE: NONE")
 sys.exit(1 if found or demo_unpublished else 0)
 PY
 status=$?

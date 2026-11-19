@@ -59,4 +59,26 @@ describe("DESIGN.md's change history", () => {
 		const { body } = await designParts();
 		assert.deepEqual(body.match(/\bBefore #\d+[^\n]*/g) ?? [], []);
 	});
+
+	// CODING_STANDARDS "Amendments": a feature bumps the version once, and its later tickets keep it
+	// (#367 retro: #367 took v1.7 after #366 had taken v1.6 for Feature 012).
+	it("gives each feature's entries one version, and the Status line the newest", async () => {
+		const design = await read("docs/design/DESIGN.md");
+		const { history } = await designParts();
+		const versions = new Map<string, Set<string>>();
+		for (const [, version, feature] of history.matchAll(
+			/^- \*\*(v\d+\.\d+) [^*]*\(\d{4}-\d{2}-\d{2}, (Feature \d+) #\d+\)/gm,
+		)) {
+			versions.set(feature!, (versions.get(feature!) ?? new Set()).add(version!));
+		}
+		const split = [...versions]
+			.filter(([, held]) => held.size > 1)
+			.map(([feature, held]) => `${feature}: ${[...held].join(", ")}`);
+		assert.deepEqual(split, [], "a feature whose §13 entries carry more than one version");
+		const newest = [...history.matchAll(/^- \*\*v(\d+)\.(\d+) /gm)]
+			.map(([, major, minor]) => [Number(major), Number(minor)] as const)
+			.sort(([a, b], [c, d]) => c - a || d - b)[0];
+		assert.ok(newest, "§13 has a versioned entry");
+		assert.match(design, new RegExp(`^> \\*\\*Status:\\*\\* v${newest[0]}\\.${newest[1]},`, "m"));
+	});
 });
