@@ -1,11 +1,11 @@
 ---
 // A Document in a list (Feature 003 #55; spec #51 "Shared building blocks"): its title linking to
 // its own page, its type, Document date and fiscal year, the file's type and size, and a status
-// that needs attention (superseded or expired). The Document repository shows DocumentDownloadRow
-// instead (Feature 010 #315); every other page that lists Documents keeps this row until its own
-// feature (spec #311 "Decisions", 2). A file that cannot be served reads as unavailable
-// here as it does on the Document's page (src/lib/media.ts). Its title is a heading one level below
-// the list's own: H2 on the repository, H3 under another page's "related Documents" heading.
+// that needs attention (superseded or expired). The Document repository and the About Document
+// pages show DocumentDownloadRow instead (Feature 010 #315; Feature 012 #366); a Basic Page's
+// related Documents keep this row until #368 (spec #365 decision 3). A file that cannot
+// be served reads as unavailable here as it does on the Document's page (src/lib/media.ts). Its
+// title is an H3 under the page's "related Documents" heading.
 import { documentRowParts, type DocumentEntry } from "../lib/documents";
 import { FILE_UNAVAILABLE } from "../lib/media";
 import DocumentFacts from "./DocumentFacts.astro";

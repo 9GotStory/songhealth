@@ -7,7 +7,10 @@
 // every About sub-page whether or not its own Basic Page exists. The footer links to the reserved
 // Basic Pages `privacy` and `accessibility` only while they are published. /about/policies,
 // /about/plans and /about/results list the published Documents of the Document Type `policy`,
-// `plan` and `result`, newest publication first.
+// `plan` and `result`, newest publication first. Each opens on the deep field under the label
+// เกี่ยวกับเรา, with /documents' rows and their downloads, its pager and its empty states over the
+// field's lower edge (Feature 012 #366; spec #365 decisions 4 and 5; public.helpers.ts
+// testListOnField).
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -42,6 +45,7 @@ import {
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	unpublishEntry,
+	uploadSyntheticPdf,
 	type CmsActor,
 	type DraftFields,
 	type DraftFixture,
@@ -50,17 +54,28 @@ import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	LeadingEntries,
+	LIST_END,
+	SECTION_CRUMBS,
+	boxOf,
+	deepField,
+	documentRowParts,
 	expect,
 	expectAboutSubpage,
 	expectAccessibleAtEachWidth,
+	expectAttentionLabelsOnOwnLine,
 	expectBreadcrumb,
+	expectSecondLinkPlaces,
 	expectSiteNotFound,
 	listedItem,
 	listedTitles,
 	ownTitles,
+	shownLines,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
+	testListOnField,
+	thaiDate,
 } from "./public.helpers";
 
 /** The About sub-pages /about links to, in `01` §3 order. */
@@ -73,12 +88,36 @@ const ABOUT_SUBPAGES = [
 	["ผลการดำเนินงาน", "/about/results"],
 ] as const;
 
-/** The About Document pages, each with the Document Type it lists (spec #51). */
+/**
+ * The About Document pages, each with the Document Type it lists (spec #51), its lead and the icon
+ * of its heading on the deep field (Feature 012 #366; spec #365 decision 4).
+ */
 const ABOUT_DOCUMENT_PAGES = [
-	{ path: "/about/policies", type: "policy", title: "นโยบาย" },
-	{ path: "/about/plans", type: "plan", title: "แผนงาน" },
-	{ path: "/about/results", type: "result", title: "ผลการดำเนินงาน" },
+	{
+		path: "/about/policies",
+		type: "policy",
+		title: "นโยบาย",
+		lead: "เอกสารนโยบายของสำนักงานสาธารณสุขอำเภอสอง",
+		icon: "scroll-text",
+	},
+	{
+		path: "/about/plans",
+		type: "plan",
+		title: "แผนงาน",
+		lead: "เอกสารแผนงานของสำนักงานสาธารณสุขอำเภอสอง",
+		icon: "clipboard-list",
+	},
+	{
+		path: "/about/results",
+		type: "result",
+		title: "ผลการดำเนินงาน",
+		lead: "เอกสารผลการดำเนินงานของสำนักงานสาธารณสุขอำเภอสอง",
+		icon: "chart-column",
+	},
 ] as const;
+
+/** The fixed number of Documents an About Document page shows. */
+const DOCUMENT_PAGE_SIZE = 20;
 
 /** The footer's Basic Page links, in footer order (docs/design/homepage-concept-v1.md §12). */
 const FOOTER_PAGES = [
@@ -186,25 +225,6 @@ async function footerLinks(page: Page): Promise<string[]> {
 	return (await pageLinks.getByRole("link").allTextContents()).map((text) => text.trim());
 }
 
-/** The slugs of the Documents an About Document page lists, over all its list pages. */
-async function listedDocumentSlugs(page: Page, path: string): Promise<string[]> {
-	const slugs: string[] = [];
-	for (let number = 1; ; number += 1) {
-		await page.goto(number === 1 ? path : `${path}?page=${number}`);
-		const hrefs = await page
-			.getByRole("main")
-			.getByRole("article")
-			.getByRole("heading")
-			.getByRole("link")
-			.evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""));
-		slugs.push(...hrefs.map((href) => decodeURIComponent(href.replace(/^\/documents\//, ""))));
-		const next = page
-			.getByRole("navigation", { name: "การแบ่งหน้า" })
-			.getByRole("link", { name: "หน้าถัดไป" });
-		if ((await next.count()) === 0) return slugs;
-	}
-}
-
 test.use({ viewport: DESKTOP_VIEWPORT });
 
 test.beforeAll(async () => {
@@ -218,21 +238,29 @@ test.afterEach(async () => {
 
 test.afterAll(() => removeSuiteFixtures(admin));
 
-test("each About Document page shows its empty state while no published Document has its type", async ({
-	page,
-}) => {
-	for (const { path } of ABOUT_DOCUMENT_PAGES) {
-		for (const slug of await listedDocumentSlugs(page, path)) await borrow("documents", slug);
-	}
-
-	for (const { path, title } of ABOUT_DOCUMENT_PAGES) {
-		const response = await page.goto(path);
-		expect(response?.status(), `GET ${path}`).toBe(200);
-		await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
-		await expect(page.getByRole("main").getByRole("article")).toHaveCount(0);
-		await expect(page.getByRole("main").getByText(`ยังไม่มีเอกสาร${title}`)).toBeVisible();
-	}
-});
+// First in the suite, while the runtime holds only its own Documents (Feature 012 #366; spec #365
+// decision 5): each About Document page opens on the deep field under the label เกี่ยวกับเรา, with
+// its Document rows, its pager and its empty states over the field's lower edge, as /documents
+// without its filter form (public.helpers.ts testListOnField).
+for (const { path, type, title, lead, icon } of ABOUT_DOCUMENT_PAGES) {
+	testListOnField({
+		path,
+		crumbs: [HOME_CRUMB, SECTION_CRUMBS.about],
+		heading: { label: "เกี่ยวกับเรา", title, lead },
+		icon,
+		collection: "documents",
+		pageSize: DOCUMENT_PAGE_SIZE,
+		noneYet: `ยังไม่มีเอกสาร${title}`,
+		pastLast: "ไม่พบเอกสารในหน้านี้",
+		admin: () => admin,
+		publishItem: async (label) => {
+			const document = await createDocument(label, type);
+			await publishEntryAt(admin, "documents", document.id, LIST_END);
+			return document;
+		},
+		itemsMove: "rows",
+	});
+}
 
 test("/about/policies, /about/plans and /about/results list only the published Documents of their own type, newest first", async ({
 	page,
@@ -265,9 +293,175 @@ test("/about/policies, /about/plans and /about/results list only the published D
 		);
 		const first = expected[type][0];
 		await expect(
-			listedItem(page, first.title).getByRole("link", { name: first.title }),
+			listedItem(page, first.title).getByRole("link", { name: first.title, exact: true }),
 		).toHaveAttribute("href", `/documents/${first.slug}`);
 		await expect(listedItem(page, first.title)).toContainText(title);
+	}
+});
+
+/** A summary longer than two lines of a row at every width from 640 px. */
+const LONG_SUMMARY = `${SYNTHETIC_FIXTURE_MARK} ${"สรุปเอกสารของสำนักงานสาธารณสุขอำเภอสองสำหรับประชาชนและเครือข่ายบริการสุขภาพทุกตำบล ".repeat(6)}`;
+
+/** When a Document of the rows' cases was written, as its facts line shows it. */
+const DOCUMENT_AT = "2026-09-23T17:30:00.000Z";
+
+// Feature 012 #366 (spec #365 "The About Document pages"): each page's rows are /documents' rows
+// with their downloads (DocumentDownloadRow), titles H2, 14 px apart.
+test.describe("an About Document page's rows", () => {
+	/** Each page's three Documents, newest first: superseded, expired and current. */
+	const rows = new Map<string, Array<DraftFixture & { file: { storageKey: string } }>>();
+	/**
+	 * They lead their lists until the block ends, then go back to draft (CODING_STANDARDS "Tests").
+	 */
+	const leading = new LeadingEntries();
+
+	test.beforeAll(async () => {
+		for (const { type } of ABOUT_DOCUMENT_PAGES) {
+			const made = [];
+			for (const status of ["superseded", "expired", "current"]) {
+				made.push(
+					await createSyntheticDocument(admin, `row-${type}-${status}`, {
+						// 11.8 KB, a size whose words take two lines of the download at 320 px.
+						file: await uploadSyntheticPdf(admin, undefined, 12_083),
+						data: {
+							summary: LONG_SUMMARY,
+							document_at: DOCUMENT_AT,
+							fiscal_year: 2569,
+							domain_status: status,
+						},
+						taxonomies: { document_type: [type] },
+					}),
+				);
+			}
+			// The current one first, so the superseded one is the newest.
+			for (const document of made.toReversed()) {
+				await publishEntryAt(admin, "documents", document.id);
+				leading.hold("documents", document);
+			}
+			rows.set(type, made);
+		}
+	});
+
+	test.afterAll(() => leading.release(admin));
+
+	test("the field of each About Document page has the corner glow and, from 1,024 px only, the large ring", async ({
+		page,
+	}) => {
+		const seen: Record<string, unknown> = {};
+		const expected: Record<string, unknown> = {};
+		for (const { path } of ABOUT_DOCUMENT_PAGES) {
+			await page.goto(path);
+			const field = deepField(page);
+			for (const width of [1440, 1024, 1023, 640, 639, 320]) {
+				await page.setViewportSize({ width, height: 900 });
+				seen[`${path} at ${width}`] =
+					(await field.count()) === 1
+						? {
+								glow: await field.evaluate((element) =>
+									getComputedStyle(element).backgroundImage.includes("radial-gradient"),
+								),
+								rings: await field
+									.locator('[aria-hidden="true"] > span')
+									.evaluateAll(
+										(spans) => spans.filter((span) => span.getClientRects().length > 0).length,
+									),
+							}
+						: "no field";
+				expected[`${path} at ${width}`] = { glow: true, rings: width >= 1024 ? 1 : 0 };
+			}
+		}
+		expect(seen, "the field's glow and ring").toEqual(expected);
+	});
+
+	test("each row on an About Document page: the file's tile with file-text and PDF; the facts line with the Document Type, the date and the fiscal year; the title as an H2 linking to its page; from 640 px the summary in two lines at most; the download named ดาวน์โหลด, the file's type and size and the title, linking to the file; exactly two links; rows 14 px apart", async ({
+		page,
+	}) => {
+		const seen: Record<string, unknown> = {};
+		const expected: Record<string, unknown> = {};
+		for (const { path, type, title } of ABOUT_DOCUMENT_PAGES) {
+			const [first, second] = rows.get(type)!;
+			await page.setViewportSize(DESKTOP_VIEWPORT);
+			await page.goto(path);
+			const row = listedItem(page, first!.title);
+			const parts = documentRowParts(row);
+			const summary = row.getByText(LONG_SUMMARY.trim());
+			const facts = [title, thaiDate(DOCUMENT_AT), "ปีงบประมาณ 2569"];
+			const factsLine = (await parts.facts.textContent()) ?? "";
+			seen[path] = {
+				tile:
+					(await parts.tile.count()) === 1 ? (await parts.tile.textContent())?.trim() : "no tile",
+				// What today's row already shows: its facts line.
+				facts: facts.filter((fact) => factsLine.includes(fact)),
+				href: await parts.title.getByRole("link").getAttribute("href"),
+				download:
+					(await parts.download.count()) === 1
+						? {
+								name: await parts.download.evaluate((link) =>
+									link.textContent?.replace(/\s+/g, " ").trim(),
+								),
+								href: await parts.download.getAttribute("href"),
+							}
+						: "no download",
+				links: await row.getByRole("link").count(),
+			};
+			expected[path] = {
+				tile: "PDF",
+				facts,
+				href: `/documents/${first!.slug}`,
+				download: {
+					name: `ดาวน์โหลด (PDF, 11.8 KB) ${first!.title}`,
+					href: `/_emdash/api/media/file/${first!.file.storageKey}`,
+				},
+				links: 2,
+			};
+			for (const width of [1440, 640, 639, 320]) {
+				await page.setViewportSize({ width, height: 900 });
+				const upper = await boxOf(row, "the first row");
+				const lower = await boxOf(listedItem(page, second!.title), "the second row");
+				seen[`${path} at ${width}`] = {
+					summary: (await summary.isVisible()) ? await shownLines(summary) : "hidden",
+					gap: Math.round(lower.y - (upper.y + upper.height)),
+				};
+				expected[`${path} at ${width}`] = {
+					summary: width >= 640 ? { lines: 2, clamped: true } : "hidden",
+					gap: 14,
+				};
+			}
+		}
+		expect(seen, "the rows' parts").toEqual(expected);
+	});
+
+	for (const { path, type } of ABOUT_DOCUMENT_PAGES) {
+		test(`a superseded or an expired Document's row on ${path} shows its attention label on its own line between the facts and the title, and a current one shows none`, async ({
+			page,
+		}) => {
+			const [superseded, expired, current] = rows.get(type)!;
+			await page.goto(path);
+			await expect(listedItem(page, current!.title)).not.toContainText(/ถูกแทนที่แล้ว|หมดอายุแล้ว/);
+			await expectAttentionLabelsOnOwnLine(
+				page,
+				(
+					[
+						[superseded!, "ถูกแทนที่แล้ว"],
+						[expired!, "หมดอายุแล้ว"],
+					] as const
+				).map(([document, label]) => {
+					const row = listedItem(page, document.title);
+					return { ...documentRowParts(row), row, label };
+				}),
+			);
+		});
+
+		test(`a row's download on ${path} sits at the row's right from 1,024 px, under the text at its start from 640 px to 1,023 px, and across the row under the tile and the text below 640 px`, async ({
+			page,
+		}) => {
+			const [, , current] = rows.get(type)!;
+			await page.goto(path);
+			const row = listedItem(page, current!.title);
+			const { tile, title, download } = documentRowParts(row);
+			await expect(row.getByRole("link", { name: current!.title, exact: true })).toBeVisible();
+			await expectSecondLinkPlaces(page, { row, tile, title, link: download }, "download");
+		});
 	}
 });
 
