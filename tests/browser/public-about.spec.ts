@@ -129,6 +129,10 @@ const ABOUT_DOCUMENT_PAGES = [
 	},
 ] as const;
 
+/** A title longer than two lines at every width, as /documents' longest row title. */
+const LONG_TITLE =
+	"ซึ่งมีชื่อเรื่องยาวเกินกว่าสองบรรทัดของหน้าทุกความกว้างของหน้าจอ แม้บนจอกว้างที่สุดที่หัวเรื่องมีพื้นที่มากที่สุด เพื่อดูว่าชื่อเรื่องยังอ่านได้ครบถ้วนและไม่ล้นขอบหน้าจอ พร้อมสรุป เนื้อหา และเอกสารที่เกี่ยวข้องทั้งหมด";
+
 /** The fixed number of Documents an About Document page shows. */
 const DOCUMENT_PAGE_SIZE = 20;
 
@@ -694,7 +698,8 @@ test.describe("a Basic Page on the field", () => {
 		// H3 below 640 px, H2 from 640 px and H1 from 1,024 px.
 		expected.titleSize = { 639: "24px", 640: "34px", 1023: "34px", 1024: "46px" };
 		seen.noTileOrFrame = {
-			icons: onField ? await parts.header.locator("svg").count() : "no field",
+			// The breadcrumb's chevrons aside.
+			icons: onField ? await parts.header.locator("svg:not(nav svg)").count() : "no field",
 			frame: await page.getByTestId("picture-frame").count(),
 		};
 		expected.noTileOrFrame = { icons: 0, frame: 0 };
@@ -1033,10 +1038,17 @@ test.describe("accessibility and reflow", () => {
 	test.beforeAll(async () => {
 		const policy = await createDocument("a11y", "policy");
 		await publish("documents", policy);
-		const related = await createDocument("a11y-related");
+		// The longest title a Basic Page's fixture holds, on the field and in its related row, so
+		// nothing passes the window at 320 px (Feature 012 #368).
+		const related = await createSyntheticDocument(admin, "a11y-related", {
+			data: { title: `${SYNTHETIC_FIXTURE_MARK} เอกสาร ${LONG_TITLE}` },
+		});
 		await publish("documents", related);
 		const basic = await createPage("a11y", {
-			data: pageData(pageContent("a11y")),
+			data: {
+				...pageData(pageContent("a11y")),
+				title: `${SYNTHETIC_FIXTURE_MARK} หน้า ${LONG_TITLE}`,
+			},
 			references: { documents: [related.id] },
 		});
 		await publish("pages", basic);
