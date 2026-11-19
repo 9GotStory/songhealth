@@ -92,3 +92,23 @@ N", eighteen plans; their pictures are the demo's three.
   grill.
 - `/contact` B's green card lies on the green field, so it has a 4 px white ring to part them.
 - No case overflows the window at any of the five widths (`shots/measures.json`).
+
+## The Product Owner's picks
+
+Asked through the session's question tool on 2026-11-19, each answer the option marked
+"(Recommended)":
+
+- **P1 `/about`: A**, the six tiles over the field's edge first, then the body and the Documents.
+- **P2 Leadership: C**, the first leader in a featured card across the row, the others in card A.
+- **P3 Personnel: A**, a white panel per unit with its people as compact rows, with the
+  "ช่องทางติดต่อ" line put back over a person's public contact (the builder now writes it).
+- **P4 `/contact`: A**, the white card with a row per detail and its icon; the channels' heading
+  takes `share-2` and the label "ติดต่อ".
+
+## Contrast of the picks
+
+`contrast.sh` runs `scripts/measure-text-contrast.ts --all-text --fold` at the five widths on
+seventeen pages of the picked variants. No text reads under 4.5:1. The lowest: a Basic Page's
+summary on the field 4.92:1 (`/about` at 1,024 px, where the list field's ring runs behind it), the
+pager's "หน้า N" 4.69:1, the secondary texts on white 4.97:1, a Basic Page's H1 5.34:1 and a
+section heading's label on the page's colour 5.76:1.

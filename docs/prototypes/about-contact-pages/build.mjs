@@ -216,7 +216,7 @@ function unitPanel({ unit, people }, index) {
 			(p) =>
 				`<li class="flex min-w-0 items-start gap-3.5"><span class="block shrink-0 rounded-full p-0.5 ring-2 ring-border-default">${picture(p, "size-13 rounded-full sm:size-15")}</span><div class="flex min-w-0 flex-col gap-0.5"><h3 class="text-body font-semibold wrap-anywhere">${esc(p.name)}</h3>${
 					p.assignment ? `<p class="text-label font-normal wrap-anywhere text-text-secondary">${esc(p.assignment)}</p>` : ""
-				}${p.contact ? `<p class="text-small wrap-anywhere whitespace-pre-line text-text-secondary">${esc(p.contact)}</p>` : ""}</div></li>`,
+				}${p.contact ? `<div class="mt-1 text-small"><p class="font-medium text-text-secondary">ช่องทางติดต่อ</p><p class="wrap-anywhere whitespace-pre-line">${esc(p.contact)}</p></div>` : ""}</div></li>`,
 		)
 		.join("")}</ul></section>`;
 }
