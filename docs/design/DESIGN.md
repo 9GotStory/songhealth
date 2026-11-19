@@ -642,7 +642,7 @@ this document names:
   "เอกสารที่เกี่ยวข้อง" it shows at once (§9.7; Feature 011 #344). The About Document pages show
   the same row, titles H2, over the field's edge, as `/documents` without its filter form (§7.8;
   Feature 012 #366). A Basic Page's related Documents keep the earlier row, `DocumentRow`, until
-  their own ticket (spec #365 decision 3), and search results keep their own; a Health Report's
+  #368 (spec #365 decision 3), and search results keep their own; a Health Report's
   page shows its one Document
   as a Document's page shows its file (§9.6; Feature 011 #343). With
   `--all-text` at the five widths every text of a row reads 4.97:1 or more, the facts line, the

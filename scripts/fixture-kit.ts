@@ -41,9 +41,10 @@ export interface FixtureKit {
 	/**
 	 * Return every published entry of `collection` to draft until the run ends, which publishes
 	 * each again at its own date: a page without that content, such as the Homepage with no current
-	 * Announcement (#245 retro). Call it before making entries of the collection. It throws at an
-	 * entry with unpublished changes, which publishing again would release. Given `entries`, ids or
-	 * slugs, it borrows those alone, such as the reserved Basic Page `about` (Feature 012 #366).
+	 * Announcement (#245 retro). Called without `entries`, it comes before making entries of the
+	 * collection. It throws at an entry with unpublished changes, which publishing again would
+	 * release. Given `entries`, ids or slugs, it borrows those alone, such as the reserved Basic
+	 * Page `about` (Feature 012 #366).
 	 */
 	borrow(collection: string, entries?: readonly string[]): Promise<void>;
 }

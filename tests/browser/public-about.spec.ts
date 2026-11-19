@@ -45,6 +45,7 @@ import {
 	SYNTHETIC_FIXTURE_MARK,
 	syntheticSlug,
 	unpublishEntry,
+	uploadSyntheticPdf,
 	type CmsActor,
 	type DraftFields,
 	type DraftFixture,
@@ -53,6 +54,7 @@ import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
 	HOME_CRUMB,
+	LeadingEntries,
 	LIST_END,
 	SECTION_CRUMBS,
 	boxOf,
@@ -308,6 +310,10 @@ const DOCUMENT_AT = "2026-09-23T17:30:00.000Z";
 test.describe("an About Document page's rows", () => {
 	/** Each page's three Documents, newest first: superseded, expired and current. */
 	const rows = new Map<string, Array<DraftFixture & { file: { storageKey: string } }>>();
+	/**
+	 * They lead their lists until the block ends, then go back to draft (CODING_STANDARDS "Tests").
+	 */
+	const leading = new LeadingEntries();
 
 	test.beforeAll(async () => {
 		for (const { type } of ABOUT_DOCUMENT_PAGES) {
@@ -315,6 +321,8 @@ test.describe("an About Document page's rows", () => {
 			for (const status of ["superseded", "expired", "current"]) {
 				made.push(
 					await createSyntheticDocument(admin, `row-${type}-${status}`, {
+						// 11.8 KB, a size whose words take two lines of the download at 320 px.
+						file: await uploadSyntheticPdf(admin, undefined, 12_083),
 						data: {
 							summary: LONG_SUMMARY,
 							document_at: DOCUMENT_AT,
@@ -326,11 +334,15 @@ test.describe("an About Document page's rows", () => {
 				);
 			}
 			// The current one first, so the superseded one is the newest.
-			for (const document of made.toReversed())
+			for (const document of made.toReversed()) {
 				await publishEntryAt(admin, "documents", document.id);
+				leading.hold("documents", document);
+			}
 			rows.set(type, made);
 		}
 	});
+
+	test.afterAll(() => leading.release(admin));
 
 	test("the field of each About Document page has the corner glow and, from 1,024 px only, the large ring", async ({
 		page,
@@ -397,7 +409,7 @@ test.describe("an About Document page's rows", () => {
 				facts,
 				href: `/documents/${first!.slug}`,
 				download: {
-					name: `ดาวน์โหลด (PDF, 2 KB) ${first!.title}`,
+					name: `ดาวน์โหลด (PDF, 11.8 KB) ${first!.title}`,
 					href: `/_emdash/api/media/file/${first!.file.storageKey}`,
 				},
 				links: 2,
