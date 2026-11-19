@@ -329,6 +329,10 @@ test("each person shows their profile image, cropped around its top or around it
 			"alt",
 			"",
 		);
+		await expect(
+			listedItem(page, focused.title).locator("p"),
+			`${path}: no position, unit or contact line for a person without them`,
+		).toHaveCount(0);
 		const deleted = listedItem(page, gone.title);
 		await expect(deleted.locator("img"), `${path}: no picture once it is deleted`).toHaveCount(0);
 		for (const [name, person] of [
