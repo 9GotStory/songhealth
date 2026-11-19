@@ -793,7 +793,7 @@ this document names:
     2 px `border-default` ring; beside it, 14 px away, from its top, the shown name as an H3 at
     body size, semibold, in `text-primary`, the position at label size, regular, in
     `text-secondary`, 2 px apart, and the public contact under "ช่องทางติดต่อ" (`PublicContact`,
-    8 px under them). The panel names the unit, so a row leaves it out.
+    10 px under them: its own 8 px and the row's 2 px). The panel names the unit, so a row leaves it out.
   - Each part shows only when it is set; the picture as a leader's card has it (above). Each panel
     reveals as it comes into the window (§8.12); no row holds a link or a control. With no one the
     list's empty state lies over the edge.
