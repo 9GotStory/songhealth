@@ -9,8 +9,8 @@
 > 6891402807). Feature 010's redesign of the Activities, Announcements and Documents pages follows
 > spec #311, implemented by #312–#318, and was accepted on #311 (Product Owner, 2026-11-17: #311
 > comment 6936494700). Feature 011's redesign of the Health Information hub, the Health Reports,
-> Services and Health Services pages follows spec #338, implemented by #339–#346; the Product Owner
-> accepts it on #338.
+> Services and Health Services pages follows spec #338, implemented by #339–#346, and was accepted
+> on #338 (Product Owner, 2026-11-19: #338 comment 6999055380).
 > **Updated:** 2026-11-19 (#346); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
@@ -2160,7 +2160,7 @@ The prototype's variants, on the branch `prototype/health-reports-services-healt
 there). Each ticket's decisions are on #339 to #345 and in §13. The evidence round of #346
 (`docs/evidence/346-health-reports-services-health-services-evidence-round.md`) measures the pages
 and names what the evidence does not cover, which the Product Owner accepted after the walkthrough
-(#346 comment 6997998925). The Product Owner accepts the feature on #338.
+(#346 comment 6997998925). The Product Owner accepted the feature on #338 (comment 6999055380).
 
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
