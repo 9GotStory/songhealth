@@ -67,7 +67,21 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   #312–#318). `docs/design/DESIGN.md` v1.4 records it with the code, and
   `docs/evidence/318-activities-announcements-documents-evidence-round.md` its evidence and what
   that does not cover. The Product Owner accepted it on 2026-11-17 (#311 comment 6936494700), and
-  it was merged into `main`. Every other page keeps its design until its own feature.
+  it was merged into `main`.
+- **Feature 011 `health-reports-services-health-services`:** complete: the Health Information hub,
+  the Health Reports list and a Health Report's page, the Service catalog and a Service's page, and
+  the Health Service directory and a Health Service's page redesigned after Feature 010's pages as
+  built, in the look the Product Owner picked from a prototype: each list headed on the deep green
+  field, `/health` with the Homepage's Quick Access tiles, `/services` with the Homepage's
+  Frequently Used Service cards, `/health-services` with rows that open the map, `/health/reports`
+  with rows dated by fiscal year, and a Health Report's, a Service's and a Health Service's page
+  with the Post page's header and one card over the field's edge that holds first what a citizen
+  came for. Every address, read and behaviour stays
+  (spec #338, tickets #339–#346). `docs/design/DESIGN.md` v1.5 records it with the code, and
+  `docs/evidence/346-health-reports-services-health-services-evidence-round.md` its evidence and
+  what that does not cover. The Product Owner accepted it on 2026-11-19 (#338 comment
+  6999055380), and it was merged into `main`. Every other page keeps its design until its own
+  feature.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
