@@ -3454,9 +3454,16 @@ export async function siteTitleParts(
  * the trash, and carries `draftRevisionId` while the entry has changes not yet published
  * (src/database/repositories/content.ts findByIdOrSlug, src/emdash-runtime.ts hydrateDraftData).
  * POST …/publish takes `publishedAt` (src/astro/routes/api/content/[collection]/[id]/publish.ts).
+ *
+ * A test that times out runs on beside its afterEach: @playwright/test 1.63.0 sets the status to
+ * "timedOut" and starts the hooks without stopping the test's body. So a borrow refuses once the
+ * status is no longer "passed", and giveBack first waits for the unpublishes in flight (#367 retro:
+ * a timed-out Homepage test left two demo Activities in draft, and the full suite's demo check
+ * failed).
  */
 export class BorrowedEntries {
 	readonly #entries: Array<{ collection: string; fixture: DraftFixture; publishedAt: string }> = [];
+	readonly #inFlight = new Set<Promise<unknown>>();
 
 	/**
 	 * The runtime's own entry `idOrSlug`, returned to draft for the running test, or undefined when
@@ -3482,8 +3489,14 @@ export class BorrowedEntries {
 			slug: typeof item.slug === "string" && item.slug !== "" ? item.slug : idOrSlug,
 			title: String((item.data as { title?: unknown }).title),
 		};
+		const status = test.info().status;
+		if (status !== "passed") {
+			throw new Error(`borrowing ${collection}/${fixture.slug} after the test ${status}`);
+		}
 		this.#entries.push({ collection, fixture, publishedAt: String(item.publishedAt) });
-		const unpublished = await unpublishEntry(admin, collection, fixture.id);
+		const request = unpublishEntry(admin, collection, fixture.id);
+		this.#inFlight.add(request);
+		const unpublished = await request.finally(() => this.#inFlight.delete(request));
 		expect(unpublished.ok, `unpublish ${fixture.slug}: ${nativeRefusalOf(unpublished)}`).toBe(true);
 		return fixture;
 	}
@@ -3495,6 +3508,7 @@ export class BorrowedEntries {
 
 	/** Publish every borrowed entry again at its own date, and fail unless each one is. */
 	async giveBack(admin: CmsActor): Promise<void> {
+		await Promise.allSettled(this.#inFlight);
 		const failures: string[] = [];
 		for (const { collection, fixture, publishedAt } of this.#entries.splice(0)) {
 			try {

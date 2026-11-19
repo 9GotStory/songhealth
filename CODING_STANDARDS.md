@@ -222,6 +222,9 @@ and why, and `.jscpd-baseline.json` records them.
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage
   line stays beside these (#147 and #148 retros: in both, review found an edge untested).
+- A gap that a margin on one item makes ("32 px under the featured card") is also read at the
+  count where nothing follows that item: the list ends at its last item's box (#367 retro: the
+  featured card's margin left 16 px under it with one leader, and only the review read the case).
 - A spec sentence that lists parts, such as "the filter form, the empty state and the pager show
   at once", gets an assertion for each part, on a fixture that shows it: a pager needs more items
   than a page holds, an empty state a page past the last (#282 retro: #281's motion case for
