@@ -86,6 +86,13 @@ const LEADERSHIP_HEADING = {
 	lead: "ผู้บริหารของสำนักงานสาธารณสุขอำเภอสอง",
 } as const;
 const PERSONNEL = { path: "/about/personnel", title: "บุคลากร" } as const;
+
+/** What the Personnel page's heading on the deep field reads (spec #365 decision 4). */
+const PERSONNEL_HEADING = {
+	label: "เกี่ยวกับเรา",
+	title: PERSONNEL.title,
+	lead: "บุคลากรของสำนักงานสาธารณสุขอำเภอสอง แยกตามหน่วยงาน",
+} as const;
 const PAGES = [LEADERSHIP, PERSONNEL] as const;
 
 /** The heading of the Personnel whose unit is not set. */
@@ -175,15 +182,22 @@ test("/about/leadership and /about/personnel show their empty states while no pu
 		await expectAccessibleAtEachWidth(page, `${path} empty`);
 	}
 
-	// Leadership's empty state lies over the field's lower edge, as a list's does, and shows at once
-	// with motion allowed (Feature 012 #367; spec #365 decision 9, "Motion").
+	// Each page's empty state lies over the field's lower edge, as a list's does, and shows at once
+	// with motion allowed (Feature 012 #367, #370; spec #365 decision 9, "Motion").
 	await page.emulateMedia({ reducedMotion: "no-preference" });
-	await page.goto(LEADERSHIP.path);
-	const state = page.getByRole("main").getByText("ยังไม่มีข้อมูลผู้บริหาร", { exact: true });
-	await expect(state).toBeVisible();
-	expect(await entersAfter(state), "the empty state shows at once").toBe(-1);
-	// The message's white card is the block that follows the heading.
-	await expectStartsOverFieldEdge(page, state.locator("xpath=.."), "the message's card");
+	const emptyState = async (path: string, message: string) => {
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+		await page.goto(path);
+		const state = page.getByRole("main").getByText(message, { exact: true });
+		await expect(state).toBeVisible();
+		expect(await entersAfter(state), `${path}: the empty state shows at once`).toBe(-1);
+		// The message's white card is the block that follows the heading.
+		return state.locator("xpath=..");
+	};
+	const leadership = await emptyState(LEADERSHIP.path, "ยังไม่มีข้อมูลผู้บริหาร");
+	await expectStartsOverFieldEdge(page, leadership, `${LEADERSHIP.path}: the message's card`);
+	const personnel = await emptyState(PERSONNEL.path, "ยังไม่มีข้อมูลบุคลากร");
+	await expectStartsOverFieldEdge(page, personnel, `${PERSONNEL.path}: the message's card`);
 });
 
 test("/about/leadership lists the publicly visible Personnel with a Leadership order, ascending with ties by name in Thai order", async ({
@@ -349,6 +363,10 @@ test("each person shows their profile image, cropped around its top or around it
 		...[withoutContact, focused, gone].map(({ title }) => title),
 	]);
 	await page.goto(PERSONNEL.path);
+	await expect(
+		listedItem(page, withContact.title),
+		"a person's row leaves out the unit its panel names",
+	).not.toContainText(unit);
 	expect(await namesIn(page, unit), "the unit's heading names the unit").toEqual([
 		withContact.title,
 		withoutContact.title,
@@ -386,14 +404,18 @@ testHeadingOnField({
 const LONG_NAME = "ผู้บริหารที่มีชื่อและนามสกุลยาวมากเพื่อดูการตัดบรรทัดของการ์ด";
 const LONG_POSITION = "นักวิชาการสาธารณสุขชำนาญการพิเศษรักษาราชการแทนสาธารณสุขอำเภอสอง";
 
+/** A unit's name as long as the longest the suites hold. */
+const LONG_UNIT = "หน่วยงานทดสอบการเข้าถึงที่มีชื่อยาวมากเพื่อดูการตัดบรรทัด";
+
 /**
- * How many leaders' cards sit in each row under the featured card at `width`, `others` of them
- * (spec #365 decision 8): three to a row from 1,024 px, two from 640 px and one below.
+ * How many of `count` leaders' cards under the featured card, or of a unit's people in its panel,
+ * sit in each row at `width` (spec #365 decision 8): three to a row from 1,024 px, two from 640 px
+ * and one below.
  */
-function rowsOf(others: number, width: number): number[] {
+function rowsOf(count: number, width: number): number[] {
 	const across = width >= 1024 ? 3 : width >= 640 ? 2 : 1;
-	return Array.from({ length: Math.ceil(others / across) }, (_, row) =>
-		Math.min(across, others - row * across),
+	return Array.from({ length: Math.ceil(count / across) }, (_, row) =>
+		Math.min(across, count - row * across),
 	);
 }
 
@@ -540,6 +562,35 @@ async function leaderLook(card: Locator, position: string, unit: string) {
 	};
 }
 
+/**
+ * The colour tokens a leader's card and a unit's panel are read against, by name, and the text
+ * style that `textStyle` reads for a text at `size` px and `weight` in the token `tone`.
+ */
+async function personColours(page: Page) {
+	const colour = Object.fromEntries(
+		await Promise.all(
+			[
+				"surface-base",
+				"surface-soft",
+				"text-primary",
+				"text-secondary",
+				"brand-primary",
+				"accent-warm",
+				"border-default",
+			].map(async (name) => [name, await tokenColor(page, name)] as const),
+		),
+	);
+	return {
+		colour,
+		text: (size: number, weight: string, tone: string) => ({
+			size,
+			weight,
+			colour: colour[tone],
+			underline: false,
+		}),
+	};
+}
+
 test("the featured card is white with the deep shadow and radius 24, its ringed circle 96 px and from 640 px 128 px with a 6 px gap and the 3 px accent-warm ring above the text and from 640 px beside it, the name an H2 at H3 size and from 640 px H2 size, the position at body-large in brand-primary, the unit at small size in text-secondary, and from 640 px a surface-soft circle at its lower right; another leader's card is white with the card shadow and radius 24, its ringed circle 60 px and from 640 px 76 px with a 4 px gap and the 2 px border-default ring beside the text, the name at body-large semibold in text-primary, the position in text-secondary and the unit at small size in brand-primary", async ({
 	page,
 }) => {
@@ -569,26 +620,8 @@ test("the featured card is white with the deep shadow and radius 24, its ringed 
 	});
 	await publish(first, other);
 	await page.goto(LEADERSHIP.path);
-	const colour = Object.fromEntries(
-		await Promise.all(
-			[
-				"surface-base",
-				"surface-soft",
-				"text-primary",
-				"text-secondary",
-				"brand-primary",
-				"accent-warm",
-				"border-default",
-			].map(async (name) => [name, await tokenColor(page, name)] as const),
-		),
-	);
+	const { colour, text } = await personColours(page);
 	const [deep, card] = [await tokenShadow(page, "deep"), await tokenShadow(page, "card")];
-	const text = (size: number, weight: string, tone: string) => ({
-		size,
-		weight,
-		colour: colour[tone],
-		underline: false,
-	});
 
 	const seen: Record<string, unknown> = {};
 	const expected: Record<string, unknown> = {};
@@ -737,12 +770,362 @@ test.describe("/about/leadership without JavaScript", () => {
 	});
 });
 
+// The Personnel page on the deep field (Feature 012 #370; spec #365 decisions 4, 8, 9 and 12,
+// "Personnel"): its heading as every list's (public.helpers.ts testHeadingOnField), then a white
+// panel per unit over the field's lower edge, its people inside as compact rows.
+testHeadingOnField({
+	path: PERSONNEL.path,
+	crumbs: [HOME_CRUMB, SECTION_CRUMBS.about],
+	heading: PERSONNEL_HEADING,
+	icon: "users-round",
+});
+
+/** The units' panels on /about/personnel, in order, and the block that holds them. */
+function unitPanels(page: Page) {
+	const panels = page.getByRole("main").getByRole("region");
+	return { panels, block: panels.first().locator("xpath=..") };
+}
+
+/** The head of a unit's panel, which holds its H2 and lies over its rule. */
+const panelHead = (panel: Locator) => panel.getByRole("heading", { level: 2 }).locator("xpath=..");
+
+/**
+ * Where /about/personnel's panels for `units` lie as the page is laid out now: the room between two
+ * panels, and in each panel its people's names, the rows they sit in, how far under the rule the
+ * first row starts, and the room between two of them across and down ("none" where there is no
+ * such pair).
+ */
+async function panelsLayout(page: Page, units: string[]) {
+	const apart: number[] = [];
+	const panels: Record<string, unknown> = {};
+	let above: { y: number; height: number } | undefined;
+	for (const unit of units) {
+		const panel = unitSection(page, unit);
+		const box = await boxOf(panel, unit);
+		if (above) apart.push(Math.round(box.y - (above.y + above.height)));
+		above = box;
+		const people = panel.getByRole("listitem");
+		const boxes = await people.evaluateAll((elements) =>
+			elements.map((element) => {
+				const { x, y, width, bottom } = element.getBoundingClientRect();
+				return { x, y, width, bottom };
+			}),
+		);
+		const tops = [...new Set(boxes.map(({ y }) => Math.round(y)))];
+		const firstRow = boxes.filter(({ y }) => Math.round(y) === tops[0]);
+		const head = await boxOf(panelHead(panel), `${unit}: the head`);
+		panels[unit] = {
+			names: (await panel.getByRole("heading", { level: 3 }).allTextContents()).map((text) =>
+				text.trim(),
+			),
+			rows: await itemsPerRow(people),
+			underRule: Math.round(boxes[0]!.y - (head.y + head.height)),
+			across:
+				firstRow.length > 1
+					? Math.round(firstRow[1]!.x - (firstRow[0]!.x + firstRow[0]!.width))
+					: "none",
+			down:
+				tops.length > 1
+					? Math.round(tops[1]! - Math.max(...firstRow.map(({ bottom }) => bottom)))
+					: "none",
+		};
+	}
+	return { apart, panels };
+}
+
+test("/about/personnel shows a panel per unit in Thai order, 24 px apart, each its people as H3s by name, one to a row below 640 px, two from 640 px and three from 1,024 px, 24 px across and 20 px down, starting 20 px under the panel's rule, at one, two and four people, with nothing past the window", async ({
+	page,
+}) => {
+	test.setTimeout(240_000);
+	await borrowPersonnel();
+	const run = crypto.randomUUID().slice(0, 6);
+	// The suite's longest unit, name and position; the last letters keep the units' Thai order.
+	const units = ["ก", "ข", "ค"].map((letter) => marked(`${LONG_UNIT}${letter}`, run));
+	const counts = [1, 2, 4];
+	const people: DraftFixture[][] = [];
+	for (const [index, count] of counts.entries()) {
+		const unitPeople: DraftFixture[] = [];
+		for (const letter of "กขคง".slice(0, count)) {
+			unitPeople.push(
+				await createPerson(`${LONG_NAME}${letter}`, {
+					organizational_unit: units[index],
+					current_assignment: marked(LONG_POSITION, run),
+				}),
+			);
+		}
+		people.push(unitPeople);
+	}
+	await publish(...people.flat());
+	await page.goto(PERSONNEL.path);
+	expect(await unitHeadings(page), "a panel per unit, in Thai order").toEqual(units);
+
+	const seen: Record<string, unknown> = {};
+	const expected: Record<string, unknown> = {};
+	for (const width of [1440, 1024, 1023, 768, 640, 639, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		await expectNoHorizontalScroll(page, `${PERSONNEL.path} at ${width} px`);
+		seen[`at ${width}`] = await panelsLayout(page, units);
+		expected[`at ${width}`] = {
+			apart: [24, 24],
+			panels: Object.fromEntries(
+				units.map((unit, index) => {
+					const rows = rowsOf(counts[index]!, width);
+					return [
+						unit,
+						{
+							names: people[index]!.map(({ title }) => title),
+							rows,
+							underRule: 20,
+							across: rows[0]! > 1 ? 24 : "none",
+							down: rows.length > 1 ? 20 : "none",
+						},
+					];
+				}),
+			),
+		};
+	}
+	expect(seen, "the panels and their rows by count").toEqual(expected);
+});
+
+/**
+ * A unit's panel as the page is laid out now: its surface and padding, its head's tile, icon,
+ * heading and rule, and the row of the person named `name` in it with its ringed circle, the
+ * styles of its name, `position`, the label over the contact and `contact`, and where its picture
+ * lies beside the name. A part the panel lacks reads "none".
+ */
+async function panelLook(
+	panel: Locator,
+	name: string,
+	{ position, contact }: { position: string; contact: string },
+) {
+	const box = await boxOf(panel, "the panel");
+	const head = panelHead(panel);
+	const heading = panel.getByRole("heading", { level: 2 });
+	const tile = head.locator(':scope > [aria-hidden="true"]');
+	let tiled: unknown = "none";
+	let padding: unknown = "none";
+	let rule: unknown = "none";
+	if ((await tile.count()) === 1) {
+		const [own, title] = [await boxOf(tile, "the tile"), await boxOf(heading, "the heading")];
+		const icon = tile.locator("svg");
+		tiled = {
+			size: [Math.round(own.width), Math.round(own.height)],
+			colour: await tile.evaluate((element) => getComputedStyle(element).backgroundColor),
+			icon:
+				(await icon.count()) === 1
+					? {
+							size: Math.round((await boxOf(icon, "the icon")).width),
+							colour: await icon.evaluate((element) => getComputedStyle(element).color),
+						}
+					: "none",
+			besideHeading: own.x + own.width <= title.x,
+		};
+		padding = { left: Math.round(own.x - box.x), top: Math.round(own.y - box.y) };
+		rule = await head.evaluate(
+			(element, { bottom }) => {
+				const style = getComputedStyle(element);
+				const width = parseFloat(style.borderBottomWidth);
+				return {
+					width,
+					colour: style.borderBottomColor,
+					under: Math.round(element.getBoundingClientRect().bottom - width - bottom),
+				};
+			},
+			{ bottom: Math.max(own.y + own.height, title.y + title.height) },
+		);
+	}
+	const row = panel.getByRole("article").filter({ hasText: name });
+	const frame = row.getByTestId("person-picture");
+	const [picture, title] = [
+		await boxOf(row.locator('img, [data-testid="person-visual"]').first(), "the picture"),
+		await boxOf(row.getByRole("heading", { level: 3 }), "the name"),
+	];
+	return {
+		...(await panel.evaluate((element) => {
+			const style = getComputedStyle(element);
+			return {
+				background: style.backgroundColor,
+				shadow: style.boxShadow,
+				radius: style.borderTopLeftRadius,
+			};
+		})),
+		padding,
+		tile: tiled,
+		heading: await textStyle(heading),
+		rule,
+		ringed: (await frame.count()) === 1 ? await ringedCircle(frame) : "no ringed circle",
+		name: await textStyle(row.getByRole("heading", { level: 3 })),
+		position: await textStyle(row.getByText(position, { exact: true })),
+		label: await textStyle(row.getByText(CONTACT_LABEL, { exact: true })),
+		contact: await textStyle(row.getByText(contact, { exact: true })),
+		picture: picture.x + picture.width <= title.x ? "beside" : "not beside",
+	};
+}
+
+test("a unit's panel is white with the card shadow and radius 24 and 20 px of padding, 28 px from 640 px; its head a 40 px surface-soft tile with the 20 px users-round in brand-primary beside the unit's name, an H2 at H3 size in text-primary, over a 1 px border-default rule 16 px under them; a person's row has the ringed circle at 52 px, 60 px from 640 px, with a 2 px gap and the 2 px border-default ring beside the name, an H3 at body size, semibold, in text-primary, the position at label size in text-secondary and the public contact under ช่องทางติดต่อ at small size", async ({
+	page,
+}) => {
+	await borrowPersonnel();
+	const run = crypto.randomUUID().slice(0, 6);
+	const media = await uploadSyntheticMedia(admin);
+	expect(media.mediaId, "the synthetic profile image must upload").toBeDefined();
+	const [unit, position, contact] = ["หน่วยบริหาร", "นักวิชาการสาธารณสุข", "โทร 000-000-0000"].map(
+		(words) => marked(words, run),
+	) as [string, string, string];
+	const person = await createPerson("สมศรี", {
+		profile_image: { id: media.mediaId },
+		current_assignment: position,
+		organizational_unit: unit,
+		public_contact: contact,
+	});
+	await publish(person);
+	await page.goto(PERSONNEL.path);
+	const { colour, text } = await personColours(page);
+	const shadow = await tokenShadow(page, "card");
+
+	const seen: Record<string, unknown> = {};
+	const expected: Record<string, unknown> = {};
+	for (const width of [1440, 1024, 640, 639, 375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		await expectNoHorizontalScroll(page, `${PERSONNEL.path} at ${width} px`);
+		const wide = width >= 640;
+		seen[`at ${width}`] = await panelLook(unitSection(page, unit), person.title, {
+			position,
+			contact,
+		});
+		expected[`at ${width}`] = {
+			background: colour["surface-base"],
+			shadow,
+			radius: "24px",
+			padding: { left: wide ? 28 : 20, top: wide ? 28 : 20 },
+			tile: {
+				size: [40, 40],
+				colour: colour["surface-soft"],
+				icon: { size: 20, colour: colour["brand-primary"] },
+				besideHeading: true,
+			},
+			heading: text(24, "600", "text-primary"),
+			rule: { width: 1, colour: colour["border-default"], under: 16 },
+			ringed: {
+				circle: wide ? 60 : 52,
+				gap: 2,
+				ring: { width: 2, colour: colour["border-default"] },
+			},
+			name: text(16, "600", "text-primary"),
+			position: text(14, "400", "text-secondary"),
+			label: text(13, "500", "text-secondary"),
+			contact: text(13, "400", "text-primary"),
+			picture: "beside",
+		};
+	}
+	expect(seen, "a unit's panel and a person's row").toEqual(expected);
+});
+
+test("the field of /about/personnel has the corner glow and, from 1,024 px only, the large ring", async ({
+	page,
+}) => {
+	await page.goto(PERSONNEL.path);
+	expect(await readListField(page), "the field's glow and ring").toEqual(LIST_FIELD_LOOK);
+});
+
+test("the units' panels start over the field's lower edge, 64 px above it below 640 px and 88 px from 640 px, where the lead ends 96 px and 128 px above it, and no panel holds a focus ring that meets the field", async ({
+	page,
+}) => {
+	await publish(await createPerson("บุคลากรขอบแถบ"));
+	await page.goto(PERSONNEL.path);
+	const heading = listHeading(page, PERSONNEL_HEADING);
+	await expectBlocksOverFieldEdge(
+		page,
+		heading.field,
+		[heading.lead],
+		[["the units", unitPanels(page).block]],
+	);
+});
+
+test("/about/personnel moves only when motion is allowed: the heading and then the lead rise in as the page opens while the breadcrumb shows at once, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
+	page,
+}) => {
+	test.setTimeout(120_000);
+	await publish(await createPerson("บุคลากรเคลื่อนไหว"));
+	await expectListMovesOnlyWhenAllowed(
+		page,
+		PERSONNEL.path,
+		listHeading(page, PERSONNEL_HEADING),
+		[],
+		{ grid: unitPanels(page).block },
+	);
+});
+
+test("with motion allowed each unit's panel on /about/personnel waits below the window and shows as it comes into it", async ({
+	page,
+}) => {
+	const run = crypto.randomUUID().slice(0, 6);
+	for (const letter of ["ก", "ข", "ค"]) {
+		await publish(
+			await createPerson(`บุคลากรปรากฏ${letter}`, {
+				organizational_unit: marked(`หน่วยปรากฏ${letter}`, run),
+			}),
+		);
+	}
+	// A window shorter than the field puts the panels well below it as the page opens.
+	const short = { width: 1440, height: 200 };
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.setViewportSize(short);
+	await page.goto(PERSONNEL.path);
+	const { panels } = unitPanels(page);
+	const seen: Record<string, number> = {};
+	const expected: Record<string, number> = {};
+	// Every panel is read before any comes into the window.
+	for (const [index, panel] of (await panels.all()).entries()) {
+		expect((await boxOf(panel, "a panel")).y, "a panel lies below the window").toBeGreaterThan(
+			short.height,
+		);
+		seen[`panel ${index + 1} below the window`] = await shownOpacity(panel);
+		expected[`panel ${index + 1} below the window`] = 0;
+	}
+	for (const panel of await panels.all()) {
+		await panel.scrollIntoViewIfNeeded();
+		await expect
+			.poll(() => shownOpacity(panel), { message: "a panel in the window shows" })
+			.toBe(1);
+	}
+	expect(seen, "each panel waits below the window").toEqual(expected);
+});
+
+test.describe("/about/personnel without JavaScript", () => {
+	test.use({ javaScriptEnabled: false });
+
+	test("/about/personnel shows its heading with its label and its lead, and each unit's panel", async ({
+		page,
+	}) => {
+		await borrowPersonnel();
+		const run = crypto.randomUUID().slice(0, 6);
+		const units = ["ก", "ข"].map((letter) => marked(`หน่วยไม่ใช้สคริปต์${letter}`, run));
+		for (const unit of units) {
+			await publish(await createPerson("บุคลากรไม่ใช้สคริปต์", { organizational_unit: unit }));
+		}
+		await page.goto(PERSONNEL.path);
+		const heading = listHeading(page, PERSONNEL_HEADING);
+		const seen: Record<string, unknown> = {
+			title: (await page.getByRole("heading", { level: 1 }).textContent())?.trim(),
+			label: await shownWhole(heading.label),
+			lead: await shownWhole(heading.lead),
+		};
+		const expected: Record<string, unknown> = { title: PERSONNEL.title, label: true, lead: true };
+		for (const unit of units) {
+			seen[unit] = await shownWhole(unitSection(page, unit));
+			expected[unit] = true;
+		}
+		expect(seen, "the page without JavaScript").toEqual(expected);
+	});
+});
+
 test.describe("accessibility and reflow", () => {
 	test.beforeAll(async () => {
 		const run = crypto.randomUUID().slice(0, 6);
 		const media = await uploadSyntheticMedia(admin);
 		expect(media.mediaId, "the synthetic profile image must upload").toBeDefined();
-		const unit = marked("หน่วยงานทดสอบการเข้าถึงที่มีชื่อยาวมากเพื่อดูการตัดบรรทัด", run);
+		const unit = marked(LONG_UNIT, run);
 		await publish(
 			await createPerson("ผู้บริหารทดสอบการเข้าถึง", {
 				prefix: "นายแพทย์",
