@@ -59,6 +59,16 @@ const SUITE = [
 	/* 45 */ "\t}",
 	/* 46 */ "\tawait expect(page).toHaveURL(HOME);",
 	/* 47 */ "});",
+	/* 48 */ "",
+	/* 49 */ 'test("a card at rest", async ({ page }) => {',
+	/* 50 */ "\tawait expect(card).toBeVisible();",
+	/* 51 */ "\texpect(await read(card)).toEqual({",
+	/* 52 */ "\t\tshadow: expect.stringMatching(/0px 10px 15px 0px$/),",
+	/* 53 */ "\t\tname: expect.any(String),",
+	/* 54 */ "\t\tbox: expect.objectContaining({ width: 320 }),",
+	/* 55 */ '\t\tlabels: expect.not.arrayContaining([""]),',
+	/* 56 */ "\t});",
+	/* 57 */ "});",
 ].join("\n");
 
 describe("a failed test's unrun assertions", () => {
@@ -86,6 +96,14 @@ describe("a failed test's unrun assertions", () => {
 		// test ends at the line that closes the call (#329, found by #316's red run).
 		assert.deepEqual(stoppedShort(SUITE, 38, 42), { after: 2, inLoop: false });
 		assert.deepEqual(stoppedShort(SUITE, 38, 44), { after: 1, inLoop: true });
+	});
+
+	it("reads a matcher inside the expected value as part of the assertion it sits in", () => {
+		// expect.stringMatching, expect.any and the other asymmetric matchers assert nothing alone: a
+		// test that fails at a toEqual holding them fails at its last assertion (#340 retro: the red
+		// run read the Homepage's Service card test as stopped short).
+		assert.deepEqual(stoppedShort(SUITE, 49, 51), { after: 0, inLoop: false });
+		assert.deepEqual(stoppedShort(SUITE, 49, 50), { after: 1, inLoop: false });
 	});
 
 	it("reads nothing for a failure outside the test, such as a hook's", () => {

@@ -56,7 +56,9 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
-	pressInside,
+	isoDay,
+	pointAt,
+	pressOpens,
 	SECTION_CRUMBS,
 	boxOf,
 	cardOverFieldEdge,
@@ -64,17 +66,27 @@ import {
 	detailOf,
 	entersAfter,
 	expect,
+	expectAttentionLabelsOnOwnLine,
 	expectBreadcrumb,
+	expectSecondLinkPlaces,
 	expectFilteredEmpty,
 	expectPreviewRenders,
 	expectSiteNotFound,
 	expectVisuallyHidden,
 	fieldParts,
+	fileBlockAt,
+	fileBlockAsSpecified,
+	fileBlockLook,
+	fileBlockLookAsSpecified,
+	fileBlockOf,
+	expectPostTitleSizes,
+	unavailableNoticeIn,
 	gutterAt,
 	HEADER_WIDEST,
 	listedItem,
 	listedTitles,
 	offeredLabels,
+	rowShadow,
 	ownTitles,
 	pillStyle,
 	shownLines,
@@ -83,6 +95,7 @@ import {
 	test,
 	testAccessibilityAndReflow,
 	testListOnField,
+	textStyle,
 	thaiDate,
 	tokenColor,
 } from "./public.helpers";
@@ -149,7 +162,7 @@ testListOnField({
 		await publishEntryAt(admin, "documents", document.id, LIST_END);
 		return document;
 	},
-	rowsMove: true,
+	itemsMove: "rows",
 });
 
 test("/documents lists only published Documents, newest first, each row with its type, date, fiscal year, file type and size", async ({
@@ -198,8 +211,7 @@ test("/documents lists only published Documents, newest first, each row with its
 });
 
 /** The `day`th of `month` 2031, after any real Document, so the row leads the list. */
-const in2031 = (month: number, day: number) =>
-	`2031-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
+const in2031 = (month: number, day: number) => isoDay(2031, month, day);
 
 /** The 2031 Documents a test published, returned to draft after it (`publishLeading`). */
 const leading = new LeadingEntries();
@@ -227,19 +239,6 @@ function rowParts(row: Locator) {
 		download: row.getByRole("link", { name: /^ดาวน์โหลด/ }),
 		facts: row.locator("time").locator("xpath=.."),
 	};
-}
-
-/** The text styles of `part` as the page is laid out now. */
-function textStyle(part: Locator) {
-	return part.evaluate((element) => {
-		const style = getComputedStyle(element);
-		return {
-			size: parseFloat(style.fontSize),
-			weight: style.fontWeight,
-			colour: style.color,
-			underline: style.textDecorationLine.includes("underline"),
-		};
-	});
 }
 
 test("each /documents row: the file's tile with file-text and the file's type, 68 px below 640 px and 92 px from 640 px; the facts line; the title as an H2 in two lines at most, linking to its page; from 640 px the summary in two lines at most; exactly two links; rows 14 px apart", async ({
@@ -447,32 +446,18 @@ test("a superseded or an expired Document's row shows its attention label on its
 	await expect(listedItem(page, current.title)).not.toContainText(
 		/ถูกแทนที่แล้ว|หมดอายุแล้ว|ฉบับปัจจุบัน/,
 	);
-	const seen: Record<string, unknown> = {};
-	const expected: Record<string, unknown> = {};
-	for (const [document, label] of [
-		[superseded, "ถูกแทนที่แล้ว"],
-		[expired, "หมดอายุแล้ว"],
-	] as const) {
-		const row = listedItem(page, document.title);
-		const { facts, title } = rowParts(row);
-		const status = row.getByText(label, { exact: true });
-		const [factsBox, statusBox, titleBox] = [
-			await boxOf(facts, `${label}: the facts`),
-			await boxOf(status, `${label}: the label`),
-			await boxOf(title, `${label}: the title`),
-		];
-		seen[label] = {
-			underFacts: statusBox.y >= factsBox.y + factsBox.height - 0.5,
-			aboveTitle: titleBox.y >= statusBox.y + statusBox.height - 0.5,
-			fill: await status.evaluate((element) => getComputedStyle(element).backgroundColor),
-		};
-		expected[label] = {
-			underFacts: true,
-			aboveTitle: true,
-			fill: await tokenColor(page, "accent-warm"),
-		};
-	}
-	expect(seen, "the attention label on its own line").toEqual(expected);
+	await expectAttentionLabelsOnOwnLine(
+		page,
+		(
+			[
+				[superseded, "ถูกแทนที่แล้ว"],
+				[expired, "หมดอายุแล้ว"],
+			] as const
+		).map(([document, label]) => {
+			const row = listedItem(page, document.title);
+			return { ...rowParts(row), row, label };
+		}),
+	);
 });
 
 test("a row's download sits at the row's right from 1,024 px, under the text at its start from 640 px to 1,023 px, and across the row under the tile and the text below 640 px", async ({
@@ -487,48 +472,7 @@ test("a row's download sits at the row's right from 1,024 px, under the text at 
 	const row = listedItem(page, document.title);
 	const { tile, title, download } = rowParts(row);
 	await expect(row.getByRole("link", { name: document.title, exact: true })).toBeVisible();
-	/** Where the download lies against the row, its tile and its text, rounded to the pixel. */
-	const placeOf = async () => {
-		if ((await download.count()) === 0) return "no download";
-		const [rowBox, tileBox, textBox, linkBox] = [
-			await boxOf(row, "the row"),
-			await boxOf(tile, "the tile"),
-			await boxOf(title, "the title"),
-			await boxOf(download, "the download"),
-		];
-		const near = (a: number, b: number) => Math.abs(a - b) <= 1;
-		const textBottom = Math.max(textBox.y + textBox.height, tileBox.y + tileBox.height);
-		if (linkBox.x >= textBox.x + textBox.width - 0.5 && linkBox.y < textBox.y + textBox.height) {
-			return "beside the text, at the row's right";
-		}
-		if (linkBox.y >= textBottom - 0.5 && near(linkBox.x, textBox.x)) {
-			return "under the text, at its start";
-		}
-		if (
-			linkBox.y >= textBottom - 0.5 &&
-			near(linkBox.x, tileBox.x) &&
-			near(linkBox.x + linkBox.width, rowBox.x + rowBox.width - (tileBox.x - rowBox.x))
-		) {
-			return "across the row, under the tile and the text";
-		}
-		return `elsewhere: ${JSON.stringify({ rowBox, tileBox, textBox, linkBox })}`;
-	};
-	const seen: Record<number, string> = {};
-	const expected: Record<number, string> = {};
-	for (const [width, place] of [
-		[1440, "beside the text, at the row's right"],
-		[1024, "beside the text, at the row's right"],
-		[1023, "under the text, at its start"],
-		[640, "under the text, at its start"],
-		[639, "across the row, under the tile and the text"],
-		[375, "across the row, under the tile and the text"],
-		[320, "across the row, under the tile and the text"],
-	] as const) {
-		await page.setViewportSize({ width, height: 900 });
-		seen[width] = await placeOf();
-		expected[width] = place;
-	}
-	expect(seen, "the download's place by width").toEqual(expected);
+	await expectSecondLinkPlaces(page, { row, tile, title, link: download }, "download");
 });
 
 test("a row's title and download are its two focus stops; under the pointer its title turns brand-primary and underlined on its own link only, the download's fill turns brand-dark, the row takes the deep shadow only when motion is allowed, and a press elsewhere on the row opens nothing", async ({
@@ -539,30 +483,9 @@ test("a row's title and download are its two focus stops; under the pointer its 
 	const second = await createDocument("pointer-second", dated);
 	await publishLeading(first, in2031(6, 2));
 	await publishLeading(second, in2031(6, 1));
-	/** The row's shadow: the `deep` one under the pointer, else the `card` one. */
-	const shadowOf = (row: Locator) =>
-		row.evaluate((article) => {
-			const shadow = getComputedStyle(article).boxShadow;
-			return shadow.includes("0px 30px 60px -20px")
-				? "deep"
-				: shadow.includes("0px 10px 15px")
-					? "card"
-					: shadow;
-		});
-	/** Point at the middle of `part` once its row has come in, and give a move 0.5 s. */
-	const pointAt = async (part: Locator) => {
-		const box = await boxOf(part, "where the pointer goes");
-		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-		await page.waitForTimeout(500);
-	};
 	/** Press `x`, `y` on `target` and say which address the page then shows. */
-	const pressAt = async (target: Locator, x: number, y: number, label: string) => {
-		await pressInside(page, target, { x, y }, label);
-		await page.waitForURL(/\/documents\/./, { timeout: 2_000 }).catch(() => undefined);
-		const opened = new URL(page.url()).pathname;
-		if (opened !== "/documents") await page.goBack();
-		return opened;
-	};
+	const pressAt = (target: Locator, x: number, y: number, label: string) =>
+		pressOpens(page, target, { x, y }, label, "/documents");
 
 	await page.goto("/documents");
 	const row = listedItem(page, first.title);
@@ -578,11 +501,11 @@ test("a row's title and download are its two focus stops; under the pointer its 
 	await page.keyboard.press("Tab");
 	const afterThat = await focused(rowParts(listedItem(page, second.title)).title.getByRole("link"));
 
-	await pointAt(away);
-	const onTile = { title: await textStyle(titleLink), row: await shadowOf(row) };
-	await pointAt(titleLink);
+	await pointAt(page, away);
+	const onTile = { title: await textStyle(titleLink), row: await rowShadow(row) };
+	await pointAt(page, titleLink);
 	const onTitle = await textStyle(titleLink);
-	await pointAt(download);
+	await pointAt(page, download);
 	const downloadFill = await download.evaluate((link) => getComputedStyle(link).backgroundColor);
 	const tileBox = await boxOf(away, "the tile");
 	const rowBox = await boxOf(row, "the row");
@@ -603,8 +526,8 @@ test("a row's title and download are its two focus stops; under the pointer its 
 	await expect
 		.poll(() => shownOpacity(listedItem(page, first.title)), { message: "the row has come in" })
 		.toBe(1);
-	await pointAt(away);
-	const moving = await shadowOf(listedItem(page, first.title));
+	await pointAt(page, away);
+	const moving = await rowShadow(listedItem(page, first.title));
 
 	const [primary, text, dark] = [
 		await tokenColor(page, "brand-primary"),
@@ -1036,61 +959,15 @@ test("a Document whose file was deleted shows the unavailable notice first in it
 
 	await page.goto(`/documents/${document.slug}`);
 	const card = fieldParts(page).card;
-	const heading = card.getByRole("heading", { level: 2, name: "ไฟล์เอกสาร" });
-	const notice = card.getByText("ไฟล์ไม่พร้อมให้บริการ", { exact: true });
-	const inCard = (await heading.count()) === 1 && (await notice.count()) === 1;
+	const notice = await unavailableNoticeIn(card, "ไฟล์เอกสาร", "ไฟล์ไม่พร้อมให้บริการ");
 	expect(
-		inCard && {
-			headingFirst: Math.round(
-				(await boxOf(heading, "the H2")).y - (await boxOf(card, "the card")).y,
-			),
-			noticeUnderHeading:
-				(await boxOf(notice, "the notice")).y > (await boxOf(heading, "the H2")).y,
-			asks: await card.getByText("หากต้องการเอกสารนี้ โปรดติดต่อสำนักงาน", { exact: true }).count(),
-			contact: await card
-				.getByRole("link", { name: "ติดต่อเรา", exact: true })
-				.getAttribute("href"),
-			tiles: await card.locator("svg.lucide-file-text").count(),
-		},
+		notice && { ...notice, tiles: await card.locator("svg.lucide-file-text").count() },
 		"the unavailable notice first in the card",
 	).toEqual({ headingFirst: 20, noticeUnderHeading: true, asks: 1, contact: "/contact", tiles: 0 });
 });
 
 /** A Document's summary in two lines, as staff typed them. */
 const FIELD_SUMMARY = `${SYNTHETIC_FIXTURE_MARK} แผนปฏิบัติการด้านสุขภาพของเครือข่าย\nฉบับปรับปรุงประจำปีงบประมาณ`;
-
-/** A part's type size, weight and colour as the page is laid out now. */
-function typeOf(part: Locator) {
-	return part.evaluate((element) => {
-		const style = getComputedStyle(element);
-		return [parseFloat(style.fontSize), style.fontWeight, style.color];
-	});
-}
-
-/**
- * How a download's words lie in it: on how many lines they and their type and size in parentheses
- * run, how they align, and whether they keep 8 px or more from its upper and lower edges.
- */
-function wordsIn(download: Locator) {
-	return download.evaluate((link) => {
-		const size = [...link.querySelectorAll("span")].find((span) =>
-			span.textContent?.trim().startsWith("("),
-		);
-		const words = size?.parentElement;
-		if (!size || !words) return "no type and size";
-		const box = link.getBoundingClientRect();
-		const text = words.getBoundingClientRect();
-		const range = document.createRange();
-		range.selectNodeContents(words);
-		const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
-		return {
-			lines: tops.size,
-			align: getComputedStyle(words).textAlign,
-			sizeLines: size.getClientRects().length,
-			inset: Math.min(text.top - box.top, box.bottom - text.bottom) >= 8 - 0.5,
-		};
-	});
-}
 
 test.describe("a Document's page on the field", () => {
 	/** A type, the summary, every detail, current: its type's pill alone. */
@@ -1143,19 +1020,7 @@ test.describe("a Document's page on the field", () => {
 		const parts = fieldParts(page);
 		// What today's page already shows: one H1 in its sizes, and no publication date.
 		await page.goto(pathOf(superseded));
-		await expect(page.getByRole("heading", { level: 1 }), "one H1").toHaveCount(1);
-		for (const [width, size] of [
-			[639, "24px"],
-			[640, "34px"],
-			[1023, "34px"],
-			[1024, "46px"],
-		] as const) {
-			await page.setViewportSize({ width, height: 900 });
-			await expect(
-				page.getByRole("heading", { level: 1 }),
-				`the title at ${width} px: H3 below 640 px, H2 from 640 px and H1 from 1,024 px`,
-			).toHaveCSS("font-size", size);
-		}
+		await expectPostTitleSizes(page);
 		await expect(main.getByText(/^เผยแพร่ /), "no publication date").toHaveCount(0);
 
 		const white = await tokenColor(page, "surface-base");
@@ -1296,125 +1161,17 @@ test.describe("a Document's page on the field", () => {
 	}) => {
 		// A superseded Document's download is a current one's (#315 comment 6909993217).
 		await page.goto(pathOf(superseded));
-		const card = fieldParts(page).card;
-		const tile = card.locator("svg.lucide-file-text").locator("xpath=..");
-		const heading = card.getByRole("heading", { level: 2, name: "ไฟล์เอกสาร" });
-		const typeAndSize = card.getByText("PDF, 11.8 KB", { exact: true });
-		const download = card.getByRole("link", {
-			name: "ดาวน์โหลดเอกสาร (PDF, 11.8 KB)",
-			exact: true,
-		});
-		const rule = card.getByRole("separator");
-		const details = card.locator("dl");
-		const found = (await download.count()) === 1 && (await rule.count()) === 1;
-		const seen: Record<string, unknown> = {
-			parts: found && {
-				tile: await tile.evaluate((element) => ({
-					decorative: element.closest('[aria-hidden="true"]') !== null,
-					gradient: getComputedStyle(element).backgroundImage.includes("linear-gradient"),
-					type: element.textContent?.trim(),
-					typeColour: getComputedStyle(element.querySelector("span") ?? element).color,
-				})),
-				heading: await typeOf(heading),
-				typeAndSize: await typeOf(typeAndSize),
-				download: {
-					fill: await download.evaluate((link) => getComputedStyle(link).backgroundColor),
-					words: await typeOf(download),
-					typeAndSize: (await typeOf(download.getByText("(PDF, 11.8 KB)", { exact: true })))[1],
-					icon: await download.locator("svg.lucide-download").evaluate((icon) => {
-						const box = icon.getBoundingClientRect();
-						return [box.width, box.height];
-					}),
-					href: await download.getAttribute("href"),
-					filename: await download.getAttribute("download"),
-				},
-				rule: await rule.evaluate((element) => {
-					const style = getComputedStyle(element);
-					return [style.borderTopWidth, style.borderTopStyle, style.borderTopColor];
-				}),
-			},
-		};
+		const block = fileBlockOf(fieldParts(page).card, "ไฟล์เอกสาร", "PDF, 11.8 KB");
+		const look = await fileBlockLook(block);
+		const seen: Record<string, unknown> = { parts: look };
 		const expected: Record<string, unknown> = {
-			parts: {
-				tile: {
-					decorative: true,
-					gradient: true,
-					type: "PDF",
-					typeColour: await tokenColor(page, "accent-warm"),
-				},
-				heading: [18, "600", await tokenColor(page, "brand-dark")],
-				typeAndSize: [13, "400", await tokenColor(page, "text-secondary")],
-				download: {
-					fill: await tokenColor(page, "brand-primary"),
-					words: [14, "600", await tokenColor(page, "surface-base")],
-					typeAndSize: "400",
-					icon: [20, 20],
-					href: `/_emdash/api/media/file/${superseded.file.storageKey}`,
-					filename: superseded.file.filename,
-				},
-				rule: ["1px", "solid", await tokenColor(page, "border-default")],
-			},
+			parts: await fileBlockLookAsSpecified(page, "PDF", superseded.file),
 		};
 		for (const width of [320, 375, 639, 640, 1023, 1024, 1440]) {
-			if (!found) break;
-			await page.setViewportSize({ width, height: 900 });
-			const wide = width >= 640;
-			const at = `at ${width} px`;
-			const cardBox = await boxOf(card, `${at}: the card`);
-			const tileBox = await boxOf(tile, `${at}: the tile`);
-			const headingBox = await boxOf(heading, `${at}: the H2`);
-			const textBox = await boxOf(typeAndSize, `${at}: the type and size`);
-			const downloadBox = await boxOf(download, `${at}: the download`);
-			const ruleBox = await boxOf(rule, `${at}: the rule`);
-			const detailsBox = await boxOf(details, `${at}: the details`);
-			const inner = { left: cardBox.x + 20, width: cardBox.width - 40 };
-			const textEnd = Math.max(headingBox.x + headingBox.width, textBox.x + textBox.width);
-			const fileEnd = Math.max(tileBox.y + tileBox.height, downloadBox.y + downloadBox.height);
-			seen[width] = {
-				tileFirst: [Math.round(tileBox.x - inner.left), Math.round(tileBox.y - cardBox.y - 20)],
-				tile: [Math.round(tileBox.width), Math.round(tileBox.height)],
-				headingBesideTile: Math.round(headingBox.x - tileBox.x - tileBox.width),
-				sizeUnderHeading: Math.round(textBox.y - headingBox.y - headingBox.height),
-				download: wide
-					? {
-							right: Math.round(inner.left + inner.width - downloadBox.x - downloadBox.width),
-							height: Math.round(downloadBox.height),
-							besideText: downloadBox.x - textEnd >= 16,
-						}
-					: {
-							across: [Math.round(downloadBox.x - inner.left), Math.round(downloadBox.width)],
-							tall: downloadBox.height >= 44,
-							under: Math.round(
-								downloadBox.y - Math.max(tileBox.y + tileBox.height, textBox.y + textBox.height),
-							),
-						},
-				rule: [
-					Math.round(ruleBox.y - fileEnd),
-					Math.round(ruleBox.height),
-					Math.round(ruleBox.width),
-				],
-				detailsUnderRule: Math.round(detailsBox.y - ruleBox.y - ruleBox.height),
-				words: await wordsIn(download),
-			};
-			expected[width] = {
-				tileFirst: [0, 0],
-				tile: wide ? [92, 92] : [68, 68],
-				headingBesideTile: 16,
-				sizeUnderHeading: 0,
-				download: wide
-					? { right: 0, height: 52, besideText: true }
-					: { across: [0, Math.round(inner.width)], tall: true, under: 16 },
-				rule: [20, 1, Math.round(inner.width)],
-				detailsUnderRule: 20,
-				// The type and size stay on one line, and the words keep 8 px from the pill's edges
-				// when they take two lines.
-				words: {
-					lines: width === 320 ? 2 : 1,
-					align: "center",
-					sizeLines: 1,
-					inset: true,
-				},
-			};
+			if (!look) break;
+			seen[width] = await fileBlockAt(block, [block.typeAndSize], width);
+			// The type and size stay on one line, and the words take two lines at 320 px.
+			expected[width] = fileBlockAsSpecified(width, { lines: 1, wordLines: width === 320 ? 2 : 1 });
 		}
 		expect(seen, "the card's file block, rule and details").toEqual(expected);
 	});

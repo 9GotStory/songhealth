@@ -1908,7 +1908,14 @@ test("with one shortcut Quick Access shows it on the Homepage's card surface, af
 		await expect(link).toHaveCSS("background-color", await tokenColor(page, "surface-base"));
 		await expect(link).toHaveCSS("border-top-width", "0px");
 		await expect(link).not.toHaveCSS("box-shadow", "none");
+		// Its label is no heading, and its ring has no white band: /health's tiles take both over
+		// the field's edge (#339 comment 6941979791).
+		await expect(link.getByRole("heading"), "the shortcut's label").toHaveCount(0);
 		await expectFocusRingWhole(link, "the shortcut");
+		await expect(link, "the shortcut's ring, without the band").not.toHaveCSS(
+			"box-shadow",
+			/0px 0px 0px 7px/,
+		);
 		// After the Activities it has the sections' space below it alone, and the Contact Summary
 		// after it none above.
 		for (const [width, space] of [

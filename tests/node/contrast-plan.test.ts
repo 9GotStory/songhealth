@@ -138,4 +138,11 @@ describe("fixturePath", () => {
 			/no capture named news-land: news-landscape-1440, news-landscape-320, health-content-plain-1440/,
 		);
 	});
+
+	it("names the module's plain paths when no capture has the name, since those are measured as written (#341 retro)", () => {
+		assert.throws(
+			() => fixturePath(["/news@1440", "/news@320", ...captures], "news"),
+			/; its plain paths, measured as written without "fixture:": \/news$/,
+		);
+	});
 });

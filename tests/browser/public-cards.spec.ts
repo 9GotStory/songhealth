@@ -30,7 +30,9 @@ import {
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectRisesUnderPointer,
+	expectServiceCardInteraction,
 	expectVisibleFocusOnEveryStop,
+	expectWholeCardLink,
 	homepageSection,
 	HOMEPAGE_HEADINGS,
 	boxOf,
@@ -143,53 +145,6 @@ async function pointAtCardSurface(page: Page, target: Locator) {
 	await target.scrollIntoViewIfNeeded();
 	const box = await boxOf(target, "the part pointed at");
 	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-}
-
-/** One title-named native target over the card's whole surface, and one keyboard stop. */
-async function expectWholeCardLink(page: Page, card: Locator, title: string, level: 2 | 3) {
-	const link = card.getByRole("link", { name: title, exact: true });
-	const heading = card.getByRole("heading", { name: title, level, exact: true });
-	await expect(card.getByRole("link")).toHaveCount(1);
-	await expect(link).toHaveJSProperty("tagName", "A");
-	await expect(link).toHaveAccessibleName(title);
-	await expect(link.locator('a, button, input, select, textarea, [tabindex="0"]')).toHaveCount(0);
-	await expect(heading).toBeVisible();
-	await card.scrollIntoViewIfNeeded();
-	await page.mouse.move(0, 0);
-	expect(await link.boundingBox()).toEqual(await card.boundingBox());
-	await link.focus();
-	await page.keyboard.press("Tab");
-	expect(
-		await card.evaluate((el) => el.contains(document.activeElement)),
-		"one stop per card",
-	).toBe(false);
-	await page.keyboard.press("Shift+Tab");
-	await expect(link).toBeFocused();
-	return link;
-}
-
-/**
- * A shared card's interaction: the whole-card link, the hover that marks it without moving it, and
- * keyboard focus around its whole visible surface.
- */
-async function expectCardInteraction(page: Page, card: Locator, title: string, level: 2 | 3) {
-	const link = await expectWholeCardLink(page, card, title, level);
-	const heading = card.getByRole("heading", { name: title, level, exact: true });
-	const green = await tokenColor(page, "brand-primary");
-	await page.mouse.move(0, 0);
-	const restingBox = await card.boundingBox();
-	const restingShadow = await link.evaluate((el) => getComputedStyle(el).boxShadow);
-	await link.hover();
-	await expect(heading).toHaveCSS("color", green);
-	await expect(heading).toHaveCSS("text-decoration-line", "underline");
-	await expect(link).toHaveCSS("box-shadow", new RegExp(`${RegExp.escape(green)} 0px 0px 0px 2px`));
-	expect(await card.boundingBox(), "hover must not move or resize a card").toEqual(restingBox);
-	await page.mouse.move(0, 0);
-	await expect(link).toHaveCSS("box-shadow", restingShadow);
-	await link.focus();
-	await expect(link).toHaveCSS("outline-width", "3px");
-	await expect(link).toHaveCSS("outline-color", green);
-	return link;
 }
 
 /**
@@ -305,9 +260,7 @@ for (const width of [320, 375, 1440]) {
 					: `${context.list}/${fixture.slug}`;
 			await page.goto(context.list);
 			const card = listedItem(page, fixture.title);
-			const link = context.listCard
-				? await expectListCardInteraction(page, card, fixture.title)
-				: await expectCardInteraction(page, card, fixture.title, 2);
+			const link = card.getByRole("link", { name: fixture.title, exact: true });
 			await expect(card).toContainText(SUMMARY);
 			const visual = visualOf(context, card);
 			await expect(visual).toBeVisible();
@@ -326,8 +279,8 @@ for (const width of [320, 375, 1440]) {
 			await expectCardDestination(page, path, fixture);
 			for (const target of ["visual", "summary", "metadata", "padding", "title"]) {
 				if (target === "metadata" && context.name === "Services") continue;
-				// A News list's card shows no summary below 640 px.
-				if (target === "summary" && context.listCard && width < 640) continue;
+				// A News list's card and a Service card show no summary below 640 px.
+				if (target === "summary" && width < 640) continue;
 				await page.goto(context.list);
 				if (target === "visual") await clickCardSurface(page, visual);
 				else if (target === "title")
@@ -341,9 +294,24 @@ for (const width of [320, 375, 1440]) {
 				}
 				await expectCardDestination(page, path, fixture);
 			}
+			// The hover and the focus ring are read last: the catalog's card is new in #340, so its
+			// red run reaches every press above first (CODING_STANDARDS "Tests").
+			await page.goto(context.list);
+			if (context.listCard) await expectListCardInteraction(page, card, fixture.title);
+			else await expectServiceCardInteraction(page, card, fixture.title);
 		});
 	}
 }
+
+test("under the pointer the catalog's Service card rises 8 px when motion is allowed, and a press on the part it left opens the Service", async ({
+	page,
+}) => {
+	// With reduced motion preferred the card stays: expectServiceCardInteraction.
+	await page.goto("/services");
+	const card = listedItem(page, service.title);
+	await expectRisesUnderPointer(page, card, card.getByTestId("service-surface"), 8);
+	await expectCardDestination(page, `/services/${service.slug}`, service);
+});
 
 for (const width of [320, 375, 639, 640, 768, 1023, 1024, 1440]) {
 	test(`Homepage cards open from their whole surface and keep compact content, with five Activities, at ${width}px`, async ({

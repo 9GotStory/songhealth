@@ -538,6 +538,190 @@ export async function pressInside(
 	await page.mouse.click(point.x, point.y);
 }
 
+/** The text styles of `part` as the page is laid out now. */
+export function textStyle(part: Locator) {
+	return part.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return {
+			size: parseFloat(style.fontSize),
+			weight: style.fontWeight,
+			colour: style.color,
+			underline: style.textDecorationLine.includes("underline"),
+		};
+	});
+}
+
+/**
+ * The white surface of a row that moves inside its place under the pointer (the Announcement row,
+ * the Health Report row), found by its test id: its left edge and its shadow as `rowShadow` reads
+ * it, so a surface with no shadow reads as neither `card` nor `deep` (#342 retro); or nothing when
+ * the row has no such surface.
+ */
+export async function movingSurface(row: Locator, testId: string) {
+	const surface = row.getByTestId(testId);
+	if ((await surface.count()) === 0) return undefined;
+	return {
+		x: await surface.evaluate((element) => Math.round(element.getBoundingClientRect().x)),
+		shadow: await rowShadow(surface),
+	};
+}
+
+/**
+ * Point at `row`'s left edge, where a moved row leaves a strip, once it has come in, and wait out
+ * the 0.3 s move: the row's resting left edge and the point.
+ */
+export async function pointAtRowEdge(page: Page, row: Locator) {
+	await row.scrollIntoViewIfNeeded();
+	await expect.poll(() => shownOpacity(row), { message: "the row has come in" }).toBe(1);
+	const place = await boxOf(row, "the row's place");
+	const edge = { x: place.x + 3, y: place.y + place.height / 2 };
+	await page.mouse.move(edge.x, edge.y);
+	await page.waitForTimeout(500);
+	return { x: Math.round(place.x), edge };
+}
+
+/** A row's shadow as the page is now: the `deep` one under the pointer, else the `card` one. */
+export function rowShadow(row: Locator) {
+	return row.evaluate((article) => {
+		const shadow = getComputedStyle(article).boxShadow;
+		return shadow.includes("0px 30px 60px -20px")
+			? "deep"
+			: shadow.includes("0px 10px 15px")
+				? "card"
+				: shadow;
+	});
+}
+
+/** The parts of a row with a second link (a Document's download, a Health Service's map). */
+export interface RowWithSecondLink {
+	row: Locator;
+	tile: Locator;
+	/** The row's title, the text the link lies beside or under. */
+	title: Locator;
+	link: Locator;
+}
+
+/**
+ * Fail unless a row's second link sits as a Document row's download does (Feature 010 #315; spec
+ * #311 decision 17, spec #338 "The Health Service Directory"): at the row's right, beside the
+ * text, from 1,024 px; under the text at its start from 640 px to 1,023 px; and across the row
+ * under the tile and the text below 640 px, read on both sides of each edge and at 375 and 320 px.
+ */
+export async function expectSecondLinkPlaces(
+	page: Page,
+	{ row, tile, title, link }: RowWithSecondLink,
+	label: string,
+): Promise<void> {
+	/** Where the link lies against the row, its tile and its text, rounded to the pixel. */
+	const placeOf = async () => {
+		if ((await link.count()) === 0) return `no ${label}`;
+		const [rowBox, tileBox, textBox, linkBox] = [
+			await boxOf(row, "the row"),
+			await boxOf(tile, "the tile"),
+			await boxOf(title, "the title"),
+			await boxOf(link, label),
+		];
+		const near = (a: number, b: number) => Math.abs(a - b) <= 1;
+		const textBottom = Math.max(textBox.y + textBox.height, tileBox.y + tileBox.height);
+		if (linkBox.x >= textBox.x + textBox.width - 0.5 && linkBox.y < textBox.y + textBox.height) {
+			return "beside the text, at the row's right";
+		}
+		if (linkBox.y >= textBottom - 0.5 && near(linkBox.x, textBox.x)) {
+			return "under the text, at its start";
+		}
+		if (
+			linkBox.y >= textBottom - 0.5 &&
+			near(linkBox.x, tileBox.x) &&
+			near(linkBox.x + linkBox.width, rowBox.x + rowBox.width - (tileBox.x - rowBox.x))
+		) {
+			return "across the row, under the tile and the text";
+		}
+		return `elsewhere: ${JSON.stringify({ rowBox, tileBox, textBox, linkBox })}`;
+	};
+	const seen: Record<number, string> = {};
+	const expected: Record<number, string> = {};
+	for (const [width, place] of [
+		[1440, "beside the text, at the row's right"],
+		[1024, "beside the text, at the row's right"],
+		[1023, "under the text, at its start"],
+		[640, "under the text, at its start"],
+		[639, "across the row, under the tile and the text"],
+		[375, "across the row, under the tile and the text"],
+		[320, "across the row, under the tile and the text"],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		seen[width] = await placeOf();
+		expected[width] = place;
+	}
+	expect(seen, `the ${label}'s place by width`).toEqual(expected);
+}
+
+/** Point at the middle of `part` once it shows, and give the move 0.5 s. */
+export async function pointAt(page: Page, part: Locator): Promise<void> {
+	const box = await boxOf(part, "where the pointer goes");
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.waitForTimeout(500);
+}
+
+/**
+ * Press `point` on `target`, a part of a row on the list at `list`, and say which address the page
+ * then shows; the page goes back to the list when the press opened another.
+ */
+export async function pressOpens(
+	page: Page,
+	target: Locator,
+	point: { x: number; y: number },
+	label: string,
+	list: string,
+): Promise<string> {
+	await pressInside(page, target, point, label);
+	await page
+		.waitForURL(new RegExp(`${RegExp.escape(list)}/.`), { timeout: 2_000 })
+		.catch(() => undefined);
+	const opened = new URL(page.url()).pathname;
+	if (opened !== list) await page.goBack();
+	return opened;
+}
+
+/** A row with the status `label`, and its facts line and title. */
+export interface RowWithStatus {
+	row: Locator;
+	facts: Locator;
+	title: Locator;
+	label: string;
+}
+
+/**
+ * Fail unless each row's status, an `accent-warm` attention label, lies on its own line between the
+ * row's facts line and its title, as a Document row's does (Feature 010 #315).
+ */
+export async function expectAttentionLabelsOnOwnLine(
+	page: Page,
+	rows: RowWithStatus[],
+): Promise<void> {
+	const seen: Record<string, unknown> = {};
+	const expected: Record<string, unknown> = {};
+	for (const { row, facts, title, label } of rows) {
+		const status = row.getByText(label, { exact: true });
+		const [factsBox, statusBox, titleBox] = [
+			await boxOf(facts, `${label}: the facts`),
+			await boxOf(status, `${label}: the label`),
+			await boxOf(title, `${label}: the title`),
+		];
+		seen[label] = {
+			underFacts: statusBox.y >= factsBox.y + factsBox.height - 0.5,
+			aboveTitle: titleBox.y >= statusBox.y + statusBox.height - 0.5,
+			fill: await status.evaluate((element) => getComputedStyle(element).backgroundColor),
+		};
+		expected[label] = {
+			underFacts: true,
+			aboveTitle: true,
+			fill: await tokenColor(page, "accent-warm"),
+		};
+	}
+	expect(seen, "the attention label on its own line").toEqual(expected);
+}
+
 /** How opaque `part` shows as the page is now, through everything that holds it: 0 to 1. */
 export function shownOpacity(part: Locator): Promise<number> {
 	return part.evaluate((element) => {
@@ -580,6 +764,23 @@ export function entersAfter(part: Locator): Promise<number> {
 }
 
 /**
+ * Whether a part shows whole on a page without JavaScript: there once, visible, and neither it, a
+ * part inside it nor a part around it waiting on an effect (`heldBack`'s opacity or translate),
+ * which `isVisible` alone counts as shown (#344 retro).
+ */
+export async function shownWhole(part: Locator): Promise<boolean> {
+	if ((await part.count()) !== 1 || !(await part.isVisible())) return false;
+	if ((await heldBack(part)).length > 0) return false;
+	return part.evaluate((element) => {
+		for (let node = element.parentElement; node; node = node.parentElement) {
+			const style = getComputedStyle(node);
+			if (style.opacity !== "1" || style.translate !== "none") return false;
+		}
+		return true;
+	});
+}
+
+/**
  * When each effect that runs by itself, on the page's clock, is over, in milliseconds after it
  * began; Infinity for one that never ends. A reveal runs on the visitor's scrolling and is left
  * out. `scope` is the part of the page to read.
@@ -594,13 +795,14 @@ export function selfRunningEnds(scope: Locator): Promise<number[]> {
 }
 
 /**
- * Move the pointer to just above the resting lower edge of `card`, whose `surface` then rises 6 px,
- * and press there. The card rises only where motion is allowed.
+ * Move the pointer to just above the resting lower edge of `card`, whose `surface` then rises
+ * `rise` px, 6 unless given, and press there. The card rises only where motion is allowed.
  */
 export async function expectRisesUnderPointer(
 	page: Page,
 	card: Locator,
 	surface: Locator,
+	rise = 6,
 ): Promise<void> {
 	await page.emulateMedia({ reducedMotion: "no-preference" });
 	await card.scrollIntoViewIfNeeded();
@@ -615,9 +817,9 @@ export async function expectRisesUnderPointer(
 	await page.mouse.move(edge.x, edge.y);
 	await expect
 		.poll(async () => (await boxOf(surface, "the card's surface")).y, {
-			message: "the card under the pointer has risen 6 px",
+			message: `the card under the pointer has risen ${rise} px`,
 		})
-		.toBeCloseTo(place.y - 6, 0);
+		.toBeCloseTo(place.y - rise, 0);
 	await pressInside(page, card, edge, "the part the card left");
 }
 
@@ -657,6 +859,26 @@ export function tokenColor(page: Page, name: string): Promise<string> {
 		probe.remove();
 		return color;
 	}, name);
+}
+
+/**
+ * A matcher for a computed `box-shadow` whose last layer is the shadow token `shadow-<name>`
+ * (src/styles/global.css) as the page's browser computes it. Tailwind writes a shadow token's value
+ * into its utility and leaves no `--shadow-<name>` on the page, so a probe takes the utility's
+ * class and is read. Tailwind puts its transparent ring layers before a shadow, so the token is
+ * matched as the value's last layer.
+ */
+export async function tokenShadow(page: Page, name: string) {
+	const shadow = await page.evaluate((token) => {
+		const probe = document.createElement("span");
+		probe.className = `shadow-${token}`;
+		document.body.append(probe);
+		const layers = getComputedStyle(probe).boxShadow;
+		probe.remove();
+		if (layers === "none") throw new Error(`the page's stylesheet has no shadow-${token}`);
+		return layers.split(/,\s*(?![^(]*\))/).at(-1)!;
+	}, name);
+	return expect.stringMatching(new RegExp(`(?:^|, )${RegExp.escape(shadow)}$`));
 }
 
 /**
@@ -770,7 +992,8 @@ function quickLinkParts(card: Locator) {
 		const edges = ({ top, right, bottom, left }: DOMRect) => ({ top, right, bottom, left });
 		const outer = element.getBoundingClientRect();
 		const style = getComputedStyle(element);
-		const column = element.querySelector(":scope > span")!;
+		// The label: a span, or on /health a heading (Feature 011 #339).
+		const column = element.querySelector(":scope > :not(svg)")!;
 		const lines: DOMRect[] = [];
 		const range = document.createRange();
 		const walker = document.createTreeWalker(column, NodeFilter.SHOW_TEXT);
@@ -1267,7 +1490,8 @@ export interface MovingCards {
  * than five seconds (WCAG 2.2 SC 2.2.2). A list of rows, which have no picture, names its `grid`
  * and `cards` alone (Feature 010 #314). A list whose items do not move yet, such as the
  * Documents list until Feature 010's rows (#315), names its `grid` alone. The empty state that
- * `empty.path` shows, reading `empty.message`, shows at once too. With reduced motion preferred,
+ * `empty.path` shows, reading `empty.message`, shows at once too; /health, which lists no
+ * collection, has none (Feature 011 #339). With reduced motion preferred,
  * and on paper, nothing moves. The page's height and each part's place are the same either way, at
  * the desktop width, 375 px and 320 px. The page ends on a screen with motion allowed.
  */
@@ -1277,7 +1501,7 @@ export async function expectListMovesOnlyWhenAllowed(
 	heading: ListHeadingParts,
 	atOnce: Array<[name: string, part: Locator]>,
 	moving: MovingCards | Pick<MovingCards, "grid" | "cards"> | Pick<MovingCards, "grid">,
-	empty: { path: string; message: string },
+	empty?: { path: string; message: string },
 ): Promise<void> {
 	const { grid } = moving;
 	const main = page.getByRole("main");
@@ -1339,15 +1563,16 @@ export async function expectListMovesOnlyWhenAllowed(
 		expect(await layouts(), "the page with motion, after its entrance").toEqual(still);
 	});
 
-	await test.step("An empty state", async () => {
-		await page.goto(empty.path);
-		const message = main.getByText(empty.message, { exact: true });
-		await expect(message).toBeVisible();
-		expect(await entersAfter(message), "the empty state shows at once").toBe(-1);
-		await expect
-			.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
-			.toEqual([]);
-	});
+	if (empty)
+		await test.step("An empty state", async () => {
+			await page.goto(empty.path);
+			const message = main.getByText(empty.message, { exact: true });
+			await expect(message).toBeVisible();
+			expect(await entersAfter(message), "the empty state shows at once").toBe(-1);
+			await expect
+				.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
+				.toEqual([]);
+		});
 
 	await test.step("On paper", async () => {
 		await page.emulateMedia({ media: "print", reducedMotion: "no-preference" });
@@ -1607,18 +1832,37 @@ interface HeadingOnField {
 	heading: ListHeadingText;
 	/** The Lucide icon in the heading's tile. */
 	icon: string;
+	/**
+	 * The links under the lead, in order, where the list has them (Feature 011 #339: /services' two
+	 * related links): the only links on the field besides the breadcrumb's.
+	 */
+	leadLinks?: ReadonlyArray<readonly [label: string, href: string]>;
+}
+
+/** The links under a list's lead on its deep field, in the order `list` names them. */
+export function leadLinksOf(
+	page: Page,
+	list: Pick<HeadingOnField, "leadLinks">,
+): Array<[label: string, link: Locator]> {
+	const field = deepField(page);
+	return (list.leadLinks ?? []).map(([label]) => [
+		label,
+		field.getByRole("link", { name: label, exact: true }),
+	]);
 }
 
 /**
  * Declare the tests of a list's heading on the deep field (Feature 009 #281, #282; Feature 010
- * #312): its breadcrumb, label, H1 and lead in that order and in surface-base, the icon in its
- * tile, no link on the field but the breadcrumb's, and the H1's size, the field's corners and the
- * room under the breadcrumb on both sides of 640 and 1,024 px.
+ * #312; Feature 011 #339): its breadcrumb, label, H1 and lead in that order and in surface-base,
+ * the icon in its tile, no link on the field but the breadcrumb's and those under the lead, which
+ * follow it, and the H1's size, the field's corners and the room under the breadcrumb on both sides
+ * of 640 and 1,024 px. /health, which lists no collection, takes these cases alone.
  */
-function testHeadingOnField(list: HeadingOnField): void {
+export function testHeadingOnField(list: HeadingOnField): void {
 	const { path, heading: text } = list;
+	const leadLinks = list.leadLinks ?? [];
 
-	test(`${path} opens on the deep field with its breadcrumb, the label ${text.label}, the H1 ${text.title} and its lead, one under another on a phone and each in surface-base, with the ${list.icon} icon in the heading's tile and no link on the field but the breadcrumb's`, async ({
+	test(`${path} opens on the deep field with its breadcrumb, the label ${text.label}, the H1 ${text.title} and its lead${leadLinks.length > 0 ? ` and then its links ${leadLinks.map(([label]) => label).join(" and ")}` : ""}, one under another on a phone and each in surface-base, with the ${list.icon} icon in the heading's tile and no link on the field but the breadcrumb's${leadLinks.length > 0 ? " and those" : ""}`, async ({
 		page,
 	}) => {
 		const response = await page.goto(path);
@@ -1632,15 +1876,21 @@ function testHeadingOnField(list: HeadingOnField): void {
 		await expect(heading.label, "the label above the H1").toBeVisible();
 		await expect(
 			heading.field.getByRole("link"),
-			"the field's only links are the breadcrumb's",
-		).toHaveText(list.crumbs.map(([label]) => label));
+			"the field's only links are the breadcrumb's and those under the lead",
+		).toHaveText([...list.crumbs, ...leadLinks].map(([label]) => label));
+		for (const [label, href] of leadLinks) {
+			await expect(heading.field.getByRole("link", { name: label, exact: true })).toHaveAttribute(
+				"href",
+				href,
+			);
+		}
 		// Lucide's class is the one thing that tells two icons apart (expectServiceIcon).
 		const icon = await boxOf(heading.field.locator(`svg.lucide-${list.icon}`), "the tile's icon");
 		expect([icon.width, icon.height], "the tile's icon is 24 px").toEqual([24, 24]);
 		expect(icon.x + icon.width, "the tile is left of the H1").toBeLessThanOrEqual(
 			(await boxOf(heading.title, "the H1")).x,
 		);
-		await expectHeadingOnField(page, path, heading);
+		await expectHeadingOnField(page, path, heading, leadLinksOf(page, list));
 	});
 
 	test(`the H1 of ${path} is 26 px below 640 px, 36 px from 640 px and 42 px from 1,024 px, the field's lower corners 24 px and from 640 px 32 px, the heading 24 px under the breadcrumb and from 640 px 32 px, and nothing is past the window at any of these widths`, async ({
@@ -1918,10 +2168,10 @@ export interface ListOnField extends HeadingOnField {
 	 */
 	publishPictured?: (label: string) => Promise<DraftFixture>;
 	/**
-	 * For a list whose rows move (Feature 010 #314): the motion case reads each row's reveal. Rows
-	 * have no picture, so it reads no shimmer.
+	 * For a list whose rows or cards move without a picture (Feature 010 #314: rows; Feature 011
+	 * #340: `/services`' cards): the motion case reads each item's reveal, and no shimmer.
 	 */
-	rowsMove?: boolean;
+	itemsMove?: "rows" | "cards";
 }
 
 /**
@@ -1982,7 +2232,8 @@ export function testListOnField(list: ListOnField): void {
 		await expectBlocksOverFieldEdge(
 			page,
 			heading.field,
-			[heading.lead],
+			// The field's content ends with the lead, or the links under it.
+			[heading.lead, ...leadLinksOf(page, list).map(([, link]) => link)],
 			[...formPart(page), ["the items", grid], ["the pager", pager]],
 		);
 	});
@@ -2007,7 +2258,7 @@ export function testListOnField(list: ListOnField): void {
 		}
 	});
 
-	test(`on ${path} the keyboard goes from the breadcrumb, on the field with its accent-warm focus ring drawn whole, to ${list.form ? "the filter form's first field" : "the first item"}`, async ({
+	test(`on ${path} the keyboard goes from the breadcrumb, on the field with its accent-warm focus ring drawn whole, ${list.leadLinks ? "through the links under the lead, " : ""}to ${list.form ? "the filter form's first field" : "the first item"}`, async ({
 		page,
 	}) => {
 		await list.publishItem("keyboard");
@@ -2017,6 +2268,10 @@ export function testListOnField(list: ListOnField): void {
 		await crumbs.first().focus();
 		for (const [index, [label]] of list.crumbs.entries()) {
 			await expect(crumbs.nth(index), `the ${label} crumb`).toBeFocused();
+			await page.keyboard.press("Tab");
+		}
+		for (const [label, link] of leadLinksOf(page, list)) {
+			await expect(link, `the link ${label} under the lead`).toBeFocused();
 			await page.keyboard.press("Tab");
 		}
 		const next = list.form
@@ -2035,15 +2290,23 @@ export function testListOnField(list: ListOnField): void {
 				accentWarm,
 			);
 		}
+		for (const [label, link] of leadLinksOf(page, list)) {
+			await link.focus();
+			await expectFocusRingWhole(link, `the link ${label}`);
+			await expect(link, `the link ${label}: the field's focus ring`).toHaveCSS(
+				"outline-color",
+				accentWarm,
+			);
+		}
 	});
 
 	/** What the motion case says the items do. */
 	const itemsMotion = list.publishPictured
 		? "; each card reveals as it comes into the window and shows whole while it holds the keyboard's focus, and a picture's box shimmers as the page opens while a missing picture's visual does not"
-		: list.rowsMove
-			? "; each row reveals as it comes into the window and shows whole while it holds the keyboard's focus"
+		: list.itemsMove
+			? `; each ${list.itemsMove === "rows" ? "row" : "card"} reveals as it comes into the window and shows whole while it holds the keyboard's focus`
 			: "";
-	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, ${list.form ? "the filter form, " : ""}${itemsMotion ? "" : "the items, "}the pager and an empty state show at once${itemsMotion}, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
+	test(`${path} moves only when motion is allowed: the heading and then the lead rise in as the page opens, while the breadcrumb, ${list.leadLinks ? "the links under the lead, " : ""}${list.form ? "the filter form, " : ""}${itemsMotion ? "" : "the items, "}the pager and an empty state show at once${itemsMotion}, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
 		page,
 	}) => {
 		test.setTimeout(120_000);
@@ -2057,7 +2320,7 @@ export function testListOnField(list: ListOnField): void {
 					pictured: listedItem(page, pictured.title),
 					plain: cards.filter({ hasNot: page.locator("img") }).last(),
 				}
-			: list.rowsMove
+			: list.itemsMove
 				? { grid, cards }
 				: { grid };
 		await expectListMovesOnlyWhenAllowed(
@@ -2065,6 +2328,9 @@ export function testListOnField(list: ListOnField): void {
 			path,
 			listHeading(page, text),
 			[
+				...leadLinksOf(page, list).map(
+					([label, link]) => [`the link ${label}`, link] as [string, Locator],
+				),
 				...formPart(page),
 				...(itemsMotion ? [] : [["the items", grid] as [string, Locator]]),
 				["the pager", pager],
@@ -2633,6 +2899,446 @@ export async function cardOverFieldEdgeAsSpecified(page: Page, widths: number[])
 	};
 }
 
+/**
+ * The page's one H1 in a Post page's sizes on both sides of `sm` and `lg`: H3 below 640 px, H2
+ * from 640 px and H1 from 1,024 px (docs/design/DESIGN.md §9.1).
+ */
+export async function expectPostTitleSizes(page: Page): Promise<void> {
+	await expect(page.getByRole("heading", { level: 1 }), "one H1").toHaveCount(1);
+	for (const [width, size] of [
+		[639, "24px"],
+		[640, "34px"],
+		[1023, "34px"],
+		[1024, "46px"],
+	] as const) {
+		await page.setViewportSize({ width, height: 900 });
+		await expect(
+			page.getByRole("heading", { level: 1 }),
+			`the title at ${width} px: H3 below 640 px, H2 from 640 px and H1 from 1,024 px`,
+		).toHaveCSS("font-size", size);
+	}
+}
+
+/** One title-named native target over the card's whole surface, and one keyboard stop. */
+export async function expectWholeCardLink(page: Page, card: Locator, title: string, level: 2 | 3) {
+	const link = card.getByRole("link", { name: title, exact: true });
+	const heading = card.getByRole("heading", { name: title, level, exact: true });
+	await expect(card.getByRole("link")).toHaveCount(1);
+	await expect(link).toHaveJSProperty("tagName", "A");
+	await expect(link).toHaveAccessibleName(title);
+	await expect(link.locator('a, button, input, select, textarea, [tabindex="0"]')).toHaveCount(0);
+	await expect(heading).toBeVisible();
+	await card.scrollIntoViewIfNeeded();
+	await page.mouse.move(0, 0);
+	expect(await link.boundingBox()).toEqual(await card.boundingBox());
+	await link.focus();
+	await page.keyboard.press("Tab");
+	expect(
+		await card.evaluate((el) => el.contains(document.activeElement)),
+		"one stop per card",
+	).toBe(false);
+	await page.keyboard.press("Shift+Tab");
+	await expect(link).toBeFocused();
+	return link;
+}
+
+/**
+ * The Service catalog's card, the Homepage's Frequently Used Service card shared (Feature 011
+ * #340; spec #338 "The Service catalog", decision 21): the whole-card link named by the name, an
+ * H2 there and an H3 under a Health Service's "บริการที่ให้" (#345, `level`); at rest a white card with
+ * the `card` shadow; under the pointer the card turns brand-primary with the `deep` shadow and,
+ * with reduced motion preferred, stays in its place; the focus ring, the global 3 px outline, lies
+ * inside the card's edge, brand-primary at rest and accent-warm while the card is brand-primary
+ * under the pointer. Its rise with motion allowed is its own case.
+ */
+export async function expectServiceCardInteraction(
+	page: Page,
+	card: Locator,
+	title: string,
+	level: 2 | 3 = 2,
+) {
+	const link = await expectWholeCardLink(page, card, title, level);
+	const surface = card.getByTestId("service-surface");
+	const green = await tokenColor(page, "brand-primary");
+	await link.blur();
+	await page.mouse.move(0, 0);
+	/** The surface's fill and shadow, and its box. */
+	const read = async () => ({
+		fill: await surface.evaluate((element) => getComputedStyle(element).backgroundColor),
+		shadow: await surface.evaluate((element) => getComputedStyle(element).boxShadow),
+		box: await boxOf(surface, "the card's surface"),
+	});
+	const { box: restingBox, ...resting } = await read();
+	await link.hover();
+	const { box: pointedBox, ...pointed } = await read();
+	await link.focus();
+	const ringPointed = await link.evaluate((element) => getComputedStyle(element).outlineColor);
+	await page.mouse.move(0, 0);
+	const ring = await link.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return { width: style.outlineWidth, offset: style.outlineOffset, colour: style.outlineColor };
+	});
+	expect({ resting, pointed, moved: pointedBox.y !== restingBox.y, ring, ringPointed }).toEqual({
+		resting: {
+			fill: await tokenColor(page, "surface-base"),
+			shadow: await tokenShadow(page, "card"),
+		},
+		pointed: { fill: green, shadow: await tokenShadow(page, "deep") },
+		// With reduced motion preferred, as the suites run, the card stays in its place.
+		moved: false,
+		// 4 px inside the link's box, which is the card's: the 3 px ring lies on the card.
+		ring: { width: "3px", offset: "-4px", colour: green },
+		ringPointed: await tokenColor(page, "accent-warm"),
+	});
+	return link;
+}
+
+/** What a page's header on the field shows, for `readHeaderOnField`. */
+export interface HeaderOnField {
+	/**
+	 * The row's pills in order, each its words on the field and its look: `outlined` white, or
+	 * `warm`, accent-warm; none for a page whose header has no row of pills.
+	 */
+	pills: Array<{ words: string; look: "outlined" | "warm" }>;
+	/** The line under the title as staff typed it, and on how many lines it shows at 1,440 px. */
+	under?: { text: string; lines: number };
+}
+
+/**
+ * A page's header on the deep field as it is now and as spec #311 and #338 "The three pages: the
+ * header" set it (docs/design/DESIGN.md §9.4): at 320, 375 and 1,440 px the breadcrumb in white;
+ * 24 px under it the row of pills, each with its 1 px edge in its look, the next 8 px beside the
+ * one before it or, where the row wraps, at the row's start 8 px under it; the title under them, or
+ * 24 px under the breadcrumb without a pill; each on the field, the header 48 rem wide at most; and
+ * the line under the title at body-large in white with the line breaks staff typed. The test
+ * compares `seen` with `expected`, beside its own reads.
+ */
+export async function readHeaderOnField(page: Page, header: HeaderOnField) {
+	const parts = fieldParts(page);
+	const onField = (await parts.field.count()) === 1;
+	const seen: Record<string, unknown> = { field: onField };
+	const expected: Record<string, unknown> = { field: true };
+	if (!onField) return { seen, expected };
+	const white = await tokenColor(page, "surface-base");
+	const look = {
+		outlined: { fill: "rgba(0, 0, 0, 0)", colour: white },
+		warm: {
+			fill: await tokenColor(page, "accent-warm"),
+			colour: await tokenColor(page, "brand-dark"),
+		},
+	};
+	const pills = header.pills.map(({ words }) => parts.field.getByText(words, { exact: true }));
+	for (const viewport of [MOBILE_VIEWPORT, PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+		await page.setViewportSize(viewport);
+		const at = `at ${viewport.width} px`;
+		const field = await boxOf(parts.field, `${at}: the field`);
+		const crumbs = await boxOf(parts.breadcrumb, `${at}: the breadcrumb`);
+		const title = await boxOf(parts.title, `${at}: the title`);
+		const boxes: Array<Awaited<ReturnType<typeof boxOf>>> = [];
+		for (const [index, pill] of pills.entries()) {
+			boxes.push(await boxOf(pill, `${at}: ${header.pills[index]!.words}'s pill`));
+		}
+		const styles = [];
+		for (const pill of pills) styles.push(await pillStyle(pill));
+		const above = boxes.length > 0 ? boxes[0]! : title;
+		seen[viewport.width] = {
+			onField: [crumbs, ...boxes, title].every(
+				(box) => box.y >= field.y && box.y + box.height <= field.y + field.height,
+			),
+			underCrumbs: Math.round(above.y - crumbs.y - crumbs.height),
+			// Each pill follows the one before it 8 px beside it, or starts the next row at the row's
+			// start 8 px under it.
+			pillsInRow: boxes.slice(1).map((box, index) => {
+				const before = boxes[index]!;
+				return Math.abs(box.y - before.y) <= 1
+					? Math.round(box.x - before.x - before.width) === 8
+					: Math.round(box.x - boxes[0]!.x) === 0 &&
+							Math.round(box.y - before.y - before.height) === 8;
+			}),
+			titleUnderPills: boxes.every((box) => title.y >= box.y + box.height),
+			headerWidth: Math.round((await boxOf(parts.header, `${at}: the header`)).width),
+			pills: styles,
+			white: [
+				await parts.breadcrumb
+					.getByRole("link")
+					.first()
+					.evaluate((link) => getComputedStyle(link).color),
+				await parts.breadcrumb
+					.locator('[aria-current="page"]')
+					.evaluate((crumb) => getComputedStyle(crumb).color),
+				await parts.title.evaluate((heading) => getComputedStyle(heading).color),
+			],
+		};
+		expected[viewport.width] = {
+			onField: true,
+			underCrumbs: 24,
+			pillsInRow: boxes.slice(1).map(() => true),
+			titleUnderPills: true,
+			headerWidth: Math.min(HEADER_WIDEST, viewport.width - 2 * gutterAt(viewport.width)),
+			pills: header.pills.map((pill) => ({
+				...look[pill.look],
+				type: ["13px", "20px", "600"],
+				edge: "1px",
+			})),
+			white: [white, white, white],
+		};
+	}
+
+	if (header.under) {
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+		const under = parts.header.getByText(header.under.text.split("\n")[0]!);
+		const shown = (await under.count()) === 1;
+		seen.under = shown && {
+			text: await under.innerText(),
+			shown: await shownLines(under),
+			colour: await under.evaluate((text) => getComputedStyle(text).color),
+			// body-large, 18 / 30.
+			type: await under.evaluate((text) => {
+				const style = getComputedStyle(text);
+				return [style.fontSize, style.lineHeight];
+			}),
+			underTitle:
+				(await boxOf(under, "the line under the title")).y >=
+				(await boxOf(parts.title, "the title")).y + (await boxOf(parts.title, "the title")).height,
+		};
+		expected.under = {
+			text: header.under.text,
+			shown: { lines: header.under.lines, clamped: false },
+			colour: white,
+			type: ["18px", "30px"],
+			underTitle: true,
+		};
+	}
+	return { seen, expected };
+}
+
+/**
+ * Where a card's unavailable notice lies, first in it under the H2 `heading` and saying `message`,
+ * and what it asks and links to; false when the card holds no such H2 and notice
+ * (src/components/UnavailableNotice.astro).
+ */
+export async function unavailableNoticeIn(card: Locator, heading: string, message: string) {
+	const title = card.getByRole("heading", { level: 2, name: heading });
+	const notice = card.getByText(message, { exact: true });
+	if ((await title.count()) !== 1 || (await notice.count()) !== 1) return false;
+	return {
+		headingFirst: Math.round((await boxOf(title, "the H2")).y - (await boxOf(card, "the card")).y),
+		noticeUnderHeading: (await boxOf(notice, "the notice")).y > (await boxOf(title, "the H2")).y,
+		asks: await card.getByText("หากต้องการเอกสารนี้ โปรดติดต่อสำนักงาน", { exact: true }).count(),
+		contact: await card.getByRole("link", { name: "ติดต่อเรา", exact: true }).getAttribute("href"),
+	};
+}
+
+/** A part's type size, weight and colour as the page is laid out now. */
+function typeOf(part: Locator) {
+	return part.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return [parseFloat(style.fontSize), style.fontWeight, style.color];
+	});
+}
+
+/**
+ * How a download's words lie in it: on how many lines they and their type and size in parentheses
+ * run, how they align, and whether they keep 8 px or more from its upper and lower edges.
+ */
+function wordsIn(download: Locator) {
+	return download.evaluate((link) => {
+		const size = [...link.querySelectorAll("span")].find((span) =>
+			span.textContent?.trim().startsWith("("),
+		);
+		const words = size?.parentElement;
+		if (!size || !words) return "no type and size";
+		const box = link.getBoundingClientRect();
+		const text = words.getBoundingClientRect();
+		const range = document.createRange();
+		range.selectNodeContents(words);
+		const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+		return {
+			lines: tops.size,
+			align: getComputedStyle(words).textAlign,
+			sizeLines: size.getClientRects().length,
+			inset: Math.min(text.top - box.top, box.bottom - text.bottom) >= 8 - 0.5,
+		};
+	});
+}
+
+/**
+ * The file block first in a page's card over the field's edge, a Document's (spec #311 "The card
+ * over the field's edge") and a Health Report's (spec #338 "The card over the field's edge"), and
+ * what follows it in the card: the file's tile, the H2 `heading`, the file's type and size `label`,
+ * the download reading "ดาวน์โหลดเอกสาร" and the label (src/components/FileBlock.astro), then the
+ * card's rule and details.
+ */
+export function fileBlockOf(card: Locator, heading: string, label: string) {
+	return {
+		card,
+		tile: card.locator("svg.lucide-file-text").locator("xpath=.."),
+		heading: card.getByRole("heading", { level: 2, name: heading }),
+		typeAndSize: card.getByText(label, { exact: true }),
+		download: card.getByRole("link", { name: `ดาวน์โหลดเอกสาร (${label})`, exact: true }),
+		label,
+		rule: card.getByRole("separator"),
+		details: card.locator("dl"),
+	};
+}
+
+type FileBlock = ReturnType<typeof fileBlockOf>;
+
+/** How a file block's tile, H2, type and size, download and rule look; false without one. */
+export async function fileBlockLook(block: FileBlock) {
+	if ((await block.download.count()) !== 1 || (await block.rule.count()) !== 1) return false;
+	return {
+		tile: await block.tile.evaluate((element) => ({
+			decorative: element.closest('[aria-hidden="true"]') !== null,
+			gradient: getComputedStyle(element).backgroundImage.includes("linear-gradient"),
+			type: element.textContent?.trim(),
+			typeColour: getComputedStyle(element.querySelector("span") ?? element).color,
+		})),
+		heading: await typeOf(block.heading),
+		typeAndSize: await typeOf(block.typeAndSize),
+		download: {
+			fill: await block.download.evaluate((link) => getComputedStyle(link).backgroundColor),
+			words: await typeOf(block.download),
+			typeAndSize: (await typeOf(block.download.getByText(`(${block.label})`, { exact: true })))[1],
+			icon: await block.download.locator("svg.lucide-download").evaluate((icon) => {
+				const box = icon.getBoundingClientRect();
+				return [box.width, box.height];
+			}),
+			href: await block.download.getAttribute("href"),
+			filename: await block.download.getAttribute("download"),
+		},
+		rule: await block.rule.evaluate((element) => {
+			const style = getComputedStyle(element);
+			return [style.borderTopWidth, style.borderTopStyle, style.borderTopColor];
+		}),
+	};
+}
+
+/**
+ * A file block's look as spec #311 sets it and spec #338 takes it (docs/design/DESIGN.md §9.5,
+ * §9.6): the tile decorative, on
+ * the gradient, with the type in accent-warm; the H2 at body-large, semibold, brand-dark; the type
+ * and size at small size in text-secondary; the brand-primary download with its words semibold,
+ * the type and size regular and the 20 px icon, linking to `file` at EmDash's media URL under its
+ * name; a 1 px border-default rule.
+ */
+export async function fileBlockLookAsSpecified(
+	page: Page,
+	type: string,
+	file: { storageKey: string; filename: string },
+) {
+	return {
+		tile: {
+			decorative: true,
+			gradient: true,
+			type,
+			typeColour: await tokenColor(page, "accent-warm"),
+		},
+		heading: [18, "600", await tokenColor(page, "brand-dark")],
+		typeAndSize: [13, "400", await tokenColor(page, "text-secondary")],
+		download: {
+			fill: await tokenColor(page, "brand-primary"),
+			words: [14, "600", await tokenColor(page, "surface-base")],
+			typeAndSize: "400",
+			icon: [20, 20],
+			href: `/_emdash/api/media/file/${file.storageKey}`,
+			filename: file.filename,
+		},
+		rule: ["1px", "solid", await tokenColor(page, "border-default")],
+	};
+}
+
+/**
+ * Where a file block's parts lie at `width`: the block at the card's inner corner, the tile
+ * centred on the text beside it (the taller of the two sets the block's height) and its size, the
+ * H2 beside it, the gap above each of `lines` (the parts under the H2, the type and size last),
+ * the download at the card's right from `sm` or across it below, the rule under the block and the
+ * details under the rule, and how the download's words lie.
+ */
+export async function fileBlockAt(block: FileBlock, lines: Locator[], width: number) {
+	await block.card.page().setViewportSize({ width, height: 900 });
+	const wide = width >= 640;
+	const at = `at ${width} px`;
+	const cardBox = await boxOf(block.card, `${at}: the card`);
+	const tileBox = await boxOf(block.tile, `${at}: the tile`);
+	const text = [await boxOf(block.heading, `${at}: the H2`)];
+	for (const [index, line] of lines.entries()) {
+		text.push(await boxOf(line, `${at}: line ${index + 1} under the H2`));
+	}
+	const downloadBox = await boxOf(block.download, `${at}: the download`);
+	const ruleBox = await boxOf(block.rule, `${at}: the rule`);
+	const detailsBox = await boxOf(block.details, `${at}: the details`);
+	const inner = { left: cardBox.x + 20, width: cardBox.width - 40 };
+	const textRight = Math.max(...text.map((box) => box.x + box.width));
+	const last = text.at(-1)!;
+	const textTop = text[0]!.y;
+	const textEnd = last.y + last.height;
+	const fileEnd = Math.max(tileBox.y + tileBox.height, downloadBox.y + downloadBox.height, textEnd);
+	return {
+		tileFirst: [
+			Math.round(tileBox.x - inner.left),
+			Math.round(Math.min(tileBox.y, textTop) - cardBox.y - 20),
+		],
+		tileCentred: Math.abs(tileBox.y + tileBox.height / 2 - (textTop + textEnd) / 2) <= 1,
+		tile: [Math.round(tileBox.width), Math.round(tileBox.height)],
+		headingBesideTile: Math.round(text[0]!.x - tileBox.x - tileBox.width),
+		linesUnderHeading: text
+			.slice(1)
+			.map((box, index) => Math.round(box.y - text[index]!.y - text[index]!.height)),
+		download: wide
+			? {
+					right: Math.round(inner.left + inner.width - downloadBox.x - downloadBox.width),
+					height: Math.round(downloadBox.height),
+					besideText: downloadBox.x - textRight >= 16,
+				}
+			: {
+					across: [
+						Math.round(downloadBox.x - inner.left),
+						Math.round(downloadBox.width - inner.width),
+					],
+					tall: downloadBox.height >= 44,
+					under: Math.round(downloadBox.y - Math.max(tileBox.y + tileBox.height, textEnd)),
+				},
+		rule: [
+			Math.round(ruleBox.y - fileEnd),
+			Math.round(ruleBox.height),
+			Math.round(ruleBox.width - inner.width),
+		],
+		detailsUnderRule: Math.round(detailsBox.y - ruleBox.y - ruleBox.height),
+		words: await wordsIn(block.download),
+	};
+}
+
+/**
+ * A file block's places at `width` as spec #311 sets them and spec #338 takes them
+ * (docs/design/DESIGN.md §9.5, §9.6): the block
+ * 20 px inside the card's corner, the tile centred on the text, 68 px below `sm` and 92 px from
+ * `sm`, the H2 16 px beside it and each of `lines` lines straight under it; from `sm` the download
+ * at the card's right, 52 px high and 16 px or more beside the text, below `sm` across the card
+ * 16 px under the tile and the text, 44 px high or more; the rule 20 px under the block across the
+ * card and the details 20 px under it. The download's words take `wordLines` lines, centred, the
+ * type and size kept on one, 8 px inside its edges.
+ */
+export function fileBlockAsSpecified(
+	width: number,
+	{ lines, wordLines }: { lines: number; wordLines: number },
+) {
+	const wide = width >= 640;
+	return {
+		tileFirst: [0, 0],
+		tileCentred: true,
+		tile: wide ? [92, 92] : [68, 68],
+		headingBesideTile: 16,
+		linesUnderHeading: Array.from({ length: lines }, () => 0),
+		download: wide
+			? { right: 0, height: 52, besideText: true }
+			: { across: [0, 0], tall: true, under: 16 },
+		rule: [20, 1, 0],
+		detailsUnderRule: 20,
+		words: { lines: wordLines, align: "center", sizeLines: 1, inset: true },
+	};
+}
+
 /** The value a record page states for one of its details, by the detail's Thai name. */
 export function detailOf(page: Page, name: string) {
 	return page
@@ -2732,6 +3438,10 @@ export class BorrowedEntries {
 		expect(failures, "the runtime's own entries are published again as they were").toEqual([]);
 	}
 }
+
+/** The `day`th of `month` of `year` at 10:00 in Thailand, as a fixture's stored instant. */
+export const isoDay = (year: number, month: number, day: number) =>
+	`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T03:00:00.000Z`;
 
 /**
  * The entries a test publishes to lead an ordered list (newest first, a page boundary), returned

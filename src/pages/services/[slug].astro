@@ -8,8 +8,19 @@
 // only when it holds something: channels, eligibility, steps, documents to prepare, contact and
 // location, duration, fees and notes.
 //
+// It opens on the deep field with the Post page's header, though it is not a Post page (Feature 011
+// #344; spec #338 "The three pages", decisions 3, 8 and 10): an outlined pill for each Service
+// Category, as text, its title and its summary, with no icon. Its details and its external link
+// lie in one white card over the field's lower edge, and a Service with neither has none
+// (src/components/CardOverField.astro). The guidance follows on the page's colour under its
+// headings, then "เอกสารที่เกี่ยวข้อง" with each Document's download, as an Announcement's page has
+// it, and "หน่วยบริการสุขภาพที่ให้บริการนี้" under the Homepage's section heading, its rows the
+// directory's with their maps, names H3 (HealthServiceMapRow.astro). The page gives the shell no
+// crumbs, since the header shows them on the field.
+//
 // The related Documents follow in the order staff attached them, and the Health Services that
-// offer the Service by name, because the child side of that relation has no order (emdash 1.1.0
+// offer the Service by name, because the child side of that relation has no order (Product Owner,
+// #344 comment 6979384685, item 1; emdash 1.1.0
 // src/database/repositories/relation.ts getParentsPageById reads it in link order). EmDash
 // resolves a reference target only while it is published, or a draft in preview, so a draft,
 // unpublished or trashed one is left out (src/references/resolve.ts). A first page holds at most
@@ -22,14 +33,17 @@
 // site 404 page, which EmDash records in its 404 log. A slug that changed is redirected by
 // EmDash's middleware before this page runs.
 import { getEmDashEntry, isSafeHref } from "emdash";
+import Hospital from "@lucide/astro/icons/hospital";
+import CardOverField from "../../components/CardOverField.astro";
 import ContentLink from "../../components/ContentLink.astro";
 import DetailItem from "../../components/DetailItem.astro";
 import DetailSection from "../../components/DetailSection.astro";
-import HealthServiceRow from "../../components/HealthServiceRow.astro";
+import HealthServiceMapRow from "../../components/HealthServiceMapRow.astro";
+import PostHeader from "../../components/PostHeader.astro";
 import RelatedDocuments from "../../components/RelatedDocuments.astro";
 import RichText from "../../components/RichText.astro";
+import SectionHeading from "../../components/SectionHeading.astro";
 import TermLinks from "../../components/TermLinks.astro";
-import ThaiTitle from "../../components/ThaiTitle.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { documentsById } from "../../lib/documents";
 import { healthServicesById } from "../../lib/health-services";
@@ -100,6 +114,12 @@ const textGuidance = [
 	{ id: "service-fees", heading: "ค่าธรรมเนียม", value: service.fees },
 	{ id: "service-notes", heading: "หมายเหตุ", value: service.notes },
 ].flatMap(({ value, ...section }) => (value?.trim() ? [{ ...section, value }] : []));
+const hasText =
+	channels.length > 0 ||
+	richGuidance.length > 0 ||
+	textGuidance.length > 0 ||
+	documents.length > 0 ||
+	healthServices.length > 0;
 
 const linkClass =
 	"inline-flex min-h-11 items-center gap-1 text-brand-primary underline underline-offset-4";
@@ -110,7 +130,6 @@ const linkClass =
 	section="services"
 	description={service.summary ?? undefined}
 	canonical={servicePath(entry.id)}
-	crumbs={[{ label: service.title }]}
 	entry={{
 		collection: "services",
 		id: service.id,
@@ -119,77 +138,96 @@ const linkClass =
 	}}
 	noindex={isPreview}
 >
-	<article class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<header class="flex max-w-3xl flex-col gap-3">
-			<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
-				<ThaiTitle text={service.title} />
-			</h1>
-			{service.summary && <p class="text-body-large text-text-secondary">{service.summary}</p>}
-		</header>
-		{hasDetails && (
-			<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
-				{ownership && <DetailItem term="ผู้ให้บริการ">{ownership}</DetailItem>}
-				{provider && <DetailItem term="หน่วยงานผู้ให้บริการ">{provider}</DetailItem>}
-				{categories.length > 0 && (
-					<DetailItem term="หมวดบริการ">
-						<TermLinks terms={categories} href={(category) => servicesPath({ category })} />
-					</DetailItem>
-				)}
-			</dl>
-		)}
-		{externalUrl && (
-			<div class="flex max-w-3xl flex-col items-start gap-2">
-				<ContentLink
-					href={externalUrl}
-					class="inline-flex min-h-11 flex-wrap items-center gap-x-2 rounded-pill bg-brand-primary px-6 py-2 text-label text-surface-base hover:bg-brand-dark"
-				>
-					ไปยังเว็บไซต์ของบริการ
-				</ContentLink>
-				{externalHost && (
-					<p class="text-small wrap-anywhere text-text-secondary">
-						ลิงก์นี้พาออกจากเว็บไซต์ของสำนักงานไปยัง {externalHost}
-					</p>
-				)}
-			</div>
-		)}
-		{channels.length > 0 && (
-			<DetailSection id="service-channels" heading="ช่องทางรับบริการ">
-				<ul class="flex list-disc flex-col gap-1 pl-6">
-					{channels.map((channel) => (
-						<li class="wrap-anywhere">
-							{channel.url ? (
-								<ContentLink href={channel.url} class={linkClass}>
-									{channel.text}
-								</ContentLink>
-							) : (
-								channel.text
+	<article class="pb-16 lg:pb-20">
+		<CardOverField>
+			<PostHeader
+				slot="header"
+				section="services"
+				crumbs={[{ label: service.title }]}
+				title={service.title}
+				summary={service.summary}
+				outlined={categories.map((category) => category.label)}
+			/>
+			{(hasDetails || externalUrl) && (
+				<div slot="card" class="flex flex-col gap-5">
+					{hasDetails && (
+						<dl class="flex flex-col gap-3">
+							{ownership && <DetailItem term="ผู้ให้บริการ">{ownership}</DetailItem>}
+							{provider && <DetailItem term="หน่วยงานผู้ให้บริการ">{provider}</DetailItem>}
+							{categories.length > 0 && (
+								<DetailItem term="หมวดบริการ">
+									<TermLinks terms={categories} href={(category) => servicesPath({ category })} />
+								</DetailItem>
 							)}
-						</li>
+						</dl>
+					)}
+					{externalUrl && (
+						<div class="flex flex-col items-start gap-2">
+							<ContentLink
+								href={externalUrl}
+								class="inline-flex min-h-11 flex-wrap items-center gap-x-2 rounded-pill bg-brand-primary px-6 py-2 text-label text-surface-base hover:bg-brand-dark"
+							>
+								ไปยังเว็บไซต์ของบริการ
+							</ContentLink>
+							{externalHost && (
+								<p class="text-small wrap-anywhere text-text-secondary">
+									ลิงก์นี้พาออกจากเว็บไซต์ของสำนักงานไปยัง {externalHost}
+								</p>
+							)}
+						</div>
+					)}
+				</div>
+			)}
+			{hasText && (
+				<div class="flex max-w-3xl flex-col gap-8">
+					{channels.length > 0 && (
+						<DetailSection id="service-channels" heading="ช่องทางรับบริการ">
+							<ul class="flex list-disc flex-col gap-1 pl-6">
+								{channels.map((channel) => (
+									<li class="wrap-anywhere">
+										{channel.url ? (
+											<ContentLink href={channel.url} class={linkClass}>
+												{channel.text}
+											</ContentLink>
+										) : (
+											channel.text
+										)}
+									</li>
+								))}
+							</ul>
+						</DetailSection>
+					)}
+					{richGuidance.map((section) => (
+						<DetailSection id={section.id} heading={section.heading}>
+							<RichText value={section.value} />
+						</DetailSection>
 					))}
-				</ul>
-			</DetailSection>
-		)}
-		{richGuidance.map((section) => (
-			<DetailSection id={section.id} heading={section.heading}>
-				<RichText value={section.value} />
-			</DetailSection>
-		))}
-		{textGuidance.map((section) => (
-			<DetailSection id={section.id} heading={section.heading}>
-				<p class="wrap-anywhere whitespace-pre-line">{section.value}</p>
-			</DetailSection>
-		))}
-		<RelatedDocuments documents={documents} />
-		{healthServices.length > 0 && (
-			<DetailSection id="service-health-services" heading="หน่วยบริการสุขภาพที่ให้บริการนี้">
-				<ul class="flex flex-col gap-4">
-					{healthServices.map((healthService) => (
-						<li>
-							<HealthServiceRow healthService={healthService} headingLevel={3} />
-						</li>
+					{textGuidance.map((section) => (
+						<DetailSection id={section.id} heading={section.heading}>
+							<p class="wrap-anywhere whitespace-pre-line">{section.value}</p>
+						</DetailSection>
 					))}
-				</ul>
-			</DetailSection>
-		)}
+					<RelatedDocuments documents={documents} downloads />
+					{healthServices.length > 0 && (
+						<section aria-labelledby="service-health-services" class="flex flex-col gap-6 sm:gap-7">
+							<SectionHeading
+								id="service-health-services"
+								label="หน่วยบริการ"
+								title="หน่วยบริการสุขภาพที่ให้บริการนี้"
+							>
+								<Hospital slot="icon" class="shrink-0" size={24} />
+							</SectionHeading>
+							<ul class="flex flex-col gap-3.5">
+								{healthServices.map((healthService) => (
+									<li>
+										<HealthServiceMapRow healthService={healthService} headingLevel={3} />
+									</li>
+								))}
+							</ul>
+						</section>
+					)}
+				</div>
+			)}
+		</CardOverField>
 	</article>
 </SiteLayout>

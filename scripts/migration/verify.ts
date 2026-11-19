@@ -73,7 +73,7 @@ function listedDocuments(html: string): string[] {
 }
 
 /**
- * The name a page's download link gives its file (src/components/DocumentDownload.astro). Astro
+ * The name a page's download link gives its file (src/components/FileDownloadLink.astro). Astro
  * writes `&` and `"` in an attribute as entities (astro 7.3.5
  * dist/runtime/server/render/util.js toAttributeString).
  */

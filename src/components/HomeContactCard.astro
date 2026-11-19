@@ -85,7 +85,11 @@ const telephoneClass =
 							<MapPin class="mt-1 shrink-0 text-accent-warm" size={20} />
 							<div class="flex min-w-0 flex-col items-start wrap-anywhere">
 								{contact.address && <p class="whitespace-pre-line">{contact.address}</p>}
-								<MapLink latitude={contact.latitude} longitude={contact.longitude} onDark />
+								<MapLink
+									latitude={contact.latitude}
+									longitude={contact.longitude}
+									variant="onDark"
+								/>
 							</div>
 						</dd>
 					</div>

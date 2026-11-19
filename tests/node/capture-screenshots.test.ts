@@ -11,14 +11,21 @@ import { describe, it } from "node:test";
 
 const SCRIPT = join(import.meta.dirname, "../../scripts/capture-screenshots.mjs");
 
-/** Run the command with `args` in a home folder that holds a window's lock, or none. */
-async function capture(args: string[], lock?: string) {
+/**
+ * Run the command with `args` in a home folder that holds a window's lock, or none, and an out
+ * folder whose captured-by.txt holds `takenBy`, when given.
+ */
+async function capture(args: string[], lock?: string, takenBy?: string) {
 	const home = await mkdtemp(join(tmpdir(), "songhealth-capture-"));
 	try {
 		const state = join(home, ".local/state/songhealth-qdev");
 		await mkdir(state, { recursive: true });
 		if (lock !== undefined) await writeFile(join(state, "window"), `${lock}\n`);
 		const out = join(home, "out");
+		if (takenBy !== undefined) {
+			await mkdir(out);
+			await writeFile(join(out, "captured-by.txt"), takenBy);
+		}
 		const run = spawnSync(
 			process.execPath,
 			[SCRIPT, ...args.map((arg) => arg.replace("OUT", out))],
@@ -53,5 +60,18 @@ describe("the screenshot command and a window", () => {
 		const run = await capture([]);
 		assert.equal(run.status, 2);
 		assert.match(run.stderr, /^usage: /);
+	});
+});
+
+describe("the screenshot command and a file another source took (#346 retro)", () => {
+	it("stops before it opens a browser, names the file and both sources, and writes nothing", async () => {
+		const run = await capture(
+			["--source", "b.ts", "OUT", "health-service-inactive-1440=/health-services/shot-b@1440"],
+			undefined,
+			"health-service-inactive-1440.png\ta.ts\n",
+		);
+		assert.equal(run.status, 1);
+		assert.match(run.stderr, /health-service-inactive-1440\.png: a\.ts took it, this run is b\.ts/);
+		assert.deepEqual(run.written, ["captured-by.txt"]);
 	});
 });

@@ -11,10 +11,14 @@
 
 import { getEmDashCollection, type ContentEntry, type TaxonomyTerm } from "emdash";
 import { listPage, type ListPage } from "./dated-lists";
+import { termsOf } from "./terms";
 import {
 	areasInUse,
 	byName,
 	filterDirectory,
+	healthServicePath,
+	isOutOfService,
+	shownName,
 	type DirectoryFilters,
 	type DirectoryTerm,
 	type OperationalStatus,
@@ -46,6 +50,24 @@ export interface HealthServiceData {
 }
 
 export type HealthServiceEntry = ContentEntry<HealthServiceData>;
+
+/**
+ * What a Health Service row shows of its entry (Feature 003 #57; Feature 011 #341): its shown name
+ * and page, its facts (its Facility Types, then its Areas, each joined into one fact, `MetaLine`'s
+ * input), and its status when it should stop a citizen from travelling there.
+ */
+export function healthServiceRowParts({ id, data }: HealthServiceEntry) {
+	const facts = ["facility_type", "area"].map((taxonomy) => {
+		const labels = termsOf(data, taxonomy).map((term) => term.label);
+		return labels.length > 0 && { text: labels.join(", ") };
+	});
+	return {
+		name: shownName(data),
+		href: healthServicePath(id),
+		facts,
+		status: isOutOfService(data.operational_status) ? data.operational_status : undefined,
+	};
+}
 
 /** One page of the directory, and the Area terms its filter offers. */
 export interface DirectoryPage extends ListPage<HealthServiceEntry> {
