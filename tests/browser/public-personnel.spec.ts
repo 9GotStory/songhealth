@@ -942,9 +942,11 @@ async function panelLook(
 	}
 	const row = panel.getByRole("article").filter({ hasText: name });
 	const frame = row.getByTestId("person-picture");
-	const [picture, title] = [
+	const [picture, title, held, label] = [
 		await boxOf(row.locator('img, [data-testid="person-visual"]').first(), "the picture"),
 		await boxOf(row.getByRole("heading", { level: 3 }), "the name"),
+		await boxOf(row.getByText(position, { exact: true }), "the position"),
+		await boxOf(row.getByText(CONTACT_LABEL, { exact: true }), "the contact's label"),
 	];
 	return {
 		...(await panel.evaluate((element) => {
@@ -964,11 +966,12 @@ async function panelLook(
 		position: await textStyle(row.getByText(position, { exact: true })),
 		label: await textStyle(row.getByText(CONTACT_LABEL, { exact: true })),
 		contact: await textStyle(row.getByText(contact, { exact: true })),
+		contactUnder: Math.round(label.y - held.y - held.height),
 		picture: picture.x + picture.width <= title.x ? "beside" : "not beside",
 	};
 }
 
-test("a unit's panel is white with the card shadow and radius 24 and 20 px of padding, 28 px from 640 px; its head a 40 px surface-soft tile with the 20 px users-round in brand-primary beside the unit's name, an H2 at H3 size in text-primary, over a 1 px border-default rule 16 px under them; a person's row has the ringed circle at 52 px, 60 px from 640 px, with a 2 px gap and the 2 px border-default ring beside the name, an H3 at body size, semibold, in text-primary, the position at label size in text-secondary and the public contact under ช่องทางติดต่อ at small size", async ({
+test("a unit's panel is white with the card shadow and radius 24 and 20 px of padding, 28 px from 640 px; its head a 40 px surface-soft tile with the 20 px users-round in brand-primary beside the unit's name, an H2 at H3 size in text-primary, over a 1 px border-default rule 16 px under them; a person's row has the ringed circle at 52 px, 60 px from 640 px, with a 2 px gap and the 2 px border-default ring beside the name, an H3 at body size, semibold, in text-primary, the position at label size in text-secondary and the public contact under ช่องทางติดต่อ at small size, 10 px under the position", async ({
 	page,
 }) => {
 	await borrowPersonnel();
@@ -1021,6 +1024,7 @@ test("a unit's panel is white with the card shadow and radius 24 and 20 px of pa
 			position: text(14, "400", "text-secondary"),
 			label: text(13, "500", "text-secondary"),
 			contact: text(13, "400", "text-primary"),
+			contactUnder: 10,
 			picture: "beside",
 		};
 	}
