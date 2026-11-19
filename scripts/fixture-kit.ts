@@ -42,9 +42,10 @@ export interface FixtureKit {
 	 * Return every published entry of `collection` to draft until the run ends, which publishes
 	 * each again at its own date: a page without that content, such as the Homepage with no current
 	 * Announcement (#245 retro). Call it before making entries of the collection. It throws at an
-	 * entry with unpublished changes, which publishing again would release.
+	 * entry with unpublished changes, which publishing again would release. Given `entries`, ids or
+	 * slugs, it borrows those alone, such as the reserved Basic Page `about` (Feature 012 #366).
 	 */
-	borrow(collection: string): Promise<void>;
+	borrow(collection: string, entries?: readonly string[]): Promise<void>;
 }
 
 /** The development runtime's origin. */
@@ -88,10 +89,13 @@ export async function withFixtureKit<T>(work: (kit: FixtureKit) => Promise<T>): 
 		async homepageMenus(menus) {
 			restores.unshift(await helpers.showHomepageMenus(admin, menus));
 		},
-		async borrow(collection) {
-			for (const { id } of await helpers.listPublishedEntries(admin, collection)) {
-				const item = helpers.nativeItemOf(await helpers.readEntry(admin, collection, id));
-				if (item === undefined) throw new Error(`borrow: ${collection}/${id} cannot be read`);
+		async borrow(collection, entries) {
+			const named =
+				entries ?? (await helpers.listPublishedEntries(admin, collection)).map(({ id }) => id);
+			for (const name of named) {
+				const item = helpers.nativeItemOf(await helpers.readEntry(admin, collection, name));
+				if (item === undefined) throw new Error(`borrow: ${collection}/${name} cannot be read`);
+				const id = String(item.id);
 				if (typeof item.draftRevisionId === "string") {
 					throw new Error(`borrow: ${collection}/${id} has unpublished changes`);
 				}
