@@ -196,6 +196,69 @@ describe("DESIGN.md's version on a feature's ticket branch", () => {
 	});
 });
 
+/**
+ * The banner of Feature `feature` in DESIGN.md, its quoted lines up to the first line outside the
+ * quote, or undefined while the feature has none.
+ */
+function bannerOf(design: string, feature: string): string | undefined {
+	return new RegExp(`^> \\*\\*Feature ${feature} decision.*(?:\\n>.*)*`, "m").exec(design)?.[0];
+}
+
+/**
+ * What a commit on a ticket's branch of `feature` does wrong to the feature's banner: it changes
+ * the banner `before` had, unless the ticket is the one `rewrite` names, the feature's hand-off
+ * ticket (CODING_STANDARDS "Documents", Amendments).
+ */
+function bannerChangedFor(
+	before: string,
+	after: string,
+	feature: string,
+	ticket: string,
+	rewrite: string | undefined,
+): string[] {
+	const banner = bannerOf(before, feature);
+	if (banner === undefined || rewrite === ticket || bannerOf(after, feature) === banner) return [];
+	return [
+		`#${ticket} changes Feature ${feature}'s banner: its decisions go into §13, and the hand-off ticket commits its rewrite with SONGHEALTH_BANNER_REWRITE=<ticket>`,
+	];
+}
+
+describe("Feature banner on a feature's ticket branch", () => {
+	it("stays as HEAD has it when a commit stages DESIGN.md", async () => {
+		// #366 and #367 each added a sentence to Feature 012's banner, and only #370's review read
+		// the rule (#370 retro). CI stages nothing, so there the check holds by itself.
+		const git = (...args: string[]) =>
+			execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim();
+		const staged = git("diff", "--cached", "--name-only").split("\n");
+		const branch = git("rev-parse", "--abbrev-ref", "HEAD");
+		const [ticket, feature] = [ticketOfBranch(branch), featureOfBranch(branch)];
+		if (!staged.includes("docs/design/DESIGN.md") || !ticket || !feature) return;
+		const before = git("show", "HEAD:docs/design/DESIGN.md");
+		const after = await readFile(new URL("docs/design/DESIGN.md", ROOT), "utf8");
+		const rewrite = process.env.SONGHEALTH_BANNER_REWRITE;
+		assert.deepEqual(bannerChangedFor(before, after, feature, ticket, rewrite), []);
+	});
+
+	it("finds a changed banner, and passes a new banner, an unchanged one and the hand-off's rewrite", () => {
+		const design = (banner: string) =>
+			`> **Status:** v1.6\n\n> **Feature 011 decision:** a\n\n${banner}\n\nBody text.\n`;
+		const banner = "> **Feature 012 decision (PO):** the pages\n> are redesigned.";
+		const added = "> **Feature 012 decision (PO):** the pages\n> are redesigned. And Personnel.";
+		assert.equal(bannerOf(design(banner), "012"), banner);
+		assert.equal(bannerOf(design(banner), "013"), undefined);
+		assert.deepEqual(bannerChangedFor(design(banner), design(added), "012", "370", undefined), [
+			"#370 changes Feature 012's banner: its decisions go into §13, and the hand-off ticket commits its rewrite with SONGHEALTH_BANNER_REWRITE=<ticket>",
+		]);
+		assert.deepEqual(bannerChangedFor(design(banner), design(banner), "012", "370", undefined), []);
+		assert.deepEqual(bannerChangedFor(design(""), design(banner), "012", "366", undefined), []);
+		assert.deepEqual(bannerChangedFor(design(banner), design(added), "012", "372", "372"), []);
+		assert.deepEqual(
+			bannerChangedFor(design(banner), design(added), "012", "370", "372").length,
+			1,
+		);
+	});
+});
+
 describe("a feature's decision banner", () => {
 	it("stands once in each current document and in DESIGN.md", async () => {
 		// A feature amends a document under one banner and one version bump; a later ticket of the
