@@ -9,8 +9,9 @@
 > 6891402807). Feature 010's redesign of the Activities, Announcements and Documents pages follows
 > spec #311, implemented by #312–#318, and was accepted on #311 (Product Owner, 2026-11-17: #311
 > comment 6936494700). Feature 011's redesign of the Health Information hub, the Health Reports,
-> Services and Health Services pages follows spec #338, implemented by #339–#346.
-> **Updated:** 2026-11-18 (#345); first drafted 2026-10-30
+> Services and Health Services pages follows spec #338, implemented by #339–#346; the Product Owner
+> accepts it on #338.
+> **Updated:** 2026-11-19 (#346); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -461,7 +462,8 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
   SC 1.4.10). A rule from a breakpoint is checked on both sides of it, as at 1,023 and 1,024 px
   (CODING_STANDARDS "Tests"). The Homepage and the shell are also measured and captured at
   1,024 and 768 px, the five widths of Feature 008 (spec #239 "Testing Decisions"; §8.2), and so
-  are Feature 009's and Feature 010's pages (spec #280 and spec #311 "Testing Decisions"; §7.8).
+  are Feature 009's, Feature 010's and Feature 011's pages (spec #280, spec #311 and spec #338
+  "Testing Decisions"; §7.8).
 - **Container:** the 1,200 px content column, centred (`page-container`), with a gutter of 16 px
   below `sm` and 24 px from `sm`, so a 1,440 px window has 120 px either side.
 - **Spacing:** the 4/8/12/16/24/32/48/64/80 px rhythm. Between two Homepage sections after the deep
@@ -1552,9 +1554,10 @@ stays the submit state (§8.9).
   `testFilteredListOnField`'s motion case for the other two, and `testListOnField`'s for the
   Activities, Announcements and Documents lists: the Activities list's cards move as `/news`'s
   since Feature 010 #313, the Announcements' rows reveal as the Homepage's do since #314, without a
-  picture to shimmer, and the Documents' rows as the Announcements' since #315; `/services`'
-  cards reveal without a picture since Feature 011 #340, `/health-services`' rows since #341 and
-  `/health/reports`' rows since #342, `testListOnField`'s `itemsMove`).
+  picture to shimmer, and the Documents' rows as the Announcements' since #315; `/health`'s
+  tiles reveal since Feature 011 #339 (`public-health.spec.ts` "/health moves only when motion is
+  allowed: …"), `/services`' cards without a picture since #340, `/health-services`' rows since
+  #341 and `/health/reports`' rows since #342, `testListOnField`'s `itemsMove`).
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
@@ -2099,6 +2102,66 @@ there). Each ticket's decisions are on #312 to #317 and in §13. The evidence ro
 names what the evidence does not cover, which the Product Owner accepted after the walkthrough
 (#318 comment 6935876072). The Product Owner accepted the feature on #311 (comment 6936494700).
 
+**What the Product Owner picked for the Health Information hub, the Health Reports, Services and
+Health Services pages** on the Feature 011 prototype, after the Homepage and Features 009 and 010's
+pages as they are built, each answered "ตามที่แนะนำ" on 2026-11-17 (spec #338 "Decisions the
+Product Owner made", whose numbers these are; #338 comment 6941491587):
+
+- the scope: the seven pages in one feature, `/health` among them; every read, order, page size,
+  filter, address, head tag, 404 and preview behaviour as it is; no new field, address or section;
+  the model and the Admin as they are; and the Homepage's motion with no new effect (1, 2, 7);
+- the new Health Service row on the directory and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้",
+  Feature 010's related Documents on a Service's page, and every other page's rows and
+  `QuickLinkCard` as they are until their own feature (2, 3);
+- a Health Report's file as a Document's page holds its file, and `DocumentDownload.astro` gone
+  (4, #334);
+- each list headed as Feature 009's lists, with its label, H1 and icon (5), and `/services`' and
+  `/health-services`' filter forms over the field's edge (6);
+- `/health`'s two destinations as the Homepage's Quick Access tiles, side by side at every width
+  (13);
+- `/services` with the Homepage's Frequently Used Service card, shared, in a plain grid of three,
+  two and one at any count, and its two related links under the lead (13, 15); the card's summary
+  in `text-secondary-on-soft`, on the Homepage too (20), and the `card` shadow at rest off the
+  field (21);
+- `/health-services` with rows, not cards (16), and "เปิดแผนที่" in a row when the Health Service has
+  coordinates, named with the Health Service, as a Document row's download (12);
+- `/health/reports` with a row whose tile holds the fiscal year, never dating a report by its
+  publication, and no download (1, 17);
+- the three pages with the Post page's header on the field and one card over its lower edge,
+  holding first what a citizen came for: the report's file, the Service's provider, the Health
+  Service's location (8 to 11); a Health Service's Services as the catalog's cards and a Service's
+  Health Services as the directory's rows (18);
+- the Homepage's H2 "หน่วยบริการสุขภาพในอำเภอสอง" as it is, and no new term in `GLOSSARY.md` (14).
+
+**What the Product Owner decided while the tickets were built,** each on its ticket:
+
+- a `/health` tile's label an H2 there only, the Homepage's tiles with no heading (#339 comment
+  6941979791); the tiles ending on the field's edge from 640 px, the links under `/services`' lead
+  keeping their colour under the pointer and showing at once, and no balanced wrapping on a tile's
+  H2 (#339 comment 6943764346);
+- the Service cards' short last lines as built, and the Homepage's Service card's focus ring as
+  Feature 008 accepted it, its reading recorded (#340 comment 6947302659);
+- a directory row's "เปิดแผนที่" semibold with a 20 px `map-pin`, and its facts line with
+  `MetaLine`'s "•" (#341 comment 6966593423); the name underlined on its own link only, and a row
+  without coordinates whose text runs on into the map's place from 1,024 px (#341 comment
+  6967772153);
+- a Health Report row's title turning at once under the pointer, the banded ring alone under the
+  keyboard's focus, and a facts line's dot at a line's end left to #353, outside the feature (#342
+  comment 6971829798);
+- the report Document's title link a text line high (#343 comment 6975126191);
+- a Service's offering Health Services by name, as before, and one outlined pill per Service
+  Category (#344 comment 6979384685); "ไปยังเว็บไซต์ของบริการ"'s arrow on a line of its own at 375 and
+  320 px (#344 comment 6981324830);
+- an inactive Health Service still listing its Services, its official name under the H1 with no
+  label, and four shared or earlier details as they are (#345 comment 6995945811).
+
+The prototype's variants, on the branch `prototype/health-reports-services-health-services` at
+`a6a5c14` (the picks at `fd82f59`, then decisions 20 and 21), are the visual reference (`docs/prototypes/health-reports-services-health-services.md`
+there). Each ticket's decisions are on #339 to #345 and in §13. The evidence round of #346
+(`docs/evidence/346-health-reports-services-health-services-evidence-round.md`) measures the pages
+and names what the evidence does not cover, which the Product Owner accepted after the walkthrough
+(#346 comment 6997998925). The Product Owner accepts the feature on #338.
+
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
 Feature 008's picks above take the place of the smaller Featured title and the shorter phone page:
@@ -2152,11 +2215,24 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - **A Document's download** takes two lines below 640 px when its words do not fit one, on
   `/documents` and on a Document's page, its type and size kept whole (§7.3, §9.5; #317 comment
   6918054121).
-- **The header on the field** of a Post page, an Announcement's and a Document's page can end
-  its H1 with one word on its last line (`PostHeader`; #318 comment 6935876072, item 3).
+- **The header on the field** of a Post page, an Announcement's, a Document's, a Health Report's,
+  a Service's and a Health Service's page can end its H1 with one word on its last line
+  (`PostHeader`; #318 comment 6935876072, item 3; for Feature 011's three pages, #346 comment 6997998925, item 3).
 - **"ติดต่อเรา" in the unavailable notice** on a Document's page is a link about 22 px high inside
   its sentence, as it was before Feature 010 (read on #317's page: the note from #317, #318 comment
-  6919234068; the same comment).
+  6919234068; the same comment), and so is it on a Health Report's page, which shows the same
+  notice since Feature 011 #343 (52 × 22 px at the five widths, measured at `9f31dc0` with `scripts/capture-with-fixtures.ts`'s close-up on the report pages of `scripts/screenshot-fixtures/lists-by-count.ts`, `docs/evidence/346-health-reports-services-health-services-evidence-round.md`; #346 comment 6997998925, item 3).
+- **A Service card's focus ring on the Homepage:** beside the ring 2 to 3 % of its neighbours read
+  under 3:1 at its rounded corners over the field; on the card it lies on it reads 5.51:1 or more,
+  as Feature 008 accepted it (#242 comment 6797113372, item 2; #340 comment 6947302659, item 3).
+- **"ไปยังเว็บไซต์ของบริการ"** in a Service's card takes its ↗ on a line of its own at 375 and
+  320 px, the link as before in a narrower box (§9.7; #344 comment 6981324830).
+- **A facts line** (`MetaLine`) that wraps can end a line with its dot, on the Health Service and
+  Health Report rows as on the Document row; #353 takes it up outside Feature 011 (#342 comment
+  6971829798, item 4).
+- **A Health Service's page** (#345 comment 6995945811, item 3): the Service card's `transition`
+  also animates its colour and shadow, and `DetailItem`'s term sits about 3 px above its value
+  from 640 px, both shared and as before.
 - **A gallery in a News body** does not fold, and EmDash's Edit mode shows it as a placeholder
   (§9.3).
 - **A focal point or alt text** set in the media library after staff picked a picture may not
@@ -2186,7 +2262,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   every stop and no sideways scrolling at 320 px, and at 375 px where a spec names it
   (CODING_STANDARDS "Tests"). There are no pixel tests: the look is the Product Owner's review of
   each pull request's screenshots at 1,440, 375 and 320 px, and for the Homepage, the shell and
-  Feature 009's and Feature 010's pages at 1,024 and 768 px too (§6).
+  Feature 009's, Feature 010's and Feature 011's pages at 1,024 and 768 px too (§6).
 
 ## 12. Developer and agent handoff rules
 
@@ -2640,3 +2716,15 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   §9.1 and §9.8 name it. Authority: spec #338 "The three pages: the header", "The card over the
   field's edge" and decisions 8, 11, 13, 18 and 21, #338 comment 6941491587, and #341 comment
   6966593423 (the map's pill).
+- **v1.5 documents, measures and limits (2026-11-19, Feature 011 #346):** the Status line names
+  the acceptance due on #338. §10 lists what the Product Owner picked for Feature 011 and decided
+  on #339 to #345, with each decision's source, and adds four kept limits: the Homepage's Service
+  card's focus ring at its corners over the field, the external link's ↗ on a line of its own in
+  a Service's card, a facts line's dot at a line's end (#353), and two shared details of a Health
+  Service's page; its limits on the H1's lone last word and the 22 px "ติดต่อเรา" link now name
+  Feature 011's pages. §8.12 names `/health`'s tiles among the parts that reveal, and §6 and §11
+  name Feature 011's pages among those measured and captured at 1,024 and 768 px. The readings Feature 011's tickets recorded in §3.2, §7.3, §7.8,
+  §8.4 and §9.6 to §9.8 were read again at the integration head `9f31dc0` and are the same
+  (`docs/evidence/346-health-reports-services-health-services-evidence-round.md`). Authority: spec
+  #338 "Documents" and "Decisions the Product Owner made", the decisions on #339 to #345, the notes
+  on #346, and #346 comment 6997998925. No page changed.
