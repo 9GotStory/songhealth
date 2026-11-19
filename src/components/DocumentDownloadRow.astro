@@ -1,12 +1,12 @@
 ---
 // A Document as a row with its download, on the Document repository (Feature 010 #315; spec #311
 // "The Document repository", decisions 8, 16 and 17) and the About Document pages (Feature 012
-// #366; spec #365 decision 5). A Basic Page's related Documents keep DocumentRow until its own
-// ticket. A white row with the file's tile, the facts
-// line, a superseded or expired Document's attention label on its own line, the title, from `sm`
-// the summary, and the file's download. Its title is a heading one level below the list's own:
-// H2 on a list; `headingLevel` 3 is for an Announcement's "เอกสารที่เกี่ยวข้อง", which takes
-// this row in #316 (#315 "What to build").
+// #366; spec #365 decision 5), and under a page's "เอกสารที่เกี่ยวข้อง" (RelatedDocuments.astro): an
+// Announcement's (#316), a Service's (Feature 011 #344) and a Basic Page's (Feature 012 #368). A
+// white row with the file's tile, the facts line, a superseded or expired Document's attention
+// label on its own line, the title, from `sm` the summary, and the file's download. Its title is a
+// heading one level below the list's own: H2 on a list, and `headingLevel` 3 under
+// "เอกสารที่เกี่ยวข้อง" (#315 "What to build").
 //
 // The tile is FileTile, which a Document's page shows too. The title is text-primary, body size
 // below `sm` and body-large from `sm`, as the prototype's (Product Owner, 2026-11-16: #315 comment
