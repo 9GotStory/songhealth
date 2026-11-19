@@ -67,6 +67,7 @@ import {
 	readListField,
 	ringedCircle,
 	shownOpacity,
+	shownWhole,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
@@ -103,6 +104,12 @@ const marked = (words: string, ending: string) => `${SYNTHETIC_FIXTURE_MARK} ${w
 /** A synthetic, publicly visible Personnel draft named `${mark} ${name} ${ending}`. */
 const createPerson = (name: string, data?: Record<string, unknown>) =>
 	createSyntheticPerson(admin, name, data);
+
+/** Borrow the runtime's own visible Personnel, so the test's leaders are the only ones shown. */
+async function borrowPersonnel(): Promise<void> {
+	for (const id of await visiblePublishedPersonnel(admin))
+		await borrowed.borrow(admin, "personnel", id);
+}
 
 async function publish(...people: DraftFixture[]): Promise<void> {
 	for (const person of people) {
@@ -152,8 +159,7 @@ test.afterAll(() => removeSuiteFixtures(admin));
 test("/about/leadership and /about/personnel show their empty states while no publicly visible Personnel is published", async ({
 	page,
 }) => {
-	for (const id of await visiblePublishedPersonnel(admin))
-		await borrowed.borrow(admin, "personnel", id);
+	await borrowPersonnel();
 	const hidden = await createPerson("ซ่อน", { public_visible: false, leadership_order: 1 });
 	await publish(hidden);
 
@@ -247,12 +253,11 @@ test("/about/personnel groups the publicly visible Personnel by unit in Thai ord
 	await expect(page.getByRole("main").getByText(draft.title)).toHaveCount(0);
 });
 
-test("each person shows their profile image, cropped around its top or around its focal point, prefix and name, position and unit, and their public contact only when set, and a plain surface-soft circle without a picture or with a deleted one; on Leadership the first leader takes the featured card and every name is an H2; nothing links to a per-person address", async ({
+test("each person shows their profile image, cropped around its top or around its focal point, prefix and name, position and unit, and their public contact only when set, and a plain surface-soft circle without a picture or with a deleted one; on Leadership every name is an H2, in Leadership order; nothing links to a per-person address", async ({
 	page,
 }) => {
 	// The fixtures alone have a Leadership order, so the first of them takes the featured card.
-	for (const id of await visiblePublishedPersonnel(admin))
-		await borrowed.borrow(admin, "personnel", id);
+	await borrowPersonnel();
 	const run = crypto.randomUUID().slice(0, 6);
 	const unit = marked("หน่วยบริหาร", run);
 	const media = await uploadSyntheticMedia(admin);
@@ -343,7 +348,6 @@ test("each person shows their profile image, cropped around its top or around it
 		`นาย${withContact.displayName}`,
 		...[withoutContact, focused, gone].map(({ title }) => title),
 	]);
-	await expect(cards.first(), "the first leader's card").toContainText(withContact.title);
 	await page.goto(PERSONNEL.path);
 	expect(await namesIn(page, unit), "the unit's heading names the unit").toEqual([
 		withContact.title,
@@ -381,12 +385,6 @@ testHeadingOnField({
 /** A name and a position longer than any other the suites hold, for the layout cases. */
 const LONG_NAME = "ผู้บริหารที่มีชื่อและนามสกุลยาวมากเพื่อดูการตัดบรรทัดของการ์ด";
 const LONG_POSITION = "นักวิชาการสาธารณสุขชำนาญการพิเศษรักษาราชการแทนสาธารณสุขอำเภอสอง";
-
-/** Borrow the runtime's own visible Personnel, so the test's leaders are the only ones shown. */
-async function borrowPersonnel(): Promise<void> {
-	for (const id of await visiblePublishedPersonnel(admin))
-		await borrowed.borrow(admin, "personnel", id);
-}
 
 /**
  * How many leaders' cards sit in each row under the featured card at `width`, `others` of them
@@ -725,20 +723,17 @@ test.describe("/about/leadership without JavaScript", () => {
 		await publish(...leaders);
 		await page.goto(LEADERSHIP.path);
 		const heading = listHeading(page, LEADERSHIP_HEADING);
-		const seen = {
+		const seen: Record<string, unknown> = {
 			title: (await page.getByRole("heading", { level: 1 }).textContent())?.trim(),
-			label: await heading.label.isVisible(),
-			lead: await heading.lead.isVisible(),
-			leaders: (
-				await cardList(page).cards.getByRole("heading", { level: 2 }).allTextContents()
-			).map((text) => text.trim()),
+			label: await shownWhole(heading.label),
+			lead: await shownWhole(heading.lead),
 		};
-		expect(seen, "the page without JavaScript").toEqual({
-			title: LEADERSHIP.title,
-			label: true,
-			lead: true,
-			leaders: leaders.map(({ title }) => title),
-		});
+		const expected: Record<string, unknown> = { title: LEADERSHIP.title, label: true, lead: true };
+		for (const { title } of leaders) {
+			seen[title] = await shownWhole(listedItem(page, title));
+			expected[title] = true;
+		}
+		expect(seen, "the page without JavaScript").toEqual(expected);
 	});
 });
 

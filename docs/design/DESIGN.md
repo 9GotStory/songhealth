@@ -1,6 +1,6 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.7, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.6, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
@@ -2853,7 +2853,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   §8.12 name the pages, and the Status line and a Feature 012 banner name the feature. Authority:
   spec #365 "The About Document pages", "Motion" and decisions 4 and 5, and #365 comment
   7000119315.
-- **v1.7 the Leadership page (2026-11-19, Feature 012 #367):** `/about/leadership` opens on the
+- **v1.6 the Leadership page (2026-11-19, Feature 012 #367):** `/about/leadership` opens on the
   deep field with the list heading (§7.8): the label "บุคลากร" and the icon `user-round` are new to
   the page, and the H1, the lead, the title in the head, the breadcrumb and the empty state's words
   stay. Over the field's edge the first leader by Leadership order takes a featured card across the

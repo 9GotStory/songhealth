@@ -271,8 +271,8 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   `object-cover` takes `placeholder={false}` and crops around a focal point:
   `./src/components/ContentCard.astro`, `./src/components/ActivityPhotos.astro`, `./src/components/HomeActivityTile.astro`,
   `./src/components/HomeHealthCard.astro`, `./src/components/PersonPicture.astro` (a person's
-  picture in its ring, which the Homepage's Leadership strip and the Leadership page's cards share
-  since Feature 012 #367) and `./src/components/PersonCard.astro` (#298 comment 6892189972, decision
+  picture in its ring, which the Homepage's Leadership strip and the Leadership page's cards share;
+  Feature 012 #367) and `./src/components/PersonCard.astro` (#298 comment 6892189972, decision
   1), as the blurred copy
   in `./src/components/HomeHero.astro` does (above), and
   `./tests/node/public-media.test.ts` fails on one that keeps the placeholder. The two portraits
