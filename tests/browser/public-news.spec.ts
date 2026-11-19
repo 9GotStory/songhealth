@@ -24,8 +24,8 @@
 //
 // Platform behaviour relied on (emdash 1.1.0):
 // - POST …/publish accepts `publishedAt` to backdate a publication; the development PAT's
-//   Administrator holds content:publish_any (src/astro/routes/api/content/[collection]/[id]/
-//   publish.ts).
+//   Administrator holds content:publish_any
+//   (src/astro/routes/api/content/[collection]/[id]/publish.ts).
 // - An image field saved with only a media id takes its alt text from the media library
 //   (src/media/normalize.ts mergeProviderData).
 // - POST …/preview-url mints the signed preview link of a draft, and the site's settings `seo`

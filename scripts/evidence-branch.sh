@@ -51,6 +51,18 @@ if git rev-parse --verify -q "refs/heads/$branch" >/dev/null; then
     images=("$dir"/*.png)
   fi
 fi
+# A folder of after images whose before images neither it nor the branch's tip holds would commit
+# without a pair to print (#345 retro: a ticket's first after-only run on a new branch was pushed
+# that way): it stops here, before any commit. A new page's after image beside pairs still commits.
+afters=("$dir"/after-*.png)
+pairs=0
+for after in "${afters[@]}"; do
+  [[ -e $dir/before-${after##*/after-} ]] && pairs=$((pairs + 1))
+done
+if ((${#afters[@]} && !pairs)); then
+  echo "evidence-branch: no before image for any of the ${#afters[@]} after images in $dir or at $branch's tip; put the before images in $dir" >&2
+  exit 1
+fi
 files=("${images[@]}")
 if [[ -e $dir/captures.txt ]]; then files+=("$dir/captures.txt"); fi
 tree=$(for file in "${files[@]}"; do

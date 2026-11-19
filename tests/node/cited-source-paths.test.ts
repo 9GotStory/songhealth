@@ -33,6 +33,9 @@ const CITED_PATH =
 const JOINED_PATH =
 	/(?<![\w./@-])(?:node_modules\/)?((?:@[\w.-]+\/)?[a-z][\w.-]*)\/((?:src|dist|lib)\/[\w.[\]/-]+?\.(?:ts|tsx|mts|js|mjs|astro))(?![\w/-])/g;
 
+/** A comment line that ends in the folder part of a cited path, such as `(src/components/`. */
+const SPLIT_PATH = /(?<![\w./@-])\(?(?:src|dist|lib)\/[\w.[\]/-]*\/$/;
+
 /** A word that may name a package, such as `playwright-core` or `@emdash-cms/admin`. */
 const PACKAGE_NAME = /(?:@[\w.-]+\/)?[\w.-]+/g;
 
@@ -135,6 +138,23 @@ describe("cited source paths", () => {
 	it("are found in the code comments", async () => {
 		const cited = await citedPaths();
 		assert.ok(cited.some(({ path }) => path === "src/loader.ts"));
+	});
+
+	it("stay whole on one comment line", async () => {
+		// A path broken at a slash, "(src/components/" with "CardOverField.astro)" on the next line,
+		// matches no cited path, so the checks below never see it (#345 retro). A comment line that
+		// ends in such a folder, with the next line a comment, keeps the whole path on one line.
+		const broken: string[] = [];
+		for (const file of codeFiles()) {
+			const lines = (await readFile(new URL(file, ROOT), "utf8")).split("\n");
+			lines.forEach((line, index) => {
+				const next = lines[index + 1];
+				if (isComment(line) && next !== undefined && isComment(next) && SPLIT_PATH.test(line)) {
+					broken.push(`${file}:${index + 1}`);
+				}
+			});
+		}
+		assert.deepEqual(broken, []);
 	});
 
 	it("exist in the repository, in EmDash, or in the package the line names", async () => {
