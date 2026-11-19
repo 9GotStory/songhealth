@@ -95,9 +95,7 @@
 > and their downloads over the field's edge (§7.3). `/about/leadership` takes the same heading
 > under the label "บุคลากร", with the first leader in a featured card across the row and the others
 > in white cards over the field's edge, each with the Homepage Leadership strip's ringed circle
-> (§7.3, §8.5). `/about/personnel` takes it under the label "เกี่ยวกับเรา", with a white panel
-> per organizational unit over the field's edge, its people inside as compact rows with the same
-> ringed circle (§7.3). Every address, read and behaviour stays, and no
+> (§7.3, §8.5). Every address, read and behaviour stays, and no
 > colour, type size, radius or shadow joins the tokens. #366 to #371 implement the pages, each with
 > its own decisions in §13's change history, and #372 the documents, the measures and the limits.
 > Every page outside the feature keeps its design.
@@ -170,6 +168,9 @@ health-service network.
   their downloads (§7.3). `/about/leadership` is headed the same way under the label "บุคลากร",
   with the first leader in a featured card across the row and the others in white cards over the
   field's edge, each with the Leadership strip's ringed circle (§7.3, §8.5; #367).
+  `/about/personnel` is headed the same way under the label "เกี่ยวกับเรา", with a white panel per
+  organizational unit over the field's edge, its people inside as compact rows with the same
+  ringed circle (§7.3, §8.5; #370).
   Every page outside these features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
