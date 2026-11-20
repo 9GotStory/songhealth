@@ -73,7 +73,6 @@ describe("suitesFor", () => {
 			under("tests/browser", (name) => name.endsWith(".spec.ts")),
 		);
 		const curation = found.find((suite) => suite.path.endsWith("public-homepage-curation.spec.ts"));
-		// /about shares the tile since Feature 012 #371.
-		assert.deepEqual(curation?.because, ["/", "/about", "/health"]);
+		assert.deepEqual(curation?.because, ["/", "/health"]);
 	});
 });
