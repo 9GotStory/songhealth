@@ -874,10 +874,11 @@ test.describe("a Basic Page on the field", () => {
 		expect(seen, "the page ends with its field").toEqual(expected);
 	});
 
-	test("with the longest title and a long summary, the header's breadcrumb, title and summary stay inside the window and show whole at 375 and 320 px, where the field would clip what passes it", async ({
+	test("with the longest title and a summary ending in a long web address, the header's breadcrumb, title and summary stay inside the window and show whole at 375 and 320 px, where the field would clip what passes it", async ({
 		page,
 	}) => {
-		const summary = `${SYNTHETIC_FIXTURE_MARK} ${LONG_TITLE}`;
+		// An unbroken run of characters wraps anywhere (#368 comment 7028435491, item 2).
+		const summary = `${SYNTHETIC_FIXTURE_MARK} ${LONG_TITLE} https://example.invalid/documents/annual-health-service-plan-of-the-district-public-health-office-2570.pdf`;
 		const long = await createPage("field-long", {
 			data: { title: `${SYNTHETIC_FIXTURE_MARK} หน้า ${LONG_TITLE}`, summary },
 		});

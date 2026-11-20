@@ -16,7 +16,9 @@
 // (src/pages/health/reports/[slug].astro). A Service's page takes it too (#344; spec #338 decision
 // 10): an outlined pill for each of its Service Categories, as text, with no date, and its summary
 // (src/pages/services/[slug].astro; Product Owner, #344 comment 6979384685, item 2).
-// The summary keeps the line breaks staff typed. A part the post lacks is left out, and so is the
+// The summary keeps the line breaks staff typed, and an unbroken run of characters in it, such as a
+// long web address, wraps anywhere rather than pass the field's edge, which would clip it (Product
+// Owner, #368 comment 7028435491, item 2). A part the post lacks is left out, and so is the
 // row when it holds no pill, as a draft's preview has no publication date. Its
 // text takes the field's surface-base (DeepField.astro).
 //
@@ -96,7 +98,7 @@ const warmPill =
 		<h1 class="text-h3 wrap-anywhere sm:text-h2 lg:text-h1">
 			<ThaiTitle text={title} />
 		</h1>
-		{summary && <p class="text-body-large whitespace-pre-line">{summary}</p>}
+		{summary && <p class="text-body-large wrap-anywhere whitespace-pre-line">{summary}</p>}
 		<slot />
 	</div>
 </header>
