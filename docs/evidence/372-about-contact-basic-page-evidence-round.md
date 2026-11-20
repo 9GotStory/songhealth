@@ -18,8 +18,8 @@ gives on #365.
 
 The browser suites ran at `7077100` between 14:08Z and 14:45Z on 2026-11-20, T021 and residue at
 14:46Z, the captures between 14:46Z and 14:49Z, and the measures between 14:49Z and 15:14Z, with
-`/about` measured again at 15:15Z. The local checks ran on #372's working tree between 15:18Z and 15:19Z, before the
-review. The pull request states the checks at its head.
+`/about` measured again at 15:15Z. The local checks ran on #372's working tree between 15:18Z and
+15:19Z, before the review. The pull request states the checks at its head.
 
 | Check | Command | Result |
 | --- | --- | --- |
@@ -67,10 +67,12 @@ related Documents and `/about` without its Basic Page (`pages`), Office Contact 
 captured two Homepage pieces up close, after only: the Leadership strip with the demo dataset's
 two leaders (`home-leadership`), and Quick Access with `homepage-quick-access.ts`' three shortcuts
 (`home-quick-access`), which the demo dataset's empty menu hides, so no before image shows it. The
-Homepage's after images are byte for byte its before images at all five widths (`cmp`), the strip
-on `PersonPicture` (#367) and the tile with its `kind` (#371) unchanged on the Homepage. The demo
-dataset did not change between `00ab334` and `7077100`; the synthetic titles and slugs are made
-again on each run.
+Homepage's after images are byte for byte its before images at all five widths (`cmp`), with the
+Leadership strip on `PersonPicture` (#367). They cannot show the Quick Access tile, which the demo
+dataset's empty menu hides; `public-homepage.spec.ts`' "with one shortcut Quick Access shows it on
+the Homepage's card surface, …" passed in the full run. The demo dataset did not change between
+`00ab334` and `7077100` (`git log 00ab334..7077100 -- scripts/demo-dataset scripts/demo-dataset.ts`
+lists no commit); the synthetic titles and slugs are made again on each run.
 
 `scripts/evidence-branch.sh` put the 220 images (105 before, 115 after) and their `captures.txt` on
 the image-only branch `evidence/012-372-screenshots`, at
@@ -134,15 +136,15 @@ and with nothing set 1,009 then 1,395).
 ## Contrast
 
 `scripts/measure-text-contrast.ts --all-text --fold <path> main` at `7077100`, at 1,440, 1,024, 768,
-375 and 320 px, every run exit 0, by `.tmp/372/contrast-run.sh` between 14:49Z and 15:13Z, and `/about` again at 15:15Z: every
-text in `main` on the nine addresses and a page past the last of `/about/policies` on the demo
-dataset, eleven synthetic cases, and the Homepage's Leadership strip and Quick Access. Small text
-needs 4.5:1 and large text 3:1 (WCAG 2.2 SC 1.4.3). No run named a text it could not read. The
-lowest reading of any text is 4.69:1, the pager's "หน้า 1" under the last row of the full page of
-plans and on its second page; then `/about`'s summary 4.85:1 at 1,024 px, where the field's large
-ring runs behind it; every other text reads 4.97:1 or more. Each run's closing lines follow whole:
-a text, its lowest reading over the five widths and the widths that read it; a line ending "(N
-texts)" folds texts whose words differ only in their numbers, written "#".
+375 and 320 px, every run exit 0, by `.tmp/372/contrast-run.sh` between 14:49Z and 15:13Z, and
+`/about` again at 15:15Z: every text in `main` on the nine addresses and a page past the last of
+`/about/policies` on the demo dataset, eleven synthetic cases, and the Homepage's Leadership strip
+and Quick Access. Small text needs 4.5:1 and large text 3:1 (WCAG 2.2 SC 1.4.3). No run named a text
+it could not read. The lowest reading of any text is 4.69:1, the pager's "หน้า 1" under the last row
+of the full page of plans and on its second page; then `/about`'s summary 4.85:1 at 1,024 px, where
+the field's large ring runs behind it; every other text reads 4.97:1 or more. Each run's closing
+lines follow whole: a text, its lowest reading over the five widths and the widths that read it; a
+line ending "(N texts)" folds texts whose words differ only in their numbers, written "#".
 
 Every reading Feature 012's tickets recorded in `DESIGN.md` is read the same at `7077100`, each
 run's closing lines equal to its ticket's own output: the About Document pages (§7.8; #366 at
@@ -159,7 +161,8 @@ title alone, `/contact` without a channel, and the Homepage's two pieces.
 
 ### The nine addresses on the demo dataset
 
-`/about` (the demo dataset's `about` page, two related Documents; the round's second run of it, below):
+`/about` (the demo dataset's `about` page, two related Documents; the round's second run of it,
+below):
 
 ```text
 a "หน้าแรก"  10.70:1 at 375 and 320 px
@@ -620,7 +623,8 @@ h3 "[ตัวอย่าง] วิภาวดี แสงทอง"  16.54:
 p "ผู้ช่วยสาธารณสุขอำเภอสอง"  4.97:1 at 1440, 1024, 768, 375 and 320 px
 ```
 
-Quick Access (`section[aria-labelledby="home-quick-access"]`, `homepage-quick-access.ts`' three shortcuts):
+Quick Access (`section[aria-labelledby="home-quick-access"]`, `homepage-quick-access.ts`' three
+shortcuts):
 
 ```text
 p "เข้าถึงข้อมูล"  6.09:1 at 1440, 1024, 768, 375 and 320 px
@@ -642,16 +646,16 @@ span "ข่าวสุขภาพ"  16.54:1 at 1440, 1024, 768, 375 and 320 p
   blended pixels read 1.44:1 at 1,440, 1,024 and 768 px, as #366 recorded (§7.8).
 - **`/about`'s tiles** (`main a[href='/about/organization']`, `…/leadership`, `…/policies`): beside
   each ring, with focus, 0 % of pixels under 3:1 at all five widths, the lowest blended pixel 2.80:1
-  at 375 px; under the rings of "โครงสร้างองค์กร" and "ผู้บริหาร", which cross the field's edge, up to
-  61 % read under 3:1, and the white band beside them carries the ring, as #371 recorded (§9.9).
+  at 375 px; under the rings of "โครงสร้างองค์กร" and "ผู้บริหาร", which cross the field's edge, up
+  to 61 % read under 3:1, and the white band beside them carries the ring, as #371 recorded (§9.9).
 
 Leadership's cards and Personnel's rows hold no link or control, and no ring on `/contact` meets
 the field (the note from #369), so the round read no ring there.
 
 ## Spec #365's decisions and the decisions made while the tickets were built
 
-Spec #365 lists thirteen decisions and four prototype picks the Product Owner made before it
-(#365 comment 7000119315, each answered "ตามที่แนะนำ" or the recommended option);
+Spec #365 lists thirteen decisions, the last four the prototype's picks, that the Product Owner made
+before it (#365 comment 7000119315, each answered "ตามที่แนะนำ" or the recommended option);
 `docs/design/DESIGN.md` §10 lists them. Every decision made while the tickets were built has a
 recorded answer on its ticket, and §10 and §13 cite each one that decides what a page shows:
 
@@ -801,16 +805,17 @@ Each on the Product Owner's answer, with no follow-up issue:
 - The related Documents' H2 larger than a Basic Page's body headings, two related Documents alike
   at 320 px under the row's two-line clamp, and the H1 without balanced wrapping (#368 comment
   7028435491, item 3).
-- `/contact`'s gate's design suggestions (#369 comment 7037025716, C2), and "ดูหน่วยบริการสุขภาพที่เกี่ยวข้อง"
-  wrapping to two lines in its card at 320 and 640 px, centred 8 px inside its pill as the picked
-  prototype P4 A wraps it (the note from #369; `DESIGN.md` §9.10).
+- `/contact`'s gate's design suggestions (#369 comment 7037025716, C2), and
+  "ดูหน่วยบริการสุขภาพที่เกี่ยวข้อง" wrapping to two lines in its card at 320 and 640 px, centred
+  8 px inside its pill as the picked prototype P4 A wraps it (the note from #369; `DESIGN.md`
+  §9.10).
 
 ## The prototype
 
 The prototype is on the branch `prototype/about-contact-pages` at `e666f30` (the picks recorded over
-`d69caed`), outside `main`: its builder scripts and its record, `docs/prototypes/about-contact-pages.md`.
-Its pages, screenshots and sheets stay on the development host. Spec #365 "How this differs from
-the prototype" names three differences the spec decided (Personnel's "ช่องทางติดต่อ" line,
-`/contact`'s rows with icons new to the site, and the six tiles' labels read from the demo
-dataset); the built pages keep each. Every further difference was decided on its ticket (the
-decisions table above).
+`d69caed`), outside `main`: its builder scripts and its record,
+`docs/prototypes/about-contact-pages.md`. Its pages, screenshots and sheets stay on the development
+host. Spec #365 "How this differs from the prototype" names three differences the spec decided
+(Personnel's "ช่องทางติดต่อ" line, `/contact`'s rows with icons new to the site, and the six tiles'
+labels read from the demo dataset); the built pages keep each. Every further difference was decided
+on its ticket (the decisions table above).

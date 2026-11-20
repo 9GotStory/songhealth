@@ -91,15 +91,15 @@
 > About pages (`/about`, `/about/organization`, `/about/leadership`, `/about/personnel`,
 > `/about/policies`, `/about/plans`, `/about/results`), the Contact page and a Basic Page are
 > redesigned after the Homepage and Features 009 to 011's pages as they are built, in the look the
-> Product Owner picked from a prototype. The About Document pages, `/about/leadership`,
-> `/about/personnel` and `/contact` are headed on the deep field as the other lists are (§7.8),
-> under the labels "เกี่ยวกับเรา", "บุคลากร" and "ติดต่อ"; a Basic Page, on `/pages/{slug}`,
-> `/about/organization` and `/about`, opens on the field with the Post page's header (§9.9). Over
-> the field's edge the About Document pages show the Document repository's rows with their
-> downloads, Leadership a featured first leader and white cards and Personnel a white panel per
-> unit, both with the Homepage Leadership strip's ringed circle (§7.3, §8.5), `/about` its six
-> sub-pages as the Homepage's Quick Access tiles (§8.11), and `/contact` Office Contact's details
-> in a white card (§9.10). Every address, read and behaviour stays, and no colour, type size,
+> Product Owner picked from a prototype. The About Document pages and `/about/personnel` are
+> headed on the deep field as the other lists are (§7.8) under the label "เกี่ยวกับเรา",
+> `/about/leadership` under "บุคลากร" and `/contact` under "ติดต่อ"; a Basic Page, on
+> `/pages/{slug}`, `/about/organization` and `/about`, opens on the field with the Post page's
+> header (§9.9). Over the field's edge the About Document pages show the Document repository's
+> rows with their downloads, Leadership a featured first leader and white cards and Personnel a
+> white panel per unit, both with the Homepage Leadership strip's ringed circle (§7.3, §8.5),
+> `/about` its six sub-pages as the Homepage's Quick Access tiles (§8.11), and `/contact` Office
+> Contact's details in a white card (§9.10). Every address, read and behaviour stays, and no colour, type size,
 > radius or shadow joins the tokens. #366 to #371 implement the pages, each with its own decisions
 > in §13's change history, and #372 the documents, the measures and the limits. Every page outside
 > the feature keeps its design.
@@ -1727,8 +1727,7 @@ stays the submit state (§8.9).
   rises in as the hero's parts do, starting at 0 s, and the lead at 0.1 s (§7.8). Each card
   reveals as a section's card does and shows whole while it holds the keyboard's focus, and its
   picture's box shimmers as the page opens; a missing picture's visual does not (§7.3; Feature
-  009 #283). The
-  breadcrumb, the link, the filter form, the empty state and the pager show at once
+  009 #283). The breadcrumb, the link, the filter form, the empty state and the pager show at once
   (`public-news.spec.ts` "/news moves only when motion is allowed: …",
   `testFilteredListOnField`'s motion case for the other two, and `testListOnField`'s for the
   Activities, Announcements and Documents lists: the Activities list's cards move as `/news`'s
@@ -2518,7 +2517,8 @@ these are; #365 comment 7000119315):
 - the scope: the nine routes, look only; every read, order, page size, canonical address, head
   tag, preview, 404, the 301s of `/pages/about` and `/pages/organization`, `/about` without its
   Basic Page, the breadcrumbs and the empty states' words as they are; no new field, address or
-  section; the model and the Admin as they are (1);
+  section; the model and the Admin as they are (1); the prototype's content and the seams under
+  spec #365 "Testing Decisions" (6);
 - a Basic Page, on `/pages/{slug}`, `/about/organization` and `/about`, with the Post page's
   header on the field, no pill, tile or frame, its body in the 48 rem text column, and `/about`
   without its page under the H1 "เกี่ยวกับเรา" with no lead (2);
@@ -2529,7 +2529,8 @@ these are; #365 comment 7000119315):
   repository's rows over the field's edge and no filter form, `DocumentRow` gone (5);
 - the motion of Features 009 to 011's pages, with no new effect (7); a plain grid at every count,
   and no channels section without a channel (8); a list's empty state over the field's edge,
-  and `/contact` with nothing set ending its field under the lead (9);
+  `/contact` with nothing set ending its field under the lead, and a Basic Page with neither body
+  nor related Documents ending with its field (9);
 - `/about` with its six sub-pages as `/health`'s tiles over the field's edge, each label an H2,
   then its body and related Documents (10, P1 A);
 - Leadership with the first leader in a featured card across the row and the others in white
@@ -2557,7 +2558,8 @@ these are; #365 comment 7000119315):
 - the Quick Access tile's outline under forced colours left to #383, on `/about` as on the Homepage
   and `/health` (#371 comment 7031308188);
 - `/contact`'s route buttons semibold with the 16 px `arrow-right`, and a telephone number that is
-  not one number plain text at H3 size in `text-primary` (#369 comment 7034812318); the route cards'
+  not one number shown as plain text at H3 size, semibold, in `text-primary` (#369 comment
+  7034812318); the route cards'
   and the filled pill's outlines under forced colours left to #383, and the gate's design
   suggestions as built (#369 comment 7037025716).
 
@@ -2650,7 +2652,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   up outside Feature 012 (#368 comment 7028435491, item 1; the note from #371).
 - **Under forced colours** (Windows High Contrast) the Quick Access tile on the Homepage, `/health`
   and `/about`, and `/contact`'s route cards and its filled "ดูบริการประชาชน" pill lose their
-  outlines, their labels and arrows still links; #383 takes them up outside Feature 012 (#371
+  outlines, while their labels and arrows stay links; #383 takes them up outside Feature 012 (#371
   comment 7031308188; #369 comment 7037025716, C1).
 - **A gallery in a News body** does not fold, and EmDash's Edit mode shows it as a placeholder
   (§9.3).
