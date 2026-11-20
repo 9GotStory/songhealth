@@ -1487,7 +1487,7 @@ export async function expectStartsOverFieldEdge(
  * #281 and #312 such a card passed every suite, and only scripts/measure-focus-contrast.ts found
  * it (#312 retro).
  */
-async function ringsOverFieldUnbanded(
+export async function ringsOverFieldUnbanded(
 	block: Locator,
 	field: Locator,
 	surfaceBase: string,

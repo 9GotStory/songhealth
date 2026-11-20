@@ -59,6 +59,7 @@ import {
 	LIST_END,
 	LIST_FIELD_LOOK,
 	SECTION_CRUMBS,
+	selfRunningEnds,
 	boxOf,
 	deepField,
 	documentRowParts,
@@ -68,12 +69,14 @@ import {
 	expectAccessibleAtEachWidth,
 	expectAttentionLabelsOnOwnLine,
 	expectBreadcrumb,
+	expectNoHorizontalScroll,
 	expectSecondLinkPlaces,
 	expectSiteNotFound,
 	fieldEdge,
 	fieldParts,
 	gutterAt,
 	heldBack,
+	itemsPerRow,
 	listedItem,
 	listedTitles,
 	PHONE_VIEWPORT,
@@ -81,7 +84,9 @@ import {
 	placesAtTwoWidths,
 	readHeaderOnField,
 	readListField,
+	ringsOverFieldUnbanded,
 	shownLines,
+	shownOpacity,
 	shownWhole,
 	siteTitleParts,
 	test,
@@ -89,6 +94,7 @@ import {
 	testListOnField,
 	thaiDate,
 	tokenColor,
+	tokenShadow,
 } from "./public.helpers";
 
 /** The About sub-pages /about links to, in `01` §3 order. */
@@ -524,51 +530,525 @@ test("/pages/about and /pages/organization redirect permanently to /about and /a
 	}
 });
 
-test("/about links to every About sub-page", async ({ page }) => {
-	const response = await page.goto("/about");
-	expect(response?.status(), "GET /about").toBe(200);
-	await expect(navigationLink(page, "เกี่ยวกับเรา")).toHaveAttribute("aria-current", "page");
-	const subpages = page.getByRole("main").getByRole("region", { name: "ข้อมูลเกี่ยวกับสำนักงาน" });
-	const links = subpages.getByRole("link");
-	await expect(links).toHaveCount(ABOUT_SUBPAGES.length);
-	for (const [index, [label, href]] of ABOUT_SUBPAGES.entries()) {
-		await expect(links.nth(index), "the icon is decorative").toHaveAccessibleName(label);
-		await expect(links.nth(index)).toHaveAttribute("href", href);
+/**
+ * A page that opens with a header on the field, read for its motion (spec #365 "Motion"): with
+ * reduced motion preferred nothing runs or waits, and with motion allowed `rising`, the header's
+ * parts, enter as the page opens while each of `atOnce` shows at once, then, with the page
+ * scrolled to its end, nothing waits; on paper nothing runs or waits; and each of `placed` is where
+ * it is without motion, at 375 and 1440 px. The test compares `seen` with `expected`. The page ends
+ * on a screen with reduced motion preferred.
+ */
+async function readHeaderMotion(
+	page: Page,
+	path: string,
+	rising: Array<[string, Locator]>,
+	atOnce: Array<[string, Locator]>,
+	placed: Array<[string, Locator]>,
+) {
+	const main = page.getByRole("main");
+	/** A part's entrance delay, or "missing" where the page lacks it. */
+	const delayOf = async (part: Locator) =>
+		(await part.count()) === 1 ? entersAfter(part) : "missing";
+	const running = () => page.evaluate(() => document.getAnimations().length);
+	const seen: Record<string, unknown> = {};
+	const expected: Record<string, unknown> = {};
+
+	await page.emulateMedia({ reducedMotion: "reduce" });
+	await page.goto(path);
+	seen.reduced = { running: await running(), heldBack: await heldBack(main) };
+	expected.reduced = { running: 0, heldBack: [] };
+	const still = await placesAtTwoWidths(page, placed);
+
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.goto(path, { waitUntil: "commit" });
+	await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+	const delays: Record<string, unknown> = {};
+	for (const [name, part] of [...rising, ...atOnce]) delays[name] = await delayOf(part);
+	seen.delays = delays;
+	// The header rises in as the page opens; the rest shows at once.
+	expected.delays = Object.fromEntries([
+		...rising.map(([name]) => [name, 0]),
+		...atOnce.map(([name]) => [name, -1]),
+	]);
+	// A part that reveals as it comes into the window shows once the window has passed it.
+	await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+	await expect
+		.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
+		.toEqual([]);
+	seen.moving = await placesAtTwoWidths(page, placed);
+	expected.moving = still;
+
+	await page.emulateMedia({ media: "print", reducedMotion: "no-preference" });
+	await page.goto(path);
+	await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+	seen.print = { running: await running(), heldBack: await heldBack(main) };
+	expected.print = { running: 0, heldBack: [] };
+	await page.emulateMedia({ media: "screen", reducedMotion: "reduce" });
+	// The places are the same with motion and without only where the page has each part.
+	seen.allPlaced = still.every(({ places }) => places.every(([, box]) => box !== "missing"));
+	expected.allPlaced = true;
+	return { seen, expected };
+}
+
+/**
+ * Whether each of `parts` shows whole (`shownWhole`) at 375 and 1440 px, as a page without
+ * JavaScript is laid out. The test compares `seen` with `expected`.
+ */
+async function readWholeAtTwoWidths(page: Page, parts: Array<[string, Locator]>) {
+	const seen: Record<number, unknown> = {};
+	const expected: Record<number, unknown> = {};
+	for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+		await page.setViewportSize(viewport);
+		const whole: Record<string, boolean> = {};
+		for (const [name, part] of parts) whole[name] = await shownWhole(part);
+		seen[viewport.width] = whole;
+		expected[viewport.width] = Object.fromEntries(parts.map(([name]) => [name, true]));
 	}
-	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/about`);
-});
+	return { seen, expected };
+}
 
-test("/about shows its sub-page links without the about Basic Page, and the page's own title, summary and body once it is published, under the เกี่ยวกับเรา crumb", async ({
-	page,
-}) => {
-	const { siteTitle, separator } = await siteTitleParts(admin);
-	const { fixture: about, content } = await reservedPage("about", pageContent("about"));
-	const subpages = page.getByRole("main").getByRole("region", { name: "ข้อมูลเกี่ยวกับสำนักงาน" });
+// /about opens on the list's deep field with a Basic Page's header, its six sub-pages as the
+// Homepage's Quick Access tiles over the field's lower edge, then its body and related Documents
+// (Feature 012 #371; spec #365 decisions 2, 3, 8 and 10, "`/about`", "Motion"). The runtime's own
+// `about` Basic Page, the demo dataset's, takes the reserved slug, which is unique, so the tests
+// that need the page published read it as it is, and a runtime without one gets a synthetic page.
+test.describe("/about on the field", () => {
+	/** The description /about's head gives while the `about` Basic Page gives none. */
+	const ABOUT_DESCRIPTION =
+		"ข้อมูลสำนักงานสาธารณสุขอำเภอสอง โครงสร้างองค์กร ผู้บริหาร บุคลากร นโยบาย แผนงาน และผลการดำเนินงาน";
+	const RELATED_TITLE = "เอกสารที่เกี่ยวข้อง";
 
-	await page.goto("/about");
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText("เกี่ยวกับเรา");
-	await expect(page).toHaveTitle(`เกี่ยวกับเรา${separator}${siteTitle}`);
-	await expectBreadcrumb(page, [HOME_CRUMB], "เกี่ยวกับเรา");
-	await expect(subpages.getByRole("link")).toHaveCount(ABOUT_SUBPAGES.length);
-	// The accessibility checks at the end see /about with its Basic Page published.
-	await expectAccessibleAtEachWidth(page, "/about without its Basic Page");
+	/** The list that holds /about's tiles. */
+	const aboutTiles = (page: Page) =>
+		page
+			.getByRole("main")
+			.getByRole("list")
+			.filter({ has: page.getByRole("link", { name: ABOUT_SUBPAGES[0][0], exact: true }) });
 
-	const link = await mintPreviewLink(admin, "pages", about.id);
-	expect(link.pathname, "the preview link is the draft's URL pattern address").toBe("/pages/about");
-	const preview = await page.goto(link.toString());
-	expect(preview?.status(), "the preview renders").toBe(200);
-	expect(new URL(page.url()).pathname, "the preview opens at /about").toBe("/about");
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText(about.title);
-	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+	/**
+	 * The blocks of the body after the tiles, and the related Documents: what follows the tiles'
+	 * list, a block with no role of its own.
+	 */
+	function aboutText(page: Page) {
+		const text = aboutTiles(page).locator("xpath=following-sibling::*[1]");
+		const blocks = text.locator(":scope > :not(section) > *");
+		return {
+			first: blocks.first(),
+			last: blocks.last(),
+			related: page.getByRole("main").getByRole("region", { name: RELATED_TITLE }),
+		};
+	}
 
-	await publish("pages", about);
-	await page.goto("/about");
-	await expectBasicPage(page, about, content);
-	// A borrowed page may carry an SEO title of its own.
-	if (content) await expect(page).toHaveTitle(`${about.title}${separator}${siteTitle}`);
-	await expectBreadcrumb(page, [HOME_CRUMB], "เกี่ยวกับเรา");
-	await expect(subpages.getByRole("link")).toHaveCount(ABOUT_SUBPAGES.length);
-	await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+	/** Where the page's own content ends, inside its padding: the bottom of main's last block. */
+	const pageEnd = (page: Page) =>
+		page
+			.getByRole("main")
+			.evaluate((main) => main.lastElementChild!.getBoundingClientRect().bottom);
+
+	/**
+	 * The `about` Basic Page, published for the running test: the runtime's own, borrowed and
+	 * published again at its own date, or else a synthetic one whose body opens with a paragraph and
+	 * which links one Document. Returns its fixture, its summary and whether its body opens with a
+	 * heading, as the native API gives them.
+	 */
+	async function publishedAbout() {
+		let about = await borrow("pages", "about");
+		if (!about) {
+			const document = await createSyntheticDocument(admin, "about-related");
+			await publish("documents", document);
+			about = await createPage("about", {
+				slug: "about",
+				data: {
+					summary: `${SYNTHETIC_FIXTURE_MARK} สรุปหน้าเกี่ยวกับเรา`,
+					body: [
+						portableTextBlock(`${SYNTHETIC_FIXTURE_MARK} ย่อหน้าแรกของหน้าเกี่ยวกับเรา`),
+						portableTextBlock(`${SYNTHETIC_FIXTURE_MARK} ย่อหน้าสุดท้ายของหน้าเกี่ยวกับเรา`),
+					],
+				},
+				references: { documents: [document.id] },
+			});
+		}
+		await publish("pages", about);
+		const data = nativeItemOf(await readEntry(admin, "pages", about.id))?.data as
+			{ summary?: string; body?: Array<{ style?: string }> } | undefined;
+		return {
+			about,
+			summary: data?.summary ?? "",
+			opensWithHeading: /^h[1-6]$/.test(String(data?.body?.[0]?.style)),
+		};
+	}
+
+	test("/about shows its six sub-pages as the Homepage's Quick Access tiles over the field's lower edge, in `01` §3 order to their addresses, each one link named by its H2: two to a row below 1,024 px and three from 1,024 px, 12 px apart below 640 px and 20 px from 640 px, compact below 640 px, white with the card shadow and no border; the field a list's, the header ending 96 px above its edge below 640 px and 128 px from 640 px, the tiles starting 64 and 88 px above it; each focus ring banded where it meets the field; ข้อมูลเกี่ยวกับสำนักงาน is gone", async ({
+		page,
+	}) => {
+		const response = await page.goto("/about");
+		expect(response?.status(), "GET /about").toBe(200);
+		await expect(navigationLink(page, "เกี่ยวกับเรา")).toHaveAttribute("aria-current", "page");
+		await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/about`);
+		const main = page.getByRole("main");
+		const parts = fieldParts(page);
+		const tiles = aboutTiles(page);
+		const items = tiles.getByRole("listitem");
+		const onField = (await parts.field.count()) === 1;
+		const seen: Record<string, unknown> = {
+			oldRegion: await main.getByRole("region", { name: "ข้อมูลเกี่ยวกับสำนักงาน" }).count(),
+			tiles: [],
+		};
+		const expected: Record<string, unknown> = {
+			oldRegion: 0,
+			tiles: ABOUT_SUBPAGES.map(([label, href]) => ({ links: 1, named: 1, href, h2: label })),
+		};
+		for (const [index, [label]] of ABOUT_SUBPAGES.entries()) {
+			const item = items.nth(index);
+			const links = item.getByRole("link");
+			const h2 = links.getByRole("heading", { level: 2 });
+			(seen.tiles as unknown[]).push({
+				links: await links.count(),
+				named: await item.getByRole("link", { name: label, exact: true }).count(),
+				href: (await links.count()) === 1 ? await links.getAttribute("href") : "not one link",
+				h2: (await h2.count()) === 1 ? (await h2.textContent())?.trim() : "no H2",
+			});
+		}
+
+		seen.look = await readListField(page);
+		expected.look = LIST_FIELD_LOOK;
+		const surfaceBase = await tokenColor(page, "surface-base");
+		const cardShadow = await tokenShadow(page, "card");
+		for (const width of [320, 375, 639, 640, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			await expectNoHorizontalScroll(page, `/about at ${width} px`);
+			const boxes = [];
+			for (const item of await items.all()) boxes.push(await boxOf(item, `at ${width} px: a tile`));
+			const perRow = await itemsPerRow(items);
+			const across = boxes[1]!.x - boxes[0]!.x - boxes[0]!.width;
+			const below = boxes[perRow[0]!]!;
+			const tile = items.first().getByRole("link");
+			const read: Record<string, unknown> = {
+				perRow,
+				gaps: {
+					across: Math.round(across),
+					down: Math.round(below.y - boxes[0]!.y - boxes[0]!.height),
+				},
+				// The label across and the arrow on a row of its own under it, or the arrow beside it.
+				forms: await items.getByRole("link").evaluateAll((links) =>
+					links.map((link) => {
+						const label = link.querySelector(":scope > :not(svg)")!.getBoundingClientRect();
+						const arrow = link.querySelector("svg")!.getBoundingClientRect();
+						if (arrow.top >= label.bottom + 7.5) return "arrow under the label";
+						if (arrow.left >= label.right) return "arrow beside the label";
+						return "neither";
+					}),
+				),
+				tile: await tile.evaluate((link) => {
+					const style = getComputedStyle(link);
+					return {
+						fill: style.backgroundColor,
+						border: style.borderTopWidth,
+						radius: style.borderTopLeftRadius,
+						shadow: style.boxShadow,
+					};
+				}),
+			};
+			const expectedAt: Record<string, unknown> = {
+				perRow: width < 1024 ? [2, 2, 2] : [3, 3],
+				gaps: width < 640 ? { across: 12, down: 12 } : { across: 20, down: 20 },
+				forms: ABOUT_SUBPAGES.map(() =>
+					width < 640 ? "arrow under the label" : "arrow beside the label",
+				),
+				tile: {
+					fill: surfaceBase,
+					border: "0px",
+					radius: width < 640 ? "18px" : "22px",
+					shadow: cardShadow,
+				},
+			};
+			if ([375, 639, 640, 1440].includes(width)) {
+				const edge = onField ? await fieldEdge(parts.field, `at ${width} px`) : Number.NaN;
+				const header = await boxOf(
+					parts.header.or(main.locator("header")).first(),
+					`at ${width} px: the header`,
+				);
+				read.overField = {
+					headerEndsAbove: Math.round(edge - header.y - header.height),
+					tilesStartAbove: Math.round(edge - (await boxOf(tiles, `at ${width} px: the tiles`)).y),
+					unbanded: onField
+						? await ringsOverFieldUnbanded(tiles, parts.field, surfaceBase)
+						: "no field",
+				};
+				expectedAt.overField = {
+					headerEndsAbove: width < 640 ? 96 : 128,
+					tilesStartAbove: width < 640 ? 64 : 88,
+					unbanded: [],
+				};
+			}
+			seen[width] = read;
+			expected[width] = expectedAt;
+		}
+		expect(seen, "/about's tiles over the field's edge").toEqual(expected);
+	});
+
+	test("/about opens on the deep field with the Basic Page's header, 48 rem wide at most: without its Basic Page the H1 เกี่ยวกับเรา and no lead, then the six tiles and the page's own 64 px, 80 px from 1,024 px; its draft's signed preview link opens it at /about on the field with noindex; once published its title as the H1 and its summary at body-large in white; the breadcrumb ends at เกี่ยวกับเรา either way, and the head's title and description stay", async ({
+		page,
+	}) => {
+		const { siteTitle, separator } = await siteTitleParts(admin);
+		const { fixture: about, content } = await reservedPage("about", pageContent("about"));
+		const main = page.getByRole("main");
+		const parts = fieldParts(page);
+		const tiles = aboutTiles(page);
+		const titleOnField = async () =>
+			(await parts.field.count()) === 1 && (await parts.title.count()) === 1
+				? (await parts.title.textContent())?.trim()
+				: "no H1 on the field";
+		const seen: Record<string, unknown> = {};
+		const expected: Record<string, unknown> = {};
+
+		await page.goto("/about");
+		await expect(page.getByRole("heading", { level: 1 })).toHaveText("เกี่ยวกับเรา");
+		await expect(page).toHaveTitle(`เกี่ยวกับเรา${separator}${siteTitle}`);
+		await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+			"content",
+			ABOUT_DESCRIPTION,
+		);
+		await expectBreadcrumb(page, [HOME_CRUMB], "เกี่ยวกับเรา");
+		// The accessibility checks at the end see /about with its Basic Page published.
+		await expectAccessibleAtEachWidth(page, "/about without its Basic Page");
+		const after: Record<number, unknown> = {};
+		for (const width of [375, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			const end = await pageEnd(page);
+			const box = await boxOf(tiles, `at ${width} px: the tiles`);
+			after[width] = Math.round(end - box.y - box.height);
+		}
+		seen.noPage = {
+			title: await titleOnField(),
+			lead:
+				(await parts.field.count()) === 1 ? await parts.header.locator("p").count() : "no field",
+			tiles: await tiles.getByRole("listitem").count(),
+			related: await main.getByRole("region", { name: RELATED_TITLE }).count(),
+			after,
+		};
+		expected.noPage = {
+			title: "เกี่ยวกับเรา",
+			lead: 0,
+			tiles: ABOUT_SUBPAGES.length,
+			related: 0,
+			after: { 375: 64, 1023: 64, 1024: 80, 1440: 80 },
+		};
+
+		const link = await mintPreviewLink(admin, "pages", about.id);
+		expect(link.pathname, "the preview link is the draft's URL pattern address").toBe(
+			"/pages/about",
+		);
+		const preview = await page.goto(link.toString());
+		seen.preview = {
+			status: preview?.status(),
+			at: new URL(page.url()).pathname,
+			title: await titleOnField(),
+			robots: await page.locator('meta[name="robots"]').getAttribute("content"),
+		};
+		expected.preview = {
+			status: 200,
+			at: "/about",
+			title: about.title,
+			robots: expect.stringMatching(/noindex/),
+		};
+
+		await publish("pages", about);
+		await page.goto("/about");
+		await expectBasicPage(page, about, content);
+		// A borrowed page may carry an SEO title of its own.
+		if (content) await expect(page).toHaveTitle(`${about.title}${separator}${siteTitle}`);
+		await expectBreadcrumb(page, [HOME_CRUMB], "เกี่ยวกับเรา");
+		await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+		const summary = String(
+			(nativeItemOf(await readEntry(admin, "pages", about.id))?.data as { summary?: string })
+				?.summary,
+		);
+		await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", summary);
+		const header = await readHeaderOnField(page, { pills: [] });
+		seen.header = header.seen;
+		expected.header = header.expected;
+		const lead = parts.field.getByText(summary.split("\n")[0]!);
+		seen.summary =
+			(await lead.count()) === 1 &&
+			(await lead.evaluate((text) => {
+				const style = getComputedStyle(text);
+				return {
+					text: (text as HTMLElement).innerText,
+					type: [style.fontSize, style.lineHeight],
+					colour: style.color,
+				};
+			}));
+		expected.summary = {
+			text: summary,
+			type: ["18px", "30px"],
+			colour: await tokenColor(page, "surface-base"),
+		};
+		seen.title = await titleOnField();
+		expected.title = about.title;
+		expect(seen, "/about's header on the field, with and without its Basic Page").toEqual(expected);
+	});
+
+	test("on /about the body follows 48 px under the tiles in the 48 rem column, a body that opens with a heading 32 px lower (#380), then 48 px under it เอกสารที่เกี่ยวข้อง with each row's download, in the same column, then the page's own 64 px, 80 px from 1,024 px, at 320, 639, 640, 1,023, 1,024 and 1,440 px", async ({
+		page,
+	}) => {
+		const { opensWithHeading } = await publishedAbout();
+		await page.goto("/about");
+		const tiles = aboutTiles(page);
+		const text = aboutText(page);
+		const rows = text.related.getByRole("article");
+		const shown = (await text.first.count()) === 1 && (await text.related.count()) === 1;
+		const seen: Record<string, unknown> = {
+			rows: await rows.evaluateAll((articles) =>
+				articles.map(
+					(row) =>
+						[...row.querySelectorAll("a")].filter((link) =>
+							link.textContent?.replace(/\s+/g, " ").trim().startsWith("ดาวน์โหลด"),
+						).length,
+				),
+			),
+		};
+		const expected: Record<string, unknown> = {
+			rows: Array.from({ length: Math.max(1, await rows.count()) }, () => 1),
+		};
+		for (const width of [320, 639, 640, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			const at = `at ${width} px`;
+			if (!shown) {
+				seen[width] = "no body or no เอกสารที่เกี่ยวข้อง after the tiles";
+			} else {
+				const tilesBox = await boxOf(tiles, `${at}: the tiles`);
+				const first = await boxOf(text.first, `${at}: the body's first block`);
+				const last = await boxOf(text.last, `${at}: the body's last block`);
+				const related = await boxOf(text.related, `${at}: เอกสารที่เกี่ยวข้อง`);
+				seen[width] = {
+					bodyUnderTiles: Math.round(first.y - tilesBox.y - tilesBox.height),
+					bodyWidth: Math.round(first.width),
+					relatedUnderBody: Math.round(related.y - last.y - last.height),
+					relatedWidth: Math.round(related.width),
+					roomAfter: Math.round((await pageEnd(page)) - related.y - related.height),
+				};
+			}
+			const column = Math.min(HEADER_WIDEST, width - 2 * gutterAt(width));
+			expected[width] = {
+				// A body that opens with a heading starts 32 px lower, its heading's margin (#380).
+				bodyUnderTiles: opensWithHeading ? 80 : 48,
+				bodyWidth: column,
+				relatedUnderBody: 48,
+				relatedWidth: column,
+				roomAfter: width < 1024 ? 64 : 80,
+			};
+		}
+		expect(seen, "/about's body and เอกสารที่เกี่ยวข้อง after the tiles").toEqual(expected);
+	});
+
+	test("/about moves only when motion is allowed: the header's title and summary rise in as the page opens while the breadcrumb, the body and the related Documents show at once, each tile reveals as it comes into the window and shows whole while it holds the keyboard's focus, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
+		page,
+	}) => {
+		test.setTimeout(90_000);
+		const { summary } = await publishedAbout();
+		const parts = fieldParts(page);
+		const items = aboutTiles(page).getByRole("listitem");
+		const text = aboutText(page);
+		const lead = parts.field.getByText(summary.split("\n")[0]!);
+		const atOnce: Array<[string, Locator]> = [
+			["the breadcrumb", parts.breadcrumb],
+			["the body", text.first],
+			["เอกสารที่เกี่ยวข้อง", text.related],
+		];
+		const placed: Array<[string, Locator]> = [
+			["the field", parts.field],
+			["the title", parts.title],
+			["the tiles", aboutTiles(page)],
+			...atOnce,
+		];
+		const { seen, expected } = await readHeaderMotion(
+			page,
+			"/about",
+			[
+				["the title", parts.title],
+				["the summary", lead],
+			],
+			atOnce,
+			placed,
+		);
+		await page.emulateMedia({ reducedMotion: "no-preference" });
+		await page.goto("/about", { waitUntil: "commit" });
+		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+		// Read as the page opens, while the entrance runs: over within five seconds (WCAG 2.2 SC
+		// 2.2.2), and the field's ring stands still.
+		seen.selfRunning = Math.max(0, ...(await selfRunningEnds(page.locator("html")))) <= 5_000;
+		expected.selfRunning = true;
+
+		// A window shorter than the field puts every tile below it as the page opens, well below:
+		// just under a 300 px window Chromium gives a tile's view timeline no progress (#339).
+		const short = { width: 1440, height: 200 };
+		await page.setViewportSize(short);
+		await page.goto("/about");
+		const waiting = [];
+		for (const tile of await items.all()) {
+			waiting.push({
+				below: (await boxOf(tile, "a tile")).y > short.height,
+				opacity: await shownOpacity(tile),
+			});
+		}
+		seen.waiting = waiting;
+		expected.waiting = ABOUT_SUBPAGES.map(() => ({ below: true, opacity: 0 }));
+		const revealed = [];
+		for (const tile of await items.all()) {
+			await tile.scrollIntoViewIfNeeded();
+			await expect
+				.poll(() => shownOpacity(tile), { message: "a tile in the window shows", timeout: 3_000 })
+				.toBe(1)
+				.catch(() => undefined);
+			revealed.push(await shownOpacity(tile));
+		}
+		seen.revealed = revealed;
+		expected.revealed = ABOUT_SUBPAGES.map(() => 1);
+		await page.goto("/about");
+		await items.last().getByRole("link").focus();
+		await expect
+			.poll(() => shownOpacity(items.last()), { timeout: 3_000 })
+			.toBe(1)
+			.catch(() => undefined);
+		seen.focused = await shownOpacity(items.last());
+		expected.focused = 1;
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		expect(seen, "/about's motion, and nothing moving without it").toEqual(expected);
+	});
+
+	test.describe("without JavaScript", () => {
+		test.use({ javaScriptEnabled: false });
+
+		test("/about shows its header on the field, its six tiles, its body and its related Documents with their downloads whole, at 375 and 1440 px", async ({
+			page,
+		}) => {
+			const { summary } = await publishedAbout();
+			await page.goto("/about");
+			const parts = fieldParts(page);
+			const tiles = aboutTiles(page);
+			const text = aboutText(page);
+			const { seen, expected } = await readWholeAtTwoWidths(page, [
+				["the breadcrumb", parts.breadcrumb],
+				["the title on the field", parts.field.getByRole("heading", { level: 1 })],
+				["the summary on the field", parts.field.getByText(summary.split("\n")[0]!)],
+				...ABOUT_SUBPAGES.map(
+					([label]) =>
+						[`the tile ${label}`, tiles.getByRole("link", { name: label, exact: true })] as [
+							string,
+							Locator,
+						],
+				),
+				["the body", text.first],
+				["เอกสารที่เกี่ยวข้อง", text.related],
+				[
+					"a related Document's download",
+					text.related.getByRole("link", { name: /^ดาวน์โหลด/ }).first(),
+				],
+			]);
+			expect(seen, "/about whole without JavaScript").toEqual(expected);
+		});
+	});
 });
 
 test("/about/organization renders the published organization Basic Page under เกี่ยวกับเรา, and /pages/organization leads there", async ({
@@ -937,62 +1417,22 @@ test.describe("a Basic Page on the field", () => {
 		const main = page.getByRole("main");
 		const parts = fieldParts(page);
 		const region = main.getByRole("region", { name: RELATED.title });
-		const summary = parts.field.getByText(SUMMARY.split("\n")[0]!);
 		const atOnce: Array<[string, Locator]> = [
 			["the breadcrumb", parts.breadcrumb],
 			["the body", main.getByText(BODY_START, { exact: true })],
 			["เอกสารที่เกี่ยวข้อง", region],
 			["a related Document's row", region.getByRole("article").first()],
 		];
-		const placed: Array<[string, Locator]> = [
-			["the field", parts.field],
-			["the title", parts.title],
-			...atOnce,
-		];
-		/** A part's entrance delay, or "missing" where the page lacks it. */
-		const delayOf = async (part: Locator) =>
-			(await part.count()) === 1 ? entersAfter(part) : "missing";
-		const running = () => page.evaluate(() => document.getAnimations().length);
-		const seen: Record<string, unknown> = {};
-		const expected: Record<string, unknown> = {};
-
-		await page.emulateMedia({ reducedMotion: "reduce" });
-		await page.goto(pathOf(full));
-		seen.reduced = { running: await running(), heldBack: await heldBack(main) };
-		expected.reduced = { running: 0, heldBack: [] };
-		const still = await placesAtTwoWidths(page, placed);
-
-		await page.emulateMedia({ reducedMotion: "no-preference" });
-		await page.goto(pathOf(full), { waitUntil: "commit" });
-		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-		const delays: Record<string, unknown> = {
-			"the title": await delayOf(parts.title),
-			"the summary": await delayOf(summary),
-		};
-		for (const [name, part] of atOnce) delays[name] = await delayOf(part);
-		seen.delays = delays;
-		// The header rises in as the page opens; the rest shows at once.
-		expected.delays = Object.fromEntries(
-			Object.keys(delays).map((name) => [
-				name,
-				["the title", "the summary"].includes(name) ? 0 : -1,
-			]),
+		const { seen, expected } = await readHeaderMotion(
+			page,
+			pathOf(full),
+			[
+				["the title", parts.title],
+				["the summary", parts.field.getByText(SUMMARY.split("\n")[0]!)],
+			],
+			atOnce,
+			[["the field", parts.field], ["the title", parts.title], ...atOnce],
 		);
-		await expect
-			.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
-			.toEqual([]);
-		seen.moving = await placesAtTwoWidths(page, placed);
-		expected.moving = still;
-
-		await page.emulateMedia({ media: "print", reducedMotion: "no-preference" });
-		await page.goto(pathOf(full));
-		await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-		seen.print = { running: await running(), heldBack: await heldBack(main) };
-		expected.print = { running: 0, heldBack: [] };
-		await page.emulateMedia({ media: "screen", reducedMotion: "reduce" });
-		// The places are the same with motion and without only where the page has each part.
-		seen.allPlaced = still.every(({ places }) => places.every(([, box]) => box !== "missing"));
-		expected.allPlaced = true;
 		expect(seen, "the motion, and nothing moving without it").toEqual(expected);
 	});
 
@@ -1006,32 +1446,20 @@ test.describe("a Basic Page on the field", () => {
 			const main = page.getByRole("main");
 			const parts = fieldParts(page);
 			const region = main.getByRole("region", { name: RELATED.title });
-			const seen: Record<number, unknown> = {};
-			const expected: Record<number, unknown> = {};
-			for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
-				await page.setViewportSize(viewport);
-				const whole: Record<string, boolean> = {};
-				for (const [name, part] of [
-					["the breadcrumb", parts.breadcrumb],
-					["the title on the field", parts.field.getByRole("heading", { level: 1 })],
-					["the summary on the field", parts.field.getByText(SUMMARY.split("\n")[0]!)],
-					["the body", main.getByText(BODY_START, { exact: true })],
-					["เอกสารที่เกี่ยวข้อง", region],
-					...related.map(
-						(document) =>
-							[
-								`${document.title}'s download`,
-								region.getByRole("link", { name: `ดาวน์โหลด (PDF, 11.8 KB) ${document.title}` }),
-							] as const,
-					),
-				] as Array<[string, Locator]>) {
-					whole[name] = await shownWhole(part);
-				}
-				seen[viewport.width] = whole;
-				expected[viewport.width] = Object.fromEntries(
-					Object.keys(whole).map((name) => [name, true]),
-				);
-			}
+			const { seen, expected } = await readWholeAtTwoWidths(page, [
+				["the breadcrumb", parts.breadcrumb],
+				["the title on the field", parts.field.getByRole("heading", { level: 1 })],
+				["the summary on the field", parts.field.getByText(SUMMARY.split("\n")[0]!)],
+				["the body", main.getByText(BODY_START, { exact: true })],
+				["เอกสารที่เกี่ยวข้อง", region],
+				...related.map(
+					(document) =>
+						[
+							`${document.title}'s download`,
+							region.getByRole("link", { name: `ดาวน์โหลด (PDF, 11.8 KB) ${document.title}` }),
+						] as [string, Locator],
+				),
+			]);
 			expect(seen, "the page whole without JavaScript").toEqual(expected);
 		});
 	});
