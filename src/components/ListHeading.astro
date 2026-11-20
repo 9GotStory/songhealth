@@ -8,7 +8,9 @@
 //
 // The field's content ends 96 px above the field's lower edge below `sm` and 128 px from `sm`:
 // the room ListBody.astro lies over. That block, what follows the heading, starts 64 px and 88 px
-// above the edge.
+// above the edge. A page with nothing over the edge, /contact with no Office Contact set (Feature
+// 012 #369; spec #365 decision 9), passes `overEdge={false}`: the field then ends 40 px under the
+// lead below `sm` and 48 px from `sm`, as a header's field without a card does (CardOverField).
 //
 // The link is a white pill with brand-primary words, 6.45:1, and a 16 px arrow-right, the
 // Homepage's arrow for a heading's link (CODING_STANDARDS "Public pages"); an outlined pill's words
@@ -33,8 +35,11 @@ import DeepField from "./DeepField.astro";
 import SectionHeading from "./SectionHeading.astro";
 
 interface Props {
-	/** The main-navigation section the page belongs to, which its breadcrumb goes through. */
-	section: NavigationSection;
+	/**
+	 * The main-navigation section the page belongs to, which its breadcrumb goes through; none for
+	 * a page in no section, such as /contact.
+	 */
+	section?: NavigationSection;
 	/** The page's own crumbs, as the shell takes them (src/layouts/SiteLayout.astro). */
 	crumbs: Crumb[];
 	/** The small label above the H1. */
@@ -45,13 +50,20 @@ interface Props {
 	link?: { href: string; label: string };
 	/** Related pages linked under the lead, in order. */
 	leadLinks?: ReadonlyArray<{ href: string; label: string }>;
+	/** What follows the heading lies over the field's lower edge, as on every list. */
+	overEdge?: boolean;
 }
 
-const { section, crumbs, label, title, lead, link, leadLinks = [] } = Astro.props;
+const { section, crumbs, label, title, lead, link, leadLinks = [], overEdge = true } = Astro.props;
 ---
 
 <DeepField kind="list">
-	<div class="page-container relative flex flex-col gap-6 pt-6 pb-24 sm:gap-8 sm:pb-32">
+	<div
+		class:list={[
+			"page-container relative flex flex-col gap-6 pt-6 sm:gap-8",
+			overEdge ? "pb-24 sm:pb-32" : "pb-10 sm:pb-12",
+		]}
+	>
 		<Breadcrumb onField items={breadcrumbTrail(section, crumbs)} />
 		<div class="flex flex-col gap-5 sm:flex-row sm:justify-between sm:gap-6">
 			<div class="flex min-w-0 flex-col gap-4">

@@ -63,7 +63,6 @@ import {
 	boxOf,
 	deepField,
 	documentRowParts,
-	entersAfter,
 	expect,
 	expectAboutSubpage,
 	expectAccessibleAtEachWidth,
@@ -76,19 +75,17 @@ import {
 	FIELD_EDGE,
 	fieldParts,
 	gutterAt,
-	heldBack,
 	itemsPerRow,
 	listedItem,
 	listedTitles,
-	PHONE_VIEWPORT,
 	ownTitles,
-	placesAtTwoWidths,
+	readHeaderMotion,
 	readHeaderOnField,
 	readListField,
+	readWholeAtTwoWidths,
 	ringsOverFieldUnbanded,
 	shownLines,
 	shownOpacity,
-	shownWhole,
 	siteTitleParts,
 	test,
 	testAccessibilityAndReflow,
@@ -530,86 +527,6 @@ test("/pages/about and /pages/organization redirect permanently to /about and /a
 		}
 	}
 });
-
-/**
- * A page that opens with a header on the field, read for its motion (spec #365 "Motion"): with
- * reduced motion preferred nothing runs or waits, and with motion allowed `rising`, the header's
- * parts, enter as the page opens while each of `atOnce` shows at once, then nothing waits, on a
- * page with `revealing` parts once it is scrolled to its end; on paper nothing runs or waits; and
- * each of `placed` is where it is without motion, at 375 and 1440 px. The test compares `seen` with
- * `expected`. The page ends on a screen with reduced motion preferred.
- */
-async function readHeaderMotion(
-	page: Page,
-	path: string,
-	rising: Array<[string, Locator]>,
-	atOnce: Array<[string, Locator]>,
-	placed: Array<[string, Locator]>,
-	revealing: boolean,
-) {
-	const main = page.getByRole("main");
-	/** A part's entrance delay, or "missing" where the page lacks it. */
-	const delayOf = async (part: Locator) =>
-		(await part.count()) === 1 ? entersAfter(part) : "missing";
-	const running = () => page.evaluate(() => document.getAnimations().length);
-	const seen: Record<string, unknown> = {};
-	const expected: Record<string, unknown> = {};
-
-	await page.emulateMedia({ reducedMotion: "reduce" });
-	await page.goto(path);
-	seen.reduced = { running: await running(), heldBack: await heldBack(main) };
-	expected.reduced = { running: 0, heldBack: [] };
-	const still = await placesAtTwoWidths(page, placed);
-
-	await page.emulateMedia({ reducedMotion: "no-preference" });
-	await page.goto(path, { waitUntil: "commit" });
-	await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-	const delays: Record<string, unknown> = {};
-	for (const [name, part] of [...rising, ...atOnce]) delays[name] = await delayOf(part);
-	seen.delays = delays;
-	// The header rises in as the page opens; the rest shows at once.
-	expected.delays = Object.fromEntries([
-		...rising.map(([name]) => [name, 0]),
-		...atOnce.map(([name]) => [name, -1]),
-	]);
-	// A part that reveals as it comes into the window shows once the window has passed it.
-	if (revealing) {
-		await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-	}
-	await expect
-		.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
-		.toEqual([]);
-	seen.moving = await placesAtTwoWidths(page, placed);
-	expected.moving = still;
-
-	await page.emulateMedia({ media: "print", reducedMotion: "no-preference" });
-	await page.goto(path);
-	await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-	seen.print = { running: await running(), heldBack: await heldBack(main) };
-	expected.print = { running: 0, heldBack: [] };
-	await page.emulateMedia({ media: "screen", reducedMotion: "reduce" });
-	// The places are the same with motion and without only where the page has each part.
-	seen.allPlaced = still.every(({ places }) => places.every(([, box]) => box !== "missing"));
-	expected.allPlaced = true;
-	return { seen, expected };
-}
-
-/**
- * Whether each of `parts` shows whole (`shownWhole`) at 375 and 1440 px, as a page without
- * JavaScript is laid out. The test compares `seen` with `expected`.
- */
-async function readWholeAtTwoWidths(page: Page, parts: Array<[string, Locator]>) {
-	const seen: Record<number, unknown> = {};
-	const expected: Record<number, unknown> = {};
-	for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
-		await page.setViewportSize(viewport);
-		const whole: Record<string, boolean> = {};
-		for (const [name, part] of parts) whole[name] = await shownWhole(part);
-		seen[viewport.width] = whole;
-		expected[viewport.width] = Object.fromEntries(parts.map(([name]) => [name, true]));
-	}
-	return { seen, expected };
-}
 
 // /about opens on the list's deep field with a Basic Page's header, its six sub-pages as the
 // Homepage's Quick Access tiles over the field's lower edge, then its body and related Documents

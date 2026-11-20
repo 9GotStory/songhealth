@@ -1,14 +1,29 @@
 ---
-// Office Contact as details (Feature 003 #62; spec #51 "Public reads" (Contact)): the address
-// with the "เปิดแผนที่" link built from the coordinates, the telephone number, the email address
-// and the opening hours, each only when it is set, and nothing at all while none is. The telephone
-// number and the email address are links while each is one number or one address
-// (src/lib/contact-links.ts), and plain text otherwise. /contact shows them in a card; the
-// Homepage's Contact Summary has its own card (HomeContactCard, Feature 008 #247).
+// Office Contact as /contact's card (Feature 003 #62; spec #51 "Public reads" (Contact)): the
+// address with the "เปิดแผนที่" link built from the coordinates, the telephone number, the email
+// address and the opening hours, each only when it is set. The page shows the card only while one
+// is (officeContactShown, src/lib/office-contact-settings.ts). The telephone number and the email
+// address are links while each is one number or one address (src/lib/contact-links.ts), and plain
+// text otherwise. The Homepage's Contact Summary has its own card (HomeContactCard, Feature 008
+// #247).
+//
+// The card lies over the field's lower edge (Feature 012 #369; spec #365 decision 13, "`/contact`";
+// prototype P4 A): 64 rem wide at most, white with the `deep` shadow, radius 24, 20 px inside and
+// 32 px from `sm`; its rows in one column below `sm` and two from `sm` (ที่ตั้ง, โทรศัพท์; อีเมล,
+// เวลาทำการ), 24 px apart and 40 px across. A row has a 44 px `surface-soft` tile with its 20 px
+// icon in `brand-primary`, decorative, 16 px before the term at label size in `text-secondary`,
+// which is 2 px over the value. The tile lies in the term, so the row stays a <div> of one <dt> and
+// one <dd>, which HTML allows in a <dl>. "เปิดแผนที่" is 12 px under the address. The telephone
+// number is at H3 size and semibold: a link in `brand-primary`, underlined, and plain text in
+// `text-primary` without the underline, so it does not read as a link (Product Owner, 2026-11-20:
+// #369 comment 7034812318, item 2).
+import Clock from "@lucide/astro/icons/clock";
+import Mail from "@lucide/astro/icons/mail";
+import MapPin from "@lucide/astro/icons/map-pin";
+import Phone from "@lucide/astro/icons/phone";
 import { emailHref, telephoneHref } from "../lib/contact-links";
 import { mapHref } from "../lib/map-link";
 import type { OfficeContact } from "../lib/office-contact-settings";
-import DetailItem from "./DetailItem.astro";
 import MapLink from "./MapLink.astro";
 
 interface Props {
@@ -20,25 +35,42 @@ const email = contact.email;
 const hasMap = mapHref(contact.latitude, contact.longitude) !== undefined;
 const telephoneLink = contact.telephone && telephoneHref(contact.telephone);
 const emailLink = email && emailHref(email);
-const shown =
-	!!contact.address || hasMap || !!contact.telephone || !!email || !!contact.openingHours;
 
+const rowClass = "relative flex min-h-11 min-w-0 flex-col gap-0.5 pt-0.5 pl-15";
+const termClass = "text-label text-text-secondary";
+const tileClass =
+	"absolute top-0 left-0 flex size-11 items-center justify-center rounded-14 bg-surface-soft text-brand-primary";
 const linkClass =
 	"inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4";
 ---
 
-{shown && (
-	<dl class="flex max-w-3xl flex-col gap-3 rounded-24 bg-surface-base p-5 shadow-card">
-		{(contact.address || hasMap) && (
-			<DetailItem term="ที่ตั้ง">
-				<div class="flex flex-col items-start gap-3">
-					{contact.address && <p class="whitespace-pre-line">{contact.address}</p>}
-					<MapLink latitude={contact.latitude} longitude={contact.longitude} />
-				</div>
-			</DetailItem>
-		)}
-		{contact.telephone && (
-			<DetailItem term="โทรศัพท์">
+<dl
+	data-testid="contact-card"
+	class="grid max-w-5xl gap-6 rounded-24 bg-surface-base p-5 text-text-primary shadow-deep sm:grid-cols-2 sm:gap-x-10 sm:p-8"
+>
+	{(contact.address || hasMap) && (
+		<div class={rowClass}>
+			<dt class={termClass}>
+				<span aria-hidden="true" class={tileClass}>
+					<MapPin class="shrink-0" size={20} />
+				</span>
+				ที่ตั้ง
+			</dt>
+			<dd class="flex flex-col items-start gap-3 wrap-anywhere">
+				{contact.address && <p class="whitespace-pre-line">{contact.address}</p>}
+				<MapLink latitude={contact.latitude} longitude={contact.longitude} />
+			</dd>
+		</div>
+	)}
+	{contact.telephone && (
+		<div class={rowClass}>
+			<dt class={termClass}>
+				<span aria-hidden="true" class={tileClass}>
+					<Phone class="shrink-0" size={20} />
+				</span>
+				โทรศัพท์
+			</dt>
+			<dd class="text-h3 wrap-anywhere">
 				{telephoneLink ? (
 					<a class={linkClass} href={telephoneLink}>
 						{contact.telephone}
@@ -46,23 +78,37 @@ const linkClass =
 				) : (
 					contact.telephone
 				)}
-			</DetailItem>
-		)}
-		{email && (
-			<DetailItem term="อีเมล">
+			</dd>
+		</div>
+	)}
+	{email && (
+		<div class={rowClass}>
+			<dt class={termClass}>
+				<span aria-hidden="true" class={tileClass}>
+					<Mail class="shrink-0" size={20} />
+				</span>
+				อีเมล
+			</dt>
+			<dd class="wrap-anywhere">
 				{emailLink ? (
-					<a class={`${linkClass} wrap-anywhere`} href={emailLink}>
+					<a class={linkClass} href={emailLink}>
 						{email}
 					</a>
 				) : (
 					email
 				)}
-			</DetailItem>
-		)}
-		{contact.openingHours && (
-			<DetailItem term="เวลาทำการ">
-				<p class="whitespace-pre-line">{contact.openingHours}</p>
-			</DetailItem>
-		)}
-	</dl>
-)}
+			</dd>
+		</div>
+	)}
+	{contact.openingHours && (
+		<div class={rowClass}>
+			<dt class={termClass}>
+				<span aria-hidden="true" class={tileClass}>
+					<Clock class="shrink-0" size={20} />
+				</span>
+				เวลาทำการ
+			</dt>
+			<dd class="whitespace-pre-line wrap-anywhere">{contact.openingHours}</dd>
+		</div>
+	)}
+</dl>

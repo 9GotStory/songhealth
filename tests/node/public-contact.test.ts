@@ -15,6 +15,7 @@ import { emailHref, officialChannels, telephoneHref } from "../../src/lib/contac
 import {
 	OFFICE_CONTACT_SETTINGS,
 	officeContactFrom,
+	officeContactShown,
 } from "../../src/lib/office-contact-settings.ts";
 
 describe("the Office Contact plugin's settings form", () => {
@@ -88,6 +89,32 @@ describe("Office Contact from the plugin settings", () => {
 			officeContactFrom({ address: "", telephone: "   ", email: null, opening_hours: "\n" }),
 			{},
 		);
+	});
+});
+
+describe("whether /contact shows Office Contact's card", () => {
+	// Feature 012 #369 (spec #365 decision 9): with no detail set /contact has no card.
+	it("shows it while any detail is set: the address, both coordinates, the telephone, the email or the opening hours", () => {
+		for (const contact of [
+			{ address: "123 หมู่ 1" },
+			{ latitude: 18.4686, longitude: 100.1834 },
+			{ telephone: "054 591 234 ต่อ 12" },
+			{ email: "a@example.invalid, b@example.invalid" },
+			{ openingHours: "จันทร์–ศุกร์" },
+		]) {
+			assert.equal(officeContactShown(contact), true, JSON.stringify(contact));
+		}
+	});
+
+	it("leaves it out with nothing set, with one coordinate alone, or with the LINE address alone, which is a channel", () => {
+		for (const contact of [
+			{},
+			{ latitude: 18.4686 },
+			{ longitude: 100.1834 },
+			{ lineUrl: "https://lin.ee/songhealth" },
+		]) {
+			assert.equal(officeContactShown(contact), false, JSON.stringify(contact));
+		}
 	});
 });
 
