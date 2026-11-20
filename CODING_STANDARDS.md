@@ -291,7 +291,8 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   sits: another document, a code or test comment, a script. Grep the section's citers, such as
   `` `02` §18 `` and `02-content-model.md`: in #127, `06` §7 still cited `02` §18 for deferred
   guarantees after §18 became the ITA model. `tests/node/document-versions.test.ts` checks the
-  cited versions.
+  cited versions, and `tests/node/removed-names.test.ts` the name of a component a commit removes,
+  so that commit carries its citers' changes (#368 retro).
 - **Owners.** A rule that another section owns is pointed to, or restated with its owner's scope
   and conditions. In #127, `02` §18 widened `03` §11's slug rule, and `05` §7 said search finds a
   file where `08` §8 shows its MOIT.

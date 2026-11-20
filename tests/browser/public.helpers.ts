@@ -171,6 +171,46 @@ export async function expectNoHorizontalScroll(page: Page, label: string): Promi
 }
 
 /**
+ * Fail when a text on the page as it is now is cut off: wider than its own box, or reaching past
+ * the window's edge. The page's own scroll width cannot see such a text inside a box that clips
+ * sideways, as the deep field does (`overflow-x-clip`): #368's summary lost the end of a long web
+ * address at 320 px while the page passed `expectNoHorizontalScroll` (#368 retro item 1). A text
+ * inside a box made to scroll sideways, a visually hidden one and one cut with an ellipsis are
+ * meant to be so and pass.
+ */
+async function expectNoTextCutOff(page: Page, label: string): Promise<void> {
+	const cut = await page.evaluate(() => {
+		const scrolls = (element: Element) => /auto|scroll/.test(getComputedStyle(element).overflowX);
+		const found: string[] = [];
+		for (const element of document.body.querySelectorAll("*")) {
+			const ownText = [...element.childNodes]
+				.filter((node) => node.nodeType === Node.TEXT_NODE)
+				.map((node) => node.textContent ?? "")
+				.join("")
+				.trim();
+			if (!ownText) continue;
+			const style = getComputedStyle(element);
+			const box = element.getBoundingClientRect();
+			if (box.width <= 1 || box.height <= 1 || style.visibility === "hidden") continue;
+			if (style.textOverflow === "ellipsis") continue;
+			let inScroller = false;
+			for (let up: Element | null = element; up; up = up.parentElement) {
+				if (up !== document.body && up !== document.documentElement && scrolls(up)) {
+					inScroller = true;
+					break;
+				}
+			}
+			if (inScroller) continue;
+			const ownCut = style.display !== "inline" && element.scrollWidth > element.clientWidth + 1;
+			const past = box.right > window.innerWidth + 1 || box.left < -1;
+			if (ownCut || past) found.push(`<${element.localName}> ${ownText.slice(0, 40)}`);
+		}
+		return found;
+	});
+	expect(cut, `${label}: a text cut off at its own edge or past the window`).toEqual([]);
+}
+
+/**
  * Run axe with the WCAG 2.2 AA tag set and the page-structure rules on the page as it is now,
  * scrolled back to its top, and
  * fail with a readable summary (rule, impact and the offending nodes) on any violation. Fail too on
@@ -228,7 +268,8 @@ export async function expectAccessibleAtEachWidth(page: Page, label: string): Pr
 /**
  * Declare the accessibility and reflow tests of a template's pages: at each of `VIEWPORTS`, every
  * path `paths` gives answers 200, axe reports no WCAG 2.2 AA violation on it, no icon on it is
- * exposed to assistive technology, and focus stays visible; at 320 px none scrolls sideways.
+ * exposed to assistive technology, and focus stays visible; at 320 px none scrolls sideways and
+ * no text on it is cut off (`expectNoTextCutOff`).
  * `pages` names them in the test titles, such as "the News pages". `paths` is called when the
  * tests run, after the suite's fixtures exist. Each width's paths share one test and its 30 s
  * timeout, which held 13 list pages at the desktop width but not 30 (#67), so split a longer list
@@ -249,11 +290,14 @@ export function testAccessibilityAndReflow(pages: string, paths: () => readonly 
 		});
 	}
 
-	test(`${pages} do not scroll sideways at 320 px`, async ({ page }) => {
+	test(`${pages} do not scroll sideways at 320 px, and no text on them is cut off`, async ({
+		page,
+	}) => {
 		await page.setViewportSize(MOBILE_VIEWPORT);
 		for (const path of paths()) {
 			await page.goto(path);
 			await expectNoHorizontalScroll(page, path);
+			await expectNoTextCutOff(page, path);
 		}
 	});
 }
