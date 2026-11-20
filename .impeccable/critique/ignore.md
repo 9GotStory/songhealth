@@ -19,3 +19,6 @@ Each entry is a detector or review finding that `docs/design/DESIGN.md` settles,
   file tile's size and gradient, `src/components/HealthReportRow.astro`, on `/health/reports`): the
   detector reads the gradient's lightest stop, where the text sits darker; DESIGN.md §3.2 and §7.3
   record its readings (spec #338 "The Health Reports list"; #342).
+- `icon-tile-stack` on `/contact`'s two route cards (`#complaints`, `#health-service-contacts`,
+  `src/pages/contact.astro`): each card's 52 px gradient tile above its H2 is the picked prototype
+  P4 A's, and DESIGN.md §9.10 records it (spec #365 "`/contact`"; #369).

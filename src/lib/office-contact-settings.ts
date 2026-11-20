@@ -9,6 +9,7 @@
 // field's type, is left out, so its line disappears from the page.
 
 import type { SettingField } from "emdash";
+import { mapHref } from "./map-link.ts";
 
 /** The Office Contact plugin's identity, which its settings are stored under. */
 export const OFFICE_CONTACT_PLUGIN = { id: "songhealth-office-contact", version: "1.0.0" } as const;
@@ -99,4 +100,20 @@ export function officeContactFrom(settings: Record<string, unknown>): OfficeCont
 	return Object.fromEntries(
 		Object.entries(contact).filter(([, value]) => value !== undefined),
 	) as OfficeContact;
+}
+
+/**
+ * Whether /contact shows Office Contact's card: while any detail it holds is set, the address or
+ * the map from both coordinates, the telephone number, the email address or the opening hours.
+ * With none the page has no card (Feature 012 #369; spec #365 decision 9). The LINE address is an
+ * official channel, which the page lists apart.
+ */
+export function officeContactShown(contact: OfficeContact): boolean {
+	return (
+		!!contact.address ||
+		mapHref(contact.latitude, contact.longitude) !== undefined ||
+		!!contact.telephone ||
+		!!contact.email ||
+		!!contact.openingHours
+	);
 }
