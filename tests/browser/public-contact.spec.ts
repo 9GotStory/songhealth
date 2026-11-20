@@ -168,6 +168,26 @@ function declaredBorderWidth(part: Locator) {
 	});
 }
 
+/**
+ * Whether the words of `button`, a pill, lie at least 8 px inside it, above and below, on every
+ * line they take.
+ */
+function wordsInside(button: Locator) {
+	return button.evaluate((element) => {
+		const own = element.getBoundingClientRect();
+		const range = document.createRange();
+		const lines = [...element.childNodes]
+			.filter((node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim())
+			.flatMap((node) => {
+				range.selectNodeContents(node);
+				return [...range.getClientRects()];
+			});
+		const top = Math.min(...lines.map((line) => line.top));
+		const bottom = Math.max(...lines.map((line) => line.bottom));
+		return top - own.top >= 7.5 && own.bottom - bottom >= 7.5;
+	});
+}
+
 /** Where a part's box ends in the window. */
 const bottomOf = (box: { y: number; height: number }) => box.y + box.height;
 
@@ -758,10 +778,18 @@ test("the two routes follow 48 px under the channels, or under the card without 
 					Math.abs(first!.y - second!.y) < 1
 						? ["across", Math.round(second!.x - first!.x - first!.width)]
 						: ["down", Math.round(second!.y - bottomOf(first!))],
+				// How far the words of each button lie inside its pill, above and below: a label that
+				// wraps keeps them 8 px inside, as the download's pill (DESIGN.md §7.3).
+				wordsInside: await Promise.all(
+					ROUTES.map(({ button }, index) =>
+						wordsInside(parts.routes[index]!.getByRole("link", { name: button, exact: true })),
+					),
+				),
 			};
 			expectedPlaces[width] = {
 				underChannels: 48,
 				apart: width >= 640 ? ["across", 20] : ["down", 16],
+				wordsInside: [true, true],
 			};
 		}
 		seen.places = places;

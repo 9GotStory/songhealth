@@ -10,7 +10,9 @@
 //
 // `arrow` makes it semibold with a 16 px arrow-right after the label, as /contact's route cards
 // draw it (Feature 012 #369; spec #365 "`/contact`"; Product Owner, 2026-11-20: #369 comment
-// 7034812318, item 1); the arrow is decorative.
+// 7034812318, item 1); the arrow is decorative. A label that wraps in a narrow card, as the Health
+// Service Directory's does at 320 and 640 px, stays centred 8 px inside the pill, as a download's
+// pill (FileDownloadLink; #369 gate).
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 
 interface Props {
@@ -30,7 +32,7 @@ const { href, variant = "secondary", context, onDark = false, arrow = false } = 
 <a
 	class:list={[
 		"inline-flex min-h-11 items-center rounded-pill px-5 text-label",
-		arrow && "gap-2 font-semibold",
+		arrow && "justify-center gap-2 py-2 text-center font-semibold",
 		onDark
 			? [
 					"focus-ring-on-dark underline-offset-4 hover:underline",
