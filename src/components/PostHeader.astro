@@ -16,9 +16,15 @@
 // (src/pages/health/reports/[slug].astro). A Service's page takes it too (#344; spec #338 decision
 // 10): an outlined pill for each of its Service Categories, as text, with no date, and its summary
 // (src/pages/services/[slug].astro; Product Owner, #344 comment 6979384685, item 2).
-// The summary keeps the line breaks staff typed. A part the post lacks is left out, and so is the
+// The summary keeps the line breaks staff typed, and an unbroken run of characters in it, such as a
+// long web address, wraps anywhere rather than pass the field's edge, which would clip it (Product
+// Owner, #368 comment 7028435491, item 2). A part the post lacks is left out, and so is the
 // row when it holds no pill, as a draft's preview has no publication date. Its
 // text takes the field's surface-base (DeepField.astro).
+//
+// A Basic Page takes it too (Feature 012 #368; spec #365 "A Basic Page", decision 2): its title
+// and summary alone, with no row of pills, and on /pages/{slug} no section
+// (src/components/BasicPageContent.astro).
 //
 // The page passes no `crumbs` to the shell, which then shows no breadcrumb above the page
 // (src/layouts/SiteLayout.astro), and gives them here with its section, as ListHeading.astro does.
@@ -33,8 +39,11 @@ import DateText from "./DateText.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
-	/** The main-navigation section the page belongs to, which its breadcrumb goes through. */
-	section: NavigationSection;
+	/**
+	 * The main-navigation section the page belongs to, which its breadcrumb goes through; none for
+	 * a page in no section, such as a Basic Page on /pages/{slug}.
+	 */
+	section?: NavigationSection;
 	/** The page's own crumbs, as the shell takes them (src/layouts/SiteLayout.astro). */
 	crumbs: Crumb[];
 	title: string;
@@ -89,7 +98,7 @@ const warmPill =
 		<h1 class="text-h3 wrap-anywhere sm:text-h2 lg:text-h1">
 			<ThaiTitle text={title} />
 		</h1>
-		{summary && <p class="text-body-large whitespace-pre-line">{summary}</p>}
+		{summary && <p class="text-body-large wrap-anywhere whitespace-pre-line">{summary}</p>}
 		<slot />
 	</div>
 </header>
