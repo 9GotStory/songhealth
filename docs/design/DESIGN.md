@@ -12,7 +12,7 @@
 > Services and Health Services pages follows spec #338, implemented by #339–#346, and was accepted
 > on #338 (Product Owner, 2026-11-19: #338 comment 6999055380). Feature 012's redesign of the
 > About pages, the Contact page and a Basic Page follows spec #365, implemented by #366–#372.
-> **Updated:** 2026-11-20 (#371); first drafted 2026-10-30
+> **Updated:** 2026-11-20 (#369); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -175,7 +175,10 @@ health-service network.
   column and its related Documents with their downloads under the Homepage's section heading (§9.9;
   #368). `/about` opens on a list's field with the same header, its six sub-pages as the Homepage's
   Quick Access tiles over the field's edge, then its body and related Documents (§7.3, §8.11, §9.9;
-  #371).
+  #371). `/contact` is headed as a list under the label "ติดต่อ", with Office Contact's details in a
+  white card over the field's edge, a row per detail with its icon, then the official channels as
+  pills under the Homepage's section heading and the two routes onward as white cards (§7.8, §9.10;
+  #369).
   Every page outside these features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -510,13 +513,13 @@ this document names:
 | Area | Components |
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
-| Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
-| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog; and `kind="section"`, a Health Service's "บริการที่ให้", §8.4, §9.8), `HomeQuickLink` (the Homepage's Quick Access; `kind="list"`, `/health`'s and `/about`'s tiles, §7.3, §8.11), `QuickLinkCard` (the ITA landing alone), `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
+| Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it, or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10), `ThaiTitle` |
+| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog; and `kind="section"`, a Health Service's "บริการที่ให้", §8.4, §9.8), `HomeQuickLink` (the Homepage's Quick Access; `kind="list"`, `/health`'s and `/about`'s tiles, §7.3, §8.11), `QuickLinkCard` (the ITA landing alone), `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3), `OfficeContactDetails` (Office Contact's card on `/contact`, a row per detail with its icon, §9.10); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
 | Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5), a Health Report's (§9.6), a Service's (§9.7), a Health Service's (§9.8), a Basic Page's (§9.9), and `/about`'s, a list's field under a Basic Page's header (§9.9) |
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
-| Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
+| Links | `ActionLink` (buttons; with `arrow`, semibold with a 16 px `arrow-right`, `/contact`'s routes, §9.10), `ArrowLink` (onward links), `Pagination`, `Breadcrumb`; `ContentLink`'s `compact` form, the footer's official channels and `/contact`'s pills (§9.10) |
 | Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `RelatedDocuments` |
 
 ### 7.2 Component rules
@@ -940,7 +943,8 @@ Health Reports list (`/health/reports`), the Service catalog (`/services`) and t
 Directory (`/health-services`), and since Feature 012 #366 (spec #365 decisions 4 and 5) the
 About Document pages (`/about/policies`, `/about/plans` and `/about/results`), and since #367
 (spec #365 decisions 4 and 11) the Leadership page (`/about/leadership`), and since #370 (spec
-#365 decisions 4 and 12) the Personnel page (`/about/personnel`).
+#365 decisions 4 and 12) the Personnel page (`/about/personnel`), and since #369 (spec #365
+decisions 4, 9 and 13) the Contact page (`/contact`).
 
 - **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
   `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
@@ -995,6 +999,12 @@ About Document pages (`/about/policies`, `/about/plans` and `/about/results`), a
 - **`/about/personnel`** is labelled "เกี่ยวกับเรา" over its H1 "บุคลากร", with `users-round`, its
   breadcrumb through เกี่ยวกับเรา. It has no link, and keeps its lead, its title in the head and its
   breadcrumb (spec #365 decision 4; Feature 012 #370).
+- **`/contact`** is labelled "ติดต่อ", the Homepage Contact Summary's label (§8.11), over its H1
+  "ติดต่อเรา", with `headset`, its breadcrumb under หน้าแรก, as it belongs to no section. It has no
+  link, and keeps its lead, its title in the head and its breadcrumb (spec #365 decision 4; Feature
+  012 #369). Its details card lies over the field's edge; with no Office Contact detail set nothing
+  does, and the field ends 40 px under the lead below `sm` and 48 px from `sm`, as a header's field
+  without a card (§9.4; `ListHeading`'s `overEdge={false}`; spec #365 decision 9; §9.10).
 - **The links under the lead.** `/services` has two, "ค้นหาหน่วยบริการสุขภาพที่เกี่ยวข้อง" to the
   directory and "คู่มือและแบบฟอร์ม" to `/documents`, its related pages that are not Services (spec
   #338 "The Service catalog", decision 15): 16 px under the lead, `surface-base` words, semibold,
@@ -1736,7 +1746,10 @@ stays the submit state (§8.9).
   page opens, while the breadcrumb, the body and the related Documents show at once; …"). On
   `/about` the same header rises in, each of its tiles reveals as `/health`'s do and shows whole
   while it holds the keyboard's focus, and its breadcrumb, body and related Documents show at once
-  (§9.9; #371; "/about moves only when motion is allowed: …").
+  (§9.9; #371; "/about moves only when motion is allowed: …"). On `/contact` the list heading's
+  block and lead rise in, and the breadcrumb, the details card, the channels and the two routes
+  show at once (§9.10; #369; `public-contact.spec.ts` "/contact moves only when motion is allowed:
+  …").
 - **An Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page's
   motion.** The header's text rises in as a Post page's does, starting at 0 s, and the card at
   0.25 s, as a Post page's frame (§9.4 to §9.8; Feature 010 #316, #317; Feature 011 #343 to #345).
@@ -2247,6 +2260,73 @@ a list's field before its tiles, with the same body and related Documents after 
   `scripts/measure-focus-contrast.ts` on the tiles of the first row, which meet the field, and of
   the second: beside the ring, with focus, no pixel under 3:1 at any of the five widths, where the
   ring alone over the field reads 1.00:1.
+
+### 9.10 The Contact page: Office Contact's card over the field's edge, the channels and the routes
+
+Feature 012 #369 (spec #365 "`/contact`", decisions 4, 8, 9 and 13, "Motion"; P4 A). The page
+takes a list's field and heading (§7.8), though it lists nothing.
+
+- **The heading** on the field, as §7.8's: the breadcrumb in white under หน้าแรก, the label
+  "ติดต่อ" (the Homepage's Contact Summary's, §8.11), the H1 "ติดต่อเรา" with the `headset` tile,
+  and the lead.
+- **The details card** (`OfficeContactDetails`) over the field's edge, starting 64 px above it
+  below `sm` and 88 px from `sm`, as a list's block (`ListBody`), at the column's start and 64 rem
+  wide at most: white, the `deep` shadow, radius 24, 20 px inside and 32 px from `sm`. Its rows
+  run in one column below `sm` and two from `sm`, ที่ตั้ง and โทรศัพท์ in the first row, อีเมล and
+  เวลาทำการ in the second, 24 px apart and 40 px across. A row has a 44 px `surface-soft` tile,
+  radius 14, with the 20 px icon in `brand-primary` (`map-pin`, `phone`, `mail`, `clock`),
+  decorative, then 16 px from it the term at label size in `text-secondary` and 2 px under it the
+  value, as the prototype has them (the spec gives neither gap). The address keeps the line
+  breaks staff typed, with "เปิดแผนที่" 12 px under it, the outlined pill (§7.3). The telephone
+  number is at H3 size and semibold: while it is one number a link in `brand-primary`, underlined
+  and 44 px high, and otherwise plain text in `text-primary` without the underline, so it does not
+  read as a link (Product Owner, 2026-11-20: #369 comment 7034812318, item 2). The email is a
+  link while it is one address, and the opening hours keep their line breaks. Each row shows only
+  while its detail is set (`officeContactShown`, `src/lib/office-contact-settings.ts`, for the
+  card as a whole). **With no detail set** there is no card, nothing lies over the field's edge,
+  and the field ends under the lead (§7.8).
+- **"ช่องทางทางการ"** follows 48 px under the card, or 32 px under the field below `lg` and 40 px
+  from `lg` when there is no card: the Homepage's section heading (the gradient tile with the
+  24 px `share-2`, the label "ติดต่อ" in `brand-primary`, the H2 in `section-title`), then 24 px
+  under it, 28 px from `sm`, the channels as pills: white, a 1.5 px `border-default` edge, the
+  network's name at body size, semibold, in `brand-primary`, and the 16 px `arrow-up-right`;
+  `brand-primary` with white words under the pointer; 44 px high and 20 px across inside, 10 px
+  apart, wrapping. Each opens in a new tab and says for assistive technology alone that it leaves
+  the site and opens a new tab (`ContentLink`'s `compact`), as the footer's channel links (Product
+  Owner, #62 comment 6516956505), so "(เว็บไซต์ภายนอก)" leaves the visible text. No section
+  without a channel.
+- **The two routes** 48 px under the channels, or under the card, or under the field as the
+  channels would be: white cards with the `card` shadow and radius 24, side by side from `sm` and
+  stacked below, 16 px apart and 20 px from `sm`, 24 px inside and 28 px from `sm`, their parts
+  16 px apart, as the prototype has them. Each holds a 52 px gradient tile with its 24 px icon
+  (`message-square`, `hospital`), decorative; its H2 at H3 size, "ร้องเรียนและเสนอแนะ" and
+  "ติดต่อหน่วยบริการสุขภาพ"; today's sentence in `text-secondary`; and today's button
+  (`ActionLink` with `arrow`), semibold with a 16 px `arrow-right` as the prototype draws it
+  (Product Owner, 2026-11-20: #369 comment 7034812318, item 1): "ดูบริการประชาชน" filled to the
+  Service catalog, "ดูหน่วยบริการสุขภาพที่เกี่ยวข้อง" outlined to the Health Service Directory.
+- No map is embedded, as before (approved Q3 of Feature 003).
+- **Motion** (§8.12): the heading's block and its lead rise in as the page opens; the breadcrumb,
+  the card, the channels and the routes show at once.
+- The H1, the lead, the terms, the H2s, the sentences, the buttons' words, the head's title and the
+  breadcrumb are unchanged; the label "ติดต่อ" is new, on the field and over "ช่องทางทางการ".
+- `tests/browser/public-contact.spec.ts` reads the heading at the five widths and on both sides of
+  640 and 1,024 px (`testHeadingOnField`); the card's place over the edge, width, look, rows and
+  gaps at 320, 639, 640, 1,023, 1,024 and 1,440 px and its links' focus rings; each row's tile,
+  term and value, the telephone and the email as links and as plain text, each row with and
+  without its detail, and no card with nothing set, the field then ending under the lead; the
+  channels' heading, pills, places, names and new tabs, and no section without a channel; the two
+  routes' places, look, headings, sentences and buttons; the motion; and the page without
+  JavaScript. `tests/node/public-contact.test.ts` holds `officeContactShown`.
+- **Measured** on the development runtime at `cd80cb9` (#369), `scripts/measure-text-contrast.ts
+  --all-text --fold` on `main` at 1,440, 1,024, 768, 375 and 320 px, on `/contact` (the demo
+  dataset's full Office Contact and three channels) and the `contact-empty` case of
+  `scripts/screenshot-fixtures/about-contact-cases.ts` (nothing set, no channel), the lowest of
+  each text: the breadcrumb's link 10.55:1 and its current page 9.46:1 (320 px, empty); the label
+  "ติดต่อ" on the field 8.71:1 and the H1 7.81:1 (320 px, empty); the lead 6.45:1 (768 px and
+  below); the card's terms 4.97:1, its address and opening hours 16.54:1, "เปิดแผนที่", the
+  telephone and the email 6.45:1; the label "ติดต่อ" over "ช่องทางทางการ" 5.81:1 and the H2
+  15.47:1; the pills 6.45:1; the routes' H2s 15.93:1, their sentences 4.97:1 and both buttons
+  6.45:1.
 
 ## 10. Acceptance and known limits
 
@@ -3048,3 +3128,14 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   landing alone. The tiles' labels, the H1, the summary, the head's title and the breadcrumb stay.
   §2, §7.1, §7.3, §8.11, §8.12 and §9.9 name the page. Authority: spec #365 "`/about`", "Motion"
   and decisions 2, 3, 8 and 10, and #365 comment 7000119315.
+- **v1.6 `/contact` (2026-11-20, Feature 012 #369):** `/contact` opens on a list's deep field with
+  the list heading under the label "ติดต่อ" (§7.8), and Office Contact's details lie in a white card
+  over the field's edge, a row per detail with its icon tile (`OfficeContactDetails`, §9.10); with
+  no detail set there is no card and the field ends under the lead (`ListHeading`'s
+  `overEdge={false}`). The official channels follow as pills under the Homepage's section heading
+  (`share-2`, "ติดต่อ"), "(เว็บไซต์ภายนอก)" leaving their visible text for their accessible names,
+  and the two routes as white cards with `ActionLink`'s new `arrow`. The page's `PageHeading`,
+  `DetailSection`s and its plain details list go. A telephone number that is not one number is
+  plain text at H3 size in `text-primary`, and the buttons are semibold (Product Owner, #369
+  comment 7034812318). §2, §7.1, §7.8, §8.12 and §9.10 name the page. Authority: spec #365
+  "`/contact`", "Motion" and decisions 4, 8, 9 and 13, and #365 comment 7000119315.

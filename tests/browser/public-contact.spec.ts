@@ -130,7 +130,7 @@ function channelLinks(page: Page, scope: "main" | "contentinfo") {
 /** The parts of /contact under its heading: the card, its rows, the channels and the routes. */
 function contactParts(page: Page) {
 	const main = page.getByRole("main");
-	const card = page.getByTestId("contact-card");
+	const card = page.getByTestId("office-contact-card");
 	const channels = main.getByRole("region", { name: CHANNELS_HEADING });
 	return {
 		...fieldParts(page),
