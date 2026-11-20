@@ -73,6 +73,7 @@ import {
 	expectSecondLinkPlaces,
 	expectSiteNotFound,
 	fieldEdge,
+	FIELD_EDGE,
 	fieldParts,
 	gutterAt,
 	heldBack,
@@ -533,10 +534,10 @@ test("/pages/about and /pages/organization redirect permanently to /about and /a
 /**
  * A page that opens with a header on the field, read for its motion (spec #365 "Motion"): with
  * reduced motion preferred nothing runs or waits, and with motion allowed `rising`, the header's
- * parts, enter as the page opens while each of `atOnce` shows at once, then, with the page
- * scrolled to its end, nothing waits; on paper nothing runs or waits; and each of `placed` is where
- * it is without motion, at 375 and 1440 px. The test compares `seen` with `expected`. The page ends
- * on a screen with reduced motion preferred.
+ * parts, enter as the page opens while each of `atOnce` shows at once, then nothing waits, on a
+ * page with `revealing` parts once it is scrolled to its end; on paper nothing runs or waits; and
+ * each of `placed` is where it is without motion, at 375 and 1440 px. The test compares `seen` with
+ * `expected`. The page ends on a screen with reduced motion preferred.
  */
 async function readHeaderMotion(
 	page: Page,
@@ -544,6 +545,7 @@ async function readHeaderMotion(
 	rising: Array<[string, Locator]>,
 	atOnce: Array<[string, Locator]>,
 	placed: Array<[string, Locator]>,
+	revealing: boolean,
 ) {
 	const main = page.getByRole("main");
 	/** A part's entrance delay, or "missing" where the page lacks it. */
@@ -571,7 +573,9 @@ async function readHeaderMotion(
 		...atOnce.map(([name]) => [name, -1]),
 	]);
 	// A part that reveals as it comes into the window shows once the window has passed it.
-	await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+	if (revealing) {
+		await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+	}
 	await expect
 		.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
 		.toEqual([]);
@@ -626,16 +630,15 @@ test.describe("/about on the field", () => {
 			.filter({ has: page.getByRole("link", { name: ABOUT_SUBPAGES[0][0], exact: true }) });
 
 	/**
-	 * The blocks of the body after the tiles, and the related Documents: what follows the tiles'
-	 * list, a block with no role of its own.
+	 * The body's first and last blocks, found by the text `publishedAbout` gives for them, and the
+	 * related Documents.
 	 */
-	function aboutText(page: Page) {
-		const text = aboutTiles(page).locator("xpath=following-sibling::*[1]");
-		const blocks = text.locator(":scope > :not(section) > *");
+	function aboutText(page: Page, body: { firstText: string; lastText: string }) {
+		const main = page.getByRole("main");
 		return {
-			first: blocks.first(),
-			last: blocks.last(),
-			related: page.getByRole("main").getByRole("region", { name: RELATED_TITLE }),
+			first: main.getByText(body.firstText, { exact: true }),
+			last: main.getByText(body.lastText, { exact: true }),
+			related: main.getByRole("region", { name: RELATED_TITLE }),
 		};
 	}
 
@@ -648,8 +651,8 @@ test.describe("/about on the field", () => {
 	/**
 	 * The `about` Basic Page, published for the running test: the runtime's own, borrowed and
 	 * published again at its own date, or else a synthetic one whose body opens with a paragraph and
-	 * which links one Document. Returns its fixture, its summary and whether its body opens with a
-	 * heading, as the native API gives them.
+	 * which links one Document. Returns its fixture, its summary, its body's first and last blocks'
+	 * text and whether its body opens with a heading, as the native API gives them.
 	 */
 	async function publishedAbout() {
 		let about = await borrow("pages", "about");
@@ -670,11 +673,20 @@ test.describe("/about on the field", () => {
 		}
 		await publish("pages", about);
 		const data = nativeItemOf(await readEntry(admin, "pages", about.id))?.data as
-			{ summary?: string; body?: Array<{ style?: string }> } | undefined;
+			| { summary?: string; body?: Array<{ style?: string; children?: Array<{ text?: string }> }> }
+			| undefined;
+		const body = data?.body ?? [];
+		const textOf = (block: (typeof body)[number] | undefined) =>
+			(block?.children ?? [])
+				.map((span) => span.text ?? "")
+				.join("")
+				.trim();
 		return {
 			about,
 			summary: data?.summary ?? "",
-			opensWithHeading: /^h[1-6]$/.test(String(data?.body?.[0]?.style)),
+			firstText: textOf(body[0]),
+			lastText: textOf(body.at(-1)),
+			opensWithHeading: /^h[1-6]$/.test(String(body[0]?.style)),
 		};
 	}
 
@@ -763,6 +775,7 @@ test.describe("/about on the field", () => {
 				},
 			};
 			if ([375, 639, 640, 1440].includes(width)) {
+				const reach = width < 640 ? FIELD_EDGE.phone : FIELD_EDGE.fromSm;
 				const edge = onField ? await fieldEdge(parts.field, `at ${width} px`) : Number.NaN;
 				const header = await boxOf(
 					parts.header.or(main.locator("header")).first(),
@@ -776,14 +789,31 @@ test.describe("/about on the field", () => {
 						: "no field",
 				};
 				expectedAt.overField = {
-					headerEndsAbove: width < 640 ? 96 : 128,
-					tilesStartAbove: width < 640 ? 64 : 88,
+					headerEndsAbove: reach.room,
+					tilesStartAbove: reach.overlap,
 					unbanded: [],
 				};
 			}
 			seen[width] = read;
 			expected[width] = expectedAt;
 		}
+
+		// The keyboard goes from the breadcrumb's หน้าแรก to the six tiles, in order.
+		const crumb = parts.breadcrumb.getByRole("link");
+		const order: unknown[] = [];
+		if ((await crumb.count()) === 1) {
+			await crumb.focus();
+			for (const _ of ABOUT_SUBPAGES) {
+				await page.keyboard.press("Tab");
+				order.push(
+					await page.evaluate(() =>
+						document.activeElement?.querySelector("h2")?.textContent?.trim(),
+					),
+				);
+			}
+		}
+		seen.keyboard = order;
+		expected.keyboard = ABOUT_SUBPAGES.map(([label]) => label);
 		expect(seen, "/about's tiles over the field's edge").toEqual(expected);
 	});
 
@@ -892,10 +922,11 @@ test.describe("/about on the field", () => {
 	test("on /about the body follows 48 px under the tiles in the 48 rem column, a body that opens with a heading 32 px lower (#380), then 48 px under it เอกสารที่เกี่ยวข้อง with each row's download, in the same column, then the page's own 64 px, 80 px from 1,024 px, at 320, 639, 640, 1,023, 1,024 and 1,440 px", async ({
 		page,
 	}) => {
-		const { opensWithHeading } = await publishedAbout();
+		const published = await publishedAbout();
+		const { opensWithHeading } = published;
 		await page.goto("/about");
 		const tiles = aboutTiles(page);
-		const text = aboutText(page);
+		const text = aboutText(page, published);
 		const rows = text.related.getByRole("article");
 		const shown = (await text.first.count()) === 1 && (await text.related.count()) === 1;
 		const seen: Record<string, unknown> = {
@@ -946,10 +977,11 @@ test.describe("/about on the field", () => {
 		page,
 	}) => {
 		test.setTimeout(90_000);
-		const { summary } = await publishedAbout();
+		const published = await publishedAbout();
+		const { summary } = published;
 		const parts = fieldParts(page);
 		const items = aboutTiles(page).getByRole("listitem");
-		const text = aboutText(page);
+		const text = aboutText(page, published);
 		const lead = parts.field.getByText(summary.split("\n")[0]!);
 		const atOnce: Array<[string, Locator]> = [
 			["the breadcrumb", parts.breadcrumb],
@@ -971,6 +1003,7 @@ test.describe("/about on the field", () => {
 			],
 			atOnce,
 			placed,
+			true,
 		);
 		await page.emulateMedia({ reducedMotion: "no-preference" });
 		await page.goto("/about", { waitUntil: "commit" });
@@ -1005,14 +1038,22 @@ test.describe("/about on the field", () => {
 		}
 		seen.revealed = revealed;
 		expected.revealed = ABOUT_SUBPAGES.map(() => 1);
+		// Focused where it lies, below the window, as a tile reached by the keyboard is until the
+		// page scrolls: only its focus shows it there.
 		await page.goto("/about");
-		await items.last().getByRole("link").focus();
+		await items
+			.last()
+			.getByRole("link")
+			.evaluate((link) => (link as HTMLElement).focus({ preventScroll: true }));
 		await expect
 			.poll(() => shownOpacity(items.last()), { timeout: 3_000 })
 			.toBe(1)
 			.catch(() => undefined);
-		seen.focused = await shownOpacity(items.last());
-		expected.focused = 1;
+		seen.focused = {
+			below: (await boxOf(items.last(), "the focused tile")).y > short.height,
+			opacity: await shownOpacity(items.last()),
+		};
+		expected.focused = { below: true, opacity: 1 };
 		await page.emulateMedia({ reducedMotion: "reduce" });
 		expect(seen, "/about's motion, and nothing moving without it").toEqual(expected);
 	});
@@ -1023,11 +1064,12 @@ test.describe("/about on the field", () => {
 		test("/about shows its header on the field, its six tiles, its body and its related Documents with their downloads whole, at 375 and 1440 px", async ({
 			page,
 		}) => {
-			const { summary } = await publishedAbout();
+			const published = await publishedAbout();
+			const { summary } = published;
 			await page.goto("/about");
 			const parts = fieldParts(page);
 			const tiles = aboutTiles(page);
-			const text = aboutText(page);
+			const text = aboutText(page, published);
 			const { seen, expected } = await readWholeAtTwoWidths(page, [
 				["the breadcrumb", parts.breadcrumb],
 				["the title on the field", parts.field.getByRole("heading", { level: 1 })],
@@ -1432,6 +1474,7 @@ test.describe("a Basic Page on the field", () => {
 			],
 			atOnce,
 			[["the field", parts.field], ["the title", parts.title], ...atOnce],
+			false,
 		);
 		expect(seen, "the motion, and nothing moving without it").toEqual(expected);
 	});
