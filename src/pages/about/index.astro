@@ -17,7 +17,8 @@
 // each label an H2, two to a row below `lg` and three from `lg`, 12 px apart below `sm` and 20 px
 // from `sm`, each revealed as it comes into the window (`scroll-reveal`). 48 px under them follow
 // the page's body and related Documents, every Basic Page's (BasicPageText.astro), which show at
-// once; with neither the page ends with the tiles.
+// once; with neither the page ends with the tiles. The page passes no `crumbs` to the shell, which
+// then shows no breadcrumb above the page, since the header shows it on the field.
 import BasicPageText from "../../components/BasicPageText.astro";
 import DeepField from "../../components/DeepField.astro";
 import HomeQuickLink from "../../components/HomeQuickLink.astro";
@@ -41,7 +42,6 @@ const title = data?.title ?? ABOUT_TITLE;
 	section="about"
 	description={data?.summary || DESCRIPTION}
 	canonical={basicPagePath("about")}
-	crumbs={[]}
 	entry={
 		page && {
 			collection: "pages",
