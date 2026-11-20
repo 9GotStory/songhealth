@@ -12,7 +12,7 @@
 > Services and Health Services pages follows spec #338, implemented by #339–#346, and was accepted
 > on #338 (Product Owner, 2026-11-19: #338 comment 6999055380). Feature 012's redesign of the
 > About pages, the Contact page and a Basic Page follows spec #365, implemented by #366–#372.
-> **Updated:** 2026-11-20 (#368); first drafted 2026-10-30
+> **Updated:** 2026-11-20 (#371); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -173,7 +173,9 @@ health-service network.
   ringed circle (§7.3, §8.5; #370). A Basic Page, on `/pages/{slug}` and `/about/organization`,
   opens on the field with the Post page's header, its title and summary, then its body in the text
   column and its related Documents with their downloads under the Homepage's section heading (§9.9;
-  #368).
+  #368). `/about` opens on a list's field with the same header, its six sub-pages as the Homepage's
+  Quick Access tiles over the field's edge, then its body and related Documents (§7.3, §8.11, §9.9;
+  #371).
   Every page outside these features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -509,10 +511,10 @@ this document names:
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
 | Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (§7.8), `ThaiTitle` |
-| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog; and `kind="section"`, a Health Service's "บริการที่ให้", §8.4, §9.8), `QuickLinkCard`, `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
+| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog; and `kind="section"`, a Health Service's "บริการที่ให้", §8.4, §9.8), `HomeQuickLink` (the Homepage's Quick Access; `kind="list"`, `/health`'s and `/about`'s tiles, §7.3, §8.11), `QuickLinkCard` (the ITA landing alone), `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
-| Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5), a Health Report's (§9.6), a Service's (§9.7), a Health Service's (§9.8) and a Basic Page's (§9.9) |
-| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares (§9.9) |
+| Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5), a Health Report's (§9.6), a Service's (§9.7), a Health Service's (§9.8), a Basic Page's (§9.9), and `/about`'s, a list's field under a Basic Page's header (§9.9) |
+| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons), `ArrowLink` (onward links), `Pagination`, `Breadcrumb` |
 | Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `RelatedDocuments` |
@@ -750,7 +752,7 @@ this document names:
     fixed height, and the cards of a row share one height. One line of label makes it 82 px tall
     (a 26 px line, the 8 px gap, the arrow and 24 px of padding), the taller proportions the
     Product Owner accepted (#190 comment 6707205912, Quick Access B).
-  - `/about` and `/ita` keep `QuickLinkCard`, the full card with its border.
+  - The ITA landing keeps `QuickLinkCard`, the full card with its border.
   - `/health` shows its two destinations, "ความรู้สุขภาพ" then "รายงานสุขภาพ", with it (Feature 011
     #339; spec #338 "`/health`"), `kind="list"`: over the field's lower edge (§7.8), two to a row
     at every width, 12 px apart below `sm` and 20 px from `sm`, the compact card below 640 px.
@@ -758,6 +760,12 @@ this document names:
     Homepage's label is plain text under its section's H2 (Product Owner, 2026-11-17: #339
     comment 6941979791), and its link's focus ring has the lists' `surface-base` band
     (`focus-ring-banded`, §3). Each tile reveals as it comes into the window (§8.12).
+  - `/about` shows its six sub-pages with it the same way (Feature 012 #371; spec #365 "`/about`",
+    decisions 8 and 10), in `01` §3 order (โครงสร้างองค์กร, ผู้บริหาร, บุคลากร, นโยบาย, แผนงาน,
+    ผลการดำเนินงาน): over the field's lower edge, two to a row below `lg` and three from `lg`,
+    12 px apart below `sm` and 20 px from `sm`, the compact card below 640 px, each label an H2 and
+    each focus ring banded (§9.9). The page's earlier H2 "ข้อมูลเกี่ยวกับสำนักงาน" over the links
+    goes.
 - **A leader's card** (`LeaderCard`; Feature 012 #367; spec #365 "Leadership", decision 11) shows a
   leader on `/about/leadership`, over the field's lower edge (§7.8), and links nowhere: Personnel
   has no page of its own (`03` §5).
@@ -1629,12 +1637,12 @@ held, at every width, fewer when fewer exist; with none the section is left out.
 ### 8.11 Quick Access and the Contact Summary
 
 **Quick Access** (`HomeQuickLink`; spec #239 "Quick Access"; on `/health` too since Feature 011
-#339, §7.3) shows up to four shortcuts from its
+#339 and on `/about` since Feature 012 #371, §7.3) shows up to four shortcuts from its
 menu before the Contact Summary, and is left out while the menu is empty, as the demo dataset
 leaves it (`scripts/demo-dataset/content.ts`; spec #239). Under the section heading its cards go
 four to a row from `lg` and two below, 24 px apart (12 px below `sm`). A card is the Homepage's
 card surface, white with the `card` shadow and no border, radius 22 (18 below `sm`): the label at
-the h3 size (a plain label here, an H2 on `/health`, §7.3) and a 24 px `arrow-right`, the whole card one link named by the label. Under the
+the h3 size (a plain label here, an H2 on `/health` and `/about`, §7.3) and a 24 px `arrow-right`, the whole card one link named by the label. Under the
 pointer the label turns `brand-primary` and the shadow `deep`. Below `sm` it is compact (§7.3).
 
 **The Contact Summary** (`HomeContactCard`; spec #239 "Contact Summary") is one card inside the
@@ -1717,14 +1725,18 @@ stays the submit state (§8.9).
   #366, `testListOnField`'s `itemsMove`; `/about/leadership`'s cards, the featured one too, since
   #367, `public-personnel.spec.ts` "with motion allowed each leader's card …", and
   `/about/personnel`'s panels since #370, "with motion allowed each unit's panel …", each without a
-  picture's shimmer, as the Leadership strip's portraits).
+  picture's shimmer, as the Leadership strip's portraits; `/about`'s tiles since #371, under a
+  Basic Page's header, below).
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
   as the hero's parts do, starting at 0 s, and the frame at 0.25 s, as the Featured card does
   (§9.1; Feature 009 #285). The breadcrumb, the text, an Activity's details card and its photos
   show at once (`public-posts.spec.ts` "a post moves only when motion is allowed: …"). A Basic
   Page's header rises in the same way, and its breadcrumb, body and related Documents show at once
   (§9.9; Feature 012 #368; `public-about.spec.ts` "with motion allowed the header rises in as the
-  page opens, while the breadcrumb, the body and the related Documents show at once; …").
+  page opens, while the breadcrumb, the body and the related Documents show at once; …"). On
+  `/about` the same header rises in, each of its tiles reveals as `/health`'s do and shows whole
+  while it holds the keyboard's focus, and its breadcrumb, body and related Documents show at once
+  (§9.9; #371; "/about moves only when motion is allowed: …").
 - **An Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page's
   motion.** The header's text rises in as a Post page's does, starting at 0 s, and the card at
   0.25 s, as a Post page's frame (§9.4 to §9.8; Feature 010 #316, #317; Feature 011 #343 to #345).
@@ -2155,9 +2167,9 @@ Feature 011 #345 (spec #338 "The three pages: the header", "The card over the fi
 ### 9.9 A Basic Page: the Post page's header on the field, its body and its related Documents
 
 Feature 012 #368 (spec #365 "A Basic Page", decisions 2, 3 and 9, "Motion"). A Basic Page on
-`/pages/{slug}` and `/about/organization` (`BasicPageContent`); `/about` takes the header in #371
-and keeps its earlier heading until then, with the same body and related Documents
-(`BasicPageText`).
+`/pages/{slug}` and `/about/organization` (`BasicPageContent`); `/about` takes the same header, on
+a list's field before its tiles, with the same body and related Documents after them (#371;
+`BasicPageText`; "`/about`" below).
 
 - **The field** is a Post page's (`DeepField kind="post"` in `PostColumns` without a picture,
   §9.1): the small glow and no ring, as high as the header plus 40 px below `sm` and 48 px from
@@ -2196,6 +2208,45 @@ and keeps its earlier heading until then, with the same body and related Documen
   the body's headings 11.52:1 and text 15.61:1; the label "เอกสารเผยแพร่" 6.09:1 and the H2
   15.47:1; a row's facts and summary 4.97:1, its title 16.54:1, "PDF" 5.60:1, the download
   6.45:1 and "ถูกแทนที่แล้ว" 7.75:1.
+
+**`/about`** (Feature 012 #371; spec #365 "`/about`", decisions 2, 3, 8 and 10, "Motion"; P1 A):
+
+- **The field** is a list's (`DeepField kind="list"`, §7.8): the small glow, and the large ring
+  from `lg`. Its content ends 96 px above its lower edge below `sm` and 128 px from `sm`, as a
+  list heading's.
+- **On it,** a Basic Page's header (`PostHeader`, as above), 48 rem wide at most: the breadcrumb
+  in white, ending at the section, หน้าแรก then เกี่ยวกับเรา, whatever the page's title; the `about`
+  Basic Page's title as the H1 and its summary; without a published `about` page the H1
+  "เกี่ยวกับเรา" and no lead. The shell shows no breadcrumb of its own above it.
+- **Over its edge** (`ListBody`), starting 64 px above it below `sm` and 88 px from `sm`, the six
+  sub-pages as the Homepage's Quick Access tiles (`HomeQuickLink kind="list"`, §7.3, §8.11): each
+  label an H2, two to a row below `lg` and three from `lg`, 12 px apart below `sm` and 20 px from
+  `sm`, the compact card below 640 px, each focus ring with the lists' band.
+- **48 px under the tiles** the body in the 48 rem column, then 48 px under it "เอกสารที่เกี่ยวข้อง"
+  (`BasicPageText`, as above); a part the page lacks is left out with its room, and without the
+  page the tiles are the last part. A body that opens with a heading starts 32 px lower, its
+  heading's own margin, as on every Basic Page (#380). Then the page's own 64 px, 80 px from `lg`.
+- **Motion** (§8.12): the header's title and summary rise in as the page opens; each tile reveals
+  as it comes into the window and shows whole while it holds the keyboard's focus; the breadcrumb,
+  the body and the related Documents show at once.
+- The canonical address, the head's title and description, the signed preview of the `about` page
+  through `/pages/about` and its `noindex` are unchanged.
+- `tests/browser/public-about.spec.ts` "/about on the field" reads the tiles in order with their
+  addresses and H2s, their rows, gaps, form and surface at 320, 375, 639, 640, 1,023, 1,024 and
+  1,440 px, the field's look, where the header ends and the tiles start against the field's edge
+  and their focus rings; the header with and without the page and the preview; the body and the
+  related Documents after the tiles at six widths; the motion; and the page without JavaScript.
+- **Measured** on the development runtime at `36e0770` (#371), `scripts/measure-text-contrast.ts
+  --all-text --fold` on `main` at 1,440, 1,024, 768, 375 and 320 px, on `/about` (the demo
+  dataset's `about` page) and the `about-no-page` case of
+  `scripts/screenshot-fixtures/about-contact-cases.ts`, the lowest of each text: the breadcrumb's
+  links 10.27:1 and its current page 8.96:1 (320 px); the H1 5.86:1 (320 px), and "เกี่ยวกับเรา"
+  8.36:1 without the page; the summary 4.85:1 (1,024 px, where the large ring runs behind it; the
+  prototype read 4.92:1); the tiles' labels 16.54:1; the body's headings 11.52:1 and text 15.61:1;
+  "เอกสารเผยแพร่" 6.09:1, a row's facts and summary 4.97:1, "PDF" 5.60:1 and the download 6.45:1.
+  `scripts/measure-focus-contrast.ts` on the tiles of the first row, which meet the field, and of
+  the second: beside the ring, with focus, no pixel under 3:1 at any of the five widths, where the
+  ring alone over the field reads 1.00:1.
 
 ## 10. Acceptance and known limits
 
@@ -2987,3 +3038,13 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   related Documents and keeps its heading until #371. §2, §7.1, §7.3, §8.12, §9.4 and §9.9 name
   the page. Authority: spec #365 "A Basic Page", "Motion" and decisions 2, 3 and 9, and #365
   comment 7000119315.
+- **v1.6 `/about` (2026-11-20, Feature 012 #371):** `/about` opens on a list's deep field with a
+  Basic Page's header (§9.9): the `about` page's title as the H1 and its summary, or the H1
+  "เกี่ยวกับเรา" and no lead without the page, the breadcrumb ending at เกี่ยวกับเรา as before. Its
+  six sub-pages follow over the field's edge as the Homepage's Quick Access tiles, each label an
+  H2, two to a row below `lg` and three from `lg`, each revealed as it comes into the window
+  (`HomeQuickLink kind="list"`, §7.3, §8.11), then its body and related Documents. The H2
+  "ข้อมูลเกี่ยวกับสำนักงาน" and `/about`'s `QuickLinkCard` go; `QuickLinkCard` stays on the ITA
+  landing alone. The tiles' labels, the H1, the summary, the head's title and the breadcrumb stay.
+  §2, §7.1, §7.3, §8.11, §8.12 and §9.9 name the page. Authority: spec #365 "`/about`", "Motion"
+  and decisions 2, 3, 8 and 10, and #365 comment 7000119315.

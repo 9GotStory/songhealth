@@ -25,7 +25,9 @@
 //   published entry, each a label and an arrow. Below 640 px, two to a row, the label lies across
 //   the top of its card and the arrow on a row of its own at the lower right, and the card grows
 //   with its label (Feature 007 #194; #190 "Compact Homepage Quick Access"). From 640 px the arrow
-//   stays beside the label, as it does below 640 px on the full cards of /about, /health and /ita.
+//   stays beside the label, as it does below 640 px on the ITA landing's full cards
+//   (public-ita-years.spec.ts); /health's and /about's tiles are the Homepage's, compact below
+//   640 px (public-health.spec.ts, public-about.spec.ts).
 //
 // An item whose entry is a draft, unpublished or trashed is skipped, so unpublishing an entry takes
 // it off the Homepage without a menu edit. So is an item of another kind, and a Quick Access item
@@ -1240,16 +1242,3 @@ test.describe("without JavaScript", () => {
 		await withHomepageMenus(admin, { quickAccess: SHORTCUTS }, () => expectShortcutsOpen(page));
 	});
 });
-
-// /health's tiles are the Homepage's since #339, compact below 640 px (public-health.spec.ts).
-for (const width of [320, 639]) {
-	test(`at ${width} px a Quick Link card on /about keeps its arrow beside its label at the H3 size`, async ({
-		page,
-	}) => {
-		await page.setViewportSize({ width, height: 900 });
-		await page.goto("/about");
-		const card = page.getByRole("main").getByRole("link", { name: "โครงสร้างองค์กร", exact: true });
-		await expect(card).toHaveCSS("font-size", "24px");
-		await expectArrowBesideLabel(card, `/about at ${width} px`);
-	});
-}

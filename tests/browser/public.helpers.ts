@@ -1260,7 +1260,7 @@ export async function expectFilteredEmpty(
  * How far, in px, a list's field reaches below its own content and below the top of what follows
  * its heading (src/components/ListHeading.astro, ListBody.astro).
  */
-const FIELD_EDGE = {
+export const FIELD_EDGE = {
 	phone: { room: 96, overlap: 64 },
 	fromSm: { room: 128, overlap: 88 },
 };
@@ -1487,7 +1487,7 @@ export async function expectStartsOverFieldEdge(
  * #281 and #312 such a card passed every suite, and only scripts/measure-focus-contrast.ts found
  * it (#312 retro).
  */
-async function ringsOverFieldUnbanded(
+export async function ringsOverFieldUnbanded(
 	block: Locator,
 	field: Locator,
 	surfaceBase: string,

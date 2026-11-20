@@ -2,20 +2,28 @@
 // The office information page, /about (Feature 003 #60; spec #51 "Public reads" (Basic Pages,
 // About), `03` §5 and §14).
 //
-// It renders the reserved Basic Page `about` (src/lib/basic-pages.ts), then links to every About
+// It renders the reserved Basic Page `about` (src/lib/basic-pages.ts) and links to every About
 // sub-page (src/lib/about.ts). Without a published `about` page it still answers, titled
 // เกี่ยวกับเรา with only the links, so the About section always has its landing page. A draft opens
 // here only through its signed preview link, which /pages/about passes on. As the section's
 // landing page, its breadcrumb ends at the section, เกี่ยวกับเรา, whatever the page's title.
 //
-// Until #371 (spec #365 "`/about`") it keeps its earlier heading: the page's title as the H1 and
-// its summary as the lead on the page's colour. Its body and related Documents are already every
-// Basic Page's (src/components/BasicPageText.astro; Feature 012 #368, spec #365 decision 3).
+// It opens on a list's deep field (Feature 012 #371; spec #365 "`/about`", decisions 2, 8 and 10;
+// DeepField.astro `kind="list"`, the small glow and the large ring from `lg`) with a Basic Page's
+// header (PostHeader.astro): the page's title as the H1 and its summary, or the H1 เกี่ยวกับเรา and
+// no lead without the page. The field's content ends 96 px above its lower edge below `sm` and
+// 128 px from `sm`, as a list's heading's (ListHeading.astro), and the six sub-pages follow over
+// that edge (ListBody.astro) as the Homepage's Quick Access tiles, `kind="list"` as on /health:
+// each label an H2, two to a row below `lg` and three from `lg`, 12 px apart below `sm` and 20 px
+// from `sm`, each revealed as it comes into the window (`scroll-reveal`). 48 px under them follow
+// the page's body and related Documents, every Basic Page's (BasicPageText.astro), which show at
+// once; with neither the page ends with the tiles. The page passes no `crumbs` to the shell, which
+// then shows no breadcrumb above the page, since the header shows it on the field.
 import BasicPageText from "../../components/BasicPageText.astro";
-import DetailSection from "../../components/DetailSection.astro";
-import PageHeading from "../../components/PageHeading.astro";
-import QuickLinkCard from "../../components/QuickLinkCard.astro";
-import ThaiTitle from "../../components/ThaiTitle.astro";
+import DeepField from "../../components/DeepField.astro";
+import HomeQuickLink from "../../components/HomeQuickLink.astro";
+import ListBody from "../../components/ListBody.astro";
+import PostHeader from "../../components/PostHeader.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { ABOUT_SUBPAGES, ABOUT_TITLE } from "../../lib/about";
 import { basicPagePath, readBasicPage } from "../../lib/basic-pages";
@@ -34,7 +42,6 @@ const title = data?.title ?? ABOUT_TITLE;
 	section="about"
 	description={data?.summary || DESCRIPTION}
 	canonical={basicPagePath("about")}
-	crumbs={[]}
 	entry={
 		page && {
 			collection: "pages",
@@ -45,28 +52,21 @@ const title = data?.title ?? ABOUT_TITLE;
 	}
 	noindex={page?.isPreview}
 >
-	<div class="page-container flex flex-col gap-12 pt-6 pb-16 lg:pb-20">
-		{page ? (
-			<article class="flex flex-col gap-8">
-				<header class="flex max-w-3xl flex-col gap-3">
-					<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
-						<ThaiTitle text={title} />
-					</h1>
-					{data?.summary && <p class="text-body-large text-text-secondary">{data.summary}</p>}
-				</header>
-				<BasicPageText page={page} />
-			</article>
-		) : (
-			<PageHeading title={title} />
-		)}
-		<DetailSection id="about-subpages" heading="ข้อมูลเกี่ยวกับสำนักงาน">
-			<ul class="grid gap-4 sm:grid-cols-2">
+	<DeepField kind="list">
+		<div class="page-container relative pt-6 pb-24 sm:pb-32">
+			<PostHeader section="about" crumbs={[]} title={title} summary={data?.summary} />
+		</div>
+	</DeepField>
+	<ListBody>
+		<div class="flex flex-col gap-12">
+			<ul class="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
 				{ABOUT_SUBPAGES.map((subpage) => (
-					<li>
-						<QuickLinkCard href={subpage.href} label={subpage.label} />
+					<li class="scroll-reveal">
+						<HomeQuickLink href={subpage.href} label={subpage.label} kind="list" />
 					</li>
 				))}
 			</ul>
-		</DetailSection>
-	</div>
+			{page && <BasicPageText page={page} />}
+		</div>
+	</ListBody>
 </SiteLayout>
