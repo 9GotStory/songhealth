@@ -9,9 +9,21 @@
 # path (#282 retro). It ends with the table of the pages' heights that scripts/evidence-heights.ts
 # reads from the PNGs, for a pull request or a record to quote whole (#287 retro). The push is left
 # to you: it publishes the images, and the repository is public.
-#   scripts/evidence-branch.sh <ticket: 003-61, or 169 for a standalone one> <dir of PNGs>
+#   scripts/evidence-branch.sh [--before-from <branch>] <ticket: 003-61, or 169 for a standalone
+#   one> <dir of PNGs>
+# --before-from takes the missing before images from another branch's tip in place of this
+# ticket's, such as the feature's first ticket's, which holds every page's before (#371 retro).
 set -euo pipefail
-(($# == 2)) || { echo "usage: scripts/evidence-branch.sh <ticket> <dir of PNGs>" >&2; exit 2; }
+usage="usage: scripts/evidence-branch.sh [--before-from <branch>] <ticket> <dir of PNGs>"
+source_branch=
+if [[ ${1-} == --before-from ]]; then
+  (($# >= 2)) || { echo "$usage" >&2; exit 2; }
+  source_branch=$2
+  shift 2
+  git rev-parse --verify -q "refs/heads/$source_branch" >/dev/null ||
+    { echo "evidence-branch: no local branch $source_branch" >&2; exit 2; }
+fi
+(($# == 2)) || { echo "$usage" >&2; exit 2; }
 ticket=$1 dir=$2
 [[ $ticket =~ ^([0-9]{3}-)?[0-9]+$ ]] || { echo "evidence-branch: the ticket looks like 003-61 or 169" >&2; exit 2; }
 # A ticket built on a feature's branch takes the feature's number, as its branch does (#344 retro:
@@ -26,10 +38,12 @@ images=("$dir"/*.png)
 ((${#images[@]})) || { echo "evidence-branch: no PNG in $dir" >&2; exit 1; }
 
 branch=evidence/$ticket-screenshots
-# An after-<name>.png whose before-<name>.png is not in <dir> takes the one at the branch's tip, so
-# a folder of after images alone still commits and prints its pairs (#339 retro: the after-only
-# commit 63c77c2 dropped the 100 before images from the tip and printed no pair).
-if git rev-parse --verify -q "refs/heads/$branch" >/dev/null; then
+# An after-<name>.png whose before-<name>.png is not in <dir> takes the one at the branch's tip, or
+# at --before-from's, so a folder of after images alone still commits and prints its pairs (#339
+# retro: the after-only commit 63c77c2 dropped the 100 before images from the tip and printed no
+# pair).
+source_branch=${source_branch:-$branch}
+if git rev-parse --verify -q "refs/heads/$source_branch" >/dev/null; then
   work=$(mktemp -d)
   trap 'rm -rf "$work"' EXIT
   cp "$dir"/*.png "$work"/
@@ -38,20 +52,20 @@ if git rev-parse --verify -q "refs/heads/$branch" >/dev/null; then
   for after in "$work"/after-*.png; do
     before=before-${after##*/after-}
     [[ -e $work/$before ]] && continue
-    git cat-file -e "$branch:$before" 2>/dev/null || continue
-    git cat-file blob "$branch:$before" >"$work/$before"
-    if git cat-file -e "$branch:captures.txt" 2>/dev/null; then
-      git cat-file blob "$branch:captures.txt" | grep -F "$before"$'\t' >>"$work/captures.txt" || true
+    git cat-file -e "$source_branch:$before" 2>/dev/null || continue
+    git cat-file blob "$source_branch:$before" >"$work/$before"
+    if git cat-file -e "$source_branch:captures.txt" 2>/dev/null; then
+      git cat-file blob "$source_branch:captures.txt" | grep -F "$before"$'\t' >>"$work/captures.txt" || true
     fi
     carried=$((carried + 1))
   done
   if ((carried)); then
-    echo "evidence-branch: $carried before images carried from $branch's tip"
+    echo "evidence-branch: $carried before images carried from $source_branch's tip"
     dir=$work
     images=("$dir"/*.png)
   fi
 fi
-# A folder of after images whose before images neither it nor the branch's tip holds would commit
+# A folder of after images whose before images neither it nor the source's tip holds would commit
 # without a pair to print (#345 retro: a ticket's first after-only run on a new branch was pushed
 # that way): it stops here, before any commit. A new page's after image beside pairs still commits.
 afters=("$dir"/after-*.png)
@@ -60,7 +74,7 @@ for after in "${afters[@]}"; do
   [[ -e $dir/before-${after##*/after-} ]] && pairs=$((pairs + 1))
 done
 if ((${#afters[@]} && !pairs)); then
-  echo "evidence-branch: no before image for any of the ${#afters[@]} after images in $dir or at $branch's tip; put the before images in $dir" >&2
+  echo "evidence-branch: no before image for any of the ${#afters[@]} after images in $dir or at $source_branch's tip; put the before images in $dir, or name their branch with --before-from" >&2
   exit 1
 fi
 files=("${images[@]}")
