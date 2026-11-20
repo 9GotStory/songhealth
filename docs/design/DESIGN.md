@@ -1772,7 +1772,9 @@ text"; Product Owner, #285 comment 6877659654).
   and the publication date in an `accent-warm` pill with `brand-dark` words at 13 / 20 semibold,
   and for a News item with a category the category in a pill outlined in `surface-base` at 40 %;
   the title as the page's one H1, H3 below `sm`, H2 from `sm` and H1 from `lg`; the summary at
-  body-large with the line breaks staff typed; and Health Content's "ทบทวนล่าสุด" date at small
+  body-large with the line breaks staff typed, an unbroken run of characters in it, such as a long
+  web address, wrapping anywhere rather than passing the field's edge (#368 comment 7028435491,
+  item 2); and Health Content's "ทบทวนล่าสุด" date at small
   size, all 12 px apart and in `surface-base`. A part the post lacks is left out, and so is the row
   with neither pill, as on a draft's preview. Every News and Activity states its story in words, at
   least its summary, as a One Page's text is an image (grill Q14; `05` §5.1). The page gives the
@@ -2163,7 +2165,8 @@ and keeps its earlier heading until then, with the same body and related Documen
 - **On it,** the Post page's header (`PostHeader`, §9.1), 48 rem wide at most: the breadcrumb in
   white (หน้าแรก and the title; on `/about/organization` through เกี่ยวกับเรา), then
   24 px under it the page's title as its one H1 in the Post page's sizes (H3 below `sm`, H2 from
-  `sm`, H1 from `lg`), and the summary at body-large with the line breaks staff typed. There is no
+  `sm`, H1 from `lg`), and the summary at body-large with the line breaks staff typed, a long web
+  address in it wrapping anywhere (§9.1). There is no
   row of pills, no icon tile and no frame; a page without a summary has no lead.
 - **The body** follows on the page's colour in the 48 rem text column, 32 px under the field
   below `lg` and 40 px from `lg`, in the body's typography (`RichText`).
@@ -2976,7 +2979,10 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   page's, without a ring. The body follows in the 48 rem text column, then 48 px under it the
   related Documents as Feature 010's section with their downloads (§9.4); a page with its title
   alone ends with its field. The label "เอกสารเผยแพร่" and the downloads are new to a Basic Page;
-  the H1, the summary, the breadcrumb, the head's title, the addresses and the reads stay. `RelatedDocuments` loses the option that chose
+  the H1, the summary, the breadcrumb, the head's title, the addresses and the reads stay. Every
+  Post page's header wraps an unbroken run of characters in its summary, such as a long web
+  address, anywhere, where the field clipped it (§9.1; Product Owner, #368 comment 7028435491,
+  item 2). `RelatedDocuments` loses the option that chose
   between its two forms, and `DocumentRow`, which has no page left, goes; `/about` takes the new
   related Documents and keeps its heading until #371. §2, §7.1, §7.3, §8.12, §9.4 and §9.9 name
   the page. Authority: spec #365 "A Basic Page", "Motion" and decisions 2, 3 and 9, and #365
