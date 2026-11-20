@@ -653,8 +653,7 @@ this document names:
   Basic Page's "เอกสารที่เกี่ยวข้อง" it shows at once (§9.7, §9.9; Feature 011 #344; Feature 012
   #368). The About Document pages show
   the same row, titles H2, over the field's edge, as `/documents` without its filter form (§7.8;
-  Feature 012 #366). The earlier Document row, `DocumentRow`, went with a Basic Page's last use of
-  it (§9.9; Feature 012 #368), and search results keep their own; a Health Report's
+  Feature 012 #366), and search results keep their own; a Health Report's
   page shows its one Document
   as a Document's page shows its file (§9.6; Feature 011 #343). With
   `--all-text` at the five widths every text of a row reads 4.97:1 or more, the facts line, the
@@ -2162,7 +2161,7 @@ and keeps its earlier heading until then, with the same body and related Documen
   §9.1): the small glow and no ring, as high as the header plus 40 px below `sm` and 48 px from
   `sm`.
 - **On it,** the Post page's header (`PostHeader`, §9.1), 48 rem wide at most: the breadcrumb in
-  white, as before (หน้าแรก and the title; on `/about/organization` through เกี่ยวกับเรา), then
+  white (หน้าแรก and the title; on `/about/organization` through เกี่ยวกับเรา), then
   24 px under it the page's title as its one H1 in the Post page's sizes (H3 below `sm`, H2 from
   `sm`, H1 from `lg`), and the summary at body-large with the line breaks staff typed. There is no
   row of pills, no icon tile and no frame; a page without a summary has no lead.
@@ -2171,7 +2170,7 @@ and keeps its earlier heading until then, with the same body and related Documen
 - **"เอกสารที่เกี่ยวข้อง"** follows 48 px under the body, or where the body would start, in the
   same column: Feature 010's section (§9.4), the Homepage's section heading with the gradient
   `folder-open` tile, the label "เอกสารเผยแพร่" and the H2, then the Document rows with their
-  downloads (§7.3), titles H3, 14 px apart. The earlier heading and row went with it.
+  downloads (§7.3), titles H3, 14 px apart.
 - **The page's end:** the page's own 64 px, 80 px from `lg`, before the footer. A page with neither
   body nor related Documents ends with its field and that room, with no empty row (spec #365
   decision 9).
@@ -2977,7 +2976,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   page's, without a ring. The body follows in the 48 rem text column, then 48 px under it the
   related Documents as Feature 010's section with their downloads (§9.4); a page with its title
   alone ends with its field. The label "เอกสารเผยแพร่" and the downloads are new to a Basic Page;
-  every word, address, read and behaviour stays. `RelatedDocuments` loses the option that chose
+  the H1, the summary, the breadcrumb, the head's title, the addresses and the reads stay. `RelatedDocuments` loses the option that chose
   between its two forms, and `DocumentRow`, which has no page left, goes; `/about` takes the new
   related Documents and keeps its heading until #371. §2, §7.1, §7.3, §8.12, §9.4 and §9.9 name
   the page. Authority: spec #365 "A Basic Page", "Motion" and decisions 2, 3 and 9, and #365

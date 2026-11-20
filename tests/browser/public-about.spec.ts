@@ -707,7 +707,8 @@ test.describe("a Basic Page on the field", () => {
 		await page.goto(pathOf(noSummary));
 		seen.noSummary = {
 			title: await title.textContent(),
-			lead: onField ? await parts.header.locator("p").count() : "no field",
+			lead:
+				(await parts.field.count()) === 1 ? await parts.header.locator("p").count() : "no field",
 			fieldUnderHeader: await reach(parts.title, [639, 640]),
 		};
 		expected.noSummary = {
@@ -796,12 +797,10 @@ test.describe("a Basic Page on the field", () => {
 				const labelBox = await boxOf(label, `${at}: the label`);
 				const first = await boxOf(rows.first(), `${at}: the first row`);
 				const second = await boxOf(rows.nth(1), `${at}: the second row`);
-				const column = await start.evaluate(
-					(paragraph) => paragraph.parentElement!.parentElement!.getBoundingClientRect().width,
-				);
 				seen[width] = {
 					bodyUnderField: Math.round(startBox.y - fieldEnd),
-					bodyWidth: Math.round(column),
+					// A paragraph takes the whole width of the column it is in.
+					bodyWidth: Math.round(startBox.width),
 					relatedUnderBody: Math.round(regionBox.y - endBox.y - endBox.height),
 					relatedWidth: Math.round(regionBox.width),
 					labelAboveHeading: labelBox.y < headingBox.y,
@@ -873,6 +872,42 @@ test.describe("a Basic Page on the field", () => {
 			expected[width] = { roomAfterField: width < 1024 ? 64 : 80, footerAfterPage: true };
 		}
 		expect(seen, "the page ends with its field").toEqual(expected);
+	});
+
+	test("with the longest title and a long summary, the header's breadcrumb, title and summary stay inside the window and show whole at 375 and 320 px, where the field would clip what passes it", async ({
+		page,
+	}) => {
+		const summary = `${SYNTHETIC_FIXTURE_MARK} ${LONG_TITLE}`;
+		const long = await createPage("field-long", {
+			data: { title: `${SYNTHETIC_FIXTURE_MARK} หน้า ${LONG_TITLE}`, summary },
+		});
+		await publish("pages", long);
+		await page.goto(pathOf(long));
+		const parts = fieldParts(page);
+		const seen: Record<number, unknown> = {};
+		const expected: Record<number, unknown> = {};
+		for (const width of [375, 320]) {
+			await page.setViewportSize({ width, height: 900 });
+			const read: Record<string, unknown> = {};
+			for (const [name, part] of [
+				["the breadcrumb", parts.breadcrumb],
+				["the title", parts.title],
+				["the summary", parts.header.getByText(summary)],
+			] as Array<[string, Locator]>) {
+				// Inside the window, and nothing of its text cut off at its own edge.
+				read[name] =
+					(await part.count()) === 1 &&
+					(await part.evaluate(
+						(element) =>
+							element.getBoundingClientRect().right <= window.innerWidth &&
+							element.getBoundingClientRect().left >= 0 &&
+							element.scrollWidth <= element.clientWidth,
+					));
+			}
+			seen[width] = read;
+			expected[width] = { "the breadcrumb": true, "the title": true, "the summary": true };
+		}
+		expect(seen, "the header inside the window").toEqual(expected);
 	});
 
 	test("a draft Basic Page's signed preview link opens it at /pages/{slug} on the field, with noindex", async ({
