@@ -176,7 +176,10 @@ export async function expectNoHorizontalScroll(page: Page, label: string): Promi
  * sideways, as the deep field does (`overflow-x-clip`): #368's summary lost the end of a long web
  * address at 320 px while the page passed `expectNoHorizontalScroll` (#368 retro item 1). A text
  * inside a box made to scroll sideways, a visually hidden one and one cut with an ellipsis are
- * meant to be so and pass.
+ * meant to be so and pass. A link or button shaped as a pill also fails when its words come
+ * within 4 px of its top or bottom edge, as Impeccable's `cramped-padding` reads it: #369's
+ * outlined button wrapped at 320 px with its words on the pill's edge, and only the frontend gate
+ * saw it (#369 retro).
  */
 export async function expectNoTextCutOff(page: Page, label: string): Promise<void> {
 	const cut = await page.evaluate(() => {
@@ -204,10 +207,64 @@ export async function expectNoTextCutOff(page: Page, label: string): Promise<voi
 			const ownCut = style.display !== "inline" && element.scrollWidth > element.clientWidth + 1;
 			const past = box.right > window.innerWidth + 1 || box.left < -1;
 			if (ownCut || past) found.push(`<${element.localName}> ${ownText.slice(0, 40)}`);
+			const pill = element.closest("a, button");
+			if (pill) {
+				const edge = pill.getBoundingClientRect();
+				const corner = parseFloat(getComputedStyle(pill).borderTopLeftRadius);
+				const range = document.createRange();
+				const lines = [...element.childNodes]
+					.filter((node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim())
+					.flatMap((node) => {
+						range.selectNodeContents(node);
+						return [...range.getClientRects()];
+					});
+				const top = Math.min(...lines.map((line) => line.top));
+				const bottom = Math.max(...lines.map((line) => line.bottom));
+				if (corner >= edge.height / 2 - 0.5 && (top - edge.top < 4 || edge.bottom - bottom < 4)) {
+					found.push(
+						`<${element.localName}> ${ownText.slice(0, 40)} (within 4 px of its pill's edge)`,
+					);
+				}
+			}
 		}
 		return found;
 	});
-	expect(cut, `${label}: a text cut off at its own edge or past the window`).toEqual([]);
+	expect(
+		cut,
+		`${label}: a text cut off at its own edge or past the window, or on its pill's edge`,
+	).toEqual([]);
+}
+
+/**
+ * Whether the words of `button`, a pill, lie at least 8 px inside it, above and below, on every
+ * line they take, with each line centred on the others, as a download's pill keeps a label that
+ * wraps (DESIGN.md §7.3; #369).
+ */
+export function wordsInside(button: Locator): Promise<boolean> {
+	return button.evaluate((element) => {
+		const own = element.getBoundingClientRect();
+		const lines: DOMRect[] = [];
+		for (const node of element.childNodes) {
+			if (node.nodeType !== Node.TEXT_NODE || !node.textContent!.trim()) continue;
+			const words = document.createRange();
+			words.selectNodeContents(node);
+			lines.push(...words.getClientRects());
+		}
+		const top = Math.min(...lines.map(({ top }) => top));
+		const bottom = Math.max(...lines.map(({ bottom }) => bottom));
+		const centres = [...new Set(lines.map((line) => Math.round(line.top)))].map((lineTop) => {
+			const line = lines.filter((rect) => Math.abs(Math.round(rect.top) - lineTop) <= 2);
+			return (
+				(Math.min(...line.map((rect) => rect.left)) + Math.max(...line.map((rect) => rect.right))) /
+				2
+			);
+		});
+		return (
+			top - own.top >= 7.5 &&
+			own.bottom - bottom >= 7.5 &&
+			Math.max(...centres) - Math.min(...centres) <= 1
+		);
+	});
 }
 
 /**

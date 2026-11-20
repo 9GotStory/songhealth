@@ -43,6 +43,7 @@ import {
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectNoTextCutOff,
+	wordsInside,
 	expectVisibleFocusOnEveryStop,
 	fieldEdge,
 	fieldParts,
@@ -165,37 +166,6 @@ function declaredBorderWidth(part: Locator) {
 		};
 		for (const sheet of document.styleSheets) read(sheet.cssRules);
 		return widths.at(-1) ?? "none";
-	});
-}
-
-/**
- * Whether the words of `button`, a pill, lie at least 8 px inside it, above and below, on every
- * line they take, with each line centred on the others.
- */
-function wordsInside(button: Locator) {
-	return button.evaluate((element) => {
-		const own = element.getBoundingClientRect();
-		const range = document.createRange();
-		const lines = [...element.childNodes]
-			.filter((node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim())
-			.flatMap((node) => {
-				range.selectNodeContents(node);
-				return [...range.getClientRects()];
-			});
-		const top = Math.min(...lines.map((line) => line.top));
-		const bottom = Math.max(...lines.map((line) => line.bottom));
-		const centres = [...new Set(lines.map((line) => Math.round(line.top)))].map((lineTop) => {
-			const line = lines.filter((rect) => Math.abs(Math.round(rect.top) - lineTop) <= 2);
-			return (
-				(Math.min(...line.map((rect) => rect.left)) + Math.max(...line.map((rect) => rect.right))) /
-				2
-			);
-		});
-		return (
-			top - own.top >= 7.5 &&
-			own.bottom - bottom >= 7.5 &&
-			Math.max(...centres) - Math.min(...centres) <= 1
-		);
 	});
 }
 
