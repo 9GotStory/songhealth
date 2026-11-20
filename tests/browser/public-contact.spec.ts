@@ -145,6 +145,29 @@ function contactParts(page: Page) {
 	};
 }
 
+/**
+ * The border width the stylesheet gives `part`, as written: Chromium draws a border in whole pixels
+ * and reports a 1.5 px one as 1 px in its computed style, at one or two device pixels to the CSS
+ * pixel alike (Playwright 1.63.0's Chromium), so the drawn width cannot tell 1.5 px from 1 px.
+ */
+function declaredBorderWidth(part: Locator) {
+	return part.evaluate((element) => {
+		const widths: string[] = [];
+		const read = (rules: CSSRuleList) => {
+			for (const rule of rules) {
+				if (rule instanceof CSSStyleRule && element.matches(rule.selectorText)) {
+					const width = rule.style.getPropertyValue("border-top-width");
+					if (width) widths.push(width);
+				} else if ("cssRules" in rule) {
+					read((rule as CSSGroupingRule).cssRules);
+				}
+			}
+		};
+		for (const sheet of document.styleSheets) read(sheet.cssRules);
+		return widths.at(-1) ?? "none";
+	});
+}
+
 /** Where a part's box ends in the window. */
 const bottomOf = (box: { y: number; height: number }) => box.y + box.height;
 
@@ -604,19 +627,29 @@ test("ช่องทางทางการ follows 48 px under the card with 
 
 		const first = parts.pills.first();
 		seen.pill = {
-			text: await first.evaluate((element) => (element as HTMLElement).innerText.trim()),
+			// The words a citizen sees: the text the pill holds itself, without the note for
+			// assistive technology.
+			visible: await first.evaluate((element) =>
+				[...element.childNodes]
+					.filter((node) => node.nodeType === Node.TEXT_NODE)
+					.map((node) => node.textContent)
+					.join("")
+					.trim(),
+			),
 			arrow: await first.locator("svg.lucide-arrow-up-right").evaluate((element) => {
 				const { width, height } = element.getBoundingClientRect();
 				return [Math.round(width), Math.round(height)];
 			}),
 			look: await pillStyle(first),
 			edgeColour: await first.evaluate((element) => getComputedStyle(element).borderTopColor),
+			edgeWidth: await declaredBorderWidth(first),
 		};
 		expected.pill = {
-			text: "Facebook",
+			visible: "Facebook",
 			arrow: [16, 16],
-			look: { fill: white, colour: primary, type: ["16px", "26px", "600"], edge: "1.5px" },
+			look: { fill: white, colour: primary, type: ["16px", "26px", "600"], edge: "1px" },
 			edgeColour: border,
+			edgeWidth: "1.5px",
 		};
 		await page.setViewportSize(DESKTOP_VIEWPORT);
 		await first.hover();
@@ -697,7 +730,7 @@ test("the two routes follow 48 px under the channels, or under the card without 
 						fill: route.filled ? primary : white,
 						colour: route.filled ? white : primary,
 						type: ["14px", "22px", "600"],
-						edge: route.filled ? "none" : "1px",
+						edge: route.filled ? "0px" : "1px",
 						arrow: [16, 16],
 						height: 44,
 					},
@@ -735,7 +768,8 @@ test("the two routes follow 48 px under the channels, or under the card without 
 		expected.places = expectedPlaces;
 	});
 
-	await withOfficeContact(admin, values, {}, async () => {
+	// Every detail, and neither LINE nor a `social` handle.
+	await withOfficeContact(admin, { ...values, line_url: null }, {}, async () => {
 		await page.goto("/contact");
 		const parts = contactParts(page);
 		await expect(parts.channels, "no channels").toHaveCount(0);
