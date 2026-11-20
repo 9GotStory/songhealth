@@ -170,7 +170,7 @@ function declaredBorderWidth(part: Locator) {
 
 /**
  * Whether the words of `button`, a pill, lie at least 8 px inside it, above and below, on every
- * line they take.
+ * line they take, with each line centred on the others.
  */
 function wordsInside(button: Locator) {
 	return button.evaluate((element) => {
@@ -184,7 +184,18 @@ function wordsInside(button: Locator) {
 			});
 		const top = Math.min(...lines.map((line) => line.top));
 		const bottom = Math.max(...lines.map((line) => line.bottom));
-		return top - own.top >= 7.5 && own.bottom - bottom >= 7.5;
+		const centres = [...new Set(lines.map((line) => Math.round(line.top)))].map((lineTop) => {
+			const line = lines.filter((rect) => Math.abs(Math.round(rect.top) - lineTop) <= 2);
+			return (
+				(Math.min(...line.map((rect) => rect.left)) + Math.max(...line.map((rect) => rect.right))) /
+				2
+			);
+		});
+		return (
+			top - own.top >= 7.5 &&
+			own.bottom - bottom >= 7.5 &&
+			Math.max(...centres) - Math.min(...centres) <= 1
+		);
 	});
 }
 
@@ -779,7 +790,8 @@ test("the two routes follow 48 px under the channels, or under the card without 
 						? ["across", Math.round(second!.x - first!.x - first!.width)]
 						: ["down", Math.round(second!.y - bottomOf(first!))],
 				// How far the words of each button lie inside its pill, above and below: a label that
-				// wraps keeps them 8 px inside, as the download's pill (DESIGN.md §7.3).
+				// wraps keeps them 8 px inside, its lines centred, as the download's pill (DESIGN.md
+				// §7.3).
 				wordsInside: await Promise.all(
 					ROUTES.map(({ button }, index) =>
 						wordsInside(parts.routes[index]!.getByRole("link", { name: button, exact: true })),

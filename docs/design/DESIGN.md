@@ -2302,10 +2302,10 @@ takes a list's field and heading (§7.8), though it lists nothing.
   (`message-square`, `hospital`), decorative; its H2 at H3 size, "ร้องเรียนและเสนอแนะ" and
   "ติดต่อหน่วยบริการสุขภาพ"; today's sentence in `text-secondary`; and today's button
   (`ActionLink` with `arrow`), semibold with a 16 px `arrow-right` as the prototype draws it
-  (Product Owner, 2026-11-20: #369 comment 7034812318, item 1), 44 px high; a label that wraps,
-  as the second does in the narrow card at 320 and 640 px, stays centred 8 px inside the pill, as
-  a download's (§7.3): "ดูบริการประชาชน" filled to the
-  Service catalog, "ดูหน่วยบริการสุขภาพที่เกี่ยวข้อง" outlined to the Health Service Directory.
+  (Product Owner, 2026-11-20: #369 comment 7034812318, item 1), 44 px high: "ดูบริการประชาชน"
+  filled to the Service catalog, "ดูหน่วยบริการสุขภาพที่เกี่ยวข้อง" outlined to the Health Service
+  Directory. A label that wraps, as the second does in the narrow card at 320 and 640 px, keeps
+  its lines centred 8 px inside the pill, as a download's (§7.3).
 - No map is embedded, as before (approved Q3 of Feature 003).
 - **Motion** (§8.12): the heading's block and its lead rise in as the page opens; the breadcrumb,
   the card, the channels and the routes show at once.
@@ -2317,8 +2317,8 @@ takes a list's field and heading (§7.8), though it lists nothing.
   term and value, the telephone and the email as links and as plain text, each row with and
   without its detail, and no card with nothing set, the field then ending under the lead; the
   channels' heading, pills, places, names and new tabs, and no section without a channel; the two
-  routes' places, look, headings, sentences and buttons, each button's words 8 px inside its pill
-  at the six widths; the motion; and the page without
+  routes' places, look, headings, sentences and buttons, each button's words 8 px inside its pill,
+  its lines centred, at the six widths; the motion; and the page without
   JavaScript. `tests/node/public-contact.test.ts` holds `officeContactShown`.
 - **Measured** on the development runtime at `cd80cb9` (#369), `scripts/measure-text-contrast.ts
   --all-text --fold` on `main` at 1,440, 1,024, 768, 375 and 320 px, on `/contact` (the demo

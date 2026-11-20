@@ -10,9 +10,9 @@
 //
 // `arrow` makes it semibold with a 16 px arrow-right after the label, as /contact's route cards
 // draw it (Feature 012 #369; spec #365 "`/contact`"; Product Owner, 2026-11-20: #369 comment
-// 7034812318, item 1); the arrow is decorative. A label that wraps in a narrow card, as the Health
-// Service Directory's does at 320 and 640 px, stays centred 8 px inside the pill, as a download's
-// pill (FileDownloadLink; #369 gate).
+// 7034812318, item 1); the arrow is decorative. A label that wraps in a narrow card (DESIGN.md
+// §9.10) keeps its lines centred 8 px inside the pill, as a download's pill (FileDownloadLink;
+// #369 gate).
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 
 interface Props {
@@ -22,7 +22,7 @@ interface Props {
 	context?: string;
 	/** The link sits on brand-dark. */
 	onDark?: boolean;
-	/** Semibold, with an arrow after the label. */
+	/** Semibold, with an arrow after the label; a wrapping label stays centred 8 px inside. */
 	arrow?: boolean;
 }
 
