@@ -80,8 +80,19 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   (spec #338, tickets #339–#346). `docs/design/DESIGN.md` v1.5 records it with the code, and
   `docs/evidence/346-health-reports-services-health-services-evidence-round.md` its evidence and
   what that does not cover. The Product Owner accepted it on 2026-11-19 (#338 comment
-  6999055380), and it was merged into `main`. Every other page keeps its design until its own
-  feature.
+  6999055380), and it was merged into `main`.
+- **Feature 012 `about-contact-pages`:** complete: the About pages, the Contact page and a Basic
+  Page redesigned after Feature 011's pages as built, in the look the Product Owner picked from a
+  prototype: the About Document pages, `/about/leadership`, `/about/personnel` and `/contact`
+  headed on the deep green field, the About Document pages with the Document repository's rows,
+  Leadership with a featured first leader and white cards, Personnel with a white panel per unit,
+  `/contact` with Office Contact's details in a white card, and a Basic Page on `/pages/{slug}`,
+  `/about/organization` and `/about` with the Post page's header, `/about` with its six sub-pages
+  as the Homepage's Quick Access tiles. Every address, read and behaviour stays (spec #365, tickets
+  #366–#372). `docs/design/DESIGN.md` v1.6 records it with the code, and
+  `docs/evidence/372-about-contact-basic-page-evidence-round.md` its evidence and what that does
+  not cover. The Product Owner accepted it on 2026-11-21 (#365 comment 7060805067), and it was
+  merged into `main`. Every other page keeps its design until its own feature.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
