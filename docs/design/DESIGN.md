@@ -11,8 +11,8 @@
 > comment 6936494700). Feature 011's redesign of the Health Information hub, the Health Reports,
 > Services and Health Services pages follows spec #338, implemented by #339–#346, and was accepted
 > on #338 (Product Owner, 2026-11-19: #338 comment 6999055380). Feature 012's redesign of the
-> About pages, the Contact page and a Basic Page follows spec #365, implemented by #366–#372; the
-> Product Owner accepts it on #365.
+> About pages, the Contact page and a Basic Page follows spec #365, implemented by #366–#372, and
+> was accepted on #365 (Product Owner, 2026-11-21: #365 comment 7060805067).
 > **Updated:** 2026-11-20 (#372); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
@@ -2568,7 +2568,7 @@ recorded over `d69caed`), are the visual reference (`docs/prototypes/about-conta
 there). Each ticket's decisions are on #366 to #371 and in §13. The evidence round of #372
 (`docs/evidence/372-about-contact-basic-page-evidence-round.md`) measures the pages and names what
 the evidence does not cover, which the Product Owner accepted after the walkthrough (#372 comment
-7043481056). The Product Owner accepts the feature on #365.
+7043481056). The Product Owner accepted the feature on #365 (comment 7060805067).
 
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
