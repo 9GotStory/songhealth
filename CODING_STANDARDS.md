@@ -330,6 +330,10 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   section of `02-content-model.md`, under the feature's banner (#248 retro: `02` §12 lacked the
   Service's icon until review).
 
+A Markdown line may run to any width: Prettier leaves Markdown unformatted (`.prettierignore`), so
+review reads a document's words and leaves its line breaks as written (#372 retro: a review of
+lines over 100 columns cost seven rewraps, and `DESIGN.md` already held 70 such lines).
+
 A record in `docs/evidence/` says what its evidence log shows, and no more. Each claim traces to a
 line of the log or a run's output. Each cell of a coverage table names the check it rests on and
 how far that check goes: a status code shows a status code, and what a log cannot show stays
