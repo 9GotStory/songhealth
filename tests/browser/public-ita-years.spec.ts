@@ -1103,7 +1103,7 @@ test("a MOIT page leads to the MOITs before and after it in its fiscal year's nu
 	);
 });
 
-test("a MOIT page's neighbour links lie 24 px under its body: today's two white cards with chevron-left and chevron-right, side by side from 640 px, each with a 1 px brand-primary edge under the pointer", async ({
+test("a MOIT page's neighbour links lie 24 px under its body: today's two white cards with chevron-left and chevron-right, side by side from 640 px, each with a 1 px brand-primary edge under the pointer, then the page's own 64 px, 80 px from 1,024 px", async ({
 	page,
 }) => {
 	await page.goto(`/ita/${third.slug}`);
@@ -1113,6 +1113,7 @@ test("a MOIT page's neighbour links lie 24 px under its body: today's two white 
 		neighbours.getByRole("link", { name: /^ตัวชี้วัดถัดไป/ }),
 	];
 	const lastCard = page.getByRole("main").getByRole("group").last();
+	const article = page.getByRole("main").getByRole("article");
 	const [white, brandPrimary] = await Promise.all(
 		["surface-base", "brand-primary"].map((name) => tokenColor(page, name)),
 	);
@@ -1133,22 +1134,28 @@ test("a MOIT page's neighbour links lie 24 px under its body: today's two white 
 		chevrons: ["lucide-chevron-left", "lucide-chevron-right"],
 	};
 	const places: Record<number, unknown> = {};
-	for (const width of [375, 639, 640, 1440]) {
+	for (const width of [375, 639, 640, 1023, 1024, 1440]) {
 		await page.setViewportSize({ width, height: 900 });
 		const at = `at ${width} px`;
-		const [body, before, after] = [
+		const [body, before, after, links, content] = [
 			await boxOf(lastCard, `${at}: the last card`),
 			await boxOf(previous, `${at}: the previous MOIT`),
 			await boxOf(next, `${at}: the next MOIT`),
+			await boxOf(neighbours, `${at}: the neighbour links`),
+			await boxOf(article, `${at}: the page's content`),
 		];
 		places[width] = {
 			underBody: Math.round(before.y - body.y - body.height),
 			sideBySide: Math.round(before.y) === Math.round(after.y),
+			roomAfter: Math.round(content.y + content.height - links.y - links.height),
 		};
 	}
 	seen.places = places;
 	expected.places = Object.fromEntries(
-		[375, 639, 640, 1440].map((width) => [width, { underBody: 24, sideBySide: width >= 640 }]),
+		[375, 639, 640, 1023, 1024, 1440].map((width) => [
+			width,
+			{ underBody: 24, sideBySide: width >= 640, roomAfter: width < 1024 ? 64 : 80 },
+		]),
 	);
 	await next.hover();
 	seen.underPointer = await edgeOf(next);

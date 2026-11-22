@@ -885,13 +885,15 @@ test.describe("the page on the field", () => {
 		}
 		seen.links = tocLinks;
 		expected.links = tocLinksExpected;
-		// Under the pointer: surface-soft from 1,024 px; the brand-primary edge below it, as today.
+		// Under the pointer: surface-soft from 1,024 px, its edge still clear; the brand-primary edge
+		// below it, as today.
 		await page.setViewportSize(DESKTOP_VIEWPORT);
 		await links.nth(1).hover();
-		seen.hoverColumn = await links
-			.nth(1)
-			.evaluate((link) => getComputedStyle(link).backgroundColor);
-		expected.hoverColumn = soft;
+		seen.hoverColumn = await links.nth(1).evaluate((link) => {
+			const style = getComputedStyle(link);
+			return [style.backgroundColor, style.borderTopColor];
+		});
+		expected.hoverColumn = [soft, "rgba(0, 0, 0, 0)"];
 		await page.setViewportSize({ width: 375, height: 812 });
 		await links.nth(1).hover();
 		seen.hoverRow = await links.nth(1).evaluate((link) => getComputedStyle(link).borderTopColor);
