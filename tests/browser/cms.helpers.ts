@@ -1760,7 +1760,7 @@ export interface MoitFixture extends DraftFixture {
  * (seed/seed.json). A refusal throws.
  *
  * Each suite takes its own fiscal years, which no real MOIT has, so its ITA pages and lists hold
- * only its own MOITs: 2401 is public-ita.spec.ts's, 2402–2405 and 2408–2411 are
+ * only its own MOITs: 2401 is public-ita.spec.ts's, 2402–2405 and 2408–2412 are
  * public-ita-years.spec.ts's, and 2406–2407 are public-search.spec.ts's. A new suite takes the next
  * free year.
  */
