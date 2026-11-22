@@ -1029,7 +1029,7 @@ test.describe("the page on the field", () => {
 		expect(seen, "the panel in view and its focused links whole").toEqual(expected);
 	});
 
-	test("a Requirement card's head: white with the card shadow and radius 24, the cards 16 px apart; 16 px inside, 20 px from 640 px; the number on a 40 px surface-soft tile with radius 14, hidden from assistive technology; the H2 at body-large, semibold, in text-primary, reading the number, a full stop and the title; n รายการ on a surface-soft pill; the chevron turned while open; one line from 640 px, and below it the count's pill 8 px under the title and the chevron on the tile; a Requirement without a number has no tile", async ({
+	test("a Requirement card's head: white with the card shadow and radius 24, the cards 16 px apart; 16 px inside, 20 px from 640 px; the number on a 40 px surface-soft tile with radius 14, hidden from assistive technology; the H2 at body-large, semibold, in text-primary, reading the number, a full stop and the title; n รายการ on a surface-soft pill; the chevron turned while open; one line from 640 px, and below it the count's pill 8 px under the first line and the chevron on the tile, a one-line title centred on the tile; a Requirement without a number has no tile", async ({
 		page,
 	}) => {
 		await page.goto(`/ita/${shapes.slug}`);
@@ -1037,6 +1037,9 @@ test.describe("the page on the field", () => {
 		const unnumbered = card(page, "ข้อกำหนดที่ไม่มีเลขข้อ");
 		const parts = cardHead(longest);
 		const bare = cardHead(unnumbered);
+		// A title on one line below 640 px: centred on the tile, the pill 8 px under the tile's line,
+		// as P3 B (Product Owner, #396 review).
+		const short = cardHead(card(page, "2. ข้อกำหนดที่ยังไม่มีหลักฐาน"));
 		const [white, soft, brandPrimary, brandDark, primary] = await Promise.all(
 			["surface-base", "surface-soft", "brand-primary", "brand-dark", "text-primary"].map((name) =>
 				tokenColor(page, name),
@@ -1112,6 +1115,11 @@ test.describe("the page on the field", () => {
 			];
 			const bareTitle = await boxOf(bare.title, `${at}: the title without a number`);
 			const bareChevron = await boxOf(bare.chevron, `${at}: its chevron`);
+			const [shortTile, shortTitle, shortCount] = [
+				await boxOf(short.tile, `${at}: the one-line title's tile`),
+				await boxOf(short.title, `${at}: the one-line title`),
+				await boxOf(short.count, `${at}: its count`),
+			];
 			const nextCard = await boxOf(unnumbered, `${at}: the card after it`);
 			const thisCard = await boxOf(longest, `${at}: the card`);
 			const round = (values: number[]) => values.map(Math.round);
@@ -1134,6 +1142,11 @@ test.describe("the page on the field", () => {
 								chevronOnTile: Math.round(centre(chevron) - centre(tile)),
 								countUnder: round([count.y - title.y - title.height, count.x - title.x]),
 								unnumberedChevron: Math.round(centre(bareChevron) - (bareTitle.y + 15)),
+								oneLine: round([
+									shortTitle.height,
+									centre(shortTitle) - centre(shortTile),
+									shortCount.y - shortTile.y - shortTile.height,
+								]),
 							}
 						: {
 								centres: round(
@@ -1148,7 +1161,13 @@ test.describe("the page on the field", () => {
 				apart: width < 640 ? [14, 14] : [14, 14, 14],
 				places:
 					width < 640
-						? { firstLine: [16, 16], chevronOnTile: 0, countUnder: [8, 0], unnumberedChevron: 0 }
+						? {
+								firstLine: [16, 16],
+								chevronOnTile: 0,
+								countUnder: [8, 0],
+								unnumberedChevron: 0,
+								oneLine: [30, 0, 8],
+							}
 						: { centres: [0, 0, 0] },
 			};
 		}

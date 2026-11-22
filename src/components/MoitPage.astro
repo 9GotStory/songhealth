@@ -90,7 +90,8 @@ const counts = [
 const { previous, next } = moitNeighbours(yearMoits, entry);
 const hasYearPage = hasYearAddress(moit.fiscal_year) && yearMoits.length > 0;
 /** Whether the body lies over the field's edge: the MOIT has a Requirement or Evidence. */
-const overEdge = cards.length > 0 || evidence.lead.length > 0;
+const hasCards = cards.length > 0;
+const overEdge = hasCards || evidence.lead.length > 0;
 ---
 
 <SiteLayout
@@ -140,11 +141,11 @@ const overEdge = cards.length > 0 || evidence.lead.length > 0;
 				<div class="flex flex-col gap-6">
 					<div
 						class:list={[
-							cards.length > 0 &&
+							hasCards &&
 								"flex flex-col gap-5 lg:grid lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start lg:gap-8",
 						]}
 					>
-						{cards.length > 0 && (
+						{hasCards && (
 							/* From lg the panel scrolls on its own when it is taller than the window. Focus
 							scrolls a link's box into view, not its ring, so 0.5rem kept clear at each end
 							(scroll-padding) leaves room for the ring of the link at the fold (#247 retro). */
@@ -192,7 +193,7 @@ const overEdge = cards.length > 0 || evidence.lead.length > 0;
 									data-testid="lead-evidence"
 									class:list={[
 										"rounded-24 bg-surface-base p-5 sm:p-6",
-										cards.length > 0 ? "shadow-card" : "shadow-deep",
+										hasCards ? "shadow-card" : "shadow-deep",
 									]}
 								>
 									<EvidencePills pills={evidence.lead} />
