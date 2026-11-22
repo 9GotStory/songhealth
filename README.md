@@ -236,6 +236,9 @@ scripts/dev-runtime-env.sh npm run test:browser:homepage
 # the suites that name a page the change touches, or a page importing a changed component, with
 # the command that runs them (#339 retro)
 node scripts/suites-for-change.ts <base>
+# after a red run saved to a file: each field a failed toEqual already passes on the old runtime,
+# kept behaviour or a read that cannot fail (#394 retro)
+node scripts/red-run-unchanged.ts <run output>
 # T021 public reads, only through the coordinator, from a checkout at the promoted commit
 scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 ```
