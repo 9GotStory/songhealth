@@ -1664,7 +1664,8 @@ export async function expectStartsOverFieldEdge(
  * such a ring lies on the deep field beside its card, where `brand-primary` reads under 3:1
  * (CODING_STANDARDS "Public pages"). Each is named by its tag and the first words of its name. In
  * #281 and #312 such a card passed every suite, and only scripts/measure-focus-contrast.ts found
- * it (#312 retro).
+ * it (#312 retro). A disclosure's `summary` takes focus too, as a MOIT's Requirement card's head
+ * does over the field's edge (#396).
  */
 export async function ringsOverFieldUnbanded(
 	block: Locator,
@@ -1679,7 +1680,7 @@ export async function ringsOverFieldUnbanded(
 				!/^rgba\(.*,\s*0\)$|^transparent$/.test(getComputedStyle(element).backgroundColor);
 			const unbanded: string[] = [];
 			for (const part of root.querySelectorAll<HTMLElement>(
-				"a[href], button, input, select, textarea, [tabindex]",
+				"a[href], button, input, select, textarea, summary, [tabindex]",
 			)) {
 				if (part.tabIndex < 0 || part.getClientRects().length === 0) continue;
 				part.focus({ preventScroll: true });

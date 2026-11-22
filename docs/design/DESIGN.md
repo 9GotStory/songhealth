@@ -14,7 +14,7 @@
 > About pages, the Contact page and a Basic Page follows spec #365, implemented by #366–#372, and
 > was accepted on #365 (Product Owner, 2026-11-21: #365 comment 7060805067). Feature 013's
 > redesign of the ITA pages follows spec #392, implemented by #393–#397.
-> **Updated:** 2026-11-22 (#395); first drafted 2026-10-30
+> **Updated:** 2026-11-22 (#396); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -199,7 +199,8 @@ health-service network.
   page (#394), under the same label, with each of the year's MOITs as a white row over the edge,
   its number on the Document row's gradient tile (§8.3). A MOIT's page opens on the field with the
   Post page's header, its fiscal year in the outlined pill and "MOIT n" opening its H1, no larger
-  than H2 size, while its body keeps its look under the field until #396 (§8.3, §9.11; #395).
+  than H2 size (§8.3, §9.11; #395), and its table of contents' panel and Requirement cards lie
+  over the field's edge (§8.3, §9.11; #396).
   Every page outside these features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -431,7 +432,8 @@ own module.
 
 - **Sizes by role** (Product Owner, 2026-10-31: #105 comment 6536890963): 16 px for a direction
   icon beside label or small text (onward and external links, pagination, the breadcrumb); 20 px
-  for an icon that shows the action itself at the start of its button (the menu, a download);
+  for an icon that shows the action itself at the start of its button (the menu, a download), and
+  for the `list-checks` before "สารบัญ" in a MOIT's table of contents (P3 B, §9.11);
   24 px on a card (a Quick Link card's corner, a Service card's icon in its tile).
 - **Direction:** an onward link on this site ends in `chevron-right`, and a link that leaves it in
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
@@ -535,14 +537,14 @@ this document names:
 | Area | Components |
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
-| Headings | `PageHeading` (`/search` alone since Feature 013 #394), `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it, or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10), `ThaiTitle` |
-| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog; and `kind="section"`, a Health Service's "บริการที่ให้", §8.4, §9.8), `HomeQuickLink` (the Homepage's Quick Access; `kind="list"`, `/health`'s and `/about`'s tiles, §7.3, §8.11), `ItaYearCard` (a fiscal year's card on the ITA landing, §8.3), `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3), `OfficeContactDetails` (Office Contact's card on `/contact`, a row per detail with its icon, §9.10); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
+| Headings | `PageHeading` (`/search` alone since Feature 013 #394), `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (and a MOIT's header, §9.11), or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10), `ThaiTitle` |
+| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog; and `kind="section"`, a Health Service's "บริการที่ให้", §8.4, §9.8), `HomeQuickLink` (the Homepage's Quick Access; `kind="list"`, `/health`'s and `/about`'s tiles, §7.3, §8.11), `ItaYearCard` (a fiscal year's card on the ITA landing, §8.3), `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3), `SoftTile` (the 40 px `surface-soft` tile that heads a unit's panel and a MOIT's Requirement card, §7.3, §9.11), `OfficeContactDetails` (Office Contact's card on `/contact`, a row per detail with its icon, §9.10); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
-| Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5), a Health Report's (§9.6), a Service's (§9.7), a Health Service's (§9.8), a Basic Page's (§9.9), and `/about`'s, a list's field under a Basic Page's header (§9.9) |
-| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9), and a MOIT's page, in `PostColumns` without a picture, with "MOIT n" opening its H1 and the H1 no larger than H2 size (§9.11) |
+| Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5), a Health Report's (§9.6), a Service's (§9.7), a Health Service's (§9.8), a Basic Page's (§9.9), and `/about`'s, a list's field under a Basic Page's header (§9.9), and a MOIT's page, its body over the field's edge in `ListBody` (§9.11) |
+| Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9), and a MOIT's page, on its own `DeepField` with `ListBody` after it, with "MOIT n" opening its H1 and the H1 no larger than H2 size (§9.11) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons; with `arrow`, semibold with a 16 px `arrow-right`, `/contact`'s routes, §9.10), `ArrowLink` (onward links), `Pagination`, `Breadcrumb`; `ContentLink`'s `compact` form, the footer's official channels and `/contact`'s pills (§9.10) |
-| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RowTile`, the gradient tile of 68 px and 92 px from `sm`, which `FileTile` and `ItaMoitRow` share, each with its own lines; `RelatedDocuments` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RequirementCard`, a MOIT's Requirement card, and `MoitNeighbours`, the links to the MOITs before and after it, on a MOIT's page (§8.3, §9.11); `RowTile`, the gradient tile of 68 px and 92 px from `sm`, which `FileTile` and `ItaMoitRow` share, each with its own lines; `RelatedDocuments` |
 
 ### 7.2 Component rules
 
@@ -820,8 +822,8 @@ this document names:
   one panel per unit in the units' Thai order, the Personnel without a unit last under
   "ไม่ระบุหน่วยงาน", 24 px apart.
   - **The panel:** white, the `card` shadow, radius 24, 20 px of padding and 28 px from `sm`. Its
-    head is a 40 px `surface-soft` tile of radius 14 with the 20 px `users-round` in
-    `brand-primary`, decorative, and 12 px beside it the unit's name as an H2 at H3 size in
+    head is the 40 px soft tile (`SoftTile`, `surface-soft`, radius 14), which a MOIT's
+    Requirement card shares (§9.11), with the 20 px `users-round` in `brand-primary`, decorative, and 12 px beside it the unit's name as an H2 at H3 size in
     `text-primary`, the two centred on each other; a 1 px `border-default` rule lies 16 px under
     them.
   - **Its people,** 20 px under the rule, by name, one to a row below `sm`, two from `sm` and three
@@ -1328,9 +1330,9 @@ file, which is kept unchanged (ADR 0007).
 | ITA | `/ita`, `/ita/{fiscal-year}` and `/ita/{slug}`; "ITA" is the main navigation's last item; Quick Access may point to `/ita`; no Homepage section of its own (`03` §2 and §11, `04` §10.1) | None: the pages below are live |
 | Dashboard | No V1 `/dashboard` route, main navigation link or Homepage shortcut | Its Figma concepts, for a separately approved future scope |
 
-**The ITA pages have no Figma concept.** They use the site's tokens and components (§3.1, §7), and
-the MOIT page follows variant C, "สารบัญและการ์ด", of the ITA prototype
-(`docs/prototypes/ita-moit-page.md` on the branch `prototype/ita`):
+**The ITA pages have no Figma concept.** They use the site's tokens and components (§3.1, §7) in
+the looks the Product Owner picked from Feature 013's prototype (spec #392 decisions 11 to 13;
+`docs/prototypes/ita-redesign.md` on the branch `prototype/ita-redesign`):
 
 - **Landing `/ita`** (Feature 013 #393; spec #392 "The ITA landing", decisions 2, 7, 9 and 11;
   prototype P1 B): the list heading on the deep field (§7.8), the label "ITA" and `shield-check`
@@ -1379,21 +1381,30 @@ the MOIT page follows variant C, "สารบัญและการ์ด", o
     header", decisions 3, 8 and 13; prototype P4; §9.11): the breadcrumb in white,
     "ITA ปีงบประมาณ พ.ศ. YYYY" in the outlined pill, the H1 with "MOIT n" in `accent-warm` and the
     title, no larger than H2 size, the summary, and the counts line: the Evidence count (and how
-    many files cannot be served), and "ปรับปรุงล่าสุด" when staff set it. Until #396 the parts
-    below follow on the page's colour under the field;
-  - a table of contents of the top-level Requirements with their counts: sticky beside the cards
-    on desktop, a horizontal row above them on phones;
-  - one card per top-level Requirement: a native disclosure, open at first, that closes without
-    JavaScript, with its title as the heading inside the toggle and a 16 px chevron; each
-    sub-Requirement is a section inside the card;
+    many files cannot be served), and "ปรับปรุงล่าสุด" when staff set it;
+  - over the field's edge (Feature 013 #396; spec #392 "A MOIT's page: the body over the field's
+    edge", decision 13; prototype P3 B; §9.11), the table of contents' panel, then the cards below
+    `lg`, and from `lg` the panel 19 rem wide at the left and the cards beside it, 32 px apart.
+    The panel is white with the `deep` shadow and opens with "สารบัญ" after a 20 px `list-checks`;
+    its links show each top-level Requirement's number and count, as a row that scrolls sideways
+    below `lg` and as a column with the title on two lines at most from `lg`, where the panel stays
+    in view under the header and scrolls on its own when it is taller than the window;
+  - one card per top-level Requirement (`RequirementCard`): a native disclosure, open at first,
+    that closes without JavaScript, white with the `card` shadow and radius 24. Its head holds the
+    number on the 40 px soft tile (`SoftTile`, a unit's panel's, §7.3), the title as an H2 that
+    still reads the number for assistive technology, the count on a `surface-soft` pill and a 16 px
+    chevron; its body, under a 1 px rule, the Requirement's pills and each sub-Requirement's
+    section under an H3. Evidence before the first Requirement lies in a white card, first in the
+    cards' column, or alone over the edge where the MOIT has no Requirement;
   - Evidence as pills: the Round tag unless the Round is "ไม่ระบุรอบ", the label (a file's note
     follows it in parentheses), then what it is: a file's type and size after a download icon,
     "หน้าเว็บของสำนักงาน" with a chevron for a page of this site, the host with "(เว็บไซต์ภายนอก)"
     and an arrow-up-right for another website, or the email address or phone number. A link
     marked current carries "ข้อมูลปัจจุบัน". A file that cannot be served is a dashed pill with
     "ไฟล์ไม่พร้อมให้บริการ" and a "ติดต่อเรา" link;
-  - "ตัวชี้วัดก่อนหน้า" and "ตัวชี้วัดถัดไป" cards below the Requirements, each with "MOIT n" and the
-    title, within the same fiscal year only.
+  - "ตัวชี้วัดก่อนหน้า" and "ตัวชี้วัดถัดไป" cards 24 px below the body (`MoitNeighbours`), each with
+    "MOIT n" and the title, within the same fiscal year only, and a 1 px `brand-primary` edge
+    under the pointer.
 
 **Release rule:** a deferred card, such as Dashboard's, is never an enabled link in a V1 build,
 and no placeholder route is invented. Its public activation needs the Product Owner's
@@ -2408,15 +2419,21 @@ takes a list's field and heading (§7.8), though it lists nothing.
   15.47:1; the pills 6.45:1; the routes' H2s 15.93:1, their sentences 4.97:1 and both buttons
   6.45:1.
 
-### 9.11 A MOIT's page: the Post page's header on the field
+### 9.11 A MOIT's page: the Post page's header on the field, the body over its edge
 
-Feature 013 #395 (spec #392 "A MOIT's page: the header", decisions 3, 8 and 13, "Motion";
-prototype P4). A MOIT's page (`MoitPage`, §8.3) takes the Post page's header, though a MOIT is not
-a Post page.
+Feature 013 #395 and #396 (spec #392 "A MOIT's page: the header", "A MOIT's page: the body over
+the field's edge", decisions 3, 8 and 13, "Motion"; prototypes P4 and P3 B; #396 comment
+7080124411). A MOIT's page (`MoitPage`, §8.3) takes the Post page's header, though a MOIT is not a
+Post page, and lays its body over the field's edge as a list does (§7.8).
 
-- **The field** is a Post page's (`DeepField kind="post"` in `PostColumns` without a picture,
-  §9.1): the small glow and no ring. Until #396 it is as high as the header plus 40 px below `sm`
-  and 48 px from `sm`, as a Post page's without a picture.
+- **The field** is a Post page's (`DeepField kind="post"`, §9.1): the small glow and no ring.
+  While the MOIT has a Requirement or Evidence, the header ends 96 px above the field's lower edge
+  below `sm` and 128 px from `sm`, and the body starts 64 px above that edge below `sm` and 88 px
+  from `sm` (`ListBody`). A MOIT whose Requirements hold no Evidence lies over the edge too
+  (Product Owner, #396 comment 7080124411, item 1). A MOIT without any block has nothing over the
+  edge: the field ends 40 px under the header below `sm` and 48 px from `sm`, as a Post page's
+  without a picture, and the neighbour links follow 32 px under the field below `lg` and 40 px
+  from `lg`.
 - **On it,** the Post page's header (`PostHeader`, §9.1), 48 rem wide at most: the breadcrumb in
   white (หน้าแรก › ITA › ปีงบประมาณ YYYY › MOIT n, the year's crumb only while the year has its
   page, §8.3); 24 px under it the fiscal year's title, "ITA ปีงบประมาณ พ.ศ. YYYY", in the outlined
@@ -2429,21 +2446,65 @@ a Post page.
   cannot be served, and " · ปรับปรุงล่าสุด" with the date when staff set it. The parts under the
   breadcrumb are 12 px apart, and each wraps where the column ends. There is no icon tile and no
   frame.
-- **The body,** until #396, keeps its look on the page's colour: the table of contents, the cards
-  and the neighbour links start 32 px under the field below `lg` and 40 px from `lg` (§9.1's
-  text), in the page's column; a MOIT without Evidence or neighbours ends with its field.
+- **The body** (#396). Below `lg` the table of contents' panel comes first, then the cards, 20 px
+  apart; from `lg` two columns 32 px apart, the panel 19 rem wide at the left and the cards in the
+  rest. The panel stays in view 1.5 rem under the site's header as the page scrolls, and scrolls
+  on its own when it is taller than the window.
+  - **The table of contents' panel:** white, the `deep` shadow, radius 24, 12 px of padding and
+    16 px from `sm`. It opens with "สารบัญ" at label size, semibold, in `brand-primary`, after a
+    20 px `list-checks`, decorative. Below `lg` its links are a row that scrolls sideways, 8 px
+    apart: each a 44 px box with a 1 px `border-default` edge and radius 14, `brand-primary` under
+    the pointer, holding the Requirement's number in a `surface-soft` pill in `brand-primary`,
+    semibold, and its count in `text-secondary`; the title names the link for assistive
+    technology alone. From `lg` they are a column 4 px apart, each without an edge, with the
+    number, the title on two lines at most and the count, on `surface-soft` under the pointer. A
+    Requirement without a number shows "–". A link's focus ring stays inside the white panel.
+  - **A Requirement card** (`RequirementCard`): a native disclosure, open at first, at its
+    `#requirement-n` address; white, the `card` shadow, radius 24, the cards 16 px apart. Its head
+    has 16 px of padding and 20 px from `sm`, its parts 14 px apart: the number on the 40 px soft
+    tile (`SoftTile`: `surface-soft`, radius 14) at body size, semibold, in `brand-primary`, hidden
+    from assistive technology and left out for a Requirement without a number; the title as an H2
+    at body-large, semibold, in `text-primary`, whose words still open with the number and a full
+    stop for assistive technology; "n รายการ" at small size in `brand-dark` on a `surface-soft`
+    pill; the 16 px `chevron-down` in `brand-primary`, turned while the card is open. From `sm`
+    the four lie in one line, centred on each other. Below `sm` the tile, the title and the
+    chevron share the first line, the count's pill 8 px under that line at the title's left edge,
+    the tile at the line's top and the chevron 12 px down, centred on the tile, or without a tile
+    on the title's first line (#396 comment 7080124411, item 2). A title on one line is centred on
+    the tile, so its pill lies 8 px under the tile, as in P3 B (Product Owner, #396 review). The head's focus ring has the lists'
+    white band (`focus-ring-banded`, §7.8), which stays under the pointer, and follows the card's
+    radius.
+  - **A card's body,** while it holds Evidence or a sub-Requirement: a 1 px `border-default` rule
+    under the head, then 16 px of padding and 20 px from `sm` around the Requirement's own pills
+    and each sub-Requirement's section, headed by an H3, semibold, in `text-primary`, 20 px apart.
+    The Evidence pills keep their look (§8.3).
+  - **Evidence before the first Requirement** lies in a white card with radius 24, 20 px of
+    padding and 24 px from `sm`: first in the cards' column with the `card` shadow when
+    Requirements follow, and alone over the field's edge with the `deep` shadow when the MOIT has
+    no Requirement, which then has no table of contents.
+  - **The neighbour links** (`MoitNeighbours`) follow 24 px under the body: two white cards with
+    the `card` shadow, radius 24 and their `chevron-left` and `chevron-right`, side by side from
+    `sm`, each with a 1 px `brand-primary` edge under the pointer. The page's own 64 px, 80 px from
+    `lg`, come before the footer.
 - **Motion** (§8.12): with motion allowed the header's pill, H1, summary and counts line rise in as
-  the page opens; the breadcrumb and the body show at once.
+  the page opens; the breadcrumb and the body show at once, so a card the table of contents leads
+  to is whole when the page arrives at it.
 - A draft's signed preview shows the same header with `noindex`; a draft, unpublished, trashed or
   unknown MOIT answers the site 404; the head's title, description, canonical address and OG tags
   are unchanged.
-- `tests/browser/public-ita.spec.ts` "the header on the field" reads the header at 320, 375 and
-  1,440 px, the H1's sizes and the field's and the body's places at 320, 639, 640, 1,023, 1,024
-  and 1,440 px, a MOIT without a summary, without a date, with a file that cannot be served,
-  without a Requirement and without Evidence, the motion, and the page without JavaScript;
-  `public-ita-years.spec.ts` reads the breadcrumb on the field on the three ITA pages, a MOIT's
-  page without Evidence or neighbours that ends with its field, and a MOIT's page with a title of
-  175 characters at 375 and 320 px.
+- `tests/browser/public-ita.spec.ts` "the page on the field" reads the header at 320, 375 and
+  1,440 px, the H1's sizes, the room the header leaves and the body over the edge at 320, 375,
+  639, 640, 768, 1,023, 1,024 and 1,440 px, a MOIT whose Requirements hold no Evidence, the panel
+  and its links by width, the panel in view as the page scrolls, a focused link shown whole, a
+  card's head and body by width, a Requirement without a number, a title of 238 characters at
+  320 px, the Evidence before the first Requirement in both places, a MOIT without a summary,
+  without a date, with a file that cannot be served, without a Requirement and without Evidence,
+  the motion, and the page without JavaScript; "the table of contents leads to each card …" reads
+  the links at 320 and 1,440 px and the collapse with the keyboard; "accessibility and reflow"
+  holds a MOIT of 37 Requirements. `public-ita-years.spec.ts` reads the breadcrumb on the field
+  on the three ITA pages, the neighbour links under the body, a MOIT's page without Evidence or
+  neighbours that ends with its field, and a MOIT's page with a title of 175 characters at 375 and
+  320 px.
 - **Measured** on the development runtime at `4405549` (#395), `scripts/measure-text-contrast.ts
   --all-text --fold` on the field at 1,440, 1,024, 768, 375 and 320 px, on the demo dataset's two
   MOITs and on the `moit-published-sizes` (a title of 175 characters) and `moit-no-summary` cases
@@ -2451,6 +2512,20 @@ a Post page.
   8.48:1 and its current page 6.35:1; the fiscal year in its pill 8.26:1; "MOIT n" in the H1
   5.46:1 and the H1's title 6.02:1 (`moit-no-summary`, 320 and 375 px); the summary and the
   counts line 6.45:1. The script named no text as not read.
+- **Measured** on the development runtime at `fce6996` (#396), `--all-text --fold` on the table of
+  contents' panel, the first Requirement card and the neighbour links of the demo dataset's two
+  MOITs and of `moit-published-sizes` (37 Requirements), and on the Evidence card and the
+  neighbour links of `moit-no-requirement`, at the same five widths, the lowest of each text:
+  "สารบัญ" 6.45:1; a Requirement's number in the table of contents and on its tile 5.78:1; its
+  count, in the table of contents and on the card's pill, 4.97:1; a card's title 12.21:1 or more;
+  the Evidence pills as before (a label 10.94:1, a file's type and size or a host 5.07:1,
+  "ข้อมูลปัจจุบัน" 7.75:1); "ตัวชี้วัดก่อนหน้า" and "ตัวชี้วัดถัดไป" 4.63:1 (the demo's MOIT 2 at 1,440
+  and 1,024 px, as in the prototype) and 4.97:1 elsewhere. The script named no text as not read.
+  `scripts/measure-focus-contrast.ts` on the demo's two MOITs: the first table-of-contents link's
+  ring lies on the white panel, 6.45:1 under it and 5.73:1 or more beside it at every width; the
+  first card's head's ring meets the field at 1,024 and 1,440 px, 1.00:1 under it on the field's
+  side, and 4.89:1 or more beside it with its white band, and below that 4.54:1 or more under it
+  and 4.93:1 or more beside it.
 
 ## 10. Acceptance and known limits
 
@@ -3382,3 +3457,18 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   allowed the header's text rises in. §2, §3.1 (`accent-warm`), §3.2 (the contrast of "MOIT n"), §7.1, §8.3,
   §8.12 and §9.11 name the page. Authority: spec #392 "A MOIT's page: the header", "Motion" and
   decisions 3, 8 and 13.
+- **v1.7 a MOIT's body (2026-11-22, Feature 013 #396):** `/ita/{slug}`'s body lies over the
+  field's lower edge, as a list's does: the table of contents moves into a white panel with the
+  `deep` shadow, opened by "สารบัญ" after the new `list-checks` icon, above the cards below `lg`
+  and beside them from `lg`, where its links lose their edge; each Requirement card's number moves
+  from the start of its visible title onto the 40 px soft tile that a unit's panel had alone and
+  now shares (`SoftTile`, `RequirementCard`), the title turns `text-primary`, the head takes the
+  lists' banded focus ring and the body a rule under the head; the Evidence before the first
+  Requirement takes a white card; and the neighbour links (`MoitNeighbours`) take a
+  `brand-primary` edge under the pointer. The heading's words, "สารบัญ", the counts, the pills and
+  the neighbour links' words stay, and the body still shows at once. A MOIT whose Requirements
+  hold no Evidence lies over the edge too, and below `sm` a card's chevron is centred on its tile
+  (#396 comment 7080124411). The ITA pages' description in §8.3 no longer names the earlier
+  prototype's variant. §2, §5, §7.1, §7.3, §8.3 and §9.11 name the page. Authority: spec #392
+  "A MOIT's page: the body over the field's edge", "Motion" and decision 13, and #396 comment
+  7080124411.

@@ -1,0 +1,22 @@
+---
+// The 40 px soft tile that heads a white panel or card (Feature 012 #370, Feature 013 #396; spec
+// #365 "Personnel", spec #392 "A Requirement card"): `surface-soft` with radius 14, its content
+// centred in `brand-primary`. A unit's panel holds its 20 px users-round in it (UnitPanel.astro),
+// and a MOIT's Requirement card its number (RequirementCard.astro). It is decorative: the heading
+// beside it carries what it shows for assistive technology.
+
+interface Props {
+	/** The tile's place and its content's type, where the panel or card sets them. */
+	class?: string;
+}
+---
+
+<span
+	aria-hidden="true"
+	class:list={[
+		"flex size-10 shrink-0 items-center justify-center rounded-14 bg-surface-soft text-brand-primary",
+		Astro.props.class,
+	]}
+>
+	<slot />
+</span>

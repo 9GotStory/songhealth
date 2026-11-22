@@ -1103,6 +1103,66 @@ test("a MOIT page leads to the MOITs before and after it in its fiscal year's nu
 	);
 });
 
+test("a MOIT page's neighbour links lie 24 px under its body: today's two white cards with chevron-left and chevron-right, side by side from 640 px, each with a 1 px brand-primary edge under the pointer, then the page's own 64 px, 80 px from 1,024 px", async ({
+	page,
+}) => {
+	await page.goto(`/ita/${third.slug}`);
+	const neighbours = page.getByRole("navigation", { name: "ตัวชี้วัดอื่นในปีงบประมาณเดียวกัน" });
+	const [previous, next] = [
+		neighbours.getByRole("link", { name: /^ตัวชี้วัดก่อนหน้า/ }),
+		neighbours.getByRole("link", { name: /^ตัวชี้วัดถัดไป/ }),
+	];
+	const lastCard = page.getByRole("main").getByRole("group").last();
+	const article = page.getByRole("main").getByRole("article");
+	const [white, brandPrimary] = await Promise.all(
+		["surface-base", "brand-primary"].map((name) => tokenColor(page, name)),
+	);
+	const edgeOf = (link: Locator) =>
+		link.evaluate((part) => {
+			const style = getComputedStyle(part);
+			return [style.borderTopWidth, style.borderTopColor];
+		});
+	const seen: Record<string, unknown> = {
+		look: await previous.evaluate((link) => getComputedStyle(link).backgroundColor),
+		chevrons: [
+			await previous.locator("svg").getAttribute("class"),
+			await next.locator("svg").getAttribute("class"),
+		].map((names) => names?.match(/lucide-chevron-(left|right)/)?.[0]),
+	};
+	const expected: Record<string, unknown> = {
+		look: white,
+		chevrons: ["lucide-chevron-left", "lucide-chevron-right"],
+	};
+	const places: Record<number, unknown> = {};
+	for (const width of [375, 639, 640, 1023, 1024, 1440]) {
+		await page.setViewportSize({ width, height: 900 });
+		const at = `at ${width} px`;
+		const [body, before, after, links, content] = [
+			await boxOf(lastCard, `${at}: the last card`),
+			await boxOf(previous, `${at}: the previous MOIT`),
+			await boxOf(next, `${at}: the next MOIT`),
+			await boxOf(neighbours, `${at}: the neighbour links`),
+			await boxOf(article, `${at}: the page's content`),
+		];
+		places[width] = {
+			underBody: Math.round(before.y - body.y - body.height),
+			sideBySide: Math.round(before.y) === Math.round(after.y),
+			roomAfter: Math.round(content.y + content.height - links.y - links.height),
+		};
+	}
+	seen.places = places;
+	expected.places = Object.fromEntries(
+		[375, 639, 640, 1023, 1024, 1440].map((width) => [
+			width,
+			{ underBody: 24, sideBySide: width >= 640, roomAfter: width < 1024 ? 64 : 80 },
+		]),
+	);
+	await next.hover();
+	seen.underPointer = await edgeOf(next);
+	expected.underPointer = ["1px", brandPrimary];
+	expect(seen, "the neighbour links under the body").toEqual(expected);
+});
+
 test("the main navigation ends with ITA and marks it on the landing, a year's page and a MOIT's, whose breadcrumb steps down หน้าแรก › ITA › ปีงบประมาณ › MOIT, on each page's field in white", async ({
 	page,
 }) => {
