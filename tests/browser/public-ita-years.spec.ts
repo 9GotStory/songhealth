@@ -51,6 +51,7 @@ import {
 	entersAfter,
 	expect,
 	expectBreadcrumb,
+	expectGridRevealsBelowShortWindow,
 	expectListMovesOnlyWhenAllowed,
 	expectNoHorizontalScroll,
 	expectSiteNotFound,
@@ -64,7 +65,6 @@ import {
 	pressInside,
 	readListField,
 	ringsOverFieldUnbanded,
-	shownOpacity,
 	shownWhole,
 	siteTitleParts,
 	test,
@@ -631,34 +631,7 @@ test("/ita moves only when motion is allowed: the heading and then the lead rise
 		grid: yearCards(page),
 	});
 
-	// A window shorter than the field puts the cards well below it as the page opens: just under a
-	// 300 px window Chromium gives a card's view timeline no progress, and it shows whole.
-	const short = { width: 1440, height: 200 };
-	await page.emulateMedia({ reducedMotion: "no-preference" });
-	await page.setViewportSize(short);
-	await page.goto("/ita");
-	const items = yearCards(page).getByRole("listitem");
-	for (const card of await items.all()) {
-		expect((await boxOf(card, "a card")).y, "a card lies below the window").toBeGreaterThan(
-			short.height,
-		);
-	}
-	// The cards share a row, so each is read before any comes into the window.
-	for (const card of await items.all()) {
-		expect(await shownOpacity(card), "a card below the window waits").toBe(0);
-	}
-	for (const card of await items.all()) {
-		await card.scrollIntoViewIfNeeded();
-		await expect.poll(() => shownOpacity(card), { message: "a card in the window shows" }).toBe(1);
-	}
-	await page.goto("/ita");
-	await items.last().getByRole("link").focus();
-	await expect
-		.poll(() => shownOpacity(items.last()), {
-			message: "the last card, focused, shows whole",
-			timeout: 3_000,
-		})
-		.toBe(1);
+	await expectGridRevealsBelowShortWindow(page, "/ita", yearCards(page), "a card");
 });
 
 test.describe("/ita without JavaScript", () => {

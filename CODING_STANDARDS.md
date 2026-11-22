@@ -74,7 +74,7 @@ and why, and `.jscpd-baseline.json` records them.
   card and row title, the Featured title, and the site title in the header and the footer. Body
   text, summaries and labels render as they are.
   `tests/node/public-titles.test.ts` checks the headings, and review checks the titles that are no
-  heading, such as a Quick Link card's label.
+  heading, such as a Homepage Quick Link's label.
 - An effect that holds a part back or moves it, such as an entrance or a reveal, follows
   `docs/design/DESIGN.md` §8.12: it runs only on a screen without a reduced-motion preference; it
   ends by itself within five seconds unless the visitor's scrolling drives it (WCAG 2.2 SC 2.2.2);

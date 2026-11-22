@@ -5,7 +5,7 @@
 // a card or row component picks its level with. A rich-text body's own heading is body text:
 // BodyHeading.astro renders the block it is given through its slot. This test reads the templates
 // under src/ and fails on a heading whose content has no <ThaiTitle>. ThaiTitle also renders titles
-// that are no heading, such as the site title in the header and a Quick Link card's label, and
+// that are no heading, such as the site title in the header and a Homepage Quick Link's label, and
 // review checks those (CODING_STANDARDS "Public pages").
 
 import assert from "node:assert/strict";
