@@ -8,28 +8,28 @@ after-moit-demo-2-1440.png	/ita/demo-moit-2-2570@1440
 after-moit-demo-2-320.png	/ita/demo-moit-2-2570@320
 after-moit-demo-2-375.png	/ita/demo-moit-2-2570@375
 after-moit-demo-2-768.png	/ita/demo-moit-2-2570@768
-after-moit-no-evidence-1024.png	/ita/songhealth-f002-synthetic-shot-moit-4-2568-9995c4b8-4222@1024
-after-moit-no-evidence-1440.png	/ita/songhealth-f002-synthetic-shot-moit-4-2568-9995c4b8-4222@1440
-after-moit-no-evidence-320.png	/ita/songhealth-f002-synthetic-shot-moit-4-2568-9995c4b8-4222@320
-after-moit-no-evidence-375.png	/ita/songhealth-f002-synthetic-shot-moit-4-2568-9995c4b8-4222@375
-after-moit-no-evidence-768.png	/ita/songhealth-f002-synthetic-shot-moit-4-2568-9995c4b8-4222@768
-after-moit-no-requirement-1024.png	/ita/songhealth-f002-synthetic-shot-moit-3-2568-0882dc58-0df0@1024
-after-moit-no-requirement-1440.png	/ita/songhealth-f002-synthetic-shot-moit-3-2568-0882dc58-0df0@1440
-after-moit-no-requirement-320.png	/ita/songhealth-f002-synthetic-shot-moit-3-2568-0882dc58-0df0@320
-after-moit-no-requirement-375.png	/ita/songhealth-f002-synthetic-shot-moit-3-2568-0882dc58-0df0@375
-after-moit-no-requirement-768.png	/ita/songhealth-f002-synthetic-shot-moit-3-2568-0882dc58-0df0@768
-after-moit-no-summary-1024.png	/ita/songhealth-f002-synthetic-shot-moit-2-2568-a7ba6a92-1220@1024
-after-moit-no-summary-1440.png	/ita/songhealth-f002-synthetic-shot-moit-2-2568-a7ba6a92-1220@1440
-after-moit-no-summary-320.png	/ita/songhealth-f002-synthetic-shot-moit-2-2568-a7ba6a92-1220@320
-after-moit-no-summary-375.png	/ita/songhealth-f002-synthetic-shot-moit-2-2568-a7ba6a92-1220@375
-after-moit-no-summary-768.png	/ita/songhealth-f002-synthetic-shot-moit-2-2568-a7ba6a92-1220@768
-after-moit-no-year-page-1024.png	/ita/songhealth-f002-synthetic-shot-moit-1-2567-4855daf6-8d13?_preview=<signed token>@1024
-after-moit-no-year-page-1440.png	/ita/songhealth-f002-synthetic-shot-moit-1-2567-4855daf6-8d13?_preview=<signed token>@1440
-after-moit-no-year-page-320.png	/ita/songhealth-f002-synthetic-shot-moit-1-2567-4855daf6-8d13?_preview=<signed token>@320
-after-moit-no-year-page-375.png	/ita/songhealth-f002-synthetic-shot-moit-1-2567-4855daf6-8d13?_preview=<signed token>@375
-after-moit-no-year-page-768.png	/ita/songhealth-f002-synthetic-shot-moit-1-2567-4855daf6-8d13?_preview=<signed token>@768
-after-moit-published-sizes-1024.png	/ita/songhealth-f002-synthetic-shot-moit-1-2568-c4fb1aec-c69a@1024
-after-moit-published-sizes-1440.png	/ita/songhealth-f002-synthetic-shot-moit-1-2568-c4fb1aec-c69a@1440
-after-moit-published-sizes-320.png	/ita/songhealth-f002-synthetic-shot-moit-1-2568-c4fb1aec-c69a@320
-after-moit-published-sizes-375.png	/ita/songhealth-f002-synthetic-shot-moit-1-2568-c4fb1aec-c69a@375
-after-moit-published-sizes-768.png	/ita/songhealth-f002-synthetic-shot-moit-1-2568-c4fb1aec-c69a@768
+after-moit-no-evidence-1024.png	/ita/songhealth-f002-synthetic-shot-moit-4-2568-9ef76d94-2f61@1024
+after-moit-no-evidence-1440.png	/ita/songhealth-f002-synthetic-shot-moit-4-2568-9ef76d94-2f61@1440
+after-moit-no-evidence-320.png	/ita/songhealth-f002-synthetic-shot-moit-4-2568-9ef76d94-2f61@320
+after-moit-no-evidence-375.png	/ita/songhealth-f002-synthetic-shot-moit-4-2568-9ef76d94-2f61@375
+after-moit-no-evidence-768.png	/ita/songhealth-f002-synthetic-shot-moit-4-2568-9ef76d94-2f61@768
+after-moit-no-requirement-1024.png	/ita/songhealth-f002-synthetic-shot-moit-3-2568-3a02e012-4912@1024
+after-moit-no-requirement-1440.png	/ita/songhealth-f002-synthetic-shot-moit-3-2568-3a02e012-4912@1440
+after-moit-no-requirement-320.png	/ita/songhealth-f002-synthetic-shot-moit-3-2568-3a02e012-4912@320
+after-moit-no-requirement-375.png	/ita/songhealth-f002-synthetic-shot-moit-3-2568-3a02e012-4912@375
+after-moit-no-requirement-768.png	/ita/songhealth-f002-synthetic-shot-moit-3-2568-3a02e012-4912@768
+after-moit-no-summary-1024.png	/ita/songhealth-f002-synthetic-shot-moit-2-2568-d35357ea-0af8@1024
+after-moit-no-summary-1440.png	/ita/songhealth-f002-synthetic-shot-moit-2-2568-d35357ea-0af8@1440
+after-moit-no-summary-320.png	/ita/songhealth-f002-synthetic-shot-moit-2-2568-d35357ea-0af8@320
+after-moit-no-summary-375.png	/ita/songhealth-f002-synthetic-shot-moit-2-2568-d35357ea-0af8@375
+after-moit-no-summary-768.png	/ita/songhealth-f002-synthetic-shot-moit-2-2568-d35357ea-0af8@768
+after-moit-no-year-page-1024.png	/ita/songhealth-f002-synthetic-shot-moit-1-2567-ba209185-def2?_preview=<signed token> token>@1024
+after-moit-no-year-page-1440.png	/ita/songhealth-f002-synthetic-shot-moit-1-2567-ba209185-def2?_preview=<signed token> token>@1440
+after-moit-no-year-page-320.png	/ita/songhealth-f002-synthetic-shot-moit-1-2567-ba209185-def2?_preview=<signed token> token>@320
+after-moit-no-year-page-375.png	/ita/songhealth-f002-synthetic-shot-moit-1-2567-ba209185-def2?_preview=<signed token> token>@375
+after-moit-no-year-page-768.png	/ita/songhealth-f002-synthetic-shot-moit-1-2567-ba209185-def2?_preview=<signed token> token>@768
+after-moit-published-sizes-1024.png	/ita/songhealth-f002-synthetic-shot-moit-1-2568-f80c5abf-f7a1@1024
+after-moit-published-sizes-1440.png	/ita/songhealth-f002-synthetic-shot-moit-1-2568-f80c5abf-f7a1@1440
+after-moit-published-sizes-320.png	/ita/songhealth-f002-synthetic-shot-moit-1-2568-f80c5abf-f7a1@320
+after-moit-published-sizes-375.png	/ita/songhealth-f002-synthetic-shot-moit-1-2568-f80c5abf-f7a1@375
+after-moit-published-sizes-768.png	/ita/songhealth-f002-synthetic-shot-moit-1-2568-f80c5abf-f7a1@768
