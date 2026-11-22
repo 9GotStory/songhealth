@@ -21,7 +21,7 @@ The grill before it settled everything but four looks (Product Owner, 2026-11-22
 
 ## What was built
 
-`build.mjs` builds ten pages, one per case, each holding its variants switched by `?variant=` and a floating bar:
+`build.mjs` builds eleven pages, one per case, each holding its variants switched by `?variant=` and a floating bar:
 
 | Pages | A | B | C | D | E |
 | --- | --- | --- | --- | --- | --- |
@@ -29,7 +29,7 @@ The grill before it settled everything but four looks (Product Owner, 2026-11-22
 | `/ita/{fiscal-year}` (Q5) | a white row per MOIT, as the Document repository's, "MOIT" and its number on the file tile's gradient | today's one white card with divider lines, over the field's edge, the badge a `surface-soft` tile | | | |
 | `/ita/{slug}` (Q10, Q11) | today's body under the field; the year a plain `surface-base` label | the table of contents in a white panel and the first card over the field's edge; a Requirement's number on a `surface-soft` tile, a rule under an open card's head; the Evidence before the first Requirement in a white card | B with the year in the Post page header's outlined pill | B with the H1 no larger than H2 size | the pick: B with the pill and the H1 no larger than H2 size |
 
-The cases: `/ita` with one year (the demo's), three years and none; a year with the demo's two MOITs, one MOIT and twenty-two; a MOIT's page for the demo's MOIT 1 (2 Requirements, 7 Evidence, one file unavailable, the first of its year) and MOIT 2 (18 Requirements, 41 Evidence, sub-Requirements, a table of contents taller than the window, the last of its year), a MOIT without a Requirement or a summary, between two neighbours, and a MOIT with the longest title, no year crumb, no neighbour and no date.
+The cases: `/ita` with one year (the demo's), three years and none; a year with the demo's two MOITs, one MOIT and twenty-two; a MOIT's page for the demo's MOIT 1 (2 Requirements, 7 Evidence, one file unavailable, the first of its year) and MOIT 2 (18 Requirements, 41 Evidence, sub-Requirements, a table of contents taller than the window, the last of its year), a MOIT without a Requirement or a summary, between two neighbours, a MOIT with a long title, no year crumb, no neighbour and no date, and a MOIT at the largest sizes of the office's published ITA content, added on 2026-11-22 for the spec (#392): a title of 175 characters, 37 Requirements and a Requirement title of 238 characters, the numbers alone read from the WordPress export of 2026-11-06.
 
 The markup copies the built components' classes (`ListHeading`, `SectionHeading`, `HomeQuickLink`, `DocumentDownloadRow`, `UnitPanel`, the Post page's header, today's `MoitPage`); the stylesheet is `main`'s `src/styles/global.css` compiled by Tailwind CSS over the built pages (`@tailwindcss/node` `compile` and `@tailwindcss/oxide` `Scanner`). The header and footer are the runtime's own markup.
 
@@ -46,12 +46,13 @@ The demo dataset's alone (grill Q6): no Legacy site content, and no wording of t
 ## Seen while building
 
 - A long MOIT title at the Post page's H1 size (46 px from `lg`) runs to six lines at 1,440 px and fills the window above the first Requirement; at H2 size (34 px, the size today's header band uses) it runs to five shorter lines, and the page reads 1,393 px against 1,511 px. Variant D was added for it, and the Product Owner picked the smaller H1.
-- A year of twenty-two MOITs reads 3,711 px at 1,440 px as rows (A) against 2,720 px as one card (B); at 375 px A is the shorter, 4,101 px against 4,448 px.
+- A year of twenty-two MOITs reads 3,711 px at 1,440 px as rows (A) against 2,720 px as one card (B); at 375 px A was the shorter, 4,101 px against 4,448 px, before its last row took the 175-character title (4,179 px with it).
 - Three years on `/ita` read 1,121 px at 375 px as tiles (A) against 1,469 px as large cards (B).
 - A row's tile is hidden from assistive technology, so its link starts with "MOIT n" for a screen reader alone, as today's link holds the badge; a Requirement's number on its tile is hidden the same way and stays in its H2's words.
 - In B the neighbour links keep today's cards and chevrons and gain a `brand-primary` edge under the pointer.
 - "MOIT n" in `accent-warm` inside the H1 reads 5.38:1 at the lowest (the MOIT without a Requirement, variant A, 320 px), over the 3:1 a text of 24 px or more needs, so it keeps its colour (Q10).
-- No case overflows the window at any of the five widths (`shots/measures.json`).
+- At H2 size the 175-character title runs to four lines at 1,440 and 1,024 px, and the first Requirement is in a 900 px window.
+- No case overflows the window at any of the five widths, the case at the published sizes among them (`shots/measures.json`, 185 screenshots).
 
 ## The Product Owner's picks
 

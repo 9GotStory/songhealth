@@ -272,6 +272,23 @@ const longTitle = {
 	countsHtml: "หลักฐาน 7 รายการ ใน 2 ข้อ · ไฟล์ที่ไม่พร้อมให้บริการ 1",
 };
 
+// MADE_UP at the Legacy export's largest sizes, read as numbers alone (2026-11-22): a title of 175
+// characters, 37 Requirements, a Requirement title of 238 characters, no summary.
+const pad = (text, length) => (text + " " + "ข้อความตัวอย่างเพื่อให้ยาวเท่าข้อมูลจริง ".repeat(12)).slice(0, length).trim();
+const legacySizes = {
+	...demo1, number: 22, summary: null, previous: { ...year2569[20], href: "#previous" }, next: undefined,
+	yearTitle: "ITA ปีงบประมาณ พ.ศ. 2569",
+	title: pad("[ตัวอย่าง] ตัวชี้วัดที่ยาวเท่าชื่อที่ยาวที่สุดของข้อมูลเดิม:", 175),
+	countsHtml: "หลักฐาน 79 รายการ ใน 37 ข้อ · ปรับปรุงล่าสุด <time>30 ก.ย. 2569</time>",
+	cards: Array.from({ length: 37 }, (_, i) => ({
+		number: String(i + 1),
+		title: i === 1 ? pad("[ตัวอย่าง] ข้อกำหนดที่ยาวเท่าชื่อข้อกำหนดที่ยาวที่สุดของข้อมูลเดิม:", 238) : `[ตัวอย่าง] ข้อกำหนดลำดับที่ ${i + 1}`,
+		count: 2,
+		bodyHtml: pills([["file", i % 2 ? "รอบ 6 เดือน" : null, `[ตัวอย่าง] หลักฐานของข้อ ${i + 1}`, "PDF, 245 KB"], ["page", null, "[ตัวอย่าง] หน้าเว็บที่เกี่ยวข้อง", "หน้าเว็บของสำนักงาน"]]),
+	})),
+};
+year2569[21] = { ...year2569[21], title: legacySizes.title, href: "moit-legacy-sizes.html" };
+
 const years3 = [
 	{ year: 2570, count: 2, href: "year-demo.html" },
 	{ year: 2569, count: 22, href: "year-full.html" },
@@ -293,6 +310,7 @@ const cases = [
 	{ file: "moit-demo-1", name: "MOIT 1 demo: 2 ข้อ 7 หลักฐาน (ตัวแรกของปี)", family: "moit", render: moitPage(demo1, [HOME, ITA, Y2570, { label: "MOIT 1" }]) },
 	{ file: "moit-demo-2", name: "MOIT 2 demo: 18 ข้อ 41 หลักฐาน (ตัวสุดท้ายของปี)", family: "moit", render: moitPage(demo2, [HOME, ITA, Y2570, { label: "MOIT 2" }]) },
 	{ file: "moit-lead-only", name: "MOIT: ไม่มีข้อกำหนด ไม่มี summary (กลางปี)", family: "moit", render: moitPage(leadOnly, [HOME, ITA, { label: "ปีงบประมาณ 2569", href: "year-full.html" }, { label: "MOIT 5" }]) },
+	{ file: "moit-legacy-sizes", name: "MOIT: ขนาดเท่าข้อมูลเดิมที่ใหญ่ที่สุด (ชื่อ 175 ตัวอักษร 37 ข้อ)", family: "moit", render: moitPage(legacySizes, [HOME, ITA, { label: "ปีงบประมาณ 2569", href: "year-full.html" }, { label: "MOIT 22" }]) },
 	{ file: "moit-long-title", name: "MOIT: ชื่อยาว ไม่มี crumb ปี ไม่มีลิงก์ข้างเคียง", family: "moit", render: moitPage(longTitle, [HOME, ITA, { label: "MOIT 12" }]) },
 ];
 
