@@ -1,0 +1,97 @@
+---
+// A top-level Requirement's card on a MOIT's page (Feature 004 #123; Feature 013 #396; spec #392
+// "A MOIT's page: the body over the field's edge", decision 13; MoitPage.astro): a native
+// <details>, open at first, that closes without JavaScript (Product Owner, 2026-11-02: #123
+// comment 6575260213). It is white with the `card` shadow and radius 24, and its address is
+// #requirement-n, where the table of contents leads.
+//
+// - **Its head**, the toggle, has 16 px of padding and 20 px from `sm`, its parts 14 px apart: the
+//   number on the 40 px soft tile (SoftTile), at body size, semibold, hidden from assistive
+//   technology and left out for a Requirement without a number; the title as an H2 at body-large,
+//   semibold, in `text-primary`, whose words still open with the number and a full stop for
+//   assistive technology; "n รายการ" at small size in `brand-dark` on a `surface-soft` pill; and
+//   the 16 px chevron-down in `brand-primary`, turned while the card is open. A summary holds
+//   phrasing content and one heading, so its grid places them. From `sm` the four lie in one line,
+//   centred on each other. Below `sm` the tile, the title and the chevron share the first line, the
+//   count's pill 8 px under the title at its left edge; the tile sits at the line's top and the
+//   chevron 12 px down, centred on the tile, or, without a tile, centred on the title's first line,
+//   30 px high (Product Owner, #396 comment 7080124411, item 2).
+// - Its focus ring lies over the field's edge where the card is the first in its column, so it
+//   has the lists' white band (`focus-ring-banded`), and follows the card's radius. Nothing under
+//   the pointer changes its shadow, so the band stays there (#393 note on #396).
+// - **Its body**, while the card holds Evidence or a sub-Requirement: a 1 px `border-default` rule
+//   under the head, then 16 px of padding and 20 px from `sm` around the Requirement's own pills
+//   and each sub-Requirement's section, headed by an H3, semibold, in `text-primary`, 20 px apart.
+//   src/components/EvidencePills.astro shows the Evidence.
+import ChevronDown from "@lucide/astro/icons/chevron-down";
+import type { MoitEvidence } from "../lib/ita";
+import EvidencePills from "./EvidencePills.astro";
+import SoftTile from "./SoftTile.astro";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	card: MoitEvidence["cards"][number];
+	/** Its place among the MOIT's top-level Requirements, from 1, which its address names. */
+	place: number;
+}
+
+const { card, place } = Astro.props;
+const numbered = card.number !== "";
+---
+
+<details id={`requirement-${place}`} open class="group rounded-24 bg-surface-base shadow-card">
+	<summary
+		class:list={[
+			"focus-ring-banded grid cursor-pointer list-none items-center gap-x-3.5 gap-y-2 rounded-24 p-4 sm:p-5 [&::-webkit-details-marker]:hidden",
+			numbered
+				? "grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]"
+				: "grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_auto_auto]",
+		]}
+	>
+		{numbered && (
+			<SoftTile class="col-start-1 row-start-1 text-body font-semibold max-sm:self-start">
+				{card.number}
+			</SoftTile>
+		)}
+		<h2
+			class:list={[
+				"row-start-1 text-body-large font-semibold wrap-anywhere text-text-primary",
+				numbered ? "col-start-2" : "col-start-1",
+			]}
+		>
+			{numbered && <span class="sr-only">{card.number}. </span>}
+			<ThaiTitle text={card.title} />
+		</h2>
+		<span
+			class:list={[
+				"row-start-2 justify-self-start rounded-pill bg-surface-soft px-3 py-1 text-small text-brand-dark sm:row-start-1",
+				numbered ? "col-start-2 sm:col-start-3" : "col-start-1 sm:col-start-2",
+			]}
+		>
+			{card.count} รายการ
+		</span>
+		<span
+			class:list={[
+				"row-start-1 max-sm:self-start",
+				numbered
+					? "col-start-3 max-sm:mt-3 sm:col-start-4"
+					: "col-start-2 max-sm:mt-1.75 sm:col-start-3",
+			]}
+		>
+			<ChevronDown class="shrink-0 text-brand-primary group-open:rotate-180" size={16} />
+		</span>
+	</summary>
+	{(card.evidence.length > 0 || card.subRequirements.length > 0) && (
+		<div class="flex flex-col gap-5 border-t border-border-default p-4 sm:p-5">
+			<EvidencePills pills={card.evidence} />
+			{card.subRequirements.map((sub) => (
+				<section class="flex flex-col gap-2">
+					<h3 class="font-semibold wrap-anywhere text-text-primary">
+						{sub.number} <ThaiTitle text={sub.title} />
+					</h3>
+					<EvidencePills pills={sub.evidence} />
+				</section>
+			))}
+		</div>
+	)}
+</details>
