@@ -2115,6 +2115,11 @@ interface HeadingOnField {
 	/** The crumbs before the list's own, root first. */
 	crumbs: ReadonlyArray<readonly [label: string, href: string]>;
 	heading: ListHeadingText;
+	/**
+	 * The breadcrumb's current page where it is not the H1, such as the ITA landing's "ITA", the main
+	 * navigation's word (Feature 013 #393; #124 comment 6577248920).
+	 */
+	current?: string;
 	/** The Lucide icon in the heading's tile. */
 	icon: string;
 	/**
@@ -2154,7 +2159,7 @@ export function testHeadingOnField(list: HeadingOnField): void {
 		expect(response?.status(), `GET ${path}`).toBe(200);
 		const main = page.getByRole("main");
 		await expect(main.getByRole("heading", { level: 1 })).toHaveText(text.title);
-		await expectBreadcrumb(page, list.crumbs, text.title);
+		await expectBreadcrumb(page, list.crumbs, list.current ?? text.title);
 		await expect(main.getByText(text.lead, { exact: true })).toBeVisible();
 
 		const heading = listHeading(page, text);

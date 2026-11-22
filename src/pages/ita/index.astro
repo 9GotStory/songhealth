@@ -1,13 +1,22 @@
 ---
 // The ITA landing, /ita (Feature 004 #124; spec #121 "Public routes", ADR 0006): what the ITA is,
-// in the GLOSSARY's words, and a Quick Link card for each fiscal year that has a published MOIT,
-// newest first, with how many MOITs it has (src/lib/ita.ts itaYears), each leading to the year's
-// page. While no MOIT is published it says so. The years come from the published MOITs, as ADR
-// 0006 keeps no year record (src/lib/moits.ts). The heading spells the assessment out, while the
-// menu and the crumb say ITA (Product Owner, 2026-11-02: #124 comment 6577248920).
+// in the GLOSSARY's words, and a card for each fiscal year that has a published MOIT, newest first,
+// with how many MOITs it has (src/lib/ita.ts itaYears), each leading to the year's page. While no
+// MOIT is published it says so. The years come from the published MOITs, as ADR 0006 keeps no year
+// record (src/lib/moits.ts). The heading spells the assessment out, while the menu and the crumb
+// say ITA (Product Owner, 2026-11-02: #124 comment 6577248920).
+//
+// The page opens on the deep field as the lists do (Feature 013 #393; spec #392 "The ITA landing",
+// decisions 2, 7, 9 and 11; ListHeading): the label "ITA", the main navigation's word, with the
+// shield-check icon over its H1. The year cards follow over the field's lower edge (ItaYearCard),
+// one to a row below `sm`, two from `sm` and three from `lg` at any count, 12 px apart below `sm`
+// and 20 px from `sm`, each revealed as it comes into the window (`scroll-reveal`); with no
+// published MOIT, the empty state lies there and shows at once.
+import ShieldCheck from "@lucide/astro/icons/shield-check";
 import EmptyState from "../../components/EmptyState.astro";
-import PageHeading from "../../components/PageHeading.astro";
-import QuickLinkCard from "../../components/QuickLinkCard.astro";
+import ItaYearCard from "../../components/ItaYearCard.astro";
+import ListBody from "../../components/ListBody.astro";
+import ListHeading from "../../components/ListHeading.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
 import { ITA_PATH, itaYearPath, itaYears } from "../../lib/ita";
 import { publishedMoits } from "../../lib/moits";
@@ -18,24 +27,21 @@ const lead =
 const years = itaYears(await publishedMoits());
 ---
 
-<SiteLayout title={title} section="ita" description={lead} canonical={ITA_PATH} crumbs={[]}>
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={title} lead={lead} />
+<SiteLayout title={title} section="ita" description={lead} canonical={ITA_PATH}>
+	<ListHeading section="ita" crumbs={[]} label="ITA" title={title} lead={lead}>
+		<ShieldCheck slot="icon" class="shrink-0" size={24} />
+	</ListHeading>
+	<ListBody>
 		{years.length > 0 ? (
-			<ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+			<ul class="grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
 				{years.map(({ year, count }) => (
-					<li>
-						<QuickLinkCard
-							href={itaYearPath(year)}
-							eyebrow="ปีงบประมาณ"
-							label={String(year)}
-							detail={`ตัวชี้วัด ${count} รายการ`}
-						/>
+					<li class="scroll-reveal min-w-0">
+						<ItaYearCard href={itaYearPath(year)} year={year} count={count} />
 					</li>
 				))}
 			</ul>
 		) : (
 			<EmptyState message="ยังไม่มีข้อมูล ITA" />
 		)}
-	</div>
+	</ListBody>
 </SiteLayout>

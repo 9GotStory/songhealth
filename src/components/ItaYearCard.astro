@@ -1,0 +1,59 @@
+---
+// A fiscal year's card on the ITA landing (Feature 013 #393; spec #392 "The ITA landing", decisions
+// 7, 9 and 11; prototype P1 B): one link to the year's page, white with the `card` shadow and the
+// `deep` shadow under the pointer, radius 24, 24 px of padding and 28 px from `sm`, its parts 20 px
+// apart from top to bottom:
+//
+// - a 52 px tile on the section heading's gradient (`brand-primary` to `brand-dark`, radius 16, the
+//   `tile` shadow) with the 24 px `calendar-check` in `accent-warm`;
+// - "ปีงบประมาณ" at label size in `text-secondary`, and under it the year as an H2 at H2 size in
+//   `text-primary`, `brand-primary` under the pointer;
+// - "ตัวชี้วัด n รายการ" at label size, semibold, in `brand-primary`, with the Homepage's 20 px card
+//   arrow, `arrow-right`, at the row's right end at every width;
+// - a 160 px `surface-soft` circle at the lower right corner, cut by the card's edge.
+//
+// The tile, the icons and the circle are decorative, so the card's words name the link:
+// "ปีงบประมาณ", the year and its count, as the landing's earlier card did. The cards lie over
+// the deep field's lower edge, so the link's focus ring has the lists' white band
+// (`focus-ring-banded`; CODING_STANDARDS "Public pages").
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+import CalendarCheck from "@lucide/astro/icons/calendar-check";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	href: string;
+	/** The fiscal year, such as 2570. */
+	year: number;
+	/** How many published MOITs the year has. */
+	count: number;
+}
+
+const { href, year, count } = Astro.props;
+---
+
+<a
+	class="group focus-ring-banded relative flex h-full flex-col gap-5 overflow-clip rounded-24 bg-surface-base p-6 text-text-primary shadow-card hover:shadow-deep motion-safe:transition-shadow sm:p-7"
+	href={href}
+>
+	<span
+		aria-hidden="true"
+		data-testid="year-circle"
+		class="pointer-events-none absolute -right-12 -bottom-14 size-40 rounded-pill bg-surface-soft"
+	></span>
+	<span
+		aria-hidden="true"
+		class="relative flex size-13 shrink-0 items-center justify-center rounded-16 bg-linear-140 from-brand-primary to-brand-dark text-accent-warm shadow-tile"
+	>
+		<CalendarCheck class="shrink-0" size={24} />
+	</span>
+	<div class="relative flex flex-col">
+		<p class="text-label text-text-secondary">ปีงบประมาณ</p>
+		<h2 class="text-h2 group-hover:text-brand-primary">
+			<ThaiTitle text={String(year)} />
+		</h2>
+	</div>
+	<p class="relative flex items-center justify-between gap-3 text-label font-semibold text-brand-primary">
+		<span>ตัวชี้วัด {count} รายการ</span>
+		<ArrowRight class="shrink-0" size={20} />
+	</p>
+</a>
