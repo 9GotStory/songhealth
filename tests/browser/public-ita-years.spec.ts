@@ -32,6 +32,7 @@ import {
 	publishEntryAt,
 	removeSuiteFixtures,
 	requirementBlock,
+	SYNTHETIC_FIXTURE_MARK,
 	unpublishEntry,
 	uploadSyntheticPdf,
 	withHomepageMenus,
@@ -46,6 +47,7 @@ import {
 	FIELD_EDGE,
 	HOMEPAGE_HEADINGS,
 	LIST_FIELD_LOOK,
+	MOBILE_VIEWPORT,
 	SECTION_CRUMBS,
 	boxOf,
 	entersAfter,
@@ -86,6 +88,13 @@ const DRAFTS_ONLY = 2404;
 const NO_MOIT = 2405;
 /** The first of the four years the landing's layout is read with, one MOIT each. */
 const BY_COUNT = 2408;
+/**
+ * A year whose one MOIT has a title of the published length (spec #392 "Measured in the
+ * prototype").
+ */
+const LONG_TITLE = 2412;
+/** The longest MOIT title the office has published, in characters. */
+const LONG_TITLE_LENGTH = 175;
 
 /** The ITA landing's heading. */
 const LANDING_HEADING = "การประเมินคุณธรรมและความโปร่งใส (ITA)";
@@ -96,6 +105,30 @@ const LANDING: ListHeadingText = {
 	title: LANDING_HEADING,
 	lead: "การประเมินคุณธรรมและความโปร่งใส (MOPH ITA) คือการประเมินสำนักงานสาธารณสุขอำเภอสองที่กระทรวงสาธารณสุขจัดทุกปี เว็บไซต์นี้เผยแพร่หลักฐานการประเมินของแต่ละปีงบประมาณ",
 };
+
+/**
+ * A fiscal year's heading on the deep field, `count` its MOITs (#394; spec #392 "A fiscal year's
+ * page").
+ */
+const yearHeading = (year: number, count: number): ListHeadingText => ({
+	label: "ITA",
+	title: `ITA ปีงบประมาณ พ.ศ. ${year}`,
+	lead: `ตัวชี้วัด MOIT ${count} รายการของปีงบประมาณ พ.ศ. ${year} พร้อมหลักฐานที่เผยแพร่`,
+});
+const NEWER_HEADING = yearHeading(NEWER, 3);
+
+/**
+ * A made-up name that gives the MOIT `createSyntheticMoit` titles `${mark} ${name} ${label}
+ * ${ending}` a title of LONG_TITLE_LENGTH characters.
+ */
+function longName(label: string): string {
+	const room = LONG_TITLE_LENGTH - `${SYNTHETIC_FIXTURE_MARK}  ${label} 123456`.length;
+	return "ตัวชี้วัดตัวอย่างสำหรับทดสอบชื่อยาวที่แสดงครบทุกบรรทัดในแถว "
+		.repeat(4)
+		.slice(0, room)
+		.trimEnd()
+		.padEnd(room, "ก");
+}
 
 /** 23 Sep 2026 17:30 UTC is already 24 Sep in Bangkok. */
 const UPDATED_ON = "2026-09-23T17:30:00.000Z";
@@ -112,6 +145,8 @@ let fifth: MoitFixture;
 let draft: MoitFixture;
 let older: MoitFixture;
 let draftsOnly: MoitFixture;
+/** LONG_TITLE's one MOIT, its title LONG_TITLE_LENGTH characters long, with a date. */
+let longTitle: MoitFixture;
 
 /** A synthetic MOIT draft of `year`, numbered `number`, with `evidence` as its blocks. */
 const createMoit = (
@@ -262,6 +297,152 @@ function readYearCard(card: Locator, gradient: [from: string, to: string]) {
 	}, gradient);
 }
 
+/** The list of MOIT rows on a fiscal year's page. */
+function moitRows(page: Page) {
+	return page
+		.getByRole("main")
+		.getByRole("list")
+		.filter({ has: page.getByRole("link", { name: /^MOIT \d+/ }) });
+}
+
+/** The row a fiscal year's page shows for `moit`. */
+const moitRow = (page: Page, moit: MoitFixture) => listedItem(page, moit.title);
+
+/**
+ * How a MOIT's row on a fiscal year's page, `row`, looks as the page is laid out now (spec #392 "A
+ * fiscal year's page"): its surface, its links, its tile with "MOIT" over the number, its title
+ * and facts line, its arrow ("none" where the row shows none), whether its parts lie in one line
+ * and the gaps between them, and whether "MOIT n" inside the link is there for assistive
+ * technology alone. `gradient` is the tile's two colours. Measures in px.
+ */
+function readMoitRow(row: Locator, gradient: [from: string, to: string]) {
+	return row.evaluate((article, [from, to]) => {
+		const box = (element: Element) => element.getBoundingClientRect();
+		const style = getComputedStyle(article);
+		const leaf = (pattern: RegExp, within: Element) =>
+			[...within.querySelectorAll("*")].find(
+				(element) =>
+					element.children.length === 0 && pattern.test(element.textContent?.trim() ?? ""),
+			);
+		const font = (element: Element) => {
+			const read = getComputedStyle(element);
+			return {
+				size: Number.parseFloat(read.fontSize),
+				weight: read.fontWeight,
+				colour: read.color,
+			};
+		};
+		const word = leaf(/^MOIT$/, article);
+		const tile = word?.closest('[aria-hidden="true"]');
+		const number = tile ? leaf(/^\d+$/, tile) : undefined;
+		const title = article.querySelector("h2");
+		const link = title?.querySelector("a");
+		const column = title?.parentElement;
+		const facts = [...article.querySelectorAll("p")].find((p) =>
+			/^หลักฐาน \d+ รายการ/.test(p.textContent?.trim() ?? ""),
+		);
+		const icon = article.querySelector("svg.lucide-arrow-right");
+		const arrow = icon && box(icon).width > 0 ? icon : undefined;
+		const parts = [tile, column, arrow].filter((part) => part) as Element[];
+		const inLink = link ? leaf(/^MOIT \d+$/, link) : undefined;
+		const background = tile ? getComputedStyle(tile).backgroundImage : "";
+		return {
+			row: {
+				fill: style.backgroundColor,
+				shadow: style.boxShadow,
+				radius: style.borderTopLeftRadius,
+				padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
+			},
+			links: article.querySelectorAll("a").length,
+			tile:
+				tile && word && number
+					? {
+							hidden: tile.getAttribute("aria-hidden"),
+							size: [Math.round(box(tile).width), Math.round(box(tile).height)],
+							radius: getComputedStyle(tile).borderTopLeftRadius,
+							gradient: [
+								background.startsWith("linear-gradient"),
+								background.includes(from),
+								background.includes(to),
+							],
+							moit: font(word),
+							number: { text: number.textContent?.trim(), ...font(number) },
+							moitOverNumber: box(word).bottom <= box(number).top + 1,
+						}
+					: "missing",
+			title: title ? { size: font(title).size, weight: font(title).weight } : "missing",
+			facts:
+				facts && title
+					? {
+							...font(facts),
+							under: Math.round(box(facts).top - box(title).bottom),
+							inside: column ? box(facts).right <= box(column).right + 1 : false,
+						}
+					: "missing",
+			arrow: arrow
+				? {
+						size: [Math.round(box(arrow).width), Math.round(box(arrow).height)],
+						colour: getComputedStyle(arrow).color,
+						hidden: arrow.getAttribute("aria-hidden"),
+						atRowEnd:
+							Math.abs(
+								box(arrow).right - (box(article).right - Number.parseFloat(style.paddingRight)),
+							) < 1,
+					}
+				: "none",
+			oneLine:
+				parts.length >= 2 &&
+				parts.every((part, index) => {
+					const before = parts[index - 1];
+					if (!before) return true;
+					return (
+						box(before).right <= box(part).left &&
+						box(before).top < box(part).bottom &&
+						box(before).bottom > box(part).top
+					);
+				}),
+			gaps: parts
+				.slice(1)
+				.map((part, index) => Math.round(box(part).left - box(parts[index]!).right)),
+			moitForAssistiveTechnologyAlone: inLink
+				? Math.max(box(inLink).width, box(inLink).height) <= 1
+				: "no MOIT n in the link",
+		};
+	}, gradient);
+}
+
+/**
+ * Where `block`, what follows a list heading on its field, lies against the field's lower edge at
+ * 375, 639, 640 and 1,440 px, beside what each width should read: the field a list's, its content
+ * ending 96 px above the edge below 640 px and 128 px from 640 px, the block starting 64 and 88 px
+ * above it, and no focus ring in it meeting the field without its white band.
+ */
+async function readOverFieldEdge(
+	page: Page,
+	heading: ReturnType<typeof listHeading>,
+	block: Locator,
+) {
+	const seen: Record<string, unknown> = { field: await readListField(page) };
+	const expected: Record<string, unknown> = { field: LIST_FIELD_LOOK };
+	const onField = (await heading.field.count()) === 1;
+	const surfaceBase = await tokenColor(page, "surface-base");
+	for (const width of [375, 639, 640, 1440]) {
+		await page.setViewportSize({ width, height: 900 });
+		const reach = width < 640 ? FIELD_EDGE.phone : FIELD_EDGE.fromSm;
+		if (onField) {
+			const edge = await fieldEdge(heading.field, `at ${width} px`);
+			const lead = await boxOf(heading.lead, `the lead at ${width} px`);
+			seen[width] = {
+				contentEndsAbove: Math.round(edge - lead.y - lead.height),
+				startsAbove: Math.round(edge - (await boxOf(block, `the block at ${width} px`)).y),
+				unbanded: await ringsOverFieldUnbanded(block, heading.field, surfaceBase),
+			};
+		} else seen[width] = "no field";
+		expected[width] = { contentEndsAbove: reach.room, startsAbove: reach.overlap, unbanded: [] };
+	}
+	return { seen, expected };
+}
+
 /** The suite's own fiscal years among those the ITA landing lists, in order. */
 async function ownListedYears(page: Page): Promise<number[]> {
 	const cards = await page
@@ -328,7 +509,15 @@ test.beforeAll(async () => {
 	draft = await createMoit("draft", NEWER, 2);
 	older = await createMoit("older", OLDER, 1);
 	draftsOnly = await createMoit("drafts-only", DRAFTS_ONLY, 1);
-	for (const moit of [fifth, first, third, older]) await publishEntryAt(admin, "moit", moit.id);
+	longTitle = await createSyntheticMoit(
+		admin,
+		"long-title",
+		{ year: LONG_TITLE, number: 14, evidence: [], name: longName("long-title") },
+		{ data: { updated_on: UPDATED_ON } },
+	);
+	for (const moit of [fifth, first, third, older, longTitle]) {
+		await publishEntryAt(admin, "moit", moit.id);
+	}
 });
 
 test.afterEach(() => borrowed.giveBack(admin));
@@ -416,29 +605,9 @@ test("each fiscal year's card on the ITA landing is one link over the field's lo
 	expected.opened = ["the tile", "the lower corner", "Enter"].map((how) => `${how}: /ita/${NEWER}`);
 
 	await page.goto("/ita");
-	seen.field = await readListField(page);
-	expected.field = LIST_FIELD_LOOK;
-	const onField = (await heading.field.count()) === 1;
-	const surfaceBase = await tokenColor(page, "surface-base");
-	for (const width of [375, 639, 640, 1440]) {
-		await page.setViewportSize({ width, height: 900 });
-		const reach = width < 640 ? FIELD_EDGE.phone : FIELD_EDGE.fromSm;
-		const cards = yearCards(page);
-		if (onField) {
-			const edge = await fieldEdge(heading.field, `at ${width} px`);
-			const lead = await boxOf(heading.lead, `the lead at ${width} px`);
-			seen[width] = {
-				contentEndsAbove: Math.round(edge - lead.y - lead.height),
-				cardsStartAbove: Math.round(edge - (await boxOf(cards, `the cards at ${width} px`)).y),
-				unbanded: await ringsOverFieldUnbanded(cards, heading.field, surfaceBase),
-			};
-		} else seen[width] = "no field";
-		expected[width] = {
-			contentEndsAbove: reach.room,
-			cardsStartAbove: reach.overlap,
-			unbanded: [],
-		};
-	}
+	const edge = await readOverFieldEdge(page, heading, yearCards(page));
+	Object.assign(seen, edge.seen);
+	Object.assign(expected, edge.expected);
 	expect(seen, "the year cards over the field's edge").toEqual(expected);
 });
 
@@ -650,9 +819,25 @@ test.describe("/ita without JavaScript", () => {
 		};
 		expect(seen).toEqual({ title: true, lead: true, cards: [true, true], label: true });
 	});
+
+	test("a fiscal year's page shows its heading with its label and its lead, and each MOIT's row whole", async ({
+		page,
+	}) => {
+		await page.goto(`/ita/${NEWER}`);
+		const heading = listHeading(page, NEWER_HEADING);
+		const rows = [];
+		for (const moit of [first, third, fifth]) rows.push(await shownWhole(moitRow(page, moit)));
+		const seen = {
+			title: await shownWhole(heading.title),
+			lead: await shownWhole(heading.lead),
+			rows,
+			label: await shownWhole(heading.label),
+		};
+		expect(seen).toEqual({ title: true, lead: true, rows: [true, true, true], label: true });
+	});
 });
 
-test("a fiscal year's page lists its published MOITs by number, each with its badge, title, Evidence count and last-updated date when set, and never a draft", async ({
+test("a fiscal year's page lists its published MOITs by number, each with its title's link named MOIT n and the title, its Evidence count and its last-updated date when set, and never a draft", async ({
 	page,
 }) => {
 	const response = await page.goto(`/ita/${NEWER}`);
@@ -664,9 +849,9 @@ test("a fiscal year's page lists its published MOITs by number, each with its ba
 	await expect(main, "a draft never appears").not.toContainText(draft.title);
 
 	for (const moit of [first, third, fifth]) {
-		await expect(
-			listedItem(page, moit.heading).getByRole("link", { name: moit.heading }),
-		).toHaveAttribute("href", `/ita/${moit.slug}`);
+		const link = listedItem(page, moit.title).getByRole("link");
+		await expect(link).toHaveAccessibleName(moit.heading);
+		await expect(link).toHaveAttribute("href", `/ita/${moit.slug}`);
 	}
 	await expect(listedItem(page, third.heading)).toContainText("หลักฐาน 3 รายการ");
 	await expect(listedItem(page, third.heading)).toContainText(
@@ -686,6 +871,181 @@ test("a fiscal year's page lists its published MOITs by number, each with its ba
 		"href",
 		`${origin}/ita/${NEWER}`,
 	);
+});
+
+testHeadingOnField({
+	path: `/ita/${NEWER}`,
+	crumbs: [HOME_CRUMB, SECTION_CRUMBS.ita],
+	heading: NEWER_HEADING,
+	current: `ปีงบประมาณ ${NEWER}`,
+	icon: "calendar-check",
+});
+
+test("a fiscal year's page lists its MOITs over the field's lower edge in an ordered list, a row each, 14 px apart; the field a list's, its content ending 96 px above its edge below 640 px and 128 px from 640 px, the rows starting 64 and 88 px above it, each focus ring banded where it meets the field", async ({
+	page,
+}) => {
+	await page.goto(`/ita/${NEWER}`);
+	const rows = moitRows(page);
+	const seen: Record<string, unknown> = {
+		list: await rows.evaluateAll((lists) => lists.map((list) => list.tagName)),
+		rows: await rows
+			.getByRole("listitem")
+			.evaluateAll((items) => items.map((item) => item.querySelectorAll("article").length)),
+	};
+	const expected: Record<string, unknown> = { list: ["OL"], rows: [1, 1, 1] };
+	for (const width of [320, 1440]) {
+		await page.setViewportSize({ width, height: 900 });
+		const boxes = await rows
+			.getByRole("listitem")
+			.evaluateAll((items) =>
+				items.map((item) => [
+					item.getBoundingClientRect().top,
+					item.getBoundingClientRect().bottom,
+				]),
+			);
+		seen[`apart at ${width}`] = boxes
+			.slice(1)
+			.map(([top], index) => Math.round(top! - boxes[index]![1]!));
+		expected[`apart at ${width}`] = [14, 14];
+	}
+	const edge = await readOverFieldEdge(page, listHeading(page, NEWER_HEADING), rows);
+	Object.assign(seen, edge.seen);
+	Object.assign(expected, edge.expected);
+	expect(seen, "the rows over the field's edge").toEqual(expected);
+});
+
+test("a MOIT's row is white with the card shadow and radius 22, 12 px inside and from 640 px 18 px above, below and at the left and 22 px at the right; in one line, 14 px apart and 22 px from 640 px: the gradient tile, 68 px with radius 14 and 92 px with radius 18 from 640 px, MOIT small and semibold in accent-warm over the number at H3 size, H2 from 640 px, in surface-base, hidden from assistive technology; the title an H2 at body size, body-large from 640 px, semibold, and 4 px under it the facts line small in text-secondary; from 640 px a 20 px arrow-right in brand-primary at the row's end, none at 639 px; one link, the title, carrying MOIT n for assistive technology alone; under the pointer the deep shadow and the title underlined in brand-primary, and with focus the lists' white band, kept under the pointer", async ({
+	page,
+}) => {
+	await page.goto(`/ita/${NEWER}`);
+	const row = moitRow(page, third);
+	const [surfaceBase, textSecondary, brandPrimary, brandDark, accentWarm] = await Promise.all(
+		["surface-base", "text-secondary", "brand-primary", "brand-dark", "accent-warm"].map((name) =>
+			tokenColor(page, name),
+		),
+	);
+	const [cardShadow, deepShadow] = await Promise.all(
+		["card", "deep"].map((name) => tokenShadow(page, name)),
+	);
+	const seen: Record<string, unknown> = {};
+	const expected: Record<string, unknown> = {};
+	for (const width of [320, 639, 640, 1440]) {
+		await page.setViewportSize({ width, height: 900 });
+		const phone = width < 640;
+		seen[width] = await readMoitRow(row, [brandPrimary, brandDark]);
+		expected[width] = {
+			row: {
+				fill: surfaceBase,
+				shadow: cardShadow,
+				radius: "22px",
+				padding: phone ? ["12px", "12px", "12px", "12px"] : ["18px", "22px", "18px", "18px"],
+			},
+			links: 1,
+			tile: {
+				hidden: "true",
+				size: phone ? [68, 68] : [92, 92],
+				radius: phone ? "14px" : "18px",
+				gradient: [true, true, true],
+				moit: { size: 13, weight: "600", colour: accentWarm },
+				number: { text: "3", size: phone ? 24 : 34, weight: "600", colour: surfaceBase },
+				moitOverNumber: true,
+			},
+			title: { size: phone ? 16 : 18, weight: "600" },
+			facts: { size: 13, weight: "400", colour: textSecondary, under: 4, inside: true },
+			arrow: phone
+				? "none"
+				: { size: [20, 20], colour: brandPrimary, hidden: "true", atRowEnd: true },
+			oneLine: true,
+			gaps: phone ? [14] : [22, 22],
+			moitForAssistiveTechnologyAlone: true,
+		};
+	}
+
+	await page.setViewportSize(DESKTOP_VIEWPORT);
+	const link = row.getByRole("link");
+	// The pointer on the row's facts line, away from its one link.
+	await row
+		.locator("p")
+		.filter({ hasText: /^หลักฐาน/ })
+		.hover();
+	const shadowOf = (part: Locator) =>
+		part.evaluate((element) => getComputedStyle(element).boxShadow);
+	seen.hover = { row: await shadowOf(row) };
+	expected.hover = { row: deepShadow };
+	await link.hover();
+	seen.hoverTitle = await link.evaluate((element) => ({
+		colour: getComputedStyle(element).color,
+		line: getComputedStyle(element).textDecorationLine,
+	}));
+	expected.hoverTitle = { colour: brandPrimary, line: "underline" };
+	await page.mouse.move(0, 0);
+	await link.focus();
+	seen.focus = await link.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return { outline: style.outlineWidth, colour: style.outlineColor, band: style.boxShadow };
+	});
+	const band = expect.stringMatching(new RegExp(`${RegExp.escape(surfaceBase)} 0px 0px 0px 7px`));
+	expected.focus = { outline: "3px", colour: brandPrimary, band };
+	await link.hover();
+	seen.focusUnderPointer = await shadowOf(link);
+	expected.focusUnderPointer = band;
+	expect(seen, "the MOIT row's look").toEqual(expected);
+});
+
+test("a MOIT's row with a title of 175 characters shows its title whole at 320 px, its parts in one line and its facts inside its column, with nothing past the window", async ({
+	page,
+}) => {
+	expect(longTitle.title, "the fixture's title").toHaveLength(LONG_TITLE_LENGTH);
+	await page.setViewportSize(MOBILE_VIEWPORT);
+	await page.goto(`/ita/${LONG_TITLE}`);
+	const brand: [string, string] = [
+		await tokenColor(page, "brand-primary"),
+		await tokenColor(page, "brand-dark"),
+	];
+	await expectNoHorizontalScroll(page, `/ita/${LONG_TITLE} at 320 px`);
+	const row = moitRow(page, longTitle);
+	const title = row.getByRole("heading", { level: 2 });
+	const long = await readMoitRow(row, brand);
+	const seen = {
+		facts: (
+			await row
+				.locator("p")
+				.filter({ hasText: /^หลักฐาน/ })
+				.innerText()
+		).trim(),
+		whole: await shownWhole(title),
+		moreThanTwoLines: await title.evaluate(
+			(element) =>
+				element.getBoundingClientRect().height /
+					Number.parseFloat(getComputedStyle(element).lineHeight) >
+				2.5,
+		),
+		oneLine: long.oneLine,
+		factsInside: typeof long.facts === "string" ? long.facts : long.facts.inside,
+	};
+	expect(seen, "the long row at 320 px").toEqual({
+		facts: `หลักฐาน 0 รายการ · ปรับปรุงล่าสุด ${thaiDate(UPDATED_ON)}`,
+		whole: true,
+		moreThanTwoLines: true,
+		oneLine: true,
+		factsInside: true,
+	});
+});
+
+test(`a fiscal year's page moves only when motion is allowed: the heading and then the lead rise in as the page opens while the breadcrumb shows at once, each MOIT's row reveals as it comes into the window and shows whole while it holds the keyboard's focus, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way`, async ({
+	page,
+}) => {
+	test.setTimeout(90_000);
+	await expectListMovesOnlyWhenAllowed(
+		page,
+		`/ita/${NEWER}`,
+		listHeading(page, NEWER_HEADING),
+		[],
+		{
+			grid: moitRows(page),
+		},
+	);
+	await expectGridRevealsBelowShortWindow(page, `/ita/${NEWER}`, moitRows(page), "a row");
 });
 
 test("a fiscal year without a published MOIT answers the site 404, and its draft previewed leads back to ITA without the year", async ({
@@ -761,4 +1121,5 @@ test("a Quick Access item that points to /ita shows on the Homepage and leads to
 testAccessibilityAndReflow("the ITA landing and a fiscal year's page", () => [
 	"/ita",
 	`/ita/${NEWER}`,
+	`/ita/${LONG_TITLE}`,
 ]);

@@ -5,8 +5,10 @@
 // accent-warm, or "ไฟล์" when the file cannot be served or its name and stored key carry no type
 // (src/lib/media.ts). It is decorative, since the words beside it name the type too. A Document row
 // and a Document's page show it; the type's accent-warm is a measured exception at these sizes and
-// on this gradient (docs/design/DESIGN.md §3.2), so a change to either needs a new measure.
+// on this gradient (docs/design/DESIGN.md §3.2), so a change to either needs a new measure. Its
+// gradient box is RowTile, which a MOIT's row shares (Feature 013 #394).
 import FileText from "@lucide/astro/icons/file-text";
+import RowTile from "./RowTile.astro";
 
 interface Props {
 	/** The file's type, such as "PDF"; none for a file that cannot be served or has no type. */
@@ -16,10 +18,7 @@ interface Props {
 const { type } = Astro.props;
 ---
 
-<p
-	aria-hidden="true"
-	class="flex size-17 shrink-0 flex-col items-center justify-center gap-1 rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-surface-base sm:size-23 sm:rounded-18"
->
+<RowTile class="gap-1">
 	<FileText class="shrink-0" size={24} />
 	<span class="text-small font-semibold text-accent-warm">{type ?? "ไฟล์"}</span>
-</p>
+</RowTile>

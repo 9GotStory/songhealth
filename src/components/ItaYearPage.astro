@@ -1,26 +1,22 @@
 ---
 // A fiscal year's page, /ita/{fiscal-year} (Feature 004 #124; spec #121 "Public routes", ADR 0006):
-// the year's published MOITs by number (src/lib/ita.ts inMoitOrder), each a row with its
-// "MOIT n" badge and title, which lead to its page, how much Evidence it holds and
-// "ปรับปรุงล่าสุด" when staff set it. The Evidence is counted as the MOIT's own page counts it
-// (src/lib/ita.ts groupEvidence), without reading a file. src/pages/ita/[slug].astro renders this
-// for a year that has a published MOIT. Its heading names the assessment and the year, as a MOIT
-// page's header does, and its crumb the year alone (Product Owner, 2026-11-02: #124 comment
-// 6577248920).
+// the year's published MOITs by number (src/lib/ita.ts inMoitOrder), each leading to its page.
+// src/pages/ita/[slug].astro renders this for a year that has a published MOIT. Its heading names
+// the assessment and the year, as a MOIT page's header does, and its crumb the year alone (Product
+// Owner, 2026-11-02: #124 comment 6577248920).
+//
+// The page opens on the deep field as the lists do (Feature 013 #394; spec #392 "A fiscal year's
+// page", decisions 2 and 12; ListHeading): the label "ITA", the main navigation's word, with the
+// calendar-check icon over its H1, and the lead. The MOITs follow over the field's lower edge in an
+// ordered list, a row each (ItaMoitRow), 14 px apart, each revealed as it comes into the window
+// (`scroll-reveal`). A year's page always holds a MOIT, so it has no empty state.
+import CalendarCheck from "@lucide/astro/icons/calendar-check";
 import SiteLayout from "../layouts/SiteLayout.astro";
-import {
-	groupEvidence,
-	inMoitOrder,
-	itaYearLabel,
-	itaYearPath,
-	itaYearTitle,
-	moitLabel,
-	moitPath,
-} from "../lib/ita";
+import { inMoitOrder, itaYearLabel, itaYearPath, itaYearTitle } from "../lib/ita";
 import type { MoitEntry } from "../lib/moits";
-import DateText from "./DateText.astro";
-import PageHeading from "./PageHeading.astro";
-import ThaiTitle from "./ThaiTitle.astro";
+import ItaMoitRow from "./ItaMoitRow.astro";
+import ListBody from "./ListBody.astro";
+import ListHeading from "./ListHeading.astro";
 
 interface Props {
 	year: number;
@@ -33,42 +29,23 @@ const title = itaYearTitle(year);
 const lead = `ตัวชี้วัด MOIT ${moits.length} รายการของปีงบประมาณ พ.ศ. ${year} พร้อมหลักฐานที่เผยแพร่`;
 ---
 
-<SiteLayout
-	title={title}
-	section="ita"
-	description={lead}
-	canonical={itaYearPath(year)}
-	crumbs={[{ label: itaYearLabel(year) }]}
->
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={title} lead={lead} />
-		<ol class="flex flex-col divide-y divide-divider rounded-24 bg-surface-base shadow-card">
-			{inMoitOrder(moits).map(({ id, data }) => (
-				<li>
-					<article class="flex flex-col gap-2 p-5">
-						<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
-							<a
-								class="underline-offset-4 hover:text-brand-primary hover:underline"
-								href={moitPath(id)}
-							>
-								<span class="mr-1 inline-block rounded-pill bg-brand-primary px-3 py-0.5 text-label text-surface-base">
-									{moitLabel(data.number)}
-								</span>{" "}
-								<ThaiTitle text={data.title} />
-							</a>
-						</h2>
-						<p class="text-small text-text-secondary">
-							หลักฐาน {groupEvidence(data.evidence).total} รายการ
-							{data.updated_on && (
-								<>
-									{" · ปรับปรุงล่าสุด "}
-									<DateText value={data.updated_on} />
-								</>
-							)}
-						</p>
-					</article>
+<SiteLayout title={title} section="ita" description={lead} canonical={itaYearPath(year)}>
+	<ListHeading
+		section="ita"
+		crumbs={[{ label: itaYearLabel(year) }]}
+		label="ITA"
+		title={title}
+		lead={lead}
+	>
+		<CalendarCheck slot="icon" class="shrink-0" size={24} />
+	</ListHeading>
+	<ListBody>
+		<ol class="flex flex-col gap-3.5">
+			{inMoitOrder(moits).map((moit) => (
+				<li class="scroll-reveal">
+					<ItaMoitRow moit={moit} />
 				</li>
 			))}
 		</ol>
-	</div>
+	</ListBody>
 </SiteLayout>
