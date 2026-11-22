@@ -442,7 +442,7 @@ test("each fiscal year's card on the ITA landing is one link over the field's lo
 	expect(seen, "the year cards over the field's edge").toEqual(expected);
 });
 
-test("a fiscal year's card on the ITA landing is white with the card shadow, radius 24 and 24 px of padding, 28 px from 640 px: a 52 px gradient tile with calendar-check in accent-warm, ปีงบประมาณ at label size in text-secondary over the year as an H2 at H2 size in text-primary, and the count at label size, semibold, in brand-primary with a 20 px arrow-right at the row's right end, 20 px apart, and a 160 px surface-soft circle cut by the lower right corner; under the pointer the deep shadow and the year in brand-primary, and with focus the lists' white band", async ({
+test("a fiscal year's card on the ITA landing is white with the card shadow, radius 24 and 24 px of padding, 28 px from 640 px: a 52 px gradient tile with calendar-check in accent-warm, ปีงบประมาณ at label size in text-secondary over the year as an H2 at H2 size in text-primary, and the count at label size, semibold, in brand-primary with a 20 px arrow-right at the row's right end, 20 px apart, and a 160 px surface-soft circle cut by the lower right corner; under the pointer the deep shadow and the year in brand-primary, and with focus the lists' white band, kept under the pointer", async ({
 	page,
 }) => {
 	await page.goto("/ita");
@@ -509,11 +509,13 @@ test("a fiscal year's card on the ITA landing is white with the card shadow, rad
 		const style = getComputedStyle(element);
 		return { outline: style.outlineWidth, colour: style.outlineColor, band: style.boxShadow };
 	});
-	expected.focus = {
-		outline: "3px",
-		colour: brandPrimary,
-		band: expect.stringMatching(new RegExp(`${RegExp.escape(surfaceBase)} 0px 0px 0px 7px`)),
-	};
+	const band = expect.stringMatching(new RegExp(`${RegExp.escape(surfaceBase)} 0px 0px 0px 7px`));
+	expected.focus = { outline: "3px", colour: brandPrimary, band };
+	// The pointer over a focused card keeps the band: the deep shadow would take its place over
+	// the field (Impeccable audit, #393).
+	await card.hover();
+	seen.focusUnderPointer = await card.evaluate((element) => getComputedStyle(element).boxShadow);
+	expected.focusUnderPointer = band;
 	expect(seen, "the year card's look").toEqual(expected);
 });
 

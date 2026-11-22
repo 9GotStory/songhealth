@@ -15,7 +15,8 @@
 // The tile, the icons and the circle are decorative, so the card's words name the link:
 // "ปีงบประมาณ", the year and its count, as the landing's earlier card did. The cards lie over
 // the deep field's lower edge, so the link's focus ring has the lists' white band
-// (`focus-ring-banded`; CODING_STANDARDS "Public pages").
+// (`focus-ring-banded`; CODING_STANDARDS "Public pages"), which the deep shadow leaves in place
+// under the pointer.
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import CalendarCheck from "@lucide/astro/icons/calendar-check";
 import ThaiTitle from "./ThaiTitle.astro";
@@ -32,7 +33,7 @@ const { href, year, count } = Astro.props;
 ---
 
 <a
-	class="group focus-ring-banded relative flex h-full flex-col gap-5 overflow-clip rounded-24 bg-surface-base p-6 text-text-primary shadow-card hover:shadow-deep motion-safe:transition-shadow sm:p-7"
+	class="group focus-ring-banded relative flex h-full flex-col gap-5 overflow-clip rounded-24 bg-surface-base p-6 text-text-primary shadow-card hover:not-focus-visible:shadow-deep motion-safe:transition-shadow sm:p-7"
 	href={href}
 >
 	<span

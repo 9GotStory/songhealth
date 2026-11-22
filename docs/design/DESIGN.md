@@ -1339,8 +1339,8 @@ the MOIT page follows variant C, "สารบัญและการ์ด", o
     56 px past its lower edge, which cut it.
 
   The tile, the icons and the circle are decorative: the link is named by "ปีงบประมาณ", the year
-  and its count. Its focus ring has the lists' `surface-base` band (`focus-ring-banded`, §3). Each
-  card reveals as it comes into the window (§8.12). While no MOIT is published, the empty state
+  and its count. Its focus ring has the lists' `surface-base` band (`focus-ring-banded`, §3), which
+  the `deep` shadow leaves in place under the pointer. Each card reveals as it comes into the window (§8.12). While no MOIT is published, the empty state
   "ยังไม่มีข้อมูล ITA" lies over the field's edge and shows at once.
 - **Year `/ita/{fiscal-year}`:** the heading "ITA ปีงบประมาณ พ.ศ. YYYY", then one card that lists
   the year's MOITs by number between divider lines. Each row is a heading link, a "MOIT n" badge
