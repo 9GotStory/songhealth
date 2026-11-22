@@ -1,0 +1,15 @@
+after-ita-2570-1024.png	/ita/2570@1024
+after-ita-2570-1440.png	/ita/2570@1440
+after-ita-2570-320.png	/ita/2570@320
+after-ita-2570-375.png	/ita/2570@375
+after-ita-2570-768.png	/ita/2570@768
+after-ita-year-22-1024.png	/ita/2568@1024
+after-ita-year-22-1440.png	/ita/2568@1440
+after-ita-year-22-320.png	/ita/2568@320
+after-ita-year-22-375.png	/ita/2568@375
+after-ita-year-22-768.png	/ita/2568@768
+after-ita-year-one-1024.png	/ita/2569@1024
+after-ita-year-one-1440.png	/ita/2569@1440
+after-ita-year-one-320.png	/ita/2569@320
+after-ita-year-one-375.png	/ita/2569@375
+after-ita-year-one-768.png	/ita/2569@768
