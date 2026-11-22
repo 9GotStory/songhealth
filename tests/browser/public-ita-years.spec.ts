@@ -4,12 +4,12 @@
 // A citizen reaches ITA from the main navigation, where it is the last item and stays marked on
 // every ITA page. /ita lists each fiscal year that has a published MOIT, newest first, with how
 // many MOITs it has, or says that there is none yet. /ita/{fiscal-year} lists that year's
-// published MOITs by number, each with its "MOIT n" badge, its title, how much Evidence it holds
-// and "ปรับปรุงล่าสุด" when staff set it; a year without a published MOIT answers the site 404. A
-// MOIT page leads to the MOITs before and after it in its own year only, a draft in preview to
-// those around its number, and the breadcrumb steps down หน้าแรก › ITA › ปีงบประมาณ › MOIT; a
-// draft previewed in a year without a published MOIT, whose year has no page, steps from ITA to
-// the MOIT. Quick Access may lead to /ita.
+// published MOITs by number, each a row with "MOIT" over its number on a tile, its title, how much
+// Evidence it holds and "ปรับปรุงล่าสุด" when staff set it (#394); a year without a published MOIT
+// answers the site 404. A MOIT page leads to the MOITs before and after it in its own year only, a
+// draft in preview to those around its number, and the breadcrumb steps down หน้าแรก › ITA ›
+// ปีงบประมาณ › MOIT; a draft previewed in a year without a published MOIT, whose year has no page,
+// steps from ITA to the MOIT. Quick Access may lead to /ita.
 //
 // The suite drives the single development runtime over public HTTP through the public-page harness
 // (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px widths).

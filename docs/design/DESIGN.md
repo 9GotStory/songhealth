@@ -14,7 +14,7 @@
 > About pages, the Contact page and a Basic Page follows spec #365, implemented by #366–#372, and
 > was accepted on #365 (Product Owner, 2026-11-21: #365 comment 7060805067). Feature 013's
 > redesign of the ITA pages follows spec #392, implemented by #393–#397.
-> **Updated:** 2026-11-22 (#393); first drafted 2026-10-30
+> **Updated:** 2026-11-22 (#394); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -195,7 +195,9 @@ health-service network.
   pills under the Homepage's section heading and the two routes onward as white cards (§7.8, §9.10;
   #369). Feature 013 brings the list's heading to the ITA landing (spec #392; §7.8; #393), under
   the label "ITA", with each fiscal year that has a published MOIT as a large white card over the
-  field's edge, its year as an H2 beside a gradient calendar tile (§8.3).
+  field's edge, its year as an H2 beside a gradient calendar tile (§8.3), and to a fiscal year's
+  page (#394), under the same label, with each of the year's MOITs as a white row over the edge,
+  its number on the Document row's gradient tile (§8.3).
   Every page outside these features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -264,7 +266,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip and, on `/about/leadership`, of the featured first leader (§7.3), the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's and a Health Report's page, the file's type on its tile (§7.3, §9.4, §9.5, §9.6); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), on a Document's header the pill of a superseded or expired status (§9.5), and on a Health Report's header the pill of "วันที่รายงาน" and the report date (§9.6); on a fiscal year's card on the ITA landing, the `calendar-check` on its gradient tile (§8.3) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip and, on `/about/leadership`, of the featured first leader (§7.3), the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's and a Health Report's page, the file's type on its tile (§7.3, §9.4, §9.5, §9.6); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), on a Document's header the pill of a superseded or expired status (§9.5), and on a Health Report's header the pill of "วันที่รายงาน" and the report date (§9.6); on a fiscal year's card on the ITA landing, the `calendar-check` on its gradient tile, and on a MOIT's row on a fiscal year's page, "MOIT" over the number on its tile (§8.3) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -272,7 +274,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | `surface-soft` | `#eaf5f0` | soft bands, the Current Announcements' band and its general category badge |
 | `border-default` | `#dce7e2` | borders |
 | `topic-blue` | `#f0f5fc` | the procurement Announcement badge's fill (§8.7); `topic-green`, the old Health Information cards' other fill, left the tokens with them (#246), `contact-visual-from` and `-to`, the map stand-in's fill, with it (#247), and `activity-visual-from` and `-to`, the old Activity card's fill without a picture, with that card (#313) |
-| `divider` | `#dbe8e3` | separators inside a white box: the ITA year's rows, the line above a post's topics; the rule in the card on a Document's and a Health Report's page is `border-default` (§9.5, §9.6) |
+| `divider` | `#dbe8e3` | separators inside a white box: the line above a post's topics; the rule in the card on a Document's and a Health Report's page is `border-default` (§9.5, §9.6) |
 | `hero-chip`, `hero-secondary-fill`, `hero-secondary-border` | white at 12 %, 6 %, 28 % | the hero's chip; a secondary link on a dark surface |
 | `text-secondary-on-soft` | `#5d6a64` | secondary text on `surface-soft` (contrast fix, #51) |
 | `border-input` | `#7a8a83` | input boundaries (contrast fix, #51) |
@@ -350,7 +352,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, one of the two exceptions to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
-| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's and a Health Report's page (§9.5, §9.6), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, its own tile of the file tile's size and gradient with `file-chart-column` (§7.3; #342) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342); on a Health Report's page 5.68:1 (#343) |
+| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's and a Health Report's page (§9.5, §9.6), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, its own tile of the file tile's size and gradient with `file-chart-column` (§7.3; #342); "MOIT" over the number on a MOIT's row on a fiscal year's page, on the same tile (`RowTile`, §8.3; #394) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342); on a Health Report's page 5.68:1 (#343); "MOIT" 4.69:1 or more (375 and 320 px, `/ita/2570` at `f77e864`, #394) |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7, and the label on its page, §9.4) | 13.85:1 |
@@ -530,14 +532,14 @@ this document names:
 | Area | Components |
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
-| Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it, or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10), `ThaiTitle` |
+| Headings | `PageHeading` (`/search` alone since Feature 013 #394), `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it, or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10), `ThaiTitle` |
 | Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog; and `kind="section"`, a Health Service's "บริการที่ให้", §8.4, §9.8), `HomeQuickLink` (the Homepage's Quick Access; `kind="list"`, `/health`'s and `/about`'s tiles, §7.3, §8.11), `ItaYearCard` (a fiscal year's card on the ITA landing, §8.3), `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3), `OfficeContactDetails` (Office Contact's card on `/contact`, a row per detail with its icon, §9.10); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
 | Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5), a Health Report's (§9.6), a Service's (§9.7), a Health Service's (§9.8), a Basic Page's (§9.9), and `/about`'s, a list's field under a Basic Page's header (§9.9) |
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons; with `arrow`, semibold with a 16 px `arrow-right`, `/contact`'s routes, §9.10), `ArrowLink` (onward links), `Pagination`, `Breadcrumb`; `ContentLink`'s `compact` form, the footer's official channels and `/contact`'s pills (§9.10) |
-| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `RelatedDocuments` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RowTile`, the gradient tile of 68 px and 92 px from `sm`, which `FileTile` and `ItaMoitRow` share, each with its own lines; `RelatedDocuments` |
 
 ### 7.2 Component rules
 
@@ -962,7 +964,8 @@ About Document pages (`/about/policies`, `/about/plans` and `/about/results`), a
 (spec #365 decisions 4 and 11) the Leadership page (`/about/leadership`), and since #370 (spec
 #365 decisions 4 and 12) the Personnel page (`/about/personnel`), and since #369 (spec #365
 decisions 4, 9 and 13) the Contact page (`/contact`), and since Feature 013 #393 (spec #392
-decisions 2, 7 and 11) the ITA landing (`/ita`).
+decisions 2, 7 and 11) the ITA landing (`/ita`), and since #394 (spec #392 decisions 2 and 12) a
+fiscal year's page (`/ita/{fiscal-year}`).
 
 - **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
   `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
@@ -1028,6 +1031,11 @@ decisions 2, 7 and 11) the ITA landing (`/ita`).
   under the lead, and keeps its lead, its title in the head and its breadcrumb (spec #392 decision
   2; Feature 013 #393). Its year cards lie over the field's edge, or with no published MOIT its
   empty state (§8.3).
+- **A fiscal year's page** (`/ita/{fiscal-year}`) is labelled "ITA" over its H1 "ITA ปีงบประมาณ
+  พ.ศ. YYYY", with `calendar-check`, its breadcrumb หน้าแรก › ITA › ปีงบประมาณ YYYY. It has no pill
+  link or links under the lead, and keeps its lead, its title in the head and its breadcrumb (spec
+  #392 decision 2; Feature 013 #394). Its MOIT rows lie over the field's edge; a year's page
+  always holds a MOIT, so it has no empty state (§8.3).
 - **The links under the lead.** `/services` has two, "ค้นหาหน่วยบริการสุขภาพที่เกี่ยวข้อง" to the
   directory and "คู่มือและแบบฟอร์ม" to `/documents`, its related pages that are not Services (spec
   #338 "The Service catalog", decision 15): 16 px under the lead, `surface-base` words, semibold,
@@ -1342,9 +1350,27 @@ the MOIT page follows variant C, "สารบัญและการ์ด", o
   and its count. Its focus ring has the lists' `surface-base` band (`focus-ring-banded`, §3), which
   the `deep` shadow leaves in place under the pointer. Each card reveals as it comes into the window (§8.12). While no MOIT is published, the empty state
   "ยังไม่มีข้อมูล ITA" lies over the field's edge and shows at once.
-- **Year `/ita/{fiscal-year}`:** the heading "ITA ปีงบประมาณ พ.ศ. YYYY", then one card that lists
-  the year's MOITs by number between divider lines. Each row is a heading link, a "MOIT n" badge
-  and the title, over "หลักฐาน n รายการ · ปรับปรุงล่าสุด date".
+- **Year `/ita/{fiscal-year}`** (Feature 013 #394; spec #392 "A fiscal year's page", decisions 2
+  and 12; prototype P2 A): the list heading on the deep field (§7.8), the label "ITA" and
+  `calendar-check` over the H1 "ITA ปีงบประมาณ พ.ศ. YYYY", and the lead. Over the field's lower
+  edge, the year's published MOITs by number in an ordered list, a row each (`ItaMoitRow`), 14 px
+  apart. A row is white with the `card` shadow and the `deep` shadow under the pointer, radius
+  22, 12 px of padding and from `sm` 18 px above, below and at the left and 22 px at the right.
+  Its parts lie in one line at every width, 14 px apart and 22 px from `sm`:
+  - the Document row's gradient tile (`RowTile`, §7.3: 68 px with radius 14 below `sm`, 92 px
+    with radius 18 from `sm`) with "MOIT" at small size, semibold, in `accent-warm` (§3.2) over
+    the number at H3 size, H2 size from `sm`, in `surface-base`;
+  - the title as an H2 at body size, body-large from `sm`, semibold, shown whole on as many lines
+    as it needs, a link as wide as its words that is underlined and `brand-primary` under the
+    pointer; 4 px under it the facts line at small size in `text-secondary`, "หลักฐาน n รายการ",
+    then " · ปรับปรุงล่าสุด" and the date when staff set it, wrapping where the column ends;
+  - from `sm` a 20 px `arrow-right` in `brand-primary` at the row's right end; below `sm` none.
+
+  The tile and the arrow are decorative: the title's link carries "MOIT n" for assistive
+  technology alone, so it is named "MOIT n" and the title, as the badge inside it was. Only the
+  title is a link, as in a Document's row, and its focus ring has the lists' `surface-base` band
+  (`focus-ring-banded`, §3), which the row's shadow leaves in place under the pointer. Each row
+  reveals as it comes into the window (§8.12).
 - **MOIT `/ita/{slug}`:**
   - a brand-dark header band: "ITA ปีงบประมาณ พ.ศ. YYYY", the H1 "MOIT n" and the title, the
     summary, the Evidence count (and how many files cannot be served), and "ปรับปรุงล่าสุด" when
@@ -1779,7 +1805,8 @@ stays the submit state (§8.9).
   picture's shimmer, as the Leadership strip's portraits; `/about`'s tiles since #371, under a
   Basic Page's header, below; `/ita`'s year cards since Feature 013 #393, as `/health`'s tiles,
   with its empty state at once, `public-ita-years.spec.ts` "/ita moves only when motion is allowed:
-  …"). On `/contact` nothing reveals: its breadcrumb, details card,
+  …", and a fiscal year's MOIT rows since #394, "a fiscal year's page moves only when motion is
+  allowed: …"). On `/contact` nothing reveals: its breadcrumb, details card,
   channels and two routes show at once (§9.10; #369; `public-contact.spec.ts` "/contact moves only
   when motion is allowed: …").
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
@@ -3282,4 +3309,14 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   state lies over the edge. The landing's `PageHeading` goes, and `QuickLinkCard`, which has no
   page left, goes. The Status line and a Feature 013 banner name the feature, and §2, §3.1
   (`accent-warm`), §7.1, §7.3, §7.8, §8.3 and §8.12 name the page. Authority: spec #392 "The ITA
-  landing", "Motion" and decisions 2, 7, 9 and 11, and #392 comment 7075910252.
+  landing", "Motion" and decisions 2, 7, 9 and 11, and #392 comment 7075910252. A fiscal year's
+  page follows (#394): it opens on the deep field with the list heading, the label "ITA" and
+  `calendar-check` new to it, and the H1, the lead, the titles, the facts line's words, the title
+  in the head and the breadcrumb stay. Its MOITs lie over the field's edge as white rows in an
+  ordered list, each with "MOIT" over its number on the Document row's gradient tile (`RowTile`,
+  which `FileTile` now shares), the title as the row's one link, the facts line and from `sm` an
+  arrow (`ItaMoitRow`, §8.3), each revealed as it comes into the window. "MOIT n" moves from the
+  badge inside the link onto the tile, and the link carries it for assistive technology alone.
+  The year page's `PageHeading` and its one card with divider lines go, and the `divider` token
+  loses the year's rows. §2, §3.1 (`accent-warm`, `divider`), §3.2, §7.1, §7.8, §8.3 and §8.12
+  name the page. Authority: spec #392 "A fiscal year's page", "Motion" and decisions 2 and 12.
