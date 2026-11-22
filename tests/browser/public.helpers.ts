@@ -3335,7 +3335,7 @@ export interface HeaderOnField {
 	 * The words that open the title in `accent-warm`, as a MOIT's "MOIT n" (Feature 013 #395); none
 	 * where the whole title is in `surface-base`, as on every other page with this header.
 	 */
-	lead?: string;
+	titlePrefix?: string;
 	/** The line under the title as staff typed it, and on how many lines it shows at 1,440 px. */
 	under?: { text: string; lines: number };
 }
@@ -3345,8 +3345,8 @@ export interface HeaderOnField {
  * header" set it (docs/design/DESIGN.md §9.4): at 320, 375 and 1,440 px the breadcrumb in white;
  * 24 px under it the row of pills, each with its 1 px edge in its look, the next 8 px beside the
  * one before it or, where the row wraps, at the row's start 8 px under it; the title under them, or
- * 24 px under the breadcrumb without a pill, its words in `surface-base` after the `lead` in
- * `accent-warm` where it has one; each on the field, the header 48 rem wide at most; and
+ * 24 px under the breadcrumb without a pill, its words in `surface-base` after the `titlePrefix`
+ * in `accent-warm` where it has one; each on the field, the header 48 rem wide at most; and
  * the line under the title at body-large in white with the line breaks staff typed. The test
  * compares `seen` with `expected`, beside its own reads.
  */
@@ -3406,7 +3406,7 @@ export async function readHeaderOnField(page: Page, header: HeaderOnField) {
 				await parts.title.evaluate((heading) => getComputedStyle(heading).color),
 			],
 			// The title's words in runs of one colour, in reading order: the lead's run, then the rest.
-			titleRuns: await parts.title.evaluate((heading, lead) => {
+			titleRuns: await parts.title.evaluate((heading, prefix) => {
 				const runs: Array<{ words: string; colour: string }> = [];
 				const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
 				for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -3418,9 +3418,9 @@ export async function readHeaderOnField(page: Page, header: HeaderOnField) {
 					else runs.push({ words, colour });
 				}
 				return runs.map(({ words, colour }, index) =>
-					index === 0 && lead ? { words, colour } : { colour },
+					index === 0 && prefix ? { words, colour } : { colour },
 				);
-			}, header.lead),
+			}, header.titlePrefix),
 		};
 		expected[viewport.width] = {
 			onField: true,
@@ -3434,8 +3434,8 @@ export async function readHeaderOnField(page: Page, header: HeaderOnField) {
 				edge: "1px",
 			})),
 			white: [white, white, white],
-			titleRuns: header.lead
-				? [{ words: header.lead, colour: look.warm.fill }, { colour: white }]
+			titleRuns: header.titlePrefix
+				? [{ words: header.titlePrefix, colour: look.warm.fill }, { colour: white }]
 				: [{ colour: white }],
 		};
 	}

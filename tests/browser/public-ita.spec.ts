@@ -61,6 +61,7 @@ import {
 	readHeaderOnField,
 	readListField,
 	readWholeAtTwoWidths,
+	LIST_FIELD_LOOK,
 	siteTitleParts,
 	sitemapLocations,
 	test,
@@ -318,10 +319,16 @@ test("a draft, unpublished or trashed MOIT and an unknown slug answer the site 4
 		`/ita/${draft.slug}`,
 	);
 	await expect(card(page, "1. ข้อกำหนดของฉบับร่าง")).toBeVisible();
-	await expect(
-		fieldParts(page).header.getByText(`ITA ปีงบประมาณ พ.ศ. ${FISCAL_YEAR}`, { exact: true }),
-		"the preview shows the header on the field, the fiscal year in its pill",
-	).toBeVisible();
+	// The same header as a published MOIT's: the pill, "MOIT 4" opening the H1, the counts line.
+	const { seen, expected } = await readHeaderOnField(page, {
+		pills: [{ words: `ITA ปีงบประมาณ พ.ศ. ${FISCAL_YEAR}`, look: "outlined" }],
+		titlePrefix: "MOIT 4",
+	});
+	seen.counts = await fieldParts(page)
+		.header.getByText(/^หลักฐาน \d+ รายการ/)
+		.allInnerTexts();
+	expected.counts = ["หลักฐาน 0 รายการ ใน 1 ข้อ"];
+	expect(seen, "the preview shows the header on the field").toEqual(expected);
 });
 
 test("a MOIT page carries its title, description, absolute canonical address and OG tags, with the SEO fields first, and the sitemap lists it but never a draft", async ({
@@ -490,19 +497,19 @@ test.describe("the header on the field", () => {
 		await expect(page.getByRole("heading", { level: 1 }), "one H1").toHaveCount(1);
 		const { seen, expected } = await readHeaderOnField(page, {
 			pills: [{ words: yearPill, look: "outlined" }],
-			lead: "MOIT 14",
+			titlePrefix: "MOIT 14",
 			under: { text: summary, lines: 1 },
 		});
 		const onField = (await parts.field.count()) === 1;
 		const white = await tokenColor(page, "surface-base");
 		const pill = parts.field.getByText(yearPill, { exact: true });
-		const lead = parts.header.getByText(summary, { exact: true });
+		const summaryLine = parts.header.getByText(summary, { exact: true });
 		const counts = countsLine(page);
 		const toc = tableOfContents(page);
 
 		seen.look = await readListField(page);
 		expected.look = Object.fromEntries(
-			Object.keys(seen.look as object).map((width) => [width, { glow: true, rings: 0 }]),
+			Object.keys(LIST_FIELD_LOOK).map((width) => [width, { glow: true, rings: 0 }]),
 		);
 		seen.counts = onField && {
 			text: (await counts.innerText()).trim(),
@@ -539,10 +546,10 @@ test.describe("the header on the field", () => {
 			if (!onField) {
 				places[width] = "no field";
 			} else {
-				const [pillBox, titleBox, leadBox, countsBox, tocBox] = [
+				const [pillBox, titleBox, summaryBox, countsBox, tocBox] = [
 					await boxOf(pill, `${at}: the pill`),
 					await boxOf(parts.title, `${at}: the H1`),
-					await boxOf(lead, `${at}: the summary`),
+					await boxOf(summaryLine, `${at}: the summary`),
 					await boxOf(counts, `${at}: the counts line`),
 					await boxOf(toc, `${at}: the table of contents`),
 				];
@@ -550,8 +557,8 @@ test.describe("the header on the field", () => {
 				places[width] = {
 					apart: [
 						titleBox.y - pillBox.y - pillBox.height,
-						leadBox.y - titleBox.y - titleBox.height,
-						countsBox.y - leadBox.y - leadBox.height,
+						summaryBox.y - titleBox.y - titleBox.height,
+						countsBox.y - summaryBox.y - summaryBox.height,
 					].map(Math.round),
 					fieldUnderHeader: Math.round(edge - countsBox.y - countsBox.height),
 					bodyUnderField: Math.round(tocBox.y - edge),
@@ -636,14 +643,20 @@ test.describe("the header on the field", () => {
 		expect(seen, "the header's lines and the page without Evidence").toEqual(expected);
 	});
 
-	test("a MOIT page moves only when motion is allowed: the header's pill, H1, summary and counts line rise in as the page opens while the breadcrumb, the table of contents and the cards show at once", async ({
+	test("a MOIT page moves only when motion is allowed: the header's pill, H1, summary and counts line rise in as the page opens while the breadcrumb, the table of contents, the cards, their Evidence pills and the neighbour links show at once", async ({
 		page,
 	}) => {
 		const parts = fieldParts(page);
+		const first = card(page, "1. ข้อกำหนดใต้ส่วนหัว");
 		const atOnce: Array<[string, Locator]> = [
 			["the breadcrumb", parts.breadcrumb],
 			["the table of contents", tableOfContents(page)],
-			["the first card", card(page, "1. ข้อกำหนดใต้ส่วนหัว")],
+			["the first card", first],
+			["an Evidence pill", first.getByRole("link", { name: /1\.1 หลักฐานใต้ส่วนหัว/ })],
+			[
+				"the neighbour links",
+				page.getByRole("navigation", { name: "ตัวชี้วัดอื่นในปีงบประมาณเดียวกัน" }),
+			],
 		];
 		const { seen, expected } = await readHeaderMotion(
 			page,

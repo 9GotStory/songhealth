@@ -29,9 +29,8 @@
 //
 // A MOIT's page takes it too (Feature 013 #395; spec #392 "A MOIT's page: the header", decisions 3,
 // 8 and 13): its fiscal year's title in the outlined pill, "MOIT n" opening the H1 in accent-warm
-// (`lead`), the H1 no larger than H2 size from `lg` (`largest`), since a title of the length the
-// office has published ran to six lines at H1 size, its summary, and its counts line in the default
-// slot (src/components/MoitPage.astro).
+// (`titlePrefix`), the H1 no larger than H2 size from `lg` (`largest`; why: docs/design/DESIGN.md
+// §9.11), its summary, and its counts line in the default slot (src/components/MoitPage.astro).
 //
 // The page passes no `crumbs` to the shell, which then shows no breadcrumb above the page
 // (src/layouts/SiteLayout.astro), and gives them here with its section, as ListHeading.astro does.
@@ -67,7 +66,7 @@ interface Props {
 	/** An accent-warm pill's words after the outlined one, such as a Document's status. */
 	attention?: string;
 	/** Words that open the title in accent-warm, such as a MOIT's "MOIT n". */
-	lead?: string;
+	titlePrefix?: string;
 	/** The title's largest size: H1 from `lg`, or H2, as a MOIT's (H2 from `sm` either way). */
 	largest?: "h1" | "h2";
 }
@@ -81,7 +80,7 @@ const {
 	dateWords = "เผยแพร่",
 	outlined,
 	attention,
-	lead,
+	titlePrefix,
 	largest = "h1",
 } = Astro.props;
 const outlinedPills = [outlined ?? []].flat().filter(Boolean);
@@ -109,9 +108,9 @@ const warmPill =
 			</p>
 		)}
 		<h1 class:list={["text-h3 wrap-anywhere sm:text-h2", largest === "h1" && "lg:text-h1"]}>
-			{lead && (
+			{titlePrefix && (
 				<>
-					<span class="text-accent-warm">{lead}</span>{" "}
+					<span class="text-accent-warm">{titlePrefix}</span>{" "}
 				</>
 			)}
 			<ThaiTitle text={title} />

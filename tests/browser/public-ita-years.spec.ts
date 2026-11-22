@@ -1145,6 +1145,47 @@ test("the main navigation ends with ITA and marks it on the landing, a year's pa
 	});
 });
 
+test("a MOIT's page without Evidence or neighbours ends with its field, 40 px under the header below 640 px and 48 px from 640 px, nothing after it but the page's own 64 px below 1,024 px and 80 px from 1,024 px", async ({
+	page,
+}) => {
+	// The year's one MOIT, without Evidence: no table of contents, card or neighbour link.
+	await page.goto(`/ita/${longTitle.slug}`);
+	const main = page.getByRole("main");
+	const field = page.getByTestId("deep-field");
+	const article = main.getByRole("article");
+	const seen: Record<number, unknown> = {};
+	const expected: Record<number, unknown> = {};
+	for (const width of [320, 639, 640, 1023, 1024, 1440]) {
+		await page.setViewportSize({ width, height: 900 });
+		const at = `at ${width} px`;
+		if ((await field.count()) !== 1) {
+			seen[width] = "no field";
+		} else {
+			const edge = await fieldEdge(field, at);
+			const counts = await boxOf(field.getByText(/^หลักฐาน \d+ รายการ/), `${at}: the counts line`);
+			const content = await boxOf(article, `${at}: the page's content`);
+			seen[width] = {
+				fieldUnderHeader: Math.round(edge - counts.y - counts.height),
+				// No part of the page's content lies below the field.
+				afterField: await article.evaluate(
+					(content, fieldEnd) =>
+						[...content.querySelectorAll("*")].filter(
+							(part) => part.getBoundingClientRect().bottom > fieldEnd + 0.5,
+						).length,
+					edge,
+				),
+				roomAfterField: Math.round(content.y + content.height - edge),
+			};
+		}
+		expected[width] = {
+			fieldUnderHeader: width < 640 ? 40 : 48,
+			afterField: 0,
+			roomAfterField: width < 1024 ? 64 : 80,
+		};
+	}
+	expect(seen, "the page ends with its field").toEqual(expected);
+});
+
 test("a MOIT's page with a title of 175 characters shows its header on the field whole at 375 and 320 px, the breadcrumb's four crumbs on two lines at 320 px, with nothing past the window", async ({
 	page,
 }) => {

@@ -2421,7 +2421,7 @@ a Post page.
   white (หน้าแรก › ITA › ปีงบประมาณ YYYY › MOIT n, the year's crumb only while the year has its
   page, §8.3); 24 px under it the fiscal year's title, "ITA ปีงบประมาณ พ.ศ. YYYY", in the outlined
   pill (13 / 20 semibold, a 1 px edge), as a Document's type is on its page; the H1, "MOIT n" in
-  `accent-warm` (`PostHeader`'s `lead`) and the title in `surface-base`, at H3 size below `sm` and
+  `accent-warm` (`PostHeader`'s `titlePrefix`) and the title in `surface-base`, at H3 size below `sm` and
   H2 size from `sm`, with no larger size from `lg` (`largest="h2"`), since a title of the length
   the office has published ran to six lines at H1 size (spec #392 decision 13); the summary at
   body-large when the MOIT has one; and the counts line at body size, "หลักฐาน n รายการ ใน m ข้อ"
@@ -2441,8 +2441,9 @@ a Post page.
   1,440 px, the H1's sizes and the field's and the body's places at 320, 639, 640, 1,023, 1,024
   and 1,440 px, a MOIT without a summary, without a date, with a file that cannot be served,
   without a Requirement and without Evidence, the motion, and the page without JavaScript;
-  `public-ita-years.spec.ts` reads the breadcrumb on the field on the three ITA pages and a MOIT's
-  page with a title of 175 characters at 375 and 320 px.
+  `public-ita-years.spec.ts` reads the breadcrumb on the field on the three ITA pages, a MOIT's
+  page without Evidence or neighbours that ends with its field, and a MOIT's page with a title of
+  175 characters at 375 and 320 px.
 - **Measured** on the development runtime at `4405549` (#395), `scripts/measure-text-contrast.ts
   --all-text --fold` on the field at 1,440, 1,024, 768, 375 and 320 px, on the demo dataset's two
   MOITs and on the `moit-published-sizes` (a title of 175 characters) and `moit-no-summary` cases
@@ -3375,9 +3376,9 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   field with the Post page's header in place of its dark rounded band: the breadcrumb moves from
   above the page onto the field, the fiscal year's title from a line of its own into the outlined
   pill, and the H1 keeps "MOIT n" in `accent-warm`, at H3 size below `sm` and H2 size from `sm`
-  (`PostHeader`'s `lead` and `largest`, which every other page leaves at its default). The H1's
+  (`PostHeader`'s `titlePrefix` and `largest`, which every other page leaves at its default). The H1's
   words, the summary, the counts line's words, the head's title and description and the
   breadcrumb's crumbs stay, and the body keeps its look under the field until #396. With motion
-  allowed the header's text rises in. §2, §3.1 (`accent-warm`), the contrast table, §7.1, §8.3,
+  allowed the header's text rises in. §2, §3.1 (`accent-warm`), §3.2 (the contrast of "MOIT n"), §7.1, §8.3,
   §8.12 and §9.11 name the page. Authority: spec #392 "A MOIT's page: the header", "Motion" and
   decisions 3, 8 and 13.
