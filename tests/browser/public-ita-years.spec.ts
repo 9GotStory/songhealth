@@ -548,7 +548,8 @@ test("the ITA landing lays its year cards one to a row at 320 and 639 px, two at
 					const column = (grid.width - (perRow - 1) * gap) / perRow;
 					const read: Record<string, unknown> = {
 						perRow: await itemsPerRow(items),
-						widths: boxes.map((box) => Math.round(box.width - column)),
+						// `|| 0` reads a rounded -0 as 0.
+						widths: boxes.map((box) => Math.round(box.width - column) || 0),
 					};
 					const expectedAt: Record<string, unknown> = {
 						perRow: Array.from({ length: Math.ceil(count / perRow) }, (_, row) =>
