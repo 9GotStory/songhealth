@@ -270,11 +270,12 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
   `object-position: 50% 50%` (#284 comment 6870867641). So every `Image` a public page crops with
   `object-cover` takes `placeholder={false}` and crops around a focal point:
   `./src/components/ContentCard.astro`, `./src/components/ActivityPhotos.astro`, `./src/components/HomeActivityTile.astro`,
-  `./src/components/HomeHealthCard.astro`, `./src/components/HomeLeadershipStrip.astro` and
-  `./src/components/PersonCard.astro` (#298 comment 6892189972, decision 1), as the blurred copy
-  in `./src/components/HomeHero.astro` does (above), and
-  `./tests/node/public-media.test.ts` fails on one that keeps the placeholder. The two portraits
-  also carry `object-top`, a class, which the inline `object-position` of a focal point overrides.
+  `./src/components/HomeHealthCard.astro`, `./src/components/PersonPicture.astro` (a person's
+  picture in its ring, which the Homepage's Leadership strip, the Leadership page's cards and the
+  Personnel page's rows share; Feature 012 #367, #370; #298 comment 6892189972, decision 1), as
+  the blurred copy in `./src/components/HomeHero.astro` does (above), and
+  `./tests/node/public-media.test.ts` fails on one that keeps the placeholder. The portrait also
+  carries `object-top`, a class, which the inline `object-position` of a focal point overrides.
   EmDash 1.5.0 closes the placeholder's declaration: its `src/components/EmDashImage.astro`
   `resolveImage` adds a `;` to a placeholder style that does not end in one before it joins the
   `object-position` (read from the published `emdash@1.5.0` package on 2026-11-15). So the prop

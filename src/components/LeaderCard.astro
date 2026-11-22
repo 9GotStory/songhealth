@@ -1,0 +1,82 @@
+---
+// A leader's card on /about/leadership (Feature 012 #367; spec #365 decision 11, "Leadership";
+// prototype P2 C): their picture in the Leadership strip's ringed circle (PersonPicture), their
+// shown name as an H2, their position and unit, and their public contact only when it is set.
+// Personnel has no page of its own (`03` §5), so the card links nowhere.
+//
+// The first leader's card is `featured`, across the row: white with the `deep` shadow, the circle
+// at 96 px and 128 px from `sm` in the 3 px `accent-warm` ring, the name at H3 size and H2 size
+// from `sm`, the position at body-large in `brand-primary` and the unit in `text-secondary`, the
+// picture above the text below `sm` and beside it from `sm`, and from `sm` a decorative
+// `surface-soft` circle at the lower right. Every other card has the `card` shadow, the circle at
+// 60 px and 76 px from `sm` in the 2 px `border-default` ring, the name at body-large, the position
+// in `text-secondary` and the unit in `brand-primary`, beside the picture.
+import PersonPicture from "./PersonPicture.astro";
+import PublicContact from "./PublicContact.astro";
+import ThaiTitle from "./ThaiTitle.astro";
+import type { PersonnelEntry } from "../lib/personnel";
+import { shownName } from "../lib/personnel-directory";
+
+interface Props {
+	person: PersonnelEntry;
+	featured?: boolean;
+}
+
+const { person, featured = false } = Astro.props;
+const data = person.data;
+const unit = data.organizational_unit?.trim();
+---
+
+<article
+	class:list={[
+		"flex rounded-24 bg-surface-base",
+		featured
+			? "relative flex-col items-start gap-5 overflow-clip p-6 shadow-deep sm:flex-row sm:items-center sm:gap-8 sm:p-8 lg:px-10"
+			: "h-full items-start gap-4 p-5 shadow-card sm:gap-5",
+	]}
+>
+	{featured && (
+		<span
+			aria-hidden="true"
+			data-testid="leader-decoration"
+			class="pointer-events-none absolute -right-16 -bottom-24 size-60 rounded-pill bg-surface-soft max-sm:hidden"
+		/>
+	)}
+	<PersonPicture
+		picture={data.profile_image}
+		size={featured ? 96 : 60}
+		ring={featured ? "warm" : "plain"}
+		class={featured ? "relative" : undefined}
+	/>
+	<div class:list={["flex min-w-0 flex-col", featured ? "relative gap-1.5" : "gap-1 pt-1"]}>
+		<h2
+			class:list={[
+				"wrap-anywhere text-text-primary",
+				featured ? "text-h3 sm:text-h2" : "text-body-large font-semibold",
+			]}
+		>
+			<ThaiTitle text={shownName(data)} />
+		</h2>
+		{data.current_assignment && (
+			<p
+				class:list={[
+					"wrap-anywhere",
+					featured ? "text-body-large text-brand-primary" : "text-text-secondary",
+				]}
+			>
+				{data.current_assignment}
+			</p>
+		)}
+		{unit && (
+			<p
+				class:list={[
+					"text-small wrap-anywhere",
+					featured ? "text-text-secondary" : "text-brand-primary",
+				]}
+			>
+				{unit}
+			</p>
+		)}
+		<PublicContact contact={data.public_contact} />
+	</div>
+</article>

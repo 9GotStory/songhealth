@@ -1,0 +1,71 @@
+---
+// An organizational unit's panel on /about/personnel (Feature 012 #370; spec #365 decision 12,
+// "Personnel"; prototype P3 A): white with the `card` shadow and radius 24, 20 px of padding and
+// 28 px from `sm`. Its head is a 40 px `surface-soft` tile with the 20 px users-round in
+// `brand-primary`, decorative, beside the unit's name as an H2 at H3 size, over a 1 px
+// `border-default` rule 16 px under them. Without a unit the heading reads "ไม่ระบุหน่วยงาน".
+//
+// The unit's people follow 20 px under the rule, one to a row below `sm`, two from `sm` and three
+// from `lg`, 24 px across and 20 px down, each a compact row: their picture in the Leadership
+// strip's ringed circle (PersonPicture) at 52 px, 60 px from `sm`, with a 2 px gap and the 2 px
+// `border-default` ring; their shown name as an H3 at body size, semibold; their position at label
+// size in `text-secondary`; and their public contact under "ช่องทางติดต่อ" (PublicContact), each
+// only when it is set. The panel names the unit, so a row leaves it out. Personnel has no page of
+// its own (`03` §5), so a row links nowhere.
+import UsersRound from "@lucide/astro/icons/users-round";
+import PersonPicture from "./PersonPicture.astro";
+import PublicContact from "./PublicContact.astro";
+import ThaiTitle from "./ThaiTitle.astro";
+import type { PersonnelEntry } from "../lib/personnel";
+import { shownName } from "../lib/personnel-directory";
+
+interface Props {
+	/** The unit's name, none for the Personnel without one. */
+	unit: string | undefined;
+	people: PersonnelEntry[];
+	/** The id its H2 takes, which labels the panel. */
+	headingId: string;
+}
+
+/** The heading of the Personnel whose unit is not set. */
+const NO_UNIT = "ไม่ระบุหน่วยงาน";
+
+const { unit, people, headingId } = Astro.props;
+---
+
+<section
+	aria-labelledby={headingId}
+	class="scroll-reveal flex flex-col gap-5 rounded-24 bg-surface-base p-5 shadow-card sm:p-7"
+>
+	<div class="flex items-center gap-3 border-b border-border-default pb-4">
+		<span
+			aria-hidden="true"
+			class="flex size-10 shrink-0 items-center justify-center rounded-14 bg-surface-soft text-brand-primary"
+		>
+			<UsersRound class="shrink-0" size={20} />
+		</span>
+		<h2 id={headingId} class="min-w-0 text-h3 wrap-anywhere text-text-primary">
+			<ThaiTitle text={unit ?? NO_UNIT} />
+		</h2>
+	</div>
+	<ul class="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+		{people.map(({ data }) => (
+			<li class="min-w-0">
+				<article class="flex items-start gap-3.5">
+					<PersonPicture picture={data.profile_image} size={52} ring="plain" />
+					<div class="flex min-w-0 flex-col gap-0.5">
+						<h3 class="text-body font-semibold wrap-anywhere text-text-primary">
+							<ThaiTitle text={shownName(data)} />
+						</h3>
+						{data.current_assignment && (
+							<p class="text-label font-normal wrap-anywhere text-text-secondary">
+								{data.current_assignment}
+							</p>
+						)}
+						<PublicContact contact={data.public_contact} />
+					</div>
+				</article>
+			</li>
+		))}
+	</ul>
+</section>

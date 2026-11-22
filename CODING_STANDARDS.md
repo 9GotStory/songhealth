@@ -111,9 +111,11 @@ and why, and `.jscpd-baseline.json` records them.
   measured exceptions, on the same gradient tile: the month and year on a current Announcement's
   date tile (its readings in `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12:
   #245 comment 6812837231), and the file's type on the file tile (`FileTile`) of a Document row on
-  `/documents` and in an Announcement's related Documents, and in the card on a Document's and a
-  Health Report's page (§3.2, §7.3, §9.5 and §9.6; spec #311 "The Document repository", "The card
-  over the field's edge"; spec #338 "The card over the field's edge"), and the fiscal year on a
+  `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic
+  Page's related Documents, and in the card on a Document's and a Health Report's page (§3.2, §7.3,
+  §9.5, §9.6 and §9.9; spec #311 "The Document repository", "The card over the field's edge"; spec
+  #338 "The card over the field's edge", decision 3; spec #365 "The About Document pages", "A Basic
+  Page"), and the fiscal year on a
   Health Report row's tile on `/health/reports`, a tile of the file tile's size and gradient
   (§3.2, §7.3; spec #338 "The Health Reports list"). A change to any of these tiles' size or
   gradient needs a new measure.
@@ -208,7 +210,11 @@ and why, and `.jscpd-baseline.json` records them.
   source and topic cases ran). A browser run ends with "stopped short", the failed tests that had
   assertions after their failing line or failed inside a loop
   (`tests/browser/stopped-short-reporter.ts`): a red run's is empty, each test failing at its last
-  assertion (#298 retro: two tests judged the new case first and two inside a loop).
+  assertion (#298 retro: two tests judged the new case first and two inside a loop). A shared
+  helper that reads a structure the page lacks altogether, such as `testListOnField` on a page
+  before its deep field, stops at its first reading of it: the evidence log names those lines as
+  such stops, and no other test stops short (#339 and #366 retros: the field's label and the
+  empty-state loop).
 - A test that reads the source to enforce a rule counts what it cannot read as breaking the rule:
   classes held in a constant, a list or a prop, a component imported under another name (#298
   retro: `tests/node/public-media.test.ts` first read only a tag's own text, so a cropped picture
@@ -217,6 +223,9 @@ and why, and `.jscpd-baseline.json` records them.
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage
   line stays beside these (#147 and #148 retros: in both, review found an edge untested).
+- A gap that a margin on one item makes ("32 px under the featured card") is also read at the
+  count where nothing follows that item: the list ends at its last item's box (#367 retro: the
+  featured card's margin left 16 px under it with one leader, and only the review read the case).
 - A spec sentence that lists parts, such as "the filter form, the empty state and the pager show
   at once", gets an assertion for each part, on a fixture that shows it: a pager needs more items
   than a page holds, an empty state a page past the last (#282 retro: #281's motion case for
@@ -229,9 +238,9 @@ and why, and `.jscpd-baseline.json` records them.
   under the text than above it, where a stricter stand-in such as "in the lower half" fails at
   320 px on a card the spec allows (#284 retro: it cost a 24-minute repeat run). A synthetic
   file's type and size read "PDF, 2 KB", shorter than the demo dataset's longest, "PDF, 12.8 KB",
-  so a test that places a download's words gives `uploadSyntheticPdf` a size in bytes as its third
-  argument whose label is as long, such as 12,083 for "PDF, 11.8 KB" (#317 retro: at 320 px the
-  download broke "(PDF, 11.8" from "KB)", and only the frontend gate saw it).
+  so a test that places a download's words gives `uploadSyntheticPdf` 12,083 bytes, "PDF, 11.8 KB"
+  (#317 retro: at 320 px the download broke "(PDF, 11.8" from "KB)", and only the frontend gate
+  saw it); `expectSecondLinkPlaces` fails a download without such a size (#366 retro).
 - A fixture's label carries `SYNTHETIC_FIXTURE_MARK` before its words and a suffix after them,
   some 33 characters more than a real label, so a row of such labels can wrap where real ones
   would not. A
@@ -282,7 +291,8 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   sits: another document, a code or test comment, a script. Grep the section's citers, such as
   `` `02` §18 `` and `02-content-model.md`: in #127, `06` §7 still cited `02` §18 for deferred
   guarantees after §18 became the ITA model. `tests/node/document-versions.test.ts` checks the
-  cited versions.
+  cited versions, and `tests/node/removed-names.test.ts` the name of a component a commit removes,
+  so that commit carries its citers' changes (#368 retro).
 - **Owners.** A rule that another section owns is pointed to, or restated with its owner's scope
   and conditions. In #127, `02` §18 widened `03` §11's slug rule, and `05` §7 said search finds a
   file where `08` §8 shows its MOIT.
@@ -313,10 +323,16 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   document's version and names the ticket in the Updated line, as #298's did. The feature's
   hand-off ticket alone rewrites the banner's sentence on which tickets build what, so it names
   every ticket and no page the feature has since built as still to come (#250 retro, #250 comment
-  6841500044).
+  6841500044). On a feature's ticket branch the pre-commit hook holds the banner as `HEAD` has it,
+  and the hand-off ticket commits its rewrite with `SONGHEALTH_BANNER_REWRITE=<ticket>` (#370
+  retro: #366 and #367 each added a sentence to Feature 012's banner).
 - **Model changes.** A field or collection added to `seed/seed.json` is listed in its resource's
   section of `02-content-model.md`, under the feature's banner (#248 retro: `02` §12 lacked the
   Service's icon until review).
+
+A Markdown line may run to any width: Prettier leaves Markdown unformatted (`.prettierignore`), so
+review reads a document's words and leaves its line breaks as written (#372 retro: a review of
+lines over 100 columns cost seven rewraps, and `DESIGN.md` already held 70 such lines).
 
 A record in `docs/evidence/` says what its evidence log shows, and no more. Each claim traces to a
 line of the log or a run's output. Each cell of a coverage table names the check it rests on and

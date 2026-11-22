@@ -64,6 +64,7 @@ import {
 	cardOverFieldEdge,
 	cardOverFieldEdgeAsSpecified,
 	detailOf,
+	documentRowParts,
 	entersAfter,
 	expect,
 	expectAttentionLabelsOnOwnLine,
@@ -231,16 +232,6 @@ const LONG_TITLE =
 /** A summary longer than two lines of a row at every width from 640 px. */
 const LONG_SUMMARY = `${SYNTHETIC_FIXTURE_MARK} ${"สรุปเอกสารแผนปฏิบัติการด้านสุขภาพของเครือข่ายบริการสุขภาพอำเภอ ฉบับปรับปรุงประจำปีงบประมาณ ".repeat(6)}`;
 
-/** The parts of a Document row a citizen meets, found by what they say and do. */
-function rowParts(row: Locator) {
-	return {
-		tile: row.locator("svg.lucide-file-text").locator("xpath=.."),
-		title: row.getByRole("heading", { level: 2 }),
-		download: row.getByRole("link", { name: /^ดาวน์โหลด/ }),
-		facts: row.locator("time").locator("xpath=.."),
-	};
-}
-
 test("each /documents row: the file's tile with file-text and the file's type, 68 px below 640 px and 92 px from 640 px; the facts line; the title as an H2 in two lines at most, linking to its page; from 640 px the summary in two lines at most; exactly two links; rows 14 px apart", async ({
 	page,
 }) => {
@@ -265,7 +256,7 @@ test("each /documents row: the file's tile with file-text and the file's type, 6
 		plain.title,
 	]);
 	const row = listedItem(page, long.title);
-	const parts = rowParts(row);
+	const parts = documentRowParts(row);
 	await expect(parts.title.getByRole("link")).toHaveAttribute("href", `/documents/${long.slug}`);
 	await expect(parts.facts).toContainText(type.label);
 	await expect(parts.facts).toContainText(thaiDate("2026-09-23T17:30:00.000Z"));
@@ -351,7 +342,7 @@ test("a row's download is a 44 px brand-primary pill with the 20 px download ico
 	// Today's row names the file's type and size.
 	await expect(row).toContainText("PDF, 2 KB");
 
-	const { download } = rowParts(row);
+	const { download } = documentRowParts(row);
 	const seen: Record<string, unknown> = { links: await download.count() };
 	const expected: Record<string, unknown> = {
 		links: 1,
@@ -401,7 +392,7 @@ test("a row whose file cannot be served shows ไฟล์ on its tile and ไ�
 	const unavailable = row.getByText("ไฟล์ไม่พร้อมให้บริการ", { exact: true });
 	await expect(unavailable).toBeVisible();
 	await expect(row.getByRole("link", { name: /ดาวน์โหลด/ })).toHaveCount(0);
-	const { tile } = rowParts(row);
+	const { tile } = documentRowParts(row);
 	expect(
 		{
 			tile: (await tile.count()) === 1 ? (await tile.textContent())?.trim() : undefined,
@@ -455,7 +446,7 @@ test("a superseded or an expired Document's row shows its attention label on its
 			] as const
 		).map(([document, label]) => {
 			const row = listedItem(page, document.title);
-			return { ...rowParts(row), row, label };
+			return { ...documentRowParts(row), row, label };
 		}),
 	);
 });
@@ -464,13 +455,15 @@ test("a row's download sits at the row's right from 1,024 px, under the text at 
 	page,
 }) => {
 	const document = await createDocument("row-place", {
+		// 11.8 KB, a size whose words take two lines of the download at 320 px.
+		file: await uploadSyntheticPdf(admin, undefined, 12_083),
 		data: { summary: `${SYNTHETIC_FIXTURE_MARK} สรุปเอกสารสำหรับประชาชน` },
 	});
 	await publishLeading(document, in2031(5, 1));
 
 	await page.goto("/documents");
 	const row = listedItem(page, document.title);
-	const { tile, title, download } = rowParts(row);
+	const { tile, title, download } = documentRowParts(row);
 	await expect(row.getByRole("link", { name: document.title, exact: true })).toBeVisible();
 	await expectSecondLinkPlaces(page, { row, tile, title, link: download }, "download");
 });
@@ -489,7 +482,7 @@ test("a row's title and download are its two focus stops; under the pointer its 
 
 	await page.goto("/documents");
 	const row = listedItem(page, first.title);
-	const { tile, title, download, facts } = rowParts(row);
+	const { tile, title, download, facts } = documentRowParts(row);
 	// Today's row has no tile: its facts stand in, so a red run reaches the last assertion.
 	const away = (await tile.count()) === 1 ? tile : facts;
 	const titleLink = title.getByRole("link");
@@ -499,7 +492,9 @@ test("a row's title and download are its two focus stops; under the pointer its 
 	await page.keyboard.press("Tab");
 	const afterTitle = (await download.count()) === 1 && (await focused(download));
 	await page.keyboard.press("Tab");
-	const afterThat = await focused(rowParts(listedItem(page, second.title)).title.getByRole("link"));
+	const afterThat = await focused(
+		documentRowParts(listedItem(page, second.title)).title.getByRole("link"),
+	);
 
 	await pointAt(page, away);
 	const onTile = { title: await textStyle(titleLink), row: await rowShadow(row) };

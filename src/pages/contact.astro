@@ -10,63 +10,125 @@
 // website. Complaints and feedback go through the Service catalog, and the Health Services keep
 // their own contacts in the Health Service Directory (`03` §12). No map is embedded (approved
 // Q3). The page belongs to no main-navigation section: the footer links here.
+//
+// The page opens on the list's deep field with the list heading (Feature 012 #369; spec #365
+// decisions 4, 8, 9 and 13, "`/contact`"; ListHeading), under the label "ติดต่อ" of the Homepage's
+// Contact Summary with the headset icon. Over the field's lower edge, as a list's ListBody, lies
+// the details card; with no detail set there is none, and the field ends under the lead with
+// nothing over its edge (decision 9). 48 px under the card, or 32 px under the field below `lg` and
+// 40 px from `lg`, "ช่องทางทางการ" under the Homepage's section heading (`share-2`, the label
+// "ติดต่อ"), 24 px and from `sm` 28 px over its pills, each the network's name with the 16 px
+// arrow-up-right and, for assistive technology only, that it leaves the site and opens a new tab,
+// as the footer's (ContentLink's `compact`; Product Owner, #62 comment 6516956505); no section
+// without a channel. 48 px under them the two routes, white cards side by side from `sm`, each with
+// its gradient tile, its H2 at H3 size, its sentence and its button with the arrow (Product Owner,
+// 2026-11-20: #369 comment 7034812318, item 1). Only the heading moves (spec #365 "Motion").
+import Headset from "@lucide/astro/icons/headset";
+import Hospital from "@lucide/astro/icons/hospital";
+import MessageSquare from "@lucide/astro/icons/message-square";
+import Share2 from "@lucide/astro/icons/share-2";
 import ActionLink from "../components/ActionLink.astro";
 import ContentLink from "../components/ContentLink.astro";
-import DetailSection from "../components/DetailSection.astro";
+import ListHeading from "../components/ListHeading.astro";
 import OfficeContactDetails from "../components/OfficeContactDetails.astro";
-import PageHeading from "../components/PageHeading.astro";
+import SectionHeading from "../components/SectionHeading.astro";
+import ThaiTitle from "../components/ThaiTitle.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { directoryPath } from "../lib/health-service-directory";
 import { readOfficeContact } from "../lib/office-contact";
+import { officeContactShown } from "../lib/office-contact-settings";
 import { servicesPath } from "../lib/service-catalog";
 import { OFFICE_NAME } from "../lib/site-identity";
 
 const TITLE = "ติดต่อเรา";
 
 const { contact, channels } = await readOfficeContact();
+const shown = officeContactShown(contact);
 
-const linkClass =
-	"inline-flex min-h-11 items-center text-brand-primary underline underline-offset-4";
+const routes = [
+	{
+		id: "complaints",
+		icon: MessageSquare,
+		heading: "ร้องเรียนและเสนอแนะ",
+		text: "ขั้นตอนและช่องทางการร้องเรียน แจ้งเรื่อง หรือเสนอแนะ อยู่ในบริการประชาชน",
+		button: "ดูบริการประชาชน",
+		href: servicesPath(),
+		variant: "primary",
+	},
+	{
+		id: "health-service-contacts",
+		icon: Hospital,
+		heading: "ติดต่อหน่วยบริการสุขภาพ",
+		text: "ที่อยู่ เวลาทำการ และช่องทางติดต่อของโรงพยาบาลและ รพ.สต. อยู่ในหน่วยบริการสุขภาพที่เกี่ยวข้อง",
+		button: "ดูหน่วยบริการสุขภาพที่เกี่ยวข้อง",
+		href: directoryPath(),
+		variant: "secondary",
+	},
+] as const;
 ---
 
 <SiteLayout
 	title={TITLE}
 	description={`ที่อยู่ โทรศัพท์ อีเมล เวลาทำการ และช่องทางทางการของ${OFFICE_NAME}`}
 	canonical="/contact"
-	crumbs={[{ label: TITLE }]}
 >
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={TITLE} lead={`ที่อยู่ เวลาทำการ และช่องทางติดต่อ${OFFICE_NAME}`} />
-		<OfficeContactDetails contact={contact} />
+	<ListHeading
+		crumbs={[{ label: TITLE }]}
+		label="ติดต่อ"
+		title={TITLE}
+		lead={`ที่อยู่ เวลาทำการ และช่องทางติดต่อ${OFFICE_NAME}`}
+		overEdge={shown}
+	>
+		<Headset slot="icon" class="shrink-0" size={24} />
+	</ListHeading>
+	<div
+		class:list={[
+			"page-container flex flex-col gap-12 pb-16 lg:pb-20",
+			shown ? "relative -mt-16 sm:-mt-22" : "pt-8 lg:pt-10",
+		]}
+	>
+		{shown && <OfficeContactDetails contact={contact} />}
 		{channels.length > 0 && (
-			<DetailSection id="official-channels" heading="ช่องทางทางการ">
-				<ul aria-labelledby="official-channels" class="flex flex-col gap-1">
+			<section aria-labelledby="official-channels" class="flex flex-col gap-6 sm:gap-7">
+				<SectionHeading id="official-channels" label="ติดต่อ" title="ช่องทางทางการ">
+					<Share2 slot="icon" class="shrink-0" size={24} />
+				</SectionHeading>
+				<ul aria-labelledby="official-channels" class="flex flex-wrap gap-2.5">
 					{channels.map((channel) => (
 						<li>
-							<ContentLink class={linkClass} href={channel.href}>
+							<ContentLink
+								compact
+								class="inline-flex min-h-11 items-center gap-2 rounded-pill border-[1.5px] border-border-default bg-surface-base px-5 text-body font-semibold text-brand-primary hover:border-brand-primary hover:bg-brand-primary hover:text-surface-base motion-safe:transition-colors"
+								href={channel.href}
+							>
 								{channel.label}
 							</ContentLink>
 						</li>
 					))}
 				</ul>
-			</DetailSection>
+			</section>
 		)}
-		<DetailSection id="complaints" heading="ร้องเรียนและเสนอแนะ">
-			<p>ขั้นตอนและช่องทางการร้องเรียน แจ้งเรื่อง หรือเสนอแนะ อยู่ในบริการประชาชน</p>
-			<p>
-				<ActionLink variant="primary" href={servicesPath()}>
-					ดูบริการประชาชน
-				</ActionLink>
-			</p>
-		</DetailSection>
-		<DetailSection id="health-service-contacts" heading="ติดต่อหน่วยบริการสุขภาพ">
-			<p>
-				ที่อยู่ เวลาทำการ และช่องทางติดต่อของโรงพยาบาลและ รพ.สต.
-				อยู่ในหน่วยบริการสุขภาพที่เกี่ยวข้อง
-			</p>
-			<p>
-				<ActionLink href={directoryPath()}>ดูหน่วยบริการสุขภาพที่เกี่ยวข้อง</ActionLink>
-			</p>
-		</DetailSection>
+		<div class="grid gap-4 sm:grid-cols-2 sm:gap-5">
+			{routes.map(({ icon: Icon, ...route }) => (
+				<section
+					aria-labelledby={route.id}
+					class="flex flex-col items-start gap-4 rounded-24 bg-surface-base p-6 shadow-card sm:p-7"
+				>
+					<span
+						aria-hidden="true"
+						class="flex size-13 shrink-0 items-center justify-center rounded-16 bg-linear-140 from-brand-primary to-brand-dark text-accent-warm shadow-tile"
+					>
+						<Icon class="shrink-0" size={24} />
+					</span>
+					<h2 id={route.id} class="text-h3 text-text-primary">
+						<ThaiTitle text={route.heading} />
+					</h2>
+					<p class="flex-1 text-text-secondary">{route.text}</p>
+					<ActionLink arrow variant={route.variant} href={route.href}>
+						{route.button}
+					</ActionLink>
+				</section>
+			))}
+		</div>
 	</div>
 </SiteLayout>

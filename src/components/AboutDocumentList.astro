@@ -4,14 +4,22 @@
 // (src/lib/documents.ts listDocuments), a fixed number per page with the page number in the query
 // string. /about/policies, /about/plans and /about/results each render it for their type
 // (src/lib/about.ts).
+//
+// The page opens on the deep field as /documents does (Feature 012 #366; spec #365 decisions 4 and
+// 5; ListHeading), under the label "เกี่ยวกับเรา" with the page's own icon, which the page passes
+// in the `icon` slot, and no link. The rows, the empty states and the pager follow over the field's
+// lower edge (ListBody), with no filter form: /documents' rows with their downloads
+// (DocumentDownloadRow), 14 px apart, each revealed as it comes into the window (spec #365
+// "Motion").
+import DocumentDownloadRow from "./DocumentDownloadRow.astro";
+import EmptyState from "./EmptyState.astro";
+import ListBody from "./ListBody.astro";
+import ListHeading from "./ListHeading.astro";
+import Pagination from "./Pagination.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
-import type { AboutDocumentList } from "../lib/about";
+import { ABOUT_TITLE, type AboutDocumentList } from "../lib/about";
 import { listDocuments } from "../lib/documents";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../lib/pagination";
-import DocumentRow from "./DocumentRow.astro";
-import EmptyState from "./EmptyState.astro";
-import PageHeading from "./PageHeading.astro";
-import Pagination from "./Pagination.astro";
 
 interface Props {
 	list: AboutDocumentList;
@@ -28,15 +36,22 @@ const listUrl = new URL(list.path, Astro.url);
 	section="about"
 	description={list.lead}
 	canonical={pageHref(listUrl, page)}
-	crumbs={[{ label: list.title }]}
 >
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={list.title} lead={list.lead} />
+	<ListHeading
+		section="about"
+		crumbs={[{ label: list.title }]}
+		label={ABOUT_TITLE}
+		title={list.title}
+		lead={list.lead}
+	>
+		<slot name="icon" slot="icon" />
+	</ListHeading>
+	<ListBody>
 		{entries.length > 0 ? (
-			<ul class="flex flex-col gap-4">
+			<ul class="flex flex-col gap-3.5">
 				{entries.map((document) => (
-					<li>
-						<DocumentRow document={document} />
+					<li class="scroll-reveal">
+						<DocumentDownloadRow document={document} />
 					</li>
 				))}
 			</ul>
@@ -49,5 +64,5 @@ const listUrl = new URL(list.path, Astro.url);
 			<EmptyState message={`ยังไม่มีเอกสาร${list.title}`} />
 		)}
 		{entries.length > 0 && <Pagination page={page} hasMore={hasMore} />}
-	</div>
+	</ListBody>
 </SiteLayout>

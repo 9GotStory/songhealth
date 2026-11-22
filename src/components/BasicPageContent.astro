@@ -1,31 +1,42 @@
 ---
-// A Basic Page's own content (Feature 003 #60; spec #51 "Public reads" (Basic Pages), `02` §3): its
-// title as the page's one H1, its summary as the lead, its body, and the published Documents it
-// links to. /pages/{slug}, /about and /about/organization render a Basic Page with it.
+// A Basic Page, on /pages/{slug} and /about/organization (Feature 003 #60; spec #51 "Public reads"
+// (Basic Pages), `02` §3). It opens on the deep field with the Post page's header (Feature 012
+// #368; spec #365 "A Basic Page", decision 2; PostHeader.astro, PostColumns.astro): the breadcrumb
+// in white, the page's title as its one H1 in the Post page's sizes and its summary at body-large,
+// with no pill, icon tile or frame; the field is a Post page's, the small glow and no ring, and
+// reaches 40 px under the header below `sm` and 48 px from `sm`. Its body and related Documents
+// follow on the page's colour, 32 px under the field below `lg` and 40 px from `lg`
+// (BasicPageText.astro), then the page's own 64 px, 80 px from `lg`, before the footer. A page with
+// neither ends with its field (spec #365 decision 9).
+//
+// The page passes no `crumbs` to the shell, since the header shows them on the field. With motion
+// allowed the header's title and summary rise in as the page opens; the breadcrumb, the body and
+// the related Documents show at once (spec #365 "Motion").
 import type { BasicPage } from "../lib/basic-pages";
-import RelatedDocuments from "./RelatedDocuments.astro";
-import RichText from "./RichText.astro";
-import ThaiTitle from "./ThaiTitle.astro";
+import type { NavigationSection } from "../lib/navigation";
+import BasicPageText from "./BasicPageText.astro";
+import PostColumns from "./PostColumns.astro";
+import PostHeader from "./PostHeader.astro";
 
 interface Props {
 	page: BasicPage;
+	/** The main-navigation section the page belongs to: none for /pages/{slug}. */
+	section?: NavigationSection;
 }
 
-const { entry, documents } = Astro.props.page;
-const { title, summary, body } = entry.data;
+const { page, section } = Astro.props;
+const { title, summary } = page.entry.data;
 ---
 
-<article class="flex flex-col gap-8">
-	<header class="flex max-w-3xl flex-col gap-3">
-		<h1 class="text-h3 wrap-anywhere text-brand-dark sm:text-h2 lg:text-h1">
-			<ThaiTitle text={title} />
-		</h1>
-		{summary && <p class="text-body-large text-text-secondary">{summary}</p>}
-	</header>
-	{body && body.length > 0 && (
-		<div class="max-w-3xl">
-			<RichText value={body} />
-		</div>
-	)}
-	<RelatedDocuments documents={documents} />
+<article class="pb-16 lg:pb-20">
+	<PostColumns image={null}>
+		<PostHeader
+			slot="header"
+			section={section}
+			crumbs={[{ label: title }]}
+			title={title}
+			summary={summary}
+		/>
+		<BasicPageText page={page} />
+	</PostColumns>
 </article>

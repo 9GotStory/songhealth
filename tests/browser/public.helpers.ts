@@ -171,6 +171,103 @@ export async function expectNoHorizontalScroll(page: Page, label: string): Promi
 }
 
 /**
+ * Fail when a text on the page as it is now is cut off: wider than its own box, or reaching past
+ * the window's edge. The page's own scroll width cannot see such a text inside a box that clips
+ * sideways, as the deep field does (`overflow-x-clip`): #368's summary lost the end of a long web
+ * address at 320 px while the page passed `expectNoHorizontalScroll` (#368 retro item 1). A text
+ * inside a box made to scroll sideways, a visually hidden one and one cut with an ellipsis are
+ * meant to be so and pass. A link or button shaped as a pill also fails when its words come
+ * within 4 px of its top or bottom edge, as Impeccable's `cramped-padding` reads it: #369's
+ * outlined button wrapped at 320 px with its words on the pill's edge, and only the frontend gate
+ * saw it (#369 retro).
+ */
+export async function expectNoTextCutOff(page: Page, label: string): Promise<void> {
+	const cut = await page.evaluate(() => {
+		const scrolls = (element: Element) => /auto|scroll/.test(getComputedStyle(element).overflowX);
+		const found: string[] = [];
+		for (const element of document.body.querySelectorAll("*")) {
+			const ownText = [...element.childNodes]
+				.filter((node) => node.nodeType === Node.TEXT_NODE)
+				.map((node) => node.textContent ?? "")
+				.join("")
+				.trim();
+			if (!ownText) continue;
+			const style = getComputedStyle(element);
+			const box = element.getBoundingClientRect();
+			if (box.width <= 1 || box.height <= 1 || style.visibility === "hidden") continue;
+			if (style.textOverflow === "ellipsis") continue;
+			let inScroller = false;
+			for (let up: Element | null = element; up; up = up.parentElement) {
+				if (up !== document.body && up !== document.documentElement && scrolls(up)) {
+					inScroller = true;
+					break;
+				}
+			}
+			if (inScroller) continue;
+			const ownCut = style.display !== "inline" && element.scrollWidth > element.clientWidth + 1;
+			const past = box.right > window.innerWidth + 1 || box.left < -1;
+			if (ownCut || past) found.push(`<${element.localName}> ${ownText.slice(0, 40)}`);
+			const pill = element.closest("a, button");
+			if (pill) {
+				const edge = pill.getBoundingClientRect();
+				const corner = parseFloat(getComputedStyle(pill).borderTopLeftRadius);
+				const range = document.createRange();
+				const lines = [...element.childNodes]
+					.filter((node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim())
+					.flatMap((node) => {
+						range.selectNodeContents(node);
+						return [...range.getClientRects()];
+					});
+				const top = Math.min(...lines.map((line) => line.top));
+				const bottom = Math.max(...lines.map((line) => line.bottom));
+				if (corner >= edge.height / 2 - 0.5 && (top - edge.top < 4 || edge.bottom - bottom < 4)) {
+					found.push(
+						`<${element.localName}> ${ownText.slice(0, 40)} (within 4 px of its pill's edge)`,
+					);
+				}
+			}
+		}
+		return found;
+	});
+	expect(
+		cut,
+		`${label}: a text cut off at its own edge or past the window, or on its pill's edge`,
+	).toEqual([]);
+}
+
+/**
+ * Whether the words of `button`, a pill, lie at least 8 px inside it, above and below, on every
+ * line they take, with each line centred on the others, as a download's pill keeps a label that
+ * wraps (DESIGN.md §7.3; #369).
+ */
+export function wordsInside(button: Locator): Promise<boolean> {
+	return button.evaluate((element) => {
+		const own = element.getBoundingClientRect();
+		const lines: DOMRect[] = [];
+		for (const node of element.childNodes) {
+			if (node.nodeType !== Node.TEXT_NODE || !node.textContent!.trim()) continue;
+			const words = document.createRange();
+			words.selectNodeContents(node);
+			lines.push(...words.getClientRects());
+		}
+		const top = Math.min(...lines.map(({ top }) => top));
+		const bottom = Math.max(...lines.map(({ bottom }) => bottom));
+		const centres = [...new Set(lines.map((line) => Math.round(line.top)))].map((lineTop) => {
+			const line = lines.filter((rect) => Math.abs(Math.round(rect.top) - lineTop) <= 2);
+			return (
+				(Math.min(...line.map((rect) => rect.left)) + Math.max(...line.map((rect) => rect.right))) /
+				2
+			);
+		});
+		return (
+			top - own.top >= 7.5 &&
+			own.bottom - bottom >= 7.5 &&
+			Math.max(...centres) - Math.min(...centres) <= 1
+		);
+	});
+}
+
+/**
  * Run axe with the WCAG 2.2 AA tag set and the page-structure rules on the page as it is now,
  * scrolled back to its top, and
  * fail with a readable summary (rule, impact and the offending nodes) on any violation. Fail too on
@@ -228,7 +325,8 @@ export async function expectAccessibleAtEachWidth(page: Page, label: string): Pr
 /**
  * Declare the accessibility and reflow tests of a template's pages: at each of `VIEWPORTS`, every
  * path `paths` gives answers 200, axe reports no WCAG 2.2 AA violation on it, no icon on it is
- * exposed to assistive technology, and focus stays visible; at 320 px none scrolls sideways.
+ * exposed to assistive technology, and focus stays visible; at 320 px none scrolls sideways and
+ * no text on it is cut off (`expectNoTextCutOff`).
  * `pages` names them in the test titles, such as "the News pages". `paths` is called when the
  * tests run, after the suite's fixtures exist. Each width's paths share one test and its 30 s
  * timeout, which held 13 list pages at the desktop width but not 30 (#67), so split a longer list
@@ -249,11 +347,14 @@ export function testAccessibilityAndReflow(pages: string, paths: () => readonly 
 		});
 	}
 
-	test(`${pages} do not scroll sideways at 320 px`, async ({ page }) => {
+	test(`${pages} do not scroll sideways at 320 px, and no text on them is cut off`, async ({
+		page,
+	}) => {
 		await page.setViewportSize(MOBILE_VIEWPORT);
 		for (const path of paths()) {
 			await page.goto(path);
 			await expectNoHorizontalScroll(page, path);
+			await expectNoTextCutOff(page, path);
 		}
 	});
 }
@@ -592,6 +693,20 @@ export function rowShadow(row: Locator) {
 	});
 }
 
+/**
+ * The parts of a Document row a citizen meets, found by what they say and do: on /documents and
+ * the About Document pages, titled H2 (Feature 010 #315; Feature 012 #366), and under a page's
+ * "เอกสารที่เกี่ยวข้อง", titled H3 (Feature 012 #368).
+ */
+export function documentRowParts(row: Locator, level: 2 | 3 = 2) {
+	return {
+		tile: row.locator("svg.lucide-file-text").locator("xpath=.."),
+		title: row.getByRole("heading", { level }),
+		download: row.getByRole("link", { name: /^ดาวน์โหลด/ }),
+		facts: row.locator("time").locator("xpath=.."),
+	};
+}
+
 /** The parts of a row with a second link (a Document's download, a Health Service's map). */
 export interface RowWithSecondLink {
 	row: Locator;
@@ -606,12 +721,20 @@ export interface RowWithSecondLink {
  * #311 decision 17, spec #338 "The Health Service Directory"): at the row's right, beside the
  * text, from 1,024 px; under the text at its start from 640 px to 1,023 px; and across the row
  * under the tile and the text below 640 px, read on both sides of each edge and at 375 and 320 px.
+ * A download's size must read as long as the demo dataset's, such as "PDF, 11.8 KB": a synthetic
+ * file's "PDF, 2 KB" leaves room a real one lacks (CODING_STANDARDS "Tests", #317 retro).
  */
 export async function expectSecondLinkPlaces(
 	page: Page,
 	{ row, tile, title, link }: RowWithSecondLink,
 	label: string,
 ): Promise<void> {
+	if (label === "download") {
+		expect(
+			await link.textContent(),
+			"the download's size has a decimal, such as 11.8 KB: give uploadSyntheticPdf 12,083 bytes",
+		).toMatch(/\d+\.\d+ [KM]B/);
+	}
 	/** Where the link lies against the row, its tile and its text, rounded to the pixel. */
 	const placeOf = async () => {
 		if ((await link.count()) === 0) return `no ${label}`;
@@ -764,6 +887,29 @@ export function entersAfter(part: Locator): Promise<number> {
 }
 
 /**
+ * The page's height and where each of `placed` lies at 375 and 1440 px, scrolled to the top, or
+ * "missing" for a part the page does not show: a motion test compares the page with motion after
+ * its entrance with the page without it (Feature 011 #344; Feature 012 #368). The viewport ends at
+ * 1440 px.
+ */
+export async function placesAtTwoWidths(page: Page, placed: Array<[string, Locator]>) {
+	const read = [];
+	for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+		await page.setViewportSize(viewport);
+		await page.evaluate(() => window.scrollTo(0, 0));
+		const places = [];
+		for (const [name, part] of placed) {
+			places.push([name, (await part.count()) === 1 ? await boxOf(part, name) : "missing"]);
+		}
+		read.push({
+			height: await page.evaluate(() => document.documentElement.scrollHeight),
+			places,
+		});
+	}
+	return read;
+}
+
+/**
  * Whether a part shows whole on a page without JavaScript: there once, visible, and neither it, a
  * part inside it nor a part around it waiting on an effect (`heldBack`'s opacity or translate),
  * which `isVisible` alone counts as shown (#344 retro).
@@ -778,6 +924,87 @@ export async function shownWhole(part: Locator): Promise<boolean> {
 		}
 		return true;
 	});
+}
+
+/**
+ * A page that opens with a header on the field, read for its motion (spec #365 "Motion"): with
+ * reduced motion preferred nothing runs or waits, and with motion allowed `rising`, the header's
+ * parts, enter as the page opens, each after its delay in seconds where it has one (a list's lead
+ * 0.1 s after its heading block), while each of `atOnce` shows at once, then nothing waits, on a
+ * page with `revealing` parts once it is scrolled to its end; on paper nothing runs or waits; and
+ * each of `placed` is where it is without motion, at 375 and 1440 px. The test compares `seen` with
+ * `expected`. The page ends on a screen with reduced motion preferred.
+ */
+export async function readHeaderMotion(
+	page: Page,
+	path: string,
+	rising: Array<[name: string, part: Locator, delay?: number]>,
+	atOnce: Array<[string, Locator]>,
+	placed: Array<[string, Locator]>,
+	revealing: boolean,
+) {
+	const main = page.getByRole("main");
+	/** A part's entrance delay, or "missing" where the page lacks it. */
+	const delayOf = async (part: Locator) =>
+		(await part.count()) === 1 ? entersAfter(part) : "missing";
+	const running = () => page.evaluate(() => document.getAnimations().length);
+	const seen: Record<string, unknown> = {};
+	const expected: Record<string, unknown> = {};
+
+	await page.emulateMedia({ reducedMotion: "reduce" });
+	await page.goto(path);
+	seen.reduced = { running: await running(), heldBack: await heldBack(main) };
+	expected.reduced = { running: 0, heldBack: [] };
+	const still = await placesAtTwoWidths(page, placed);
+
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.goto(path, { waitUntil: "commit" });
+	await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+	const delays: Record<string, unknown> = {};
+	for (const [name, part] of [...rising, ...atOnce]) delays[name] = await delayOf(part);
+	seen.delays = delays;
+	// The header rises in as the page opens; the rest shows at once.
+	expected.delays = Object.fromEntries([
+		...rising.map(([name, , delay = 0]) => [name, delay]),
+		...atOnce.map(([name]) => [name, -1]),
+	]);
+	// A part that reveals as it comes into the window shows once the window has passed it.
+	if (revealing) {
+		await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+	}
+	await expect
+		.poll(() => heldBack(main), { message: "the page shows whole after the entrance" })
+		.toEqual([]);
+	seen.moving = await placesAtTwoWidths(page, placed);
+	expected.moving = still;
+
+	await page.emulateMedia({ media: "print", reducedMotion: "no-preference" });
+	await page.goto(path);
+	await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+	seen.print = { running: await running(), heldBack: await heldBack(main) };
+	expected.print = { running: 0, heldBack: [] };
+	await page.emulateMedia({ media: "screen", reducedMotion: "reduce" });
+	// The places are the same with motion and without only where the page has each part.
+	seen.allPlaced = still.every(({ places }) => places.every(([, box]) => box !== "missing"));
+	expected.allPlaced = true;
+	return { seen, expected };
+}
+
+/**
+ * Whether each of `parts` shows whole (`shownWhole`) at 375 and 1440 px, as a page without
+ * JavaScript is laid out. The test compares `seen` with `expected`.
+ */
+export async function readWholeAtTwoWidths(page: Page, parts: Array<[string, Locator]>) {
+	const seen: Record<number, unknown> = {};
+	const expected: Record<number, unknown> = {};
+	for (const viewport of [PHONE_VIEWPORT, DESKTOP_VIEWPORT]) {
+		await page.setViewportSize(viewport);
+		const whole: Record<string, boolean> = {};
+		for (const [name, part] of parts) whole[name] = await shownWhole(part);
+		seen[viewport.width] = whole;
+		expected[viewport.width] = Object.fromEntries(parts.map(([name]) => [name, true]));
+	}
+	return { seen, expected };
 }
 
 /**
@@ -1171,7 +1398,7 @@ export async function expectFilteredEmpty(
  * How far, in px, a list's field reaches below its own content and below the top of what follows
  * its heading (src/components/ListHeading.astro, ListBody.astro).
  */
-const FIELD_EDGE = {
+export const FIELD_EDGE = {
 	phone: { room: 96, overlap: 64 },
 	fromSm: { room: 128, overlap: 88 },
 };
@@ -1213,6 +1440,64 @@ export function cardList(page: Page) {
 		grid: main.getByRole("list").filter({ has: page.getByRole("article") }),
 		pager: page.getByRole("navigation", { name: "การแบ่งหน้า" }),
 	};
+}
+
+/** The widths a list's field is read at, on both sides of 640 and 1,024 px. */
+const LIST_FIELD_WIDTHS = [1440, 1024, 1023, 640, 639, 320] as const;
+
+/**
+ * What a list's deep field shows at each of `LIST_FIELD_WIDTHS` (spec #280 "The field under a
+ * heading", DESIGN.md §7.8): whether it has its corner glow and how many of its rings show, or "no
+ * field". The viewport ends at 320 px.
+ */
+export async function readListField(page: Page): Promise<Record<number, unknown>> {
+	const field = deepField(page);
+	const seen: Record<number, unknown> = {};
+	for (const width of LIST_FIELD_WIDTHS) {
+		await page.setViewportSize({ width, height: 900 });
+		seen[width] =
+			(await field.count()) === 1
+				? {
+						glow: await field.evaluate((element) =>
+							getComputedStyle(element).backgroundImage.includes("radial-gradient"),
+						),
+						rings: await field
+							.locator('[aria-hidden="true"] > span')
+							.evaluateAll(
+								(spans) => spans.filter((span) => span.getClientRects().length > 0).length,
+							),
+					}
+				: "no field";
+	}
+	return seen;
+}
+
+/** What `readListField` reads on a list's field: the glow, and the large ring from 1,024 px. */
+export const LIST_FIELD_LOOK = Object.fromEntries(
+	LIST_FIELD_WIDTHS.map((width) => [width, { glow: true, rings: width >= 1024 ? 1 : 0 }]),
+);
+
+/**
+ * A person's picture in its ring (the Homepage's Leadership strip, the Leadership page; spec #365
+ * "Scope of the change"), read from `frame`, the ring's box around the circle: the circle's width,
+ * the gap between it and the ring, and the ring's width and colour, the one layer of the frame's
+ * `box-shadow` with a spread. Every measure in px.
+ */
+export function ringedCircle(frame: Locator) {
+	return frame.evaluate((element) => {
+		const own = element.getBoundingClientRect();
+		const circle = element.firstElementChild!.getBoundingClientRect();
+		const rings = getComputedStyle(element)
+			.boxShadow.split(/,\s*(?![^(]*\))/)
+			.map((layer) => /^(.*) 0px 0px 0px ([\d.]+)px$/.exec(layer))
+			.filter((match) => match !== null && Number(match[2]) > 0)
+			.map((match) => ({ width: Number(match![2]), colour: match![1] }));
+		return {
+			circle: Math.round(circle.width),
+			gap: Math.round(((own.width - circle.width) / 2) * 10) / 10,
+			ring: rings.length === 1 ? rings[0] : rings,
+		};
+	});
 }
 
 /**
@@ -1340,7 +1625,7 @@ export async function expectStartsOverFieldEdge(
  * #281 and #312 such a card passed every suite, and only scripts/measure-focus-contrast.ts found
  * it (#312 retro).
  */
-async function ringsOverFieldUnbanded(
+export async function ringsOverFieldUnbanded(
 	block: Locator,
 	field: Locator,
 	surfaceBase: string,
@@ -3375,9 +3660,16 @@ export async function siteTitleParts(
  * the trash, and carries `draftRevisionId` while the entry has changes not yet published
  * (src/database/repositories/content.ts findByIdOrSlug, src/emdash-runtime.ts hydrateDraftData).
  * POST …/publish takes `publishedAt` (src/astro/routes/api/content/[collection]/[id]/publish.ts).
+ *
+ * A test that times out runs on beside its afterEach: @playwright/test 1.63.0 sets the status to
+ * "timedOut" and starts the hooks without stopping the test's body. So a borrow refuses once the
+ * status is no longer "passed", and giveBack first waits for the unpublishes in flight (#367 retro:
+ * a timed-out Homepage test left two demo Activities in draft, and the full suite's demo check
+ * failed).
  */
 export class BorrowedEntries {
 	readonly #entries: Array<{ collection: string; fixture: DraftFixture; publishedAt: string }> = [];
+	readonly #inFlight = new Set<Promise<unknown>>();
 
 	/**
 	 * The runtime's own entry `idOrSlug`, returned to draft for the running test, or undefined when
@@ -3403,8 +3695,14 @@ export class BorrowedEntries {
 			slug: typeof item.slug === "string" && item.slug !== "" ? item.slug : idOrSlug,
 			title: String((item.data as { title?: unknown }).title),
 		};
+		const status = test.info().status;
+		if (status !== "passed") {
+			throw new Error(`borrowing ${collection}/${fixture.slug} after the test ${status}`);
+		}
 		this.#entries.push({ collection, fixture, publishedAt: String(item.publishedAt) });
-		const unpublished = await unpublishEntry(admin, collection, fixture.id);
+		const request = unpublishEntry(admin, collection, fixture.id);
+		this.#inFlight.add(request);
+		const unpublished = await request.finally(() => this.#inFlight.delete(request));
 		expect(unpublished.ok, `unpublish ${fixture.slug}: ${nativeRefusalOf(unpublished)}`).toBe(true);
 		return fixture;
 	}
@@ -3416,6 +3714,7 @@ export class BorrowedEntries {
 
 	/** Publish every borrowed entry again at its own date, and fail unless each one is. */
 	async giveBack(admin: CmsActor): Promise<void> {
+		await Promise.allSettled(this.#inFlight);
 		const failures: string[] = [];
 		for (const { collection, fixture, publishedAt } of this.#entries.splice(0)) {
 			try {

@@ -7,6 +7,14 @@
 // primary pill's hover fill elsewhere, is the hero's own. A label that does not say by itself where
 // the link goes takes the item's title as `context`, read after the label by assistive technology
 // only, as ArrowLink's (WCAG 2.2 SC 2.4.4, 2.5.3).
+//
+// `arrow` makes it semibold with a 16 px arrow-right after the label, as /contact's route cards
+// draw it (Feature 012 #369; spec #365 "`/contact`"; Product Owner, 2026-11-20: #369 comment
+// 7034812318, item 1); the arrow is decorative. A label that wraps in a narrow card (DESIGN.md
+// §9.10) keeps its lines centred 8 px inside the pill, as a download's pill (FileDownloadLink;
+// #369 gate).
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+
 interface Props {
 	href: string;
 	variant?: "primary" | "secondary";
@@ -14,14 +22,17 @@ interface Props {
 	context?: string;
 	/** The link sits on brand-dark. */
 	onDark?: boolean;
+	/** Semibold, with an arrow after the label; a wrapping label stays centred 8 px inside. */
+	arrow?: boolean;
 }
 
-const { href, variant = "secondary", context, onDark = false } = Astro.props;
+const { href, variant = "secondary", context, onDark = false, arrow = false } = Astro.props;
 ---
 
 <a
 	class:list={[
 		"inline-flex min-h-11 items-center rounded-pill px-5 text-label",
+		arrow && "justify-center gap-2 py-2 text-center font-semibold",
 		onDark
 			? [
 					"focus-ring-on-dark underline-offset-4 hover:underline",
@@ -37,4 +48,5 @@ const { href, variant = "secondary", context, onDark = false } = Astro.props;
 >
 	<slot />
 	{context && <span class="sr-only">{context}</span>}
+	{arrow && <ArrowRight class="shrink-0" size={16} />}
 </a>

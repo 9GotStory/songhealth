@@ -62,8 +62,9 @@ const timeOf = (instant: string | null) => (instant === null ? Number.NaN : Date
 
 /**
  * The slugs of the Documents a page lists in its related Documents section, in its order
- * (src/components/RelatedDocuments.astro, src/components/DetailSection.astro,
- * src/components/DocumentRow.astro).
+ * (src/components/RelatedDocuments.astro, src/components/SectionHeading.astro,
+ * src/components/DocumentDownloadRow.astro): each row's title links to its Document's page, and
+ * its download to the file under /_emdash/api/media/.
  */
 function listedDocuments(html: string): string[] {
 	const section = /id="related-documents"[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
