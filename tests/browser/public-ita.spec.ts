@@ -144,17 +144,24 @@ const paddingOf = (part: Locator) =>
 		);
 	});
 
-/** The words of `part` that show, leaving out a visually hidden text. */
+/**
+ * The words of `part` that show, leaving out a visually hidden text: one inside a box of 1 px or
+ * less that clips what it holds, as `sr-only` makes it.
+ */
 const visibleWords = (part: Locator) =>
 	part.evaluate((element) => {
 		const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-		const range = document.createRange();
 		const words: string[] = [];
+		const clipped = (box: Element) => {
+			const { width, height } = box.getBoundingClientRect();
+			return width <= 1 && height <= 1 && getComputedStyle(box).overflow !== "visible";
+		};
 		for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-			range.selectNodeContents(node);
-			if ([...range.getClientRects()].some((rect) => rect.width > 1)) {
-				words.push(node.textContent ?? "");
+			let hidden = false;
+			for (let box = node.parentElement; box && element.contains(box); box = box.parentElement) {
+				hidden ||= clipped(box);
 			}
+			if (!hidden) words.push(node.textContent ?? "");
 		}
 		return words.join("").replace(/\s+/g, " ").trim();
 	});
@@ -695,8 +702,10 @@ test.describe("the page on the field", () => {
 		// H3 size below 640 px and H2 size from 640 px, with no larger size from 1,024 px.
 		expected.titleSizes = {
 			320: "24px",
+			375: "24px",
 			639: "24px",
 			640: "34px",
+			768: "34px",
 			1023: "34px",
 			1024: "34px",
 			1440: "34px",
