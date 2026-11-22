@@ -352,7 +352,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, one of the two exceptions to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
-| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's and a Health Report's page (§9.5, §9.6), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, its own tile of the file tile's size and gradient with `file-chart-column` (§7.3; #342); "MOIT" over the number on a MOIT's row on a fiscal year's page, on the same tile (`RowTile`, §8.3; #394) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342); on a Health Report's page 5.68:1 (#343); "MOIT" 4.69:1 or more (375 and 320 px, `/ita/2570` at `f77e864`, #394) |
+| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's and a Health Report's page (§9.5, §9.6), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, its own tile of the file tile's size and gradient with `file-chart-column` (§7.3; #342); "MOIT" over the number on a MOIT's row on a fiscal year's page, on the same tile (`RowTile`, §8.3; #394) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342); on a Health Report's page 5.68:1 (#343); "MOIT" 4.69:1 or more (375 and 320 px, `scripts/measure-text-contrast.ts --all-text` on `/ita/2570` at `f77e864`, #394) |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7, and the label on its page, §9.4) | 13.85:1 |
@@ -1360,17 +1360,17 @@ the MOIT page follows variant C, "สารบัญและการ์ด", o
   - the Document row's gradient tile (`RowTile`, §7.3: 68 px with radius 14 below `sm`, 92 px
     with radius 18 from `sm`) with "MOIT" at small size, semibold, in `accent-warm` (§3.2) over
     the number at H3 size, H2 size from `sm`, in `surface-base`;
-  - the title as an H2 at body size, body-large from `sm`, semibold, shown whole on as many lines
-    as it needs, a link as wide as its words that is underlined and `brand-primary` under the
-    pointer; 4 px under it the facts line at small size in `text-secondary`, "หลักฐาน n รายการ",
+  - the title as an H2 at body size, body-large from `sm`, semibold, in `text-primary`, shown whole
+    on as many lines as it needs, a link as wide as its words that is underlined and
+    `brand-primary` under the pointer; 4 px under it the facts line at small size in `text-secondary`, "หลักฐาน n รายการ",
     then " · ปรับปรุงล่าสุด" and the date when staff set it, wrapping where the column ends;
   - from `sm` a 20 px `arrow-right` in `brand-primary` at the row's right end; below `sm` none.
 
   The tile and the arrow are decorative: the title's link carries "MOIT n" for assistive
-  technology alone, so it is named "MOIT n" and the title, as the badge inside it was. Only the
-  title is a link, as in a Document's row, and its focus ring has the lists' `surface-base` band
-  (`focus-ring-banded`, §3), which the row's shadow leaves in place under the pointer. Each row
-  reveals as it comes into the window (§8.12).
+  technology alone, so it is named "MOIT n" and the title. Only the title is a link, as in a
+  Document's row, and its focus ring has the lists' `surface-base` band (`focus-ring-banded`, §3),
+  which the row's shadow leaves in place under the pointer. Each row reveals as it comes into the
+  window (§8.12).
 - **MOIT `/ita/{slug}`:**
   - a brand-dark header band: "ITA ปีงบประมาณ พ.ศ. YYYY", the H1 "MOIT n" and the title, the
     summary, the Evidence count (and how many files cannot be served), and "ปรับปรุงล่าสุด" when

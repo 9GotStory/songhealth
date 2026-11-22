@@ -115,10 +115,11 @@ and why, and `.jscpd-baseline.json` records them.
   Page's related Documents, and in the card on a Document's and a Health Report's page (§3.2, §7.3,
   §9.5, §9.6 and §9.9; spec #311 "The Document repository", "The card over the field's edge"; spec
   #338 "The card over the field's edge", decision 3; spec #365 "The About Document pages", "A Basic
-  Page"), and the fiscal year on a
-  Health Report row's tile on `/health/reports`, a tile of the file tile's size and gradient
-  (§3.2, §7.3; spec #338 "The Health Reports list"). A change to any of these tiles' size or
-  gradient needs a new measure.
+  Page"), the fiscal year on a Health Report row's tile on `/health/reports`, a tile of the file
+  tile's size and gradient (§3.2, §7.3; spec #338 "The Health Reports list"), and "MOIT" over the
+  number on a MOIT's row on a fiscal year's page, on the file tile's gradient box (`RowTile`; §3.2,
+  §8.3; spec #392 "A fiscal year's page"). A change to any of these tiles' size or gradient needs a
+  new measure.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
   state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`
