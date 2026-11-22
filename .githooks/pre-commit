@@ -32,12 +32,14 @@ check npm run --silent typecheck
 check npm run --silent jscpd
 # The node tests that read the repository's own files; a fixed list, so a test that reads the tree
 # joins it (#371 retro: suites-for-change.test.ts went stale with a suite's edit, unseen until the
-# full test:node of the evidence round).
+# full test:node of the evidence round; #394 retro: a DESIGN.md change-history entry failed
+# design-history.test.ts one commit after it was committed).
 check node --test tests/node/invisible-characters.test.ts \
   tests/node/cited-source-paths.test.ts tests/node/package-facts.test.ts \
   tests/node/document-versions.test.ts tests/node/public-titles.test.ts \
   tests/node/removed-names.test.ts tests/node/suites-for-change.test.ts \
-  tests/node/public-homepage-menus.test.ts
+  tests/node/public-homepage-menus.test.ts tests/node/design-history.test.ts \
+  tests/node/design-utilities.test.ts tests/node/public-media.test.ts
 # The export stays outside the repository (ADR 0008), so CI has none, and the script leaves with
 # WordPress. The newest export's dated name sorts last. The whole tree is read, not only what the
 # commit adds: a file written before the newest export arrived may hold one of its texts (#289).
