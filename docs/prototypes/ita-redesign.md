@@ -55,9 +55,9 @@ The demo dataset's alone (grill Q6): no Legacy site content, and no wording of t
 
 ## The Product Owner's picks
 
-Asked through the session's question tool on 2026-11-22, each answer the option marked "(Recommended)":
+Asked through the session's question tool on 2026-11-22. P2, P3 and P4 are the options marked "(Recommended)". P1 was first answered A, the recommended Quick Access tile, and the Product Owner changed it to B in the session the same day ("ในหน้า /ita ฉันชอบ รูปแบบ B มากกว่า นอกนั้นตามที่เลือก"):
 
-- **P1 `/ita`: A**, the Quick Access tile over the field's edge.
+- **P1 `/ita`: B**, the large white card with the gradient `calendar-check` tile, the year at H2 size and the count in `brand-primary` with its arrow. It is a card of its own, where A reused the Homepage's Quick Access tile.
 - **P2 a year's page: A**, a white row per MOIT with its gradient tile.
 - **P3 a MOIT's body: B**, the table of contents' panel and the first card over the field's edge.
 - **P4 a MOIT's header: the year in the outlined pill, and the H1 no larger than H2 size** (H3 size below `sm`, H2 size from `sm`, as today's band). This changes grill Q3, which gave the H1 the Post page's sizes and the year as a plain line.
@@ -66,7 +66,7 @@ Variant E holds P3 and P4 together.
 
 ## Contrast of the picks
 
-`contrast.sh` runs `scripts/measure-text-contrast.ts --all-text --fold` at the five widths; the picks are ten pages (`/ita` A in its three cases, a year's page A in its three, a MOIT's page E in its four). No text reads under 4.5:1, and the script named no text as not read.
+`contrast.sh` runs `scripts/measure-text-contrast.ts --all-text --fold` at the five widths; the picks are ten pages (`/ita` B with one year and with three, and its empty state, which is the same in both variants and was read as A; a year's page A in its three, a MOIT's page E in its four). No text reads under 4.5:1, and the script named no text as not read.
 
 | Text | Lowest |
 | --- | ---: |
@@ -74,8 +74,8 @@ Variant E holds P3 and P4 together.
 | A list's lead on the field | 6.45:1 |
 | The label above a list's H1 | 9.22:1 |
 | The breadcrumb's links on the field / its current page | 8.36:1 / 6.18:1 |
-| A year tile's "ปีงบประมาณ" and "ตัวชี้วัด n รายการ" | 4.97:1 |
-| A year tile's year | 16.54:1 |
+| A year card's "ปีงบประมาณ" | 4.83:1 |
+| A year card's year / its "ตัวชี้วัด n รายการ" | 16.54:1 / 6.45:1 |
 | "MOIT" on a row's gradient tile | 4.75:1 (375 and 320 px) |
 | A row's number on its tile | 8.35:1 |
 | A row's title | 16.54:1 |

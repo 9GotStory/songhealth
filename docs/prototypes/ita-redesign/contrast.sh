@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PROTOTYPE (throwaway), Feature 013: --all-text contrast of every case in each variant, at the
-# five widths; PAGES="<case>:<variant> ..." narrows it. The Product Owner picked /ita A, the
+# five widths; PAGES="<case>:<variant> ..." narrows it. The Product Owner picked /ita B, the
 # year's page A and the MOIT page's E (2026-11-22).
 # .tmp/prototypes/ita-redesign/contrast.sh  →  contrast/<case>-<variant>.txt
 set -u
