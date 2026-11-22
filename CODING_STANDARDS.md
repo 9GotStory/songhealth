@@ -136,8 +136,14 @@ and why, and `.jscpd-baseline.json` records them.
 - A utility that changes with the width steps up with min-width variants alone, such as
   `pb-20 lg:pb-12`. Tailwind 4.3.3 writes a `max-*` variant's rules before the breakpoint
   variants' rules in the built stylesheet, so on one property a `max-lg:` loses to a `sm:` (#285
-  retro: `pb-10 sm:pb-12 max-lg:pb-20` gave 48 px at 1,023 px where 80 was meant). A `max-*` variant fits a property no breakpoint variant also
-  sets, such as `max-sm:hidden`.
+  retro: `pb-10 sm:pb-12 max-lg:pb-20` gave 48 px at 1,023 px where 80 was meant). A `max-*`
+  variant fits a property no breakpoint variant also sets, such as `max-sm:hidden`.
+- A state variant (`hover:`, `focus-visible:`, `group-hover:`) adds a pseudo-class to its
+  selector, so it beats a breakpoint variant on the same property at every width. A state that a
+  breakpoint turns off takes that breakpoint too: `hover:border-brand-primary
+  lg:border-transparent lg:hover:border-transparent` (#396 retro: without the last class the edge
+  showed under the pointer from 1,024 px). `tests/node/public-width-variants.test.ts` fails a class
+  string with this pair, or with a `max-*` variant that a smaller breakpoint overrides.
 - A CMS image or file is shown only while `src/lib/media.ts` (`availableMedia`,
   `downloadableFile`) says its media can be served, because Admin can delete a media item that
   content still uses. A rich-text body goes through `availableBody` before EmDash's
