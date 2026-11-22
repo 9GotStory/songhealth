@@ -3309,10 +3309,10 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   state lies over the edge. The landing's `PageHeading` goes, and `QuickLinkCard`, which has no
   page left, goes. The Status line and a Feature 013 banner name the feature, and §2, §3.1
   (`accent-warm`), §7.1, §7.3, §7.8, §8.3 and §8.12 name the page. Authority: spec #392 "The ITA
-  landing", "Motion" and decisions 2, 7, 9 and 11, and #392 comment 7075910252. A fiscal year's
-  page follows (#394): it opens on the deep field with the list heading, the label "ITA" and
-  `calendar-check` new to it, and the H1, the lead, the titles, the facts line's words, the title
-  in the head and the breadcrumb stay. Its MOITs lie over the field's edge as white rows in an
+  landing", "Motion" and decisions 2, 7, 9 and 11, and #392 comment 7075910252.
+- **v1.7 a fiscal year's page (2026-11-22, Feature 013 #394):** `/ita/{fiscal-year}` opens on the
+  deep field with the list heading, the label "ITA" and `calendar-check` new to it, and the H1,
+  the lead, the titles, the facts line's words, the title in the head and the breadcrumb stay. Its MOITs lie over the field's edge as white rows in an
   ordered list, each with "MOIT" over its number on the Document row's gradient tile (`RowTile`,
   which `FileTile` now shares), the title as the row's one link, the facts line and from `sm` an
   arrow (`ItaMoitRow`, §8.3), each revealed as it comes into the window. "MOIT n" moves from the
