@@ -39,9 +39,11 @@ describe("headings on public pages", () => {
 			"components/ContentCard.astro",
 			"components/SectionHeading.astro",
 			"components/HomeActivityTile.astro",
-			// A Basic Page's H1 and its related Documents' H3s (Feature 012 #368).
+			// A Basic Page's H1 and its related Documents' H3s (Feature 012 #368); a MOIT's H1, which
+			// moved from its own header band, and its Requirements' H2s (Feature 013 #395).
 			"components/PostHeader.astro",
 			"components/DocumentDownloadRow.astro",
+			"components/MoitPage.astro",
 			BODY_HEADING,
 		]) {
 			assert.ok(files.has(file), `a heading in ${file}`);

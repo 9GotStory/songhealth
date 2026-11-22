@@ -23,7 +23,7 @@
 //   (src/api/handlers/media.ts handleMediaDelete).
 // - EmDash serves a PDF as an attachment (src/astro/routes/api/media/file/[...key].ts).
 
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import {
 	createSyntheticMoit,
@@ -54,11 +54,19 @@ import {
 	expectBreadcrumb,
 	expectPreviewRenders,
 	expectSiteNotFound,
+	boxOf,
+	fieldEdge,
+	fieldParts,
+	readHeaderMotion,
+	readHeaderOnField,
+	readListField,
+	readWholeAtTwoWidths,
 	siteTitleParts,
 	sitemapLocations,
 	test,
 	testAccessibilityAndReflow,
 	thaiDate,
+	tokenColor,
 } from "./public.helpers";
 
 /** A fiscal year no real MOIT has, so the fixtures stay apart from the runtime's own. */
@@ -286,7 +294,7 @@ test("a file deleted from the library shows the unavailable pill with status 200
 	);
 });
 
-test("a draft, unpublished or trashed MOIT answers the site 404, a signed preview renders the draft, and an unknown slug answers 404", async ({
+test("a draft, unpublished or trashed MOIT and an unknown slug answer the site 404, and a signed preview renders the draft with the header on the field", async ({
 	page,
 }) => {
 	const evidence = [requirementBlock("1", "ข้อกำหนดของฉบับร่าง")];
@@ -301,6 +309,7 @@ test("a draft, unpublished or trashed MOIT answers the site 404, a signed previe
 	for (const moit of [draft, unpublished, trashed]) {
 		await expectSiteNotFound(page, `/ita/${moit.slug}`, moit.title);
 	}
+	await expectSiteNotFound(page, `/ita/${syntheticSlug("no-such-moit")}`, "an unknown MOIT");
 	await expectPreviewRenders(
 		page,
 		admin,
@@ -309,7 +318,10 @@ test("a draft, unpublished or trashed MOIT answers the site 404, a signed previe
 		`/ita/${draft.slug}`,
 	);
 	await expect(card(page, "1. ข้อกำหนดของฉบับร่าง")).toBeVisible();
-	await expectSiteNotFound(page, `/ita/${syntheticSlug("no-such-moit")}`, "an unknown MOIT");
+	await expect(
+		fieldParts(page).header.getByText(`ITA ปีงบประมาณ พ.ศ. ${FISCAL_YEAR}`, { exact: true }),
+		"the preview shows the header on the field, the fiscal year in its pill",
+	).toBeVisible();
 });
 
 test("a MOIT page carries its title, description, absolute canonical address and OG tags, with the SEO fields first, and the sitemap lists it but never a draft", async ({
@@ -416,6 +428,260 @@ function longEvidence(pdf: SyntheticPdf): Record<string, unknown>[] {
 	}
 	return blocks;
 }
+
+/**
+ * A MOIT's page on the deep field (Feature 013 #395; spec #392 "A MOIT's page: the header",
+ * decisions 3, 8 and 13): the Post page's header, with the fiscal year in its outlined pill and
+ * the H1 no larger than H2 size, while the body keeps its look on the page's colour under the
+ * field until #396.
+ */
+test.describe("the header on the field", () => {
+	const summary = `${SYNTHETIC_FIXTURE_MARK} สรุปตัวชี้วัดบนพื้นสีเขียว`;
+	const updatedOn = "2026-09-23T17:30:00.000Z";
+	const yearPill = `ITA ปีงบประมาณ พ.ศ. ${FISCAL_YEAR}`;
+	/** Summary, date, two Requirements and Evidence. */
+	let full: MoitFixture;
+	/** No summary, no date, and a file that cannot be served. */
+	let bare: MoitFixture;
+	/** Evidence and no Requirement. */
+	let noRequirement: MoitFixture;
+	/** Neither Evidence nor a summary. */
+	let empty: MoitFixture;
+
+	test.beforeAll(async () => {
+		const pdf = await uploadSyntheticPdf(admin);
+		const gone = await uploadSyntheticPdf(admin);
+		full = await createMoit(
+			"field-full",
+			14,
+			[
+				requirementBlock("1", "ข้อกำหนดใต้ส่วนหัว"),
+				fileBlock("1.1 หลักฐานใต้ส่วนหัว", pdf),
+				requirementBlock("2", "ข้อกำหนดข้อที่สองใต้ส่วนหัว"),
+				fileBlock("2.1 หลักฐานข้อที่สอง", pdf, { round: "รอบ 6 เดือน" }),
+			],
+			{ data: { summary, updated_on: updatedOn } },
+		);
+		bare = await createMoit("field-bare", 15, [
+			requirementBlock("1", "ข้อกำหนดที่มีไฟล์ที่ถูกลบ"),
+			fileBlock("1.1 ไฟล์ที่ยังอยู่", pdf),
+			fileBlock("1.2 ไฟล์ที่ถูกลบ", gone),
+		]);
+		noRequirement = await createMoit(
+			"field-no-requirement",
+			16,
+			[fileBlock("คู่มือการประเมินของตัวชี้วัด", pdf)],
+			{ data: { updated_on: updatedOn } },
+		);
+		empty = await createMoit("field-empty", 17, []);
+		for (const moit of [full, bare, noRequirement, empty]) await publish(moit);
+		const removed = await deleteMedia(admin, gone.mediaId);
+		expect(removed.ok, `deleting the media item: ${nativeRefusalOf(removed)}`).toBe(true);
+	});
+
+	/** The header's counts line on the field. */
+	const countsLine = (page: Page) => fieldParts(page).header.getByText(/^หลักฐาน \d+ รายการ/);
+
+	test("a MOIT page opens on the deep field with the Post page's header: the breadcrumb in white; 24 px under it the fiscal year in the outlined pill; the H1 with MOIT n in accent-warm and the title in surface-base, H3 size at 639 px and H2 size at 640, 1,024 and 1,440 px; the summary at body-large and the counts line at body size, the parts 12 px apart; no icon tile or frame; the field with the small glow and no ring, reaching 40 px under the header below 640 px and 48 px from 640 px; the body 32 px under the field below 1,024 px and 40 px from 1,024 px", async ({
+		page,
+	}) => {
+		await page.goto(`/ita/${full.slug}`);
+		const parts = fieldParts(page);
+		await expect(page.getByRole("heading", { level: 1 }), "one H1").toHaveCount(1);
+		const { seen, expected } = await readHeaderOnField(page, {
+			pills: [{ words: yearPill, look: "outlined" }],
+			lead: "MOIT 14",
+			under: { text: summary, lines: 1 },
+		});
+		const onField = (await parts.field.count()) === 1;
+		const white = await tokenColor(page, "surface-base");
+		const pill = parts.field.getByText(yearPill, { exact: true });
+		const lead = parts.header.getByText(summary, { exact: true });
+		const counts = countsLine(page);
+		const toc = tableOfContents(page);
+
+		seen.look = await readListField(page);
+		expected.look = Object.fromEntries(
+			Object.keys(seen.look as object).map((width) => [width, { glow: true, rings: 0 }]),
+		);
+		seen.counts = onField && {
+			text: (await counts.innerText()).trim(),
+			colour: await counts.evaluate((line) => getComputedStyle(line).color),
+			// body, 16 / 26.
+			type: await counts.evaluate((line) => {
+				const style = getComputedStyle(line);
+				return [style.fontSize, style.lineHeight];
+			}),
+		};
+		expected.counts = {
+			text: `หลักฐาน 2 รายการ ใน 2 ข้อ · ปรับปรุงล่าสุด ${thaiDate(updatedOn)}`,
+			colour: white,
+			type: ["16px", "26px"],
+		};
+		seen.decorations = onField && {
+			// The breadcrumb's chevrons are its own; the header holds no other icon.
+			icons: await parts.header
+				.locator("svg")
+				.evaluateAll((icons) => icons.filter((icon) => icon.closest("nav") === null).length),
+			frame: await page.getByTestId("picture-frame").count(),
+		};
+		expected.decorations = { icons: 0, frame: 0 };
+
+		const sizes: Record<number, unknown> = {};
+		const places: Record<number, unknown> = {};
+		const placesExpected: Record<number, unknown> = {};
+		for (const width of [320, 639, 640, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			const at = `at ${width} px`;
+			sizes[width] = await page
+				.getByRole("heading", { level: 1 })
+				.evaluate((title) => getComputedStyle(title).fontSize);
+			if (!onField) {
+				places[width] = "no field";
+			} else {
+				const [pillBox, titleBox, leadBox, countsBox, tocBox] = [
+					await boxOf(pill, `${at}: the pill`),
+					await boxOf(parts.title, `${at}: the H1`),
+					await boxOf(lead, `${at}: the summary`),
+					await boxOf(counts, `${at}: the counts line`),
+					await boxOf(toc, `${at}: the table of contents`),
+				];
+				const edge = await fieldEdge(parts.field, at);
+				places[width] = {
+					apart: [
+						titleBox.y - pillBox.y - pillBox.height,
+						leadBox.y - titleBox.y - titleBox.height,
+						countsBox.y - leadBox.y - leadBox.height,
+					].map(Math.round),
+					fieldUnderHeader: Math.round(edge - countsBox.y - countsBox.height),
+					bodyUnderField: Math.round(tocBox.y - edge),
+				};
+			}
+			placesExpected[width] = {
+				apart: [12, 12, 12],
+				fieldUnderHeader: width < 640 ? 40 : 48,
+				bodyUnderField: width < 1024 ? 32 : 40,
+			};
+		}
+		seen.titleSizes = sizes;
+		// H3 size below 640 px and H2 size from 640 px, with no larger size from 1,024 px.
+		expected.titleSizes = {
+			320: "24px",
+			639: "24px",
+			640: "34px",
+			1023: "34px",
+			1024: "34px",
+			1440: "34px",
+		};
+		seen.places = places;
+		expected.places = placesExpected;
+		expect(seen, "the MOIT's header on the field").toEqual(expected);
+	});
+
+	test("a MOIT's header shows no summary where the MOIT has none, and its counts line without a date where staff set none, with the files that cannot be served, and without ใน m ข้อ for a MOIT without a Requirement; a MOIT without Evidence ends with its field, its neighbour links 32 px under it below 1,024 px and 40 px from 1,024 px", async ({
+		page,
+	}) => {
+		/** The header's lines under the breadcrumb, in order. */
+		const lines = async (moit: MoitFixture) => {
+			await page.goto(`/ita/${moit.slug}`);
+			const header = fieldParts(page).header;
+			return header
+				.locator(":scope > :not(nav) > *")
+				.evaluateAll((parts) => parts.map((part) => part.textContent?.replace(/\s+/g, " ").trim()));
+		};
+		const seen: Record<string, unknown> = {
+			bare: await lines(bare),
+			noRequirement: await lines(noRequirement),
+			empty: await lines(empty),
+		};
+		const expected: Record<string, unknown> = {
+			bare: [yearPill, bare.heading, "หลักฐาน 2 รายการ ใน 1 ข้อ · ไฟล์ที่ไม่พร้อมให้บริการ 1"],
+			noRequirement: [
+				yearPill,
+				noRequirement.heading,
+				`หลักฐาน 1 รายการ · ปรับปรุงล่าสุด ${thaiDate(updatedOn)}`,
+			],
+			empty: [yearPill, empty.heading, "หลักฐาน 0 รายการ"],
+		};
+
+		// The MOIT without Evidence: its field, then the links to its neighbours in the year.
+		const parts = fieldParts(page);
+		const neighbours = page.getByRole("navigation", {
+			name: "ตัวชี้วัดอื่นในปีงบประมาณเดียวกัน",
+		});
+		const reach: Record<number, unknown> = {};
+		for (const width of [320, 639, 640, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			const at = `at ${width} px`;
+			if ((await parts.field.count()) !== 1) {
+				reach[width] = "no field";
+				continue;
+			}
+			const edge = await fieldEdge(parts.field, at);
+			const counts = await boxOf(countsLine(page), `${at}: the counts line`);
+			reach[width] = {
+				fieldUnderHeader: Math.round(edge - counts.y - counts.height),
+				neighboursUnderField: Math.round(
+					(await boxOf(neighbours, `${at}: the neighbours`)).y - edge,
+				),
+			};
+		}
+		seen.emptyPlaces = reach;
+		expected.emptyPlaces = Object.fromEntries(
+			[320, 639, 640, 1023, 1024, 1440].map((width) => [
+				width,
+				{ fieldUnderHeader: width < 640 ? 40 : 48, neighboursUnderField: width < 1024 ? 32 : 40 },
+			]),
+		);
+		expect(seen, "the header's lines and the page without Evidence").toEqual(expected);
+	});
+
+	test("a MOIT page moves only when motion is allowed: the header's pill, H1, summary and counts line rise in as the page opens while the breadcrumb, the table of contents and the cards show at once", async ({
+		page,
+	}) => {
+		const parts = fieldParts(page);
+		const atOnce: Array<[string, Locator]> = [
+			["the breadcrumb", parts.breadcrumb],
+			["the table of contents", tableOfContents(page)],
+			["the first card", card(page, "1. ข้อกำหนดใต้ส่วนหัว")],
+		];
+		const { seen, expected } = await readHeaderMotion(
+			page,
+			`/ita/${full.slug}`,
+			[
+				["the pill", parts.field.getByText(yearPill, { exact: true })],
+				["the H1", parts.title],
+				["the summary", parts.header.getByText(summary, { exact: true })],
+				["the counts line", countsLine(page)],
+			],
+			atOnce,
+			[["the field", parts.field], ["the H1", parts.title], ...atOnce],
+			false,
+		);
+		expect(seen, "the motion, and nothing moving without it").toEqual(expected);
+	});
+
+	test.describe("without JavaScript", () => {
+		test.use({ javaScriptEnabled: false });
+
+		test("a MOIT page shows its header on the field, its table of contents and its cards whole, at 375 and 1440 px", async ({
+			page,
+		}) => {
+			await page.goto(`/ita/${full.slug}`);
+			const parts = fieldParts(page);
+			const { seen, expected } = await readWholeAtTwoWidths(page, [
+				["the breadcrumb on the field", parts.breadcrumb],
+				["the pill on the field", parts.field.getByText(yearPill, { exact: true })],
+				["the H1 on the field", parts.title],
+				["the summary on the field", parts.header.getByText(summary, { exact: true })],
+				["the counts line on the field", countsLine(page)],
+				["the table of contents", tableOfContents(page)],
+				["the first card", card(page, "1. ข้อกำหนดใต้ส่วนหัว")],
+			]);
+			expect(seen, "each part whole without JavaScript").toEqual(expected);
+		});
+	});
+});
 
 test.describe("accessibility and reflow", () => {
 	let paths: string[];

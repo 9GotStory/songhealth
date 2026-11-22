@@ -469,6 +469,10 @@ async function ownListedYears(page: Page): Promise<number[]> {
 		.filter((year) => [NEWER, OLDER, DRAFTS_ONLY, NO_MOIT].includes(year));
 }
 
+/** The page's breadcrumb where it lies on the deep field. */
+const fieldCrumbs = (page: Page) =>
+	page.getByTestId("deep-field").getByRole("navigation", { name: "เส้นทางนำทาง" });
+
 /** The main navigation's ITA item. */
 const itaItem = (page: Page) =>
 	page.getByRole("navigation", { name: "เมนูหลัก" }).getByRole("link", { name: "ITA" });
@@ -1061,7 +1065,7 @@ test(`a fiscal year's page moves only when motion is allowed: the heading and th
 	await expectGridRevealsBelowShortWindow(page, `/ita/${NEWER}`, moitRows(page), "a row");
 });
 
-test("a fiscal year without a published MOIT answers the site 404, and its draft previewed leads back to ITA without the year", async ({
+test("a fiscal year without a published MOIT answers the site 404, and its draft previewed leads back to ITA without the year, with noindex and its breadcrumb on the field", async ({
 	page,
 }) => {
 	await expectSiteNotFound(page, `/ita/${DRAFTS_ONLY}`, "a year whose only MOIT is a draft");
@@ -1070,6 +1074,11 @@ test("a fiscal year without a published MOIT answers the site 404, and its draft
 	const preview = await page.goto((await mintPreviewLink(admin, "moit", draftsOnly.id)).toString());
 	expect(preview?.status(), "the draft's preview renders").toBe(200);
 	await expectBreadcrumb(page, [HOME_CRUMB, SECTION_CRUMBS.ita], "MOIT 1");
+	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+	await expect(
+		fieldCrumbs(page),
+		"the preview's breadcrumb lies on the field, in the MOIT's header",
+	).toHaveCount(1);
 });
 
 test("a MOIT page leads to the MOITs before and after it in its fiscal year's number order, past a draft, never into another year, and to none past the year's ends, and a draft in preview to those around its number", async ({
@@ -1094,7 +1103,7 @@ test("a MOIT page leads to the MOITs before and after it in its fiscal year's nu
 	);
 });
 
-test("the main navigation ends with ITA and marks it on the landing, a year's page and a MOIT's, whose breadcrumb steps down หน้าแรก › ITA › ปีงบประมาณ › MOIT", async ({
+test("the main navigation ends with ITA and marks it on the landing, a year's page and a MOIT's, whose breadcrumb steps down หน้าแรก › ITA › ปีงบประมาณ › MOIT, on each page's field in white", async ({
 	page,
 }) => {
 	await page.goto("/ita");
@@ -1115,6 +1124,66 @@ test("the main navigation ends with ITA and marks it on the landing, a year's pa
 		[HOME_CRUMB, SECTION_CRUMBS.ita, [`ปีงบประมาณ ${NEWER}`, `/ita/${NEWER}`]],
 		"MOIT 3",
 	);
+
+	// Each page's breadcrumb lies on its deep field, in white (Feature 013 #393, #394, #395).
+	const white = await tokenColor(page, "surface-base");
+	const seen: Record<string, unknown> = {};
+	for (const path of ["/ita", `/ita/${NEWER}`, `/ita/${third.slug}`]) {
+		await page.goto(path);
+		const crumbs = fieldCrumbs(page);
+		seen[path] =
+			(await crumbs.count()) === 1
+				? await crumbs
+						.locator('a, [aria-current="page"]')
+						.evaluateAll((parts) => [...new Set(parts.map((part) => getComputedStyle(part).color))])
+				: "not on the field";
+	}
+	expect(seen, "the breadcrumb on the field").toEqual({
+		"/ita": [white],
+		[`/ita/${NEWER}`]: [white],
+		[`/ita/${third.slug}`]: [white],
+	});
+});
+
+test("a MOIT's page with a title of 175 characters shows its header on the field whole at 375 and 320 px, the breadcrumb's four crumbs on two lines at 320 px, with nothing past the window", async ({
+	page,
+}) => {
+	expect(longTitle.title, "the fixture's title").toHaveLength(LONG_TITLE_LENGTH);
+	const path = `/ita/${longTitle.slug}`;
+	const seen: Record<number, unknown> = {};
+	const expected: Record<number, unknown> = {};
+	for (const width of [375, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		await page.goto(path);
+		await expectNoHorizontalScroll(page, `${path} at ${width} px`);
+		const field = page.getByTestId("deep-field");
+		const crumbs = fieldCrumbs(page);
+		const onField = (await crumbs.count()) === 1;
+		const title = field.getByRole("heading", { level: 1 });
+		seen[width] = onField && {
+			crumbs: await crumbs.getByRole("listitem").count(),
+			// At 320 px the four crumbs take two lines (spec #392 "Testing Decisions").
+			crumbLines: await crumbs
+				.getByRole("listitem")
+				.evaluateAll(
+					(items) => new Set(items.map((item) => Math.round(item.getBoundingClientRect().y))).size,
+				),
+			titleWhole: await shownWhole(title),
+			// Every part of the header lies inside the window.
+			inside: await field
+				.locator("header *")
+				.evaluateAll((parts) =>
+					parts.every((part) => part.getBoundingClientRect().right <= window.innerWidth + 0.5),
+				),
+		};
+		expected[width] = {
+			crumbs: 4,
+			crumbLines: width === 320 ? 2 : expect.any(Number),
+			titleWhole: true,
+			inside: true,
+		};
+	}
+	expect(seen, "the long MOIT's header at 375 and 320 px").toEqual(expected);
 });
 
 test("a Quick Access item that points to /ita shows on the Homepage and leads to the ITA landing", async ({
@@ -1131,8 +1200,9 @@ test("a Quick Access item that points to /ita shows on the Homepage and leads to
 	});
 });
 
-testAccessibilityAndReflow("the ITA landing and a fiscal year's page", () => [
+testAccessibilityAndReflow("the ITA landing, a fiscal year's page and a MOIT's page", () => [
 	"/ita",
 	`/ita/${NEWER}`,
 	`/ita/${LONG_TITLE}`,
+	`/ita/${longTitle.slug}`,
 ]);
