@@ -887,17 +887,24 @@ test.describe("the page on the field", () => {
 		expected.links = tocLinksExpected;
 		// Under the pointer: surface-soft from 1,024 px, its edge still clear; the brand-primary edge
 		// below it, as today.
-		await page.setViewportSize(DESKTOP_VIEWPORT);
-		await links.nth(1).hover();
-		seen.hoverColumn = await links.nth(1).evaluate((link) => {
-			const style = getComputedStyle(link);
-			return [style.backgroundColor, style.borderTopColor];
-		});
-		expected.hoverColumn = [soft, "rgba(0, 0, 0, 0)"];
-		await page.setViewportSize({ width: 375, height: 812 });
-		await links.nth(1).hover();
-		seen.hoverRow = await links.nth(1).evaluate((link) => getComputedStyle(link).borderTopColor);
-		expected.hoverRow = brandPrimary;
+		const pointerOn: Record<number, unknown> = {};
+		for (const width of [375, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 812 });
+			await links.nth(1).hover();
+			pointerOn[width] = await links.nth(1).evaluate((link) => {
+				const style = getComputedStyle(link);
+				return { fill: style.backgroundColor, edge: style.borderTopColor };
+			});
+		}
+		seen.underPointer = pointerOn;
+		expected.underPointer = Object.fromEntries(
+			[375, 1023, 1024, 1440].map((width) => [
+				width,
+				width < 1024
+					? { fill: "rgba(0, 0, 0, 0)", edge: brandPrimary }
+					: { fill: soft, edge: "rgba(0, 0, 0, 0)" },
+			]),
+		);
 
 		// The panel beside or above the first card, as the MOIT's Requirements open its body.
 		await page.goto(`/ita/${full.slug}`);
@@ -1038,7 +1045,7 @@ test.describe("the page on the field", () => {
 		const parts = cardHead(longest);
 		const bare = cardHead(unnumbered);
 		// A title on one line below 640 px: centred on the tile, the pill 8 px under the tile's line,
-		// as P3 B (Product Owner, #396 review).
+		// as P3 B (Product Owner, #396 review). It fits one line at 639 px and wraps at 320.
 		const short = cardHead(card(page, "2. ข้อกำหนดที่ยังไม่มีหลักฐาน"));
 		const [white, soft, brandPrimary, brandDark, primary] = await Promise.all(
 			["surface-base", "surface-soft", "brand-primary", "brand-dark", "text-primary"].map((name) =>
@@ -1142,11 +1149,14 @@ test.describe("the page on the field", () => {
 								chevronOnTile: Math.round(centre(chevron) - centre(tile)),
 								countUnder: round([count.y - title.y - title.height, count.x - title.x]),
 								unnumberedChevron: Math.round(centre(bareChevron) - (bareTitle.y + 15)),
-								oneLine: round([
-									shortTitle.height,
-									centre(shortTitle) - centre(shortTile),
-									shortCount.y - shortTile.y - shortTile.height,
-								]),
+								oneLine:
+									width === 639
+										? round([
+												shortTitle.height,
+												centre(shortTitle) - centre(shortTile),
+												shortCount.y - shortTile.y - shortTile.height,
+											])
+										: "wraps at 320 px",
 							}
 						: {
 								centres: round(
@@ -1166,7 +1176,7 @@ test.describe("the page on the field", () => {
 								chevronOnTile: 0,
 								countUnder: [8, 0],
 								unnumberedChevron: 0,
-								oneLine: [30, 0, 8],
+								oneLine: width === 639 ? [30, 0, 8] : "wraps at 320 px",
 							}
 						: { centres: [0, 0, 0] },
 			};
