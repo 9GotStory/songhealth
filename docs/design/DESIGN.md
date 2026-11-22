@@ -350,7 +350,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `border-input` on `surface-base`, `bg-page`, `surface-soft` | 3.63, 3.42, 3.25:1 |
 | `accent-warm` focus ring on `brand-dark`, `brand-primary` | 7.75, 4.10:1 |
 | `accent-warm` text on `brand-dark`; on `brand-primary` and the deep field, where small text is `surface-base` instead (§8.4) | 7.75:1; 4.10:1 or less |
-| `accent-warm` ("MOIT n" opening a MOIT's H1, large text at H3 size and more) on the deep field: measured, 3:1 or more at the five widths (§9.11; spec #392 decision 8) | 5.54:1 or more in the prototype (spec #392 "Measured in the prototype") |
+| `accent-warm` ("MOIT n" opening a MOIT's H1, large text at H3 size and more) on the deep field: measured, 3:1 or more at the five widths (§9.11; spec #392 decision 8) | 5.46:1 or more (#395, at 320 px) |
 | `text-secondary-on-soft` (the tagline) on the header's surface over `brand-dark`, the darkest fill a page scrolls under it (`text-secondary` there would be 4.15:1) | 4.73:1 |
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
@@ -2443,6 +2443,13 @@ a Post page.
   without a Requirement and without Evidence, the motion, and the page without JavaScript;
   `public-ita-years.spec.ts` reads the breadcrumb on the field on the three ITA pages and a MOIT's
   page with a title of 175 characters at 375 and 320 px.
+- **Measured** on the development runtime at `4405549` (#395), `scripts/measure-text-contrast.ts
+  --all-text --fold` on the field at 1,440, 1,024, 768, 375 and 320 px, on the demo dataset's two
+  MOITs and on the `moit-published-sizes` (a title of 175 characters) and `moit-no-summary` cases
+  of `scripts/screenshot-fixtures/ita-cases.ts`, the lowest of each text: the breadcrumb's links
+  8.48:1 and its current page 6.35:1; the fiscal year in its pill 8.26:1; "MOIT n" in the H1
+  5.46:1 and the H1's title 6.02:1 (`moit-no-summary`, 320 and 375 px); the summary and the
+  counts line 6.45:1. The script named no text as not read.
 
 ## 10. Acceptance and known limits
 
