@@ -1,6 +1,6 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.6, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.7, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
@@ -12,8 +12,9 @@
 > Services and Health Services pages follows spec #338, implemented by #339–#346, and was accepted
 > on #338 (Product Owner, 2026-11-19: #338 comment 6999055380). Feature 012's redesign of the
 > About pages, the Contact page and a Basic Page follows spec #365, implemented by #366–#372, and
-> was accepted on #365 (Product Owner, 2026-11-21: #365 comment 7060805067).
-> **Updated:** 2026-11-20 (#372); first drafted 2026-10-30
+> was accepted on #365 (Product Owner, 2026-11-21: #365 comment 7060805067). Feature 013's
+> redesign of the ITA pages follows spec #392, implemented by #393–#397.
+> **Updated:** 2026-11-22 (#393); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -104,6 +105,16 @@
 > in §13's change history, and #372 the documents, the measures and the limits. Every page outside
 > the feature keeps its design.
 
+> **Feature 013 decision (Product Owner, 2026-11-22; spec #392, #392 comment 7075910252):** the
+> ITA landing (`/ita`), a fiscal year's page (`/ita/{fiscal-year}`) and a MOIT's page
+> (`/ita/{slug}`) are redesigned after the Homepage and Features 009 to 012's pages as they are
+> built, in the look the Product Owner picked from a prototype. The landing is headed on the deep
+> field as the lists are (§7.8), under the label "ITA", with each fiscal year as a large white card
+> over the field's edge (§8.3). Every address, read and behaviour stays, and no colour, type size,
+> radius or shadow joins the tokens. #393 to #396 implement the pages, each with its own decisions
+> in §13's change history, and #397 the documents, the measures and the limits. Every page outside
+> the feature keeps its design.
+
 ## 1. Scope, authority and status
 
 This document records the public presentation of Songhealth: its tokens, its components, the
@@ -182,7 +193,9 @@ health-service network.
   #371). `/contact` is headed as a list under the label "ติดต่อ", with Office Contact's details in a
   white card over the field's edge, a row per detail with its icon, then the official channels as
   pills under the Homepage's section heading and the two routes onward as white cards (§7.8, §9.10;
-  #369).
+  #369). Feature 013 brings the list's heading to the ITA landing (spec #392; §7.8; #393), under
+  the label "ITA", with each fiscal year that has a published MOIT as a large white card over the
+  field's edge, its year as an H2 beside a gradient calendar tile (§8.3).
   Every page outside these features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -251,7 +264,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | --- | --- | --- |
 | `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
 | `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip and, on `/about/leadership`, of the featured first leader (§7.3), the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's and a Health Report's page, the file's type on its tile (§7.3, §9.4, §9.5, §9.6); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), on a Document's header the pill of a superseded or expired status (§9.5), and on a Health Report's header the pill of "วันที่รายงาน" and the report date (§9.6) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip and, on `/about/leadership`, of the featured first leader (§7.3), the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's and a Health Report's page, the file's type on its tile (§7.3, §9.4, §9.5, §9.6); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), on a Document's header the pill of a superseded or expired status (§9.5), and on a Health Report's header the pill of "วันที่รายงาน" and the report date (§9.6); on a fiscal year's card on the ITA landing, the `calendar-check` on its gradient tile (§8.3) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
@@ -518,7 +531,7 @@ this document names:
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
 | Headings | `PageHeading`, `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it, or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10), `ThaiTitle` |
-| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog; and `kind="section"`, a Health Service's "บริการที่ให้", §8.4, §9.8), `HomeQuickLink` (the Homepage's Quick Access; `kind="list"`, `/health`'s and `/about`'s tiles, §7.3, §8.11), `QuickLinkCard` (the ITA landing alone), `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3), `OfficeContactDetails` (Office Contact's card on `/contact`, a row per detail with its icon, §9.10); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
+| Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog; and `kind="section"`, a Health Service's "บริการที่ให้", §8.4, §9.8), `HomeQuickLink` (the Homepage's Quick Access; `kind="list"`, `/health`'s and `/about`'s tiles, §7.3, §8.11), `ItaYearCard` (a fiscal year's card on the ITA landing, §8.3), `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3), `OfficeContactDetails` (Office Contact's card on `/contact`, a row per detail with its icon, §9.10); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
 | Homepage | `HomeHero`; `SearchForm` on `/search` |
 | Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5), a Health Report's (§9.6), a Service's (§9.7), a Health Service's (§9.8), a Basic Page's (§9.9), and `/about`'s, a list's field under a Basic Page's header (§9.9) |
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9) |
@@ -759,7 +772,7 @@ this document names:
     fixed height, and the cards of a row share one height. One line of label makes it 82 px tall
     (a 26 px line, the 8 px gap, the arrow and 24 px of padding), the taller proportions the
     Product Owner accepted (#190 comment 6707205912, Quick Access B).
-  - The ITA landing keeps `QuickLinkCard`, the full card with its border.
+  - The ITA landing has a card of its own for each fiscal year, `ItaYearCard` (§8.3).
   - `/health` shows its two destinations, "ความรู้สุขภาพ" then "รายงานสุขภาพ", with it (Feature 011
     #339; spec #338 "`/health`"), `kind="list"`: over the field's lower edge (§7.8), two to a row
     at every width, 12 px apart below `sm` and 20 px from `sm`, the compact card below 640 px.
@@ -948,7 +961,8 @@ Directory (`/health-services`), and since Feature 012 #366 (spec #365 decisions 
 About Document pages (`/about/policies`, `/about/plans` and `/about/results`), and since #367
 (spec #365 decisions 4 and 11) the Leadership page (`/about/leadership`), and since #370 (spec
 #365 decisions 4 and 12) the Personnel page (`/about/personnel`), and since #369 (spec #365
-decisions 4, 9 and 13) the Contact page (`/contact`).
+decisions 4, 9 and 13) the Contact page (`/contact`), and since Feature 013 #393 (spec #392
+decisions 2, 7 and 11) the ITA landing (`/ita`).
 
 - **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
   `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
@@ -1009,6 +1023,11 @@ decisions 4, 9 and 13) the Contact page (`/contact`).
   012 #369). Its details card lies over the field's edge; with no Office Contact detail set nothing
   does, and the field ends 40 px under the lead below `sm` and 48 px from `sm`, as a header's field
   without a card (§9.4; `ListHeading`'s `overEdge={false}`; spec #365 decision 9; §9.10).
+- **`/ita`** is labelled "ITA", the main navigation's word, over its H1
+  "การประเมินคุณธรรมและความโปร่งใส (ITA)", with `shield-check`, its breadcrumb ending at ITA. It has no pill link or links
+  under the lead, and keeps its lead, its title in the head and its breadcrumb (spec #392 decision
+  2; Feature 013 #393). Its year cards lie over the field's edge, or with no published MOIT its
+  empty state (§8.3).
 - **The links under the lead.** `/services` has two, "ค้นหาหน่วยบริการสุขภาพที่เกี่ยวข้อง" to the
   directory and "คู่มือและแบบฟอร์ม" to `/documents`, its related pages that are not Services (spec
   #338 "The Service catalog", decision 15): 16 px under the lead, `surface-base` words, semibold,
@@ -1302,9 +1321,27 @@ file, which is kept unchanged (ADR 0007).
 the MOIT page follows variant C, "สารบัญและการ์ด", of the ITA prototype
 (`docs/prototypes/ita-moit-page.md` on the branch `prototype/ita`):
 
-- **Landing `/ita`:** the heading "การประเมินคุณธรรมและความโปร่งใส (ITA)" with the GLOSSARY lead,
-  then a Quick Link card per fiscal year, newest first: "ปีงบประมาณ", the year and "ตัวชี้วัด n
-  รายการ". While no MOIT is published it says "ยังไม่มีข้อมูล ITA".
+- **Landing `/ita`** (Feature 013 #393; spec #392 "The ITA landing", decisions 2, 7, 9 and 11;
+  prototype P1 B): the list heading on the deep field (§7.8), the label "ITA" and `shield-check`
+  over the H1 "การประเมินคุณธรรมและความโปร่งใส (ITA)", and the GLOSSARY lead. Over the field's
+  lower edge, a card per fiscal year that has a published MOIT, newest first (`ItaYearCard`): one
+  to a row below `sm`, two from `sm` and three from `lg` at any count, 12 px apart below `sm` and
+  20 px from `sm`, the cards of a row one height. A card is one link, white with the `card` shadow
+  and the `deep` shadow under the pointer, radius 24, 24 px of padding and 28 px from `sm`, its
+  parts 20 px apart from top to bottom:
+  - a 52 px tile on the section heading's gradient (`brand-primary` to `brand-dark`, radius 16, the
+    `tile` shadow) with the 24 px `calendar-check` in `accent-warm`;
+  - "ปีงบประมาณ" at label size in `text-secondary`, and under it the year as an H2 at H2 size in
+    `text-primary`, `brand-primary` under the pointer;
+  - "ตัวชี้วัด n รายการ" at label size, semibold, in `brand-primary`, with a 20 px `arrow-right` at
+    the row's right end at every width;
+  - a 160 px `surface-soft` circle at the lower right corner, 48 px past the card's right edge and
+    56 px past its lower edge, which cut it.
+
+  The tile, the icons and the circle are decorative: the link is named by "ปีงบประมาณ", the year
+  and its count. Its focus ring has the lists' `surface-base` band (`focus-ring-banded`, §3), which
+  the `deep` shadow leaves in place under the pointer. Each card reveals as it comes into the window (§8.12). While no MOIT is published, the empty state
+  "ยังไม่มีข้อมูล ITA" lies over the field's edge and shows at once.
 - **Year `/ita/{fiscal-year}`:** the heading "ITA ปีงบประมาณ พ.ศ. YYYY", then one card that lists
   the year's MOITs by number between divider lines. Each row is a heading link, a "MOIT n" badge
   and the title, over "หลักฐาน n รายการ · ปรับปรุงล่าสุด date".
@@ -1740,7 +1777,9 @@ stays the submit state (§8.9).
   #367, `public-personnel.spec.ts` "with motion allowed each leader's card …", and
   `/about/personnel`'s panels since #370, "with motion allowed each unit's panel …", each without a
   picture's shimmer, as the Leadership strip's portraits; `/about`'s tiles since #371, under a
-  Basic Page's header, below). On `/contact` nothing reveals: its breadcrumb, details card,
+  Basic Page's header, below; `/ita`'s year cards since Feature 013 #393, as `/health`'s tiles,
+  with its empty state at once, `public-ita-years.spec.ts` "/ita moves only when motion is allowed:
+  …"). On `/contact` nothing reveals: its breadcrumb, details card,
   channels and two routes show at once (§9.10; #369; `public-contact.spec.ts` "/contact moves only
   when motion is allowed: …").
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
@@ -2458,7 +2497,7 @@ Product Owner made", whose numbers these are; #338 comment 6941491587):
   the model and the Admin as they are; and the Homepage's motion with no new effect (1, 2, 7);
 - the new Health Service row on the directory and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้",
   Feature 010's related Documents on a Service's page, and every other page's rows and
-  `QuickLinkCard` as they are until their own feature (2, 3);
+  the ITA landing's card as they are until their own feature (2, 3);
 - a Health Report's file as a Document's page holds its file, and `DocumentDownload.astro` gone
   (4, #334);
 - each list headed as Feature 009's lists, with its label, H1 and icon (5), and `/services`' and
@@ -3233,3 +3272,14 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (`docs/evidence/372-about-contact-basic-page-evidence-round.md`). Authority: spec #365
   "Documents" and "Decisions the Product Owner made", the decisions on #366 to #371, the notes on
   #372, and #372 comment 7043481056. No page changed.
+- **v1.7 the ITA landing (2026-11-22, Feature 013 #393):** `/ita` opens on the deep field with the
+  list heading (§7.8): the label "ITA" and the icon `shield-check` are new to the page, and the
+  H1, the lead, the title in the head, the breadcrumb and the empty state's words stay. Over the
+  field's edge each fiscal year that has a published MOIT takes a large white card, three to a row
+  from `lg`, two from `sm` and one below, with a gradient tile holding `calendar-check`,
+  "ปีงบประมาณ" over the year as an H2, where the earlier card had no heading, and the count with
+  its arrow (`ItaYearCard`, §8.3), each revealed as it comes into the window; with none the empty
+  state lies over the edge. The landing's `PageHeading` goes, and `QuickLinkCard`, which has no
+  page left, goes. The Status line and a Feature 013 banner name the feature, and §2, §3.1
+  (`accent-warm`), §7.1, §7.3, §7.8, §8.3 and §8.12 name the page. Authority: spec #392 "The ITA
+  landing", "Motion" and decisions 2, 7, 9 and 11, and #392 comment 7075910252.

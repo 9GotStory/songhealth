@@ -857,6 +857,47 @@ export function shownOpacity(part: Locator): Promise<number> {
 }
 
 /**
+ * A list's grid, `grid`, at `path` in a window shorter than the deep field, with motion allowed:
+ * each of its items opens below the window, waits there unseen and shows whole once scrolled into
+ * the window, and the last, given the keyboard's focus as the page opens, shows whole. Just under a
+ * 300 px window Chromium gives an item's view timeline no progress and it shows whole, so the
+ * window is 200 px. `what` names one item, such as "a tile" (/health; the ITA landing, #393).
+ */
+export async function expectGridRevealsBelowShortWindow(
+	page: Page,
+	path: string,
+	grid: Locator,
+	what: string,
+): Promise<void> {
+	const short = { width: 1440, height: 200 };
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.setViewportSize(short);
+	await page.goto(path);
+	const items = grid.getByRole("listitem");
+	for (const item of await items.all()) {
+		expect((await boxOf(item, what)).y, `${what} lies below the window`).toBeGreaterThan(
+			short.height,
+		);
+	}
+	// Items share a row, so each is read before any comes into the window.
+	for (const item of await items.all()) {
+		expect(await shownOpacity(item), `${what} below the window waits`).toBe(0);
+	}
+	for (const item of await items.all()) {
+		await item.scrollIntoViewIfNeeded();
+		await expect.poll(() => shownOpacity(item), { message: `${what} in the window shows` }).toBe(1);
+	}
+	await page.goto(path);
+	await items.last().getByRole("link").focus();
+	await expect
+		.poll(() => shownOpacity(items.last()), {
+			message: `the last of ${path}'s items, focused, shows whole`,
+			timeout: 3_000,
+		})
+		.toBe(1);
+}
+
+/**
  * The parts of `scope` an effect holds back as the page is now: any that is not fully opaque or
  * lies away from its place. Decorations, hidden from assistive technology, are left out.
  */
@@ -2115,6 +2156,11 @@ interface HeadingOnField {
 	/** The crumbs before the list's own, root first. */
 	crumbs: ReadonlyArray<readonly [label: string, href: string]>;
 	heading: ListHeadingText;
+	/**
+	 * The breadcrumb's current page where it is not the H1, such as the ITA landing's "ITA", the main
+	 * navigation's word (Feature 013 #393; #124 comment 6577248920).
+	 */
+	current?: string;
 	/** The Lucide icon in the heading's tile. */
 	icon: string;
 	/**
@@ -2154,7 +2200,7 @@ export function testHeadingOnField(list: HeadingOnField): void {
 		expect(response?.status(), `GET ${path}`).toBe(200);
 		const main = page.getByRole("main");
 		await expect(main.getByRole("heading", { level: 1 })).toHaveText(text.title);
-		await expectBreadcrumb(page, list.crumbs, text.title);
+		await expectBreadcrumb(page, list.crumbs, list.current ?? text.title);
 		await expect(main.getByText(text.lead, { exact: true })).toBeVisible();
 
 		const heading = listHeading(page, text);
