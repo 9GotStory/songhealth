@@ -9,20 +9,29 @@
 # path (#282 retro). It ends with the table of the pages' heights that scripts/evidence-heights.ts
 # reads from the PNGs, for a pull request or a record to quote whole (#287 retro). The push is left
 # to you: it publishes the images, and the repository is public.
-#   scripts/evidence-branch.sh [--before-from <branch>] <ticket: 003-61, or 169 for a standalone
-#   one> <dir of PNGs>
+#   scripts/evidence-branch.sh [--before-from <branch>] [--after] <ticket: 003-61, or 169 for a
+#   standalone one> <dir of PNGs>
 # --before-from takes the missing before images from another branch's tip in place of this
 # ticket's, such as the feature's first ticket's, which holds every page's before (#371 retro).
+# --after takes <dir> as captures named as scripts/capture-screenshots.mjs names them: each becomes
+# after-<name>.png, with its captures.txt line (scripts/evidence-after.ts; #395 retro).
 set -euo pipefail
-usage="usage: scripts/evidence-branch.sh [--before-from <branch>] <ticket> <dir of PNGs>"
-source_branch=
-if [[ ${1-} == --before-from ]]; then
-  (($# >= 2)) || { echo "$usage" >&2; exit 2; }
-  source_branch=$2
-  shift 2
-  git rev-parse --verify -q "refs/heads/$source_branch" >/dev/null ||
-    { echo "evidence-branch: no local branch $source_branch" >&2; exit 2; }
-fi
+usage="usage: scripts/evidence-branch.sh [--before-from <branch>] [--after] <ticket> <dir of PNGs>"
+source_branch=""
+after_only=""
+while [[ ${1-} == --* ]]; do
+  case $1 in
+    --before-from)
+      (($# >= 2)) || { echo "$usage" >&2; exit 2; }
+      source_branch=$2
+      shift 2
+      git rev-parse --verify -q "refs/heads/$source_branch" >/dev/null ||
+        { echo "evidence-branch: no local branch $source_branch" >&2; exit 2; }
+      ;;
+    --after) after_only=1; shift ;;
+    *) echo "$usage" >&2; exit 2 ;;
+  esac
+done
 (($# == 2)) || { echo "$usage" >&2; exit 2; }
 ticket=$1 dir=$2
 [[ $ticket =~ ^([0-9]{3}-)?[0-9]+$ ]] || { echo "evidence-branch: the ticket looks like 003-61 or 169" >&2; exit 2; }
@@ -34,6 +43,14 @@ if [[ $ticket =~ ^[0-9]+$ && $current =~ ^[a-z]+/([0-9]{3})-$ticket- ]]; then
   exit 2
 fi
 shopt -s nullglob
+scratch=()
+trap 'rm -rf "${scratch[@]}"' EXIT
+if [[ $after_only ]]; then
+  staged=$(mktemp -d)
+  scratch+=("$staged")
+  node "$(dirname "${BASH_SOURCE[0]}")/evidence-after.ts" "$dir" "$staged"
+  dir=$staged
+fi
 images=("$dir"/*.png)
 ((${#images[@]})) || { echo "evidence-branch: no PNG in $dir" >&2; exit 1; }
 
@@ -45,7 +62,7 @@ branch=evidence/$ticket-screenshots
 source_branch=${source_branch:-$branch}
 if git rev-parse --verify -q "refs/heads/$source_branch" >/dev/null; then
   work=$(mktemp -d)
-  trap 'rm -rf "$work"' EXIT
+  scratch+=("$work")
   cp "$dir"/*.png "$work"/
   [[ -e $dir/captures.txt ]] && cp "$dir/captures.txt" "$work/captures.txt"
   carried=0
