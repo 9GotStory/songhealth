@@ -16,8 +16,9 @@
 //
 // The tile and the arrow are decorative, so the title's link carries "MOIT n" for assistive
 // technology alone and is named "MOIT n" and the title, as the badge inside it was before (#124).
-// Only the title is a link, as in a Document's row: it turns brand-primary and underlined under the
-// pointer, and the row takes the `deep` shadow. The first row lies over the deep field's lower
+// Only the title is a link, as in a Document's row: a block as wide as its words, so its focus ring
+// is one box around every line, and brand-primary and underlined under the pointer, while the row
+// takes the `deep` shadow. The first row lies over the deep field's lower
 // edge, so the link's focus ring has the lists' white band (`focus-ring-banded`); the shadow is the
 // row's, so the band stays under the pointer.
 import ArrowRight from "@lucide/astro/icons/arrow-right";
@@ -42,7 +43,7 @@ const { id, data } = Astro.props.moit;
 	<div class="flex min-w-0 flex-1 flex-col gap-1">
 		<h2 class="text-body font-semibold wrap-anywhere sm:text-body-large">
 			<a
-				class="focus-ring-banded underline-offset-4 hover:text-brand-primary hover:underline"
+				class="focus-ring-banded block w-fit underline-offset-4 hover:text-brand-primary hover:underline"
 				href={moitPath(id)}
 			>
 				<span class="sr-only">{`${moitLabel(data.number)} `}</span>
