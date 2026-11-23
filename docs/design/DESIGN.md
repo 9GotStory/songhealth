@@ -13,8 +13,8 @@
 > on #338 (Product Owner, 2026-11-19: #338 comment 6999055380). Feature 012's redesign of the
 > About pages, the Contact page and a Basic Page follows spec #365, implemented by #366–#372, and
 > was accepted on #365 (Product Owner, 2026-11-21: #365 comment 7060805067). Feature 013's
-> redesign of the ITA pages follows spec #392, implemented by #393–#397; the Product Owner accepts
-> it on #392.
+> redesign of the ITA pages follows spec #392, implemented by #393–#397, and was accepted on #392
+> (Product Owner, 2026-11-23: #392 comment 7092932555).
 > **Updated:** 2026-11-23 (#397); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
@@ -2835,7 +2835,7 @@ The prototype's variants, on the branch `prototype/ita-redesign` at `a59b8f5` (`
 Each ticket's decisions are on #393 to #396 and in §13. The evidence round of #397
 (`docs/evidence/397-ita-pages-evidence-round.md`) measures the pages and names what the evidence
 does not cover, which the Product Owner accepted after the walkthrough (#397 comment 7091473095).
-The Product Owner accepts the feature on #392.
+The Product Owner accepted the feature on #392 (comment 7092932555).
 
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
