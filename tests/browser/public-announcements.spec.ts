@@ -82,6 +82,8 @@ import {
 	pillStyle,
 	pointAtRowEdge,
 	rowTileLook,
+	rowTileShapeAcross,
+	rowTileShapeAcrossAsSpecified,
 	shownLines,
 	siteTitleParts,
 	test,
@@ -767,6 +769,7 @@ test("an Announcement page shows its type, dates, details and its published atta
 				.getAttribute("href"),
 			// The light file tile (Feature 014 #418; spec #417 decision 12, P1 A).
 			tile: await rowTileLook(documentRowParts(row, 3).tile),
+			tileShape: await rowTileShapeAcross(documentRowParts(row, 3).tile),
 			download:
 				(await download.count()) === 1
 					? {
@@ -784,6 +787,7 @@ test("an Announcement page shows its type, dates, details and its published atta
 		[second, first].map((document) => ({
 			title: `/documents/${document.slug}`,
 			tile: lightFileTile,
+			tileShape: rowTileShapeAcrossAsSpecified(),
 			download: { href: `/_emdash/api/media/file/${file.storageKey}`, file: file.filename },
 		})),
 	);

@@ -781,6 +781,29 @@ export async function rowTileShape(tile: Locator) {
 export const rowTileShapeAt = (width: number) =>
 	width >= 640 ? [92, 92, "18px"] : [68, 68, "14px"];
 
+/** The widths spec #417's acceptance reads a row's tile at: each side of `sm` and `lg`, wide. */
+const ROW_TILE_WIDTHS = [320, 639, 640, 1023, 1024, 1440];
+
+/**
+ * A row's tile's shape (rowTileShape) at each of ROW_TILE_WIDTHS, the window's height 900, then
+ * the window back at its size, for a test that reads the rest of its row at one width.
+ */
+export async function rowTileShapeAcross(tile: Locator) {
+	const page = tile.page();
+	const size = page.viewportSize();
+	const seen: Record<number, unknown> = {};
+	for (const width of ROW_TILE_WIDTHS) {
+		await page.setViewportSize({ width, height: 900 });
+		seen[width] = await rowTileShape(tile);
+	}
+	if (size) await page.setViewportSize(size);
+	return seen;
+}
+
+/** rowTileShapeAcross as RowTile.astro specifies it (rowTileShapeAt at each width). */
+export const rowTileShapeAcrossAsSpecified = () =>
+	Object.fromEntries(ROW_TILE_WIDTHS.map((width) => [width, rowTileShapeAt(width)]));
+
 /** The hospital tile's line (HealthServiceMapRow.astro): the hospital alone. */
 export const HOSPITAL_TILE_LINES = [
 	{ line: "hospital", token: "brand-primary", size: 24 },

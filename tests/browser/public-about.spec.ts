@@ -62,6 +62,8 @@ import {
 	fileTileLines,
 	lightRowTile,
 	rowTileLook,
+	rowTileShapeAcross,
+	rowTileShapeAcrossAsSpecified,
 	selfRunningEnds,
 	boxOf,
 	deepField,
@@ -397,6 +399,7 @@ test.describe("an About Document page's rows", () => {
 			const factsLine = (await parts.facts.textContent()) ?? "";
 			seen[path] = {
 				tile: await rowTileLook(parts.tile),
+				tileShape: await rowTileShapeAcross(parts.tile),
 				// What today's row already shows: its facts line.
 				facts: facts.filter((fact) => factsLine.includes(fact)),
 				href: await parts.title.getByRole("link").getAttribute("href"),
@@ -413,6 +416,7 @@ test.describe("an About Document page's rows", () => {
 			};
 			expected[path] = {
 				tile: await lightRowTile(page, fileTileLines("PDF")),
+				tileShape: rowTileShapeAcrossAsSpecified(),
 				facts,
 				href: `/documents/${first!.slug}`,
 				download: {
@@ -1219,6 +1223,7 @@ test.describe("a Basic Page on the field", () => {
 				title: (await title.count()) === 1 && (await title.textContent())?.trim(),
 				// Each row's file tile is the light one (spec #417 "The light row tile").
 				tile: await rowTileLook(rowTile),
+				tileShape: await rowTileShapeAcross(rowTile),
 				download: await row
 					.getByRole("link", { name: `ดาวน์โหลด (PDF, 11.8 KB) ${document.title}`, exact: true })
 					.count(),
@@ -1228,6 +1233,7 @@ test.describe("a Basic Page on the field", () => {
 		expected.rowNames = related.map((document) => ({
 			title: document.title,
 			tile: lightFileTile,
+			tileShape: rowTileShapeAcrossAsSpecified(),
 			download: 1,
 		}));
 		for (const width of [320, 639, 640, 1023, 1024, 1440]) {
