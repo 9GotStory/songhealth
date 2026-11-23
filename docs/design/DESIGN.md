@@ -612,7 +612,9 @@ this document names:
   `sm`; each card reveals as it comes into the window and shows whole while it holds the
   keyboard's focus (§8.12). Their focus rings lie on the card's white, inside its edge, where the
   first row meets the field too, so they need no band. A summary longer than three lines is cut at
-  the third, as the catalog's: `/health`'s two at 640 px.
+  the third, as the catalog's: `/health`'s two at 640 px. At `2b70970` (#420), `--all-text --fold`
+  at the five widths read each name 16.54:1 and each summary 5.07:1 at its lowest (768 px on
+  `/health`, 1,024 px on `/about`, over the corner circle), as the prototype did (§9.9).
 - **The list card**, on the News, Health News and Health Content lists (Feature 009 #283; spec
   #280 "The cards", decisions 4, 10 and 15) and the Activities list (Feature 010 #313; spec #311
   "The Activities list", decisions 6 and 12), is the Homepage's small News card (§8.6),
@@ -2391,11 +2393,16 @@ a list's field before its tiles, with the same body and related Documents after 
   `scripts/screenshot-fixtures/about-contact-cases.ts`, the lowest of each text: the breadcrumb's
   links 10.27:1 and its current page 8.96:1 (320 px); the H1 5.86:1 (320 px), and "เกี่ยวกับเรา"
   8.36:1 without the page; the summary 4.85:1 (1,024 px, where the large ring runs behind it; the
-  prototype read 4.92:1); the tiles' labels 16.54:1; the body's headings 11.52:1 and text 15.61:1;
+  prototype read 4.92:1); the tiles' labels 16.54:1, and since Feature 014 #420 (at `2b70970`, on
+  the demo dataset and the `no-organization` case) the cards' names 16.54:1 and their summaries
+  5.07:1 (1,024 px, over the corner circle), ผู้บริหาร's and ผลการดำเนินงาน's 5.66:1; the body's headings 11.52:1 and text 15.61:1;
   "เอกสารเผยแพร่" 6.09:1, a row's facts and summary 4.97:1, "PDF" 10.94:1 on the light tile (#418: `scripts/measure-text-contrast.ts --all-text --fold` at `2d2b027`) and the download 6.45:1.
   `scripts/measure-focus-contrast.ts` on the tiles of the first row, which meet the field, and of
   the second: beside the ring, with focus, no pixel under 3:1 at any of the five widths, where the
-  ring alone over the field reads 1.00:1.
+  ring alone over the field reads 1.00:1. On the cards since #420 (at `2b70970`, the first card
+  and the fourth): the ring lies on the card, 5.78:1 or more under it at every width; beside it
+  the fourth card's neighbours read 4.35:1 or more, and the first card's, over the field's edge, 1
+  to 2 % under 3:1 at its rounded corners, as the Homepage's Service card (§10).
 
 ### 9.10 The Contact page: Office Contact's card over the field's edge, the channels and the routes
 
@@ -2944,6 +2951,9 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 - **A Service card's focus ring on the Homepage:** beside the ring 2 to 3 % of its neighbours read
   under 3:1 at its rounded corners over the field; on the card it lies on it reads 5.51:1 or more,
   as Feature 008 accepted it (#242 comment 6797113372, item 2; #340 comment 6947302659, item 3).
+  The same card over the field's edge on `/health` and `/about` reads the same way since Feature
+  014: 1 to 2 % of the first row's neighbours under 3:1 at the corners, 5.78:1 or more under the
+  ring (#420 at `2b70970`; spec #417 decision 7, the ring inside the card's edge with no band).
 - **"ไปยังเว็บไซต์ของบริการ"** in a Service's card takes its ↗ on a line of its own at 375 and
   320 px, the link as before in a narrower box (§9.7; #344 comment 6981324830).
 - **A facts line** (`MetaLine`) that wraps can end a line with its dot, on the Health Service and
@@ -3670,5 +3680,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   `focus-ring-banded` takes no unguarded `hover:shadow-*` (#393 retro). §2, §3.1 (`accent-warm`),
   §7.1, §7.3, §7.8, §8.4, §8.11, §8.12 and §9.9 state the cards, §10 drops #408's limit and names
   the pages #383 still covers (the Homepage's Quick Access, `/contact`), and `CODING_STANDARDS.md`
-  "Public pages" gains the hover rule. Authority: spec #417 "The cards" and decisions 4 to 8 and
-  14, and #417 comment 7094711736.
+  "Public pages" gains the hover rule. Read at `2b70970` with `--all-text --fold` at the five
+  widths on `/health`, `/about` and `/about` without its `organization` page: each name 16.54:1,
+  each summary 5.07:1 at its lowest, every other text as before (`/about`'s summary over its ring
+  4.85:1, unchanged); the rings with `measure-focus-contrast.ts` as §9.9 and §10 record them.
+  Authority: spec #417 "The cards" and decisions 4 to 8 and 14, and #417 comment 7094711736.
