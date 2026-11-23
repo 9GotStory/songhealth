@@ -234,6 +234,12 @@ async function unpublish(collection: Collection, fixture: DraftFixture): Promise
 }
 
 /** A summary and a body with a heading, as staff write a Basic Page. */
+/** The summary saved on the Basic Page `id`, as the Admin reads it back. */
+async function savedSummary(id: string): Promise<string> {
+	const data = nativeItemOf(await readEntry(admin, "pages", id))?.data as { summary?: string };
+	return String(data?.summary);
+}
+
 function pageContent(label: string) {
 	return {
 		summary: `${SYNTHETIC_FIXTURE_MARK} สรุปหน้า ${label}`,
@@ -676,13 +682,7 @@ test.describe("/about on the field", () => {
 		};
 
 		await publish("pages", organization);
-		const summary = String(
-			(
-				nativeItemOf(await readEntry(admin, "pages", organization.id))?.data as {
-					summary?: string;
-				}
-			)?.summary,
-		);
+		const summary = await savedSummary(organization.id);
 		await page.setViewportSize(DESKTOP_VIEWPORT);
 		await page.goto("/about");
 		const published = await readDestinationCards(
@@ -740,11 +740,12 @@ test.describe("/about on the field", () => {
 			pageContent("organization"),
 		);
 		await publish("pages", organization);
+		const summary = await savedSummary(organization.id);
 		await expectDestinationCardsUnderPointer(
 			page,
 			"/about",
 			aboutCardList(page),
-			aboutCards(undefined),
+			aboutCards(summary),
 		);
 	});
 

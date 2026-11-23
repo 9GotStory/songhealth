@@ -181,7 +181,8 @@ health-service network.
   Health Information hub, the Health Reports list, the Service catalog and the Health Service
   Directory (spec #338; §7.8; #339): `/services` with its two related links under the lead, and
   `/health` with its two destinations over the field's edge, the Homepage's Quick Access tiles until
-  Feature 014 gave them the Service catalog's cards (§7.3, §8.4; #420). `/services` shows the Homepage's Frequently Used Service cards (§8.4; #340), and
+  Feature 014 gave them the Service catalog's cards (§7.3, §8.4; #420). `/services` shows the
+  Homepage's Frequently Used Service cards (§8.4; #340), and
   `/health-services` rows with the Health Service's tile, its name, its address and "เปิดแผนที่" in
   the row (§7.3; #341), and `/health/reports` rows with the report's tile carrying its fiscal
   year, each one link over the whole row (§7.3; #342). A Health Report's page opens on the field
@@ -203,9 +204,11 @@ health-service network.
   ringed circle (§7.3, §8.5; #370). A Basic Page, on `/pages/{slug}` and `/about/organization`,
   opens on the field with the Post page's header, its title and summary, then its body in the text
   column and its related Documents with their downloads under the Homepage's section heading (§9.9;
-  #368). `/about` opens on a list's field with the same header, its six sub-pages over the field's edge,
+  #368). `/about` opens on a list's field with the same header, its six sub-pages over the field's
+  edge,
   the Service catalog's cards since Feature 014 (#420), then its body and related Documents (§7.3,
-  §8.4, §9.9; #371). `/contact` is headed as a list under the label "ติดต่อ", with Office Contact's details in a
+  §8.4, §9.9; #371). `/contact` is headed as a list under the label "ติดต่อ", with Office Contact's
+  details in a
   white card over the field's edge, a row per detail with its icon, then the official channels as
   pills under the Homepage's section heading and the two routes onward as white cards (§7.8, §9.10;
   #369). Feature 013 brings the list's heading to the ITA landing (spec #392; §7.8; #393), under
@@ -578,7 +581,8 @@ this document names:
 
 - **Whole-card navigation** (#193; Product Owner, #190 comment 6707205912): each shared
   ContentCard (the News, Health News, Health Content and Activities lists) and the Service card
-  (the Homepage's, the catalog's and `/health`'s and `/about`'s, §8.4) has one native link named by its title alone. The
+  (the Homepage's, the catalog's and `/health`'s and `/about`'s, §8.4) has one native link named by
+  its title alone. The
   picture/fallback, icon, metadata, summary and padding all open its original destination.
   H2 titles on lists and H3 under Homepage sections name a full-surface native link through
   `aria-labelledby`. Other content stays outside the link's visible label and remains readable,
@@ -603,7 +607,8 @@ this document names:
   Service: its address; its name as the H2; its page's heading icon in the tile (`DestinationIcon`:
   `heart-pulse` for ความรู้สุขภาพ, `file-chart-column` for รายงานสุขภาพ, `user-round` for ผู้บริหาร,
   `users-round` for บุคลากร, `scroll-text` for นโยบาย, `clipboard-list` for แผนงาน, `chart-column`
-  for ผลการดำเนินงาน, and `network` for โครงสร้างองค์กร, whose page has no heading icon); and from `sm`
+  for ผลการดำเนินงาน, and `network` for โครงสร้างองค์กร, whose page has no heading icon); and from
+  `sm`
   the lead its page opens with as the summary (`src/lib/health.ts`, `src/lib/about.ts`), for
   โครงสร้างองค์กร the published `organization` Basic Page's summary and none while that page is not
   published or gives none. In today's order to today's addresses, over the field's lower edge
@@ -1099,7 +1104,8 @@ fiscal year's page (`/ita/{fiscal-year}`).
   whole row, whose ring lies around the row and over the field in the first row, with the lists'
   band, as on `/announcements`. On `/health` the
   block is the two destinations' cards, the Service catalog's (§7.3; Feature 011 #339, Feature 014
-  #420), their rings on the card's white, inside its edge. On the About Document pages the block is the Document rows of `/documents` without its
+  #420), their rings on the card's white, inside its edge. On the About Document pages the block is
+  the Document rows of `/documents` without its
   filter form (§7.3; Feature 012 #366), 14 px apart, each with its title and its download, whose
   rings lie on the row's white in the first row too; then the pager, or the type's empty state
   or, past the last page, its way back. On `/about/leadership` the block is the leaders' list
@@ -1780,7 +1786,8 @@ menu before the Contact Summary, and is left out while the menu is empty, as the
 leaves it (`scripts/demo-dataset/content.ts`; spec #239). Under the section heading its cards go
 four to a row from `lg` and two below, 24 px apart (12 px below `sm`). A card is the Homepage's
 card surface, white with the `card` shadow and no border, radius 22 (18 below `sm`): the label at
-the h3 size, a plain label under the section's H2, and a 24 px `arrow-right`, the whole card one link named by the label. Under the
+the h3 size, a plain label under the section's H2, and a 24 px `arrow-right`, the whole card one
+link named by the label. Under the
 pointer the label turns `brand-primary` and the shadow `deep`. Below `sm` it is compact (§7.3).
 
 **The Contact Summary** (`HomeContactCard`; spec #239 "Contact Summary") is one card inside the
@@ -1857,7 +1864,8 @@ stays the submit state (§8.9).
   Activities, Announcements and Documents lists: the Activities list's cards move as `/news`'s
   since Feature 010 #313, the Announcements' rows reveal as the Homepage's do since #314, without a
   picture to shimmer, and the Documents' rows as the Announcements' since #315; `/health`'s
-  tiles reveal since Feature 011 #339, its cards since Feature 014 #420 (`public-health.spec.ts` "/health moves only when motion is
+  tiles reveal since Feature 011 #339, its cards since Feature 014 #420 (`public-health.spec.ts`
+  "/health moves only when motion is
   allowed: …"), `/services`' cards without a picture since #340, `/health-services`' rows since
   #341, `/health/reports`' rows since #342 and the About Document pages' rows since Feature 012
   #366, `testListOnField`'s `itemsMove`; `/about/leadership`'s cards, the featured one too, since
@@ -2386,7 +2394,8 @@ a list's field before its tiles, with the same body and related Documents after 
   gaps and parts at 320, 375, 639, 640, 768, 1,023, 1,024 and 1,440 px, the field's look, where the
   header ends and the cards start against the field's edge, their focus rings and the keyboard's
   order (`readDestinationCards`), and each card under the pointer and under focus
-  (`expectDestinationCardsUnderPointer`, Feature 014 #420); the header with and without the page and the preview; the body and the
+  (`expectDestinationCardsUnderPointer`, Feature 014 #420); the header with and without the page and
+  the preview; the body and the
   related Documents after the cards at six widths; the motion; and the page without JavaScript.
 - **Measured** on the development runtime at `36e0770` (#371), `scripts/measure-text-contrast.ts
   --all-text --fold` on `main` at 1,440, 1,024, 768, 375 and 320 px, on `/about` (the demo
@@ -2396,7 +2405,8 @@ a list's field before its tiles, with the same body and related Documents after 
   8.36:1 without the page; the summary 4.85:1 (1,024 px, where the large ring runs behind it; the
   prototype read 4.92:1); the tiles' labels 16.54:1, and since Feature 014 #420 (at `2b70970`, on
   the demo dataset and the `no-organization` case) the cards' names 16.54:1 and their summaries
-  5.07:1 (1,024 px, over the corner circle), ผู้บริหาร's and ผลการดำเนินงาน's 5.66:1; the body's headings 11.52:1 and text 15.61:1;
+  5.07:1 (1,024 px, over the corner circle), ผู้บริหาร's and ผลการดำเนินงาน's 5.66:1; the body's
+  headings 11.52:1 and text 15.61:1;
   "เอกสารเผยแพร่" 6.09:1, a row's facts and summary 4.97:1, "PDF" 10.94:1 on the light tile (#418: `scripts/measure-text-contrast.ts --all-text --fold` at `2d2b027`) and the download 6.45:1.
   `scripts/measure-focus-contrast.ts` on the tiles of the first row, which meet the field, and of
   the second: beside the ring, with focus, no pixel under 3:1 at any of the five widths, where the

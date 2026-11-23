@@ -3658,7 +3658,7 @@ export async function expectDestinationCardsUnderPointer(
 	list: Locator,
 	cards: readonly DestinationCard[],
 ): Promise<void> {
-	for (const { title, href } of cards) {
+	for (const { title, href, summary } of cards) {
 		const card = list.getByRole("article").filter({ hasText: title });
 		await page.emulateMedia({ reducedMotion: "reduce" });
 		await page.goto(path);
@@ -3681,13 +3681,27 @@ export async function expectDestinationCardsUnderPointer(
 		const white = await tokenColor(page, "surface-base");
 		expect(pointed, `${title} under the pointer`).toEqual({
 			name: white,
-			summary: pointed.summary === null ? null : white,
+			summary: summary === undefined ? null : white,
 			arrow: white,
 			tile: await tokenColor(page, "accent-warm"),
 			icon: await tokenColor(page, "brand-dark"),
 		});
 		await card.getByRole("link").press("Enter");
 		await expect(page, `${title} by Enter`).toHaveURL(href);
+		// A press on the tile a citizen points at, and on the card's lower corner, opens the page
+		// (CODING_STANDARDS "Tests": a card whose whole surface is one link).
+		for (const where of ["its tile", "its lower corner"]) {
+			await page.goto(path);
+			await card.scrollIntoViewIfNeeded();
+			const tile = await boxOf(card.getByTestId("service-icon"), `${title}: the tile`);
+			const whole = await boxOf(card, `${title}: the card`);
+			const point =
+				where === "its tile"
+					? { x: tile.x + tile.width / 2, y: tile.y + tile.height / 2 }
+					: { x: whole.x + whole.width - 8, y: whole.y + whole.height - 8 };
+			await pressInside(page, card.getByRole("link"), point, `${title}, ${where}`);
+			await expect(page, `${title} from ${where}`).toHaveURL(href);
+		}
 		await page.goto(path);
 		await expectRisesUnderPointer(page, card, card.getByTestId("service-surface"), 8);
 		await expect(page, `${title} from the strip the lift left`).toHaveURL(href);

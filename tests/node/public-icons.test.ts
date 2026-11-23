@@ -115,7 +115,7 @@ describe("public pages", () => {
 		assert.deepEqual(off, []);
 	});
 
-	it("draw network, new with /about's cards (#420), at 24 px wherever it is imported", async () => {
+	it("draw network at 24 px wherever it is imported", async () => {
 		const importers = (await publicSources())
 			.filter(({ source }) => /["']@lucide\/astro\/icons\/network["']/.test(source))
 			.map(({ file }) => file);
