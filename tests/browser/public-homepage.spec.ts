@@ -80,6 +80,7 @@ import {
 	VIEWPORTS,
 	announcementDateTile,
 	announcementDateTileOf,
+	announcementDateTilesAcross,
 	boxOf,
 	detailOf,
 	entersAfter,
@@ -100,9 +101,6 @@ import {
 	listedTitles,
 	ownTitles,
 	ringedCircle,
-	rowTileLook,
-	rowTileShape,
-	rowTileShapeAt,
 	rowTileStates,
 	selfRunningEnds,
 	shownLines,
@@ -111,6 +109,7 @@ import {
 	test,
 	thaiDate,
 	tokenColor,
+	unchangedTileStates,
 } from "./public.helpers";
 
 /** The Homepage menus with nothing in them, so no curated section shows. */
@@ -1009,31 +1008,22 @@ test("four current Announcements show as rows from 640 px and three below, newes
 	// and fourth), the not-yet-open (second) and the open (third) Announcement, at the tile's edge
 	// (639, 640 px) and at 320 and 1,440 px, the fourth row shown from 640 px; the open one's stays
 	// as it is under the pointer and under focus.
-	const [seen, expected] = [
-		{ tiles: {} as Record<number, unknown[]>, states: {} },
-		{ tiles: {} as Record<number, unknown[]>, states: {} },
-	];
-	for (const width of [1440, 640, 639, 320]) {
-		await page.setViewportSize({ width, height: 900 });
-		seen.tiles[width] = [];
-		expected.tiles[width] = [];
-		for (let index = 0; index < (width >= 640 ? 4 : 3); index += 1) {
-			const tile = announcementDateTileOf(rows.nth(index));
-			seen.tiles[width].push({ look: await rowTileLook(tile), shape: await rowTileShape(tile) });
-			expected.tiles[width].push({
-				look: await announcementDateTile(page, thaiDate(at(5 - index)), width),
-				shape: rowTileShapeAt(width),
-			});
-		}
-	}
+	const tiles = await announcementDateTilesAcross(
+		page,
+		shown.map((_, index) => ({ row: rows.nth(index), shown: thaiDate(at(5 - index)) })),
+		(width) => (width >= 640 ? 4 : 3),
+	);
 	await page.setViewportSize(DESKTOP_VIEWPORT);
-	seen.states = await rowTileStates(
+	const states = await rowTileStates(
 		announcementDateTileOf(rows.nth(2)),
 		rows.nth(2).getByRole("link"),
 	);
-	const open = await announcementDateTile(page, thaiDate(at(3)), DESKTOP_VIEWPORT.width);
-	expected.states = { rest: open, pointer: open, focus: open };
-	expect(seen, "the rows' date tiles").toEqual(expected);
+	expect({ tiles: tiles.seen, states }, "the rows' date tiles").toEqual({
+		tiles: tiles.expected,
+		states: unchangedTileStates(
+			await announcementDateTile(page, thaiDate(at(3)), DESKTOP_VIEWPORT.width),
+		),
+	});
 });
 
 test("an Announcement's row shows its category as a badge: procurement in blue on topic-blue, recruitment in brand-dark on accent-warm, any other in brand-primary on surface-soft, and none without a category; a long title keeps to two lines", async ({

@@ -297,7 +297,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | `text-secondary-on-soft` | `#5d6a64` | secondary text on `surface-soft` (contrast fix, #51) |
 | `border-input` | `#7a8a83` | input boundaries (contrast fix, #51) |
 | `procurement-text`, `procurement-border` | `#1d4f91`, `#c9dbf3` | the procurement Announcement badge's text and border, on `topic-blue` (Feature 008, #239) |
-| `status-closed` | `#e7ecea` | a closed Announcement's status label on the Announcements list and on its page (Feature 008, #239; Feature 010, #314, #316); its date tile, `status-closed` from #314, is white since Feature 014 #419 |
+| `status-closed` | `#e7ecea` | a closed Announcement's status label on the Announcements list and on its page (Feature 008, #239; Feature 010, #314, #316) |
 | `deep-highlight` | `#0f8a70` | the highlight in the deep green field's gradient and in the deep visual's (Feature 008, #239) |
 | `plain-visual-to` | `#d6ece2` | the plain visual's second stop, after `surface-soft` (Feature 008, #239) |
 
@@ -561,7 +561,7 @@ this document names:
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9), and a MOIT's page, on its own `DeepField` with `ListBody` after it, with "MOIT n" opening its H1 and the H1 no larger than H2 size (§9.11) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons; with `arrow`, semibold with a 16 px `arrow-right`, `/contact`'s routes, §9.10), `ArrowLink` (onward links), `Pagination`, `Breadcrumb`; `ContentLink`'s `compact` form, the footer's official channels and `/contact`'s pills (§9.10) |
-| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RequirementCard`, a MOIT's Requirement card, and `MoitNeighbours`, the links to the MOITs before and after it, on a MOIT's page (§8.3, §9.11); `RowTile`, the light row tile of 68 px and 92 px from `sm` on flat `surface-soft`, which `FileTile`, `ItaMoitRow`, `HealthReportRow` and `HealthServiceMapRow` share, each with its own lines (Feature 014 #418); `RelatedDocuments` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RequirementCard`, a MOIT's Requirement card, and `MoitNeighbours`, the links to the MOITs before and after it, on a MOIT's page (§8.3, §9.11); `RowTile`, the light row tile of 68 px and 92 px from `sm` on flat `surface-soft`, which `FileTile`, `ItaMoitRow`, `HealthReportRow`, `HealthServiceMapRow` and `AnnouncementRow` share, each with its own lines (Feature 014 #418, #419), read aloud on an Announcement's row and white with an edge on a closed one's (§8.7); `RelatedDocuments` |
 
 ### 7.2 Component rules
 
@@ -3638,8 +3638,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   its lines in `text-secondary`, in place of `status-closed` with `text-primary`; its "ปิดแล้ว"
   label keeps `status-closed` with `text-primary`. The last `accent-warm` exception on the
   gradient tile goes from §3.2 and `CODING_STANDARDS.md`; §3.1 (`brand-primary`, `brand-dark`,
-  `accent-warm`, `text-secondary`, `surface-soft`, `border-default`, `status-closed`), §3.2, §7.3
-  and §8.7 state the two tiles, with the readings at `404bffc`: the day 5.78:1, the month and year
+  `accent-warm`, `text-secondary`, `surface-soft`, `border-default`, `status-closed`), §3.2, §7.1,
+  §7.3 and §8.7 state the two tiles, with the readings at `404bffc`: the day 5.78:1, the month and year
   10.94:1 and a closed tile's lines 4.97:1 on the Homepage and `/announcements` at the five
   widths, where the rows' badges, status labels, dates and titles read as §8.7 records them.
   Authority: spec #417

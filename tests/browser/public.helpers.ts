@@ -780,12 +780,11 @@ export async function lightRowTile(page: Page, lines: readonly ExpectedTileLine[
 
 /**
  * An Announcement's date tile as spec #417 sets it (#419), for the date `shown` ("4 ม.ค. 2574",
- * as thaiDate gives it) at the window's `width`: read by assistive technology, as before the
- * feature (Product Owner, 2026-11-23: #419 comment 7100237929); the day bold at H3 size below `sm`
- * and H2 size from `sm`, over the month and year regular at small size. A current Announcement's
- * is the light tile, its day `brand-primary` and its month and year `brand-dark` (decision 12); a
- * closed one's is `surface-base` with a 1 px `border-default` edge, both lines `text-secondary`
- * (decision 13).
+ * as thaiDate gives it) at the window's `width`: read by assistive technology (Product Owner,
+ * 2026-11-23: #419 comment 7100237929); the day bold at H3 size below `sm` and H2 size from `sm`,
+ * over the month and year regular at small size. A current Announcement's is the light tile, its
+ * day `brand-primary` and its month and year `brand-dark` (decision 12); a closed one's is
+ * `surface-base` with a 1 px `border-default` edge, both lines `text-secondary` (decision 13).
  */
 export async function announcementDateTile(
 	page: Page,
@@ -819,6 +818,45 @@ export async function announcementDateTile(
 /** An Announcement row's date tile: the parent of its first `time`. */
 export const announcementDateTileOf = (row: Locator) =>
 	row.locator("time").first().locator("xpath=..");
+
+/**
+ * An Announcement row's date tile, the date it shows (as thaiDate gives it) and whether it closed.
+ */
+interface DateTileRow {
+	row: Locator;
+	shown: string;
+	closed?: boolean;
+}
+
+/**
+ * The date tiles of `rows` at each side of `sm` (639, 640 px), at 320 and at 1,440 px, the window's
+ * height 900, then the window back at its size: what rowTileLook and rowTileShape read (`seen`)
+ * beside what announcementDateTile and rowTileShapeAt give (`expected`), by width. `shownAt` gives
+ * how many of the rows a width shows (the Homepage shows three below `sm`).
+ */
+export async function announcementDateTilesAcross(
+	page: Page,
+	rows: DateTileRow[],
+	shownAt = (_width: number) => rows.length,
+) {
+	const size = page.viewportSize();
+	const [seen, expected] = [{} as Record<number, unknown[]>, {} as Record<number, unknown[]>];
+	for (const width of [1440, 640, 639, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		seen[width] = [];
+		expected[width] = [];
+		for (const { row, shown, closed } of rows.slice(0, shownAt(width))) {
+			const tile = announcementDateTileOf(row);
+			seen[width].push({ look: await rowTileLook(tile), shape: await rowTileShape(tile) });
+			expected[width].push({
+				look: await announcementDateTile(page, shown, width, closed),
+				shape: rowTileShapeAt(width),
+			});
+		}
+	}
+	if (size) await page.setViewportSize(size);
+	return { seen, expected };
+}
 
 /** The file tile's lines (FileTile.astro): file-text over the file's type, or "ไฟล์". */
 export const fileTileLines = (type: string) =>
@@ -893,10 +931,16 @@ export async function rowTileStates(tile: Locator, link: Locator) {
 	return { rest, pointer: pointed, focus: focused };
 }
 
+/** What rowTileStates reads of a tile that looks as `look` at rest, under the pointer and focus. */
+export const unchangedTileStates = <Look>(look: Look) => ({
+	rest: look,
+	pointer: look,
+	focus: look,
+});
+
 /** What rowTileStates reads of a light tile with `lines` (lightRowTile). */
 export async function lightRowTileStates(page: Page, lines: readonly ExpectedTileLine[]) {
-	const tile = await lightRowTile(page, lines);
-	return { rest: tile, pointer: tile, focus: tile };
+	return unchangedTileStates(await lightRowTile(page, lines));
 }
 
 /**

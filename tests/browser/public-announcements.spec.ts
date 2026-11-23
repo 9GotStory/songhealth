@@ -56,6 +56,7 @@ import {
 	LeadingEntries,
 	announcementDateTile,
 	announcementDateTileOf,
+	announcementDateTilesAcross,
 	documentRowParts,
 	fileTileLines,
 	isoDay,
@@ -85,10 +86,8 @@ import {
 	pillStyle,
 	pointAtRowEdge,
 	rowTileLook,
-	rowTileShape,
 	rowTileShapeAcross,
 	rowTileShapeAcrossAsSpecified,
-	rowTileShapeAt,
 	rowTileStates,
 	shownLines,
 	siteTitleParts,
@@ -96,6 +95,7 @@ import {
 	testAccessibilityAndReflow,
 	testListOnField,
 	thaiDate,
+	unchangedTileStates,
 	tokenColor,
 } from "./public.helpers";
 
@@ -532,19 +532,14 @@ test("each /announcements row is the Homepage's row: the light date tile with th
 	}
 	// The tile (spec #417 decisions 1 and 12; #419): the light one for an open, a not-yet-open and
 	// two undated Announcements, at the tile's edge (639, 640) and at 320 and 1,440 px.
-	for (const width of [1440, 640, 639, 320]) {
-		await page.setViewportSize({ width, height: 900 });
-		seen.tiles[width] = [];
-		expected.tiles[width] = [];
-		for (const [index, announcement] of fixtures.entries()) {
-			const tile = announcementDateTileOf(listedItem(page, announcement.title));
-			seen.tiles[width].push({ look: await rowTileLook(tile), shape: await rowTileShape(tile) });
-			expected.tiles[width].push({
-				look: await announcementDateTile(page, thaiDate(in2031(1, 4 - index)), width),
-				shape: rowTileShapeAt(width),
-			});
-		}
-	}
+	const tiles = await announcementDateTilesAcross(
+		page,
+		fixtures.map((announcement, index) => ({
+			row: listedItem(page, announcement.title),
+			shown: thaiDate(in2031(1, 4 - index)),
+		})),
+	);
+	[seen.tiles, expected.tiles] = [tiles.seen, tiles.expected];
 	for (const [width, shown] of [
 		[640, true],
 		[639, false],
@@ -587,16 +582,23 @@ test("a closed Announcement's row has a white date tile with a border-default ed
 	const closedStates = await rowTileStates(closedTile, row.getByRole("link"));
 	const label = await coloursOf(row, "ปิดแล้ว");
 	const closedShape = await rowTileShapeAcross(closedTile);
-	/** A tile that stays as it is at rest, under the pointer and under focus. */
-	const still = (look: unknown) => ({ rest: look, pointer: look, focus: look });
+	// The closed tile's look at each side of `sm`, at 320 and at 1,440 px.
+	const closedAcross = await announcementDateTilesAcross(page, [
+		{ row, shown: thaiDate(in2031(2, 2)), closed: true },
+	]);
 	expect(
-		{ currentTile, closedTile: closedStates, closedShape, label },
+		{ currentTile, closedTile: closedStates, closedShape, closedAcross: closedAcross.seen, label },
 		"a closed row's tile white against a current one's light tile",
 	).toEqual({
-		currentTile: still(await announcementDateTile(page, thaiDate(in2031(2, 1)), 1440)),
-		closedTile: still(await announcementDateTile(page, thaiDate(in2031(2, 2)), 1440, true)),
+		currentTile: unchangedTileStates(
+			await announcementDateTile(page, thaiDate(in2031(2, 1)), 1440),
+		),
+		closedTile: unchangedTileStates(
+			await announcementDateTile(page, thaiDate(in2031(2, 2)), 1440, true),
+		),
 		// The edge lies inside the tile's size (spec #417 "A closed Announcement's tile").
 		closedShape: rowTileShapeAcrossAsSpecified(),
+		closedAcross: closedAcross.expected,
 		label: { fill: await colour("status-closed"), words: await colour("text-primary"), dot: true },
 	});
 });
