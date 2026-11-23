@@ -20,7 +20,7 @@ on #392.
 ## Checks
 
 The local checks ran at `ed0d0bb` between 02:44Z and 02:45Z on 2026-11-23, the browser suites
-between 02:45Z and 03:19Z, T021 and residue at 03:19Z and 03:20Z, the captures between 03:21Z and
+between 02:45Z and 03:19Z, T021 and residue at 03:19Z, the captures between 03:21Z and
 03:24Z, and the measures between 03:24Z and 03:54Z. The pull request states the checks at its head.
 
 | Check | Command | Result |
@@ -91,7 +91,7 @@ at 1,440, 1,024, 768 and 320 px; at 375 px 11 pixels of the first tile's lower s
 by 2 in a colour channel at most, the anti-aliasing of the shadow. The Homepage whole differs at
 all five widths in one place, which the clock moved and the code did not: the demo Announcement
 "[ตัวอย่าง] เปิดรับสมัครผู้เข้าร่วมโครงการเลิกบุหรี่ รุ่นที่ 2/2570" opens ten days after the demo
-dataset was added (`opens_at: ahead(10)`), on 23 พ.ย. 2569, the day of the round, so its row reads
+dataset was loaded into the runtime (`opens_at: ahead(10)`), on 23 พ.ย. 2569, the day of the round, so its row reads
 "เปิดอยู่" where the before image read "ยังไม่เปิด" with its start date; at 375 and 320 px the row
 loses the start date's line and the page is 24 px shorter. The Homepage's `src` changed only in
 comments since `15b519f` (`HomeQuickLink.astro`, `global.css`).
@@ -164,8 +164,10 @@ tile at 375 and 320 px (§3.2); then "ปีงบประมาณ" on a year 
 widths and the widths that read it; a line ending "(N texts)" folds texts whose words differ only
 in their numbers, written "#".
 
-Every reading Feature 013's tickets took is read the same at `ed0d0bb`, each run's closing lines
-equal to its ticket's own output, but a MOIT's header, which reads the same or higher:
+Every reading Feature 013's tickets took is read the same at `ed0d0bb`, but a MOIT's header,
+which reads the same or higher. The landing's and a fiscal year's page's closing lines equal their
+tickets' own; a MOIT's body is compared width by width, since this round's closing lines gather
+more texts:
 
 - the landing (#393 at `6ec76f0`: the demo year, three years and none) and a fiscal year's page
   (#394 at `f77e864`, the demo year): every closing line equal;
@@ -538,8 +540,8 @@ Still open, each outside Feature 013:
 - **#409**, `DateText` keeps a date whole on one line wherever it renders.
 - **#410**, "หน่วยงาน" joins `ThaiTitle`'s list.
 - **#411**, a focused element's ring can end below the window while tabbing forward.
-- **#412**, the row tile light wherever it shows (the Document's file tile, a MOIT's row, a Health
-  Report's row) and `/health`'s and `/about`'s cards as `/services`', a feature of its own.
+- **#412**, the row tile light wherever it shows (the Document's file tile, a MOIT's row, and a
+  Health Report's row, whose own copy of the tile's box the note from #394 left outside #394) and `/health`'s and `/about`'s cards as `/services`', a feature of its own.
 - **#277**, the redesigned pages on a real phone and in browsers other than Chromium, inside
   #238's UAT window: Feature 013's pages join that visit.
 
@@ -660,8 +662,6 @@ Each on the Product Owner's answer or a ticket's record, with no follow-up issue
   1,024 px, numbers alone in the table of contents below 1,024 px, a sticky panel taller than the
   window ending flush, no pointer change on a card's head beyond the cursor, and the counts without
   `tabular-nums` (#396 comment 7081797338, item 3).
-- `HealthReportRow` (Feature 011) keeps its own copy of the gradient tile's box, which `RowTile` now
-  holds for `FileTile` and the MOIT row; moving it was outside #394 (the note from #394).
 
 ## The prototype
 

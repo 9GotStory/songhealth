@@ -2810,7 +2810,7 @@ on 2026-11-22 (spec #392 "Decisions the Product Owner made", whose numbers these
 **What the Product Owner decided while the tickets were built,** each on its ticket:
 
 - the Homepage Quick Link's list form, on `/health` and `/about`, losing its focus ring's band under
-  the pointer as the year card did before #393 fixed it, left to a ticket after Feature 013, #408
+  the pointer, a band the year card keeps (#393), left to a ticket after Feature 013, #408
   (#393 comment 7076682722, below);
 - a date that `DateText` splits across two lines, left to #409, and "หน่วยงาน" breaking inside the
   word in a MOIT's H1, left to #410 (#395 comment 7079177230, below);
@@ -3571,7 +3571,7 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   while tabbing forward (#411). §8.12 names `/ita` and a fiscal year's page among the lists whose
   heading rises, and §6 and §11 name Feature 013's pages among those measured and captured at
   1,024 and 768 px. The readings Feature 013's tickets took were read again at the integration head
-  `ed0d0bb`: the landing's and a fiscal year's page's (#393, #394; §3.2) and a MOIT's body's and
+  `ed0d0bb`: the landing's (#393), a fiscal year's page's (#394; its "MOIT" in §3.2) and a MOIT's body's and
   focus rings' (§9.11, #396) are the same, and a MOIT's header reads the same or higher with the
   body over the field's edge, which §9.11 now adds to #395's readings
   (`docs/evidence/397-ita-pages-evidence-round.md`). Authority: spec #392 "Documents" and "Decisions the Product
