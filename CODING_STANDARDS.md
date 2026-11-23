@@ -175,7 +175,10 @@ and why, and `.jscpd-baseline.json` records them.
 - A card whose whole surface is one link joins the Homepage or list table of
   `tests/browser/public-cards.spec.ts`: one link named by its title, a press on the part a citizen
   points at (its picture, or the tile of the visual in its place), a press on its lower corner, and
-  Enter (#244 retro: a tile lay in front of the large News card's link, and no test pressed it).
+  Enter (#244 retro: a tile lay in front of the large News card's link, and no test pressed it). A
+  card on a page with no entry behind it, such as `/health`'s and `/about`'s destinations, takes
+  the same three in its page's suite instead, each press through `pressInside`
+  (`expectDestinationCardsUnderPointer`; #420 retro: the cards reached review without them).
 - Every page of a suite prefers reduced motion (`playwright.config.ts`), so a test reads a page
   that stands still. A test of something that moves only where motion is allowed, such as a card
   that rises under the pointer, allows it for its page with

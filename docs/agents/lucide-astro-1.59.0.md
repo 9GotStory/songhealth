@@ -21,6 +21,12 @@ the pinned version.
   `src/utils/buildLucideIconNode.ts`, `src/utils/defaultAttributes.ts`). The stroke is
   `currentColor`, so a colour token sets it: the icon's own `text-*` class, or else its text's.
 - `class` is added after `lucide lucide-<name>` on the `<svg>` (`src/utils/buildLucideIconNode.ts`).
+  An icon with older names also carries a `lucide-<alias>` class for each of them, after its own:
+  `user-round` draws `lucide-user-round lucide-user-2` (`src/utils/buildLucideIconNode.ts` lines
+  23–26, `aliases` in `src/icons/user-round.ts`; `users-round`, `chart-column` and
+  `file-chart-column` have one too). So a test reads an icon by its own class among them,
+  ``expect.arrayContaining([`lucide-${name}`])``, never by the whole list (#420: two cases failed on
+  `lucide-user-2`).
   Tailwind's preflight makes every `svg` a block (`tailwindcss` 4.3.3 `preflight.css`), so an icon
   in running text takes `inline`, as `./src/components/ContentLink.astro` does.
 - In a flex row, Chromium squeezes an icon beside text that wraps, despite its `width`: a 16 px
