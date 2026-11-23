@@ -19,12 +19,16 @@ import ListBody from "../../../components/ListBody.astro";
 import ListHeading from "../../../components/ListHeading.astro";
 import Pagination from "../../../components/Pagination.astro";
 import SiteLayout from "../../../layouts/SiteLayout.astro";
-import { HEALTH_REPORTS_PATH, HEALTH_REPORTS_TITLE } from "../../../lib/health";
+import {
+	HEALTH_REPORTS_LEAD,
+	HEALTH_REPORTS_PATH,
+	HEALTH_REPORTS_TITLE,
+} from "../../../lib/health";
 import { listHealthReports } from "../../../lib/health-reports";
 import { PAGE_PARAM, pageHref, parsePageNumber } from "../../../lib/pagination";
 
 const title = HEALTH_REPORTS_TITLE;
-const lead = "รายงานด้านสุขภาพของสำนักงานสาธารณสุขอำเภอสองและเครือข่าย พร้อมเอกสารรายงานฉบับเต็ม";
+const lead = HEALTH_REPORTS_LEAD;
 const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
 const { entries, hasMore } = await listHealthReports(page);
 const listUrl = new URL(HEALTH_REPORTS_PATH, Astro.url);

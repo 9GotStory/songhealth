@@ -3379,6 +3379,336 @@ export async function expectServiceIcon(card: Locator, icon: string, title: stri
 	);
 }
 
+/**
+ * What a Service catalog's card shows at the window's width (Feature 011 #340; spec #338 "The
+ * Service catalog"), the card /health and /about share since #420 (spec #417 "The cards"): its
+ * name's level and type, its surface's fill and radius and from 640 px whether it is 144 px high or
+ * more, its icon tile's size, radius and fill and its icon's size and colour, its summary, its
+ * arrow's size and colour, the colour 16 px in from its lower right corner (the circle), and below
+ * 640 px how far the name's and the arrow's centres lie from the icon's. The
+ * summary reads "none" where the card has none, "hidden" where it is not shown, or else its colour,
+ * type and words, whether it is cut ("three lines" where its words take more, else "whole") and
+ * whether it shows `min(3, its lines)` lines, clamped exactly when it takes more. Read in the page,
+ * so a part the card lacks reads as missing rather than stopping the read.
+ */
+export function serviceCardParts(card: Locator, phone: boolean) {
+	return card.evaluate((article, phone) => {
+		const style = (element: Element) => getComputedStyle(element);
+		const centre = (element: Element | null) => {
+			if (!element) return undefined;
+			const box = element.getBoundingClientRect();
+			return box.y + box.height / 2;
+		};
+		const heading = article.querySelector("h2, h3");
+		const summary = article.querySelector("p");
+		const arrow = article.querySelector("svg.lucide-arrow-right");
+		const icon = article.querySelector('[data-testid="service-icon"]');
+		const surface = article.querySelector('[data-testid="service-surface"]');
+		const box = (surface ?? article).getBoundingClientRect();
+		// 16 px in from the corner, inside the card's 22 px rounding and the circle.
+		const corner = document
+			.elementsFromPoint(box.right - 16, box.bottom - 16)
+			.find(
+				(element) =>
+					article.contains(element) &&
+					!/^rgba\(.*,\s*0\)$|^transparent$/.test(style(element).backgroundColor),
+			);
+		const readSummary = (summary: HTMLElement) => {
+			const line = Number.parseFloat(style(summary).lineHeight);
+			const shown = Math.round(summary.getBoundingClientRect().height / line);
+			const lines = Math.round(summary.scrollHeight / line);
+			const clamped = summary.scrollHeight > summary.clientHeight;
+			return {
+				colour: style(summary).color,
+				type: [style(summary).fontSize, style(summary).lineHeight],
+				words: summary.textContent?.trim(),
+				cut: lines > 3 ? "three lines" : "whole",
+				asCut: shown === Math.min(3, lines) && clamped === lines > 3,
+			};
+		};
+		return {
+			heading: heading && {
+				level: heading.tagName,
+				type: [style(heading).fontSize, style(heading).lineHeight, style(heading).fontWeight],
+			},
+			surface: surface && {
+				fill: style(surface).backgroundColor,
+				radius: style(surface).borderTopLeftRadius,
+				tall: phone ? undefined : box.height >= 144,
+			},
+			summary: !summary
+				? "none"
+				: summary.getClientRects().length === 0
+					? "hidden"
+					: readSummary(summary),
+			tile: icon && {
+				size: [icon.getBoundingClientRect().width, icon.getBoundingClientRect().height],
+				radius: style(icon).borderTopLeftRadius,
+				fill: style(icon).backgroundColor,
+				icon: icon.querySelector("svg") && {
+					size: [
+						icon.querySelector("svg")!.getBoundingClientRect().width,
+						icon.querySelector("svg")!.getBoundingClientRect().height,
+					],
+					colour: style(icon.querySelector("svg")!).color,
+				},
+			},
+			arrow: arrow && {
+				size: [arrow.getBoundingClientRect().width, arrow.getBoundingClientRect().height],
+				colour: style(arrow).color,
+			},
+			corner: corner && style(corner).backgroundColor,
+			oneLine:
+				phone && icon && heading && arrow
+					? [centre(heading)! - centre(icon)!, centre(arrow)! - centre(icon)!].map((gap) =>
+							Math.round(Math.abs(gap)),
+						)
+					: undefined,
+		};
+	}, phone);
+}
+
+/**
+ * What `serviceCardParts` reads of a Service catalog's card as spec #338 and #417 set it: the name
+ * an H2 at 18 / 30 semibold; white, radius 22, from 640 px 144 px high or more; the summary at
+ * 14 / 22 in `text-secondary-on-soft` from 640 px, `summary`'s words cut as `summary.cut` says,
+ * hidden below 640 px, and "none" for a card with no summary; the `surface-soft` icon tile of 48 px
+ * with radius 14 below 640 px and 56 px with radius 18 from 640 px, its icon 24 px in
+ * `brand-primary`; the 20 px arrow in `brand-primary`; the `surface-soft` circle in the corner;
+ * below 640 px the icon, the name and the arrow centred on one line.
+ */
+export async function serviceCardPartsAsSpecified(
+	page: Page,
+	phone: boolean,
+	summary: { words: string; cut: "three lines" | "whole" } | "none",
+) {
+	return {
+		heading: { level: "H2", type: ["18px", "30px", "600"] },
+		surface: {
+			fill: await tokenColor(page, "surface-base"),
+			radius: "22px",
+			tall: phone ? undefined : true,
+		},
+		summary:
+			summary === "none"
+				? "none"
+				: phone
+					? "hidden"
+					: {
+							colour: await tokenColor(page, "text-secondary-on-soft"),
+							type: ["14px", "22px"],
+							...summary,
+							asCut: true,
+						},
+		tile: {
+			size: phone ? [48, 48] : [56, 56],
+			radius: phone ? "14px" : "18px",
+			fill: await tokenColor(page, "surface-soft"),
+			icon: { size: [24, 24], colour: await tokenColor(page, "brand-primary") },
+		},
+		arrow: { size: [20, 20], colour: await tokenColor(page, "brand-primary") },
+		corner: await tokenColor(page, "surface-soft"),
+		// From 640 px the parts sit at the card's top, which this does not read.
+		oneLine: phone ? [0, 0] : undefined,
+	};
+}
+
+/** A destination /health or /about shows as a Service catalog's card (spec #417 "The cards"). */
+export interface DestinationCard {
+	title: string;
+	href: string;
+	/** The Lucide name of its icon: its page's heading icon, or `network`. */
+	icon: string;
+	/** Its summary's words, or none. */
+	summary?: string;
+	/** The widths from 640 px at which the summary takes more than three lines and is cut. */
+	cutAt?: readonly number[];
+}
+
+/**
+ * The destination cards in `items`, the list items of /health's or /about's grid, read against
+ * `cards`, in order: each one link to its address named by its H2 alone, with its icon in a
+ * decorative tile; and at each of `widths` no horizontal scroll, `perRowAt(width)` cards to a row,
+ * 12 px apart both ways below 640 px and 20 px from 640 px, each card's parts as the Service
+ * catalog's (`serviceCardParts`) with its summary from 640 px, and each name on one line. The test
+ * compares `seen` with `expected`; the viewport ends at the last width.
+ */
+export async function readDestinationCards(
+	page: Page,
+	items: Locator,
+	cards: readonly DestinationCard[],
+	perRowAt: (width: number) => number,
+	widths: readonly number[],
+) {
+	const seen: Record<string, unknown> = {};
+	const expected: Record<string, unknown> = {};
+	const each = [];
+	for (const [index, { title }] of cards.entries()) {
+		const item = items.nth(index);
+		const links = item.getByRole("link");
+		const one = (await links.count()) === 1;
+		const h2 = item.getByRole("heading", { level: 2 });
+		each.push({
+			links: await links.count(),
+			named: await item.getByRole("link", { name: title, exact: true }).count(),
+			href: one ? await links.getAttribute("href") : "not one link",
+			h2: (await h2.count()) === 1 ? (await h2.textContent())?.trim() : "no H2",
+			icon: await item.evaluate((cell) => {
+				const tile = cell.querySelector('[data-testid="service-icon"]');
+				const svg = tile?.querySelector("svg");
+				return tile && svg
+					? {
+							hidden: tile.getAttribute("aria-hidden"),
+							names: [...svg.classList].filter((name) => name.startsWith("lucide-")),
+						}
+					: "no icon tile";
+			}),
+		});
+	}
+	seen.cards = each;
+	expected.cards = cards.map(({ title, href, icon }) => ({
+		links: 1,
+		named: 1,
+		href,
+		h2: title,
+		// Lucide adds an older name's class to some icons, such as `lucide-user-2` to `user-round`.
+		icon: { hidden: "true", names: expect.arrayContaining([`lucide-${icon}`]) },
+	}));
+	for (const width of widths) {
+		await page.setViewportSize({ width, height: 900 });
+		await page.mouse.move(0, 0);
+		const phone = width < 640;
+		const boxes = [];
+		for (const item of await items.all()) boxes.push(await boxOf(item, `a card at ${width} px`));
+		const rows = await itemsPerRow(items);
+		const below = boxes[rows[0]!];
+		const parts = [];
+		for (const item of await items.all()) parts.push(await serviceCardParts(item, phone));
+		const nameLines = [];
+		for (const item of await items.all()) {
+			nameLines.push((await shownLines(item.getByRole("heading", { level: 2 }))).lines);
+		}
+		seen[width] = {
+			scrolls: await page.evaluate(
+				() => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+			),
+			rows,
+			across: rows[0]! > 1 ? Math.round(boxes[1]!.x - boxes[0]!.x - boxes[0]!.width) : undefined,
+			down: below ? Math.round(below.y - boxes[0]!.y - boxes[0]!.height) : undefined,
+			parts,
+			nameLines,
+		};
+		const perRow = perRowAt(width);
+		const rowsExpected: number[] = [];
+		for (let left = cards.length; left > 0; left -= perRow) {
+			rowsExpected.push(Math.min(perRow, left));
+		}
+		const gap = phone ? 12 : 20;
+		const partsExpected = [];
+		for (const { summary, cutAt = [] } of cards) {
+			partsExpected.push(
+				await serviceCardPartsAsSpecified(
+					page,
+					phone,
+					summary === undefined
+						? "none"
+						: { words: summary, cut: cutAt.includes(width) ? "three lines" : "whole" },
+				),
+			);
+		}
+		expected[width] = {
+			scrolls: false,
+			rows: rowsExpected,
+			across: rowsExpected[0]! > 1 ? gap : undefined,
+			down: rowsExpected.length > 1 ? gap : undefined,
+			parts: partsExpected,
+			// Every name takes one line from 320 to 1,440 px (spec #417 "Measured in the prototype").
+			nameLines: cards.map(() => 1),
+		};
+	}
+	return { seen, expected };
+}
+
+/**
+ * The addresses the keyboard reaches, in order, in `count` presses of Tab from `start`: each
+ * focused link's `href`.
+ */
+export async function keyboardHrefsFrom(page: Page, start: Locator, count: number) {
+	const order: Array<string | null | undefined> = [];
+	if ((await start.count()) !== 1) return order;
+	await start.focus();
+	for (let press = 0; press < count; press++) {
+		await page.keyboard.press("Tab");
+		order.push(await page.evaluate(() => document.activeElement?.getAttribute("href")));
+	}
+	return order;
+}
+
+/**
+ * Fail unless each of `cards` on the page at `path`, found in `list`, behaves under the pointer and
+ * under focus as a Service catalog's card (`expectServiceCardInteraction`), with its name, summary
+ * and arrow `surface-base` and its icon tile `accent-warm` with a `brand-dark` icon under the
+ * pointer, opens its page by Enter, and with motion allowed rises 8 px under the pointer, a press
+ * on the strip it left still opening its page (spec #417 "The cards"). Reduced motion is preferred
+ * again at the end.
+ */
+export async function expectDestinationCardsUnderPointer(
+	page: Page,
+	path: string,
+	list: Locator,
+	cards: readonly DestinationCard[],
+): Promise<void> {
+	for (const { title, href, summary } of cards) {
+		const card = list.getByRole("article").filter({ hasText: title });
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await page.goto(path);
+		await expectServiceCardInteraction(page, card, title);
+		await card.getByRole("link").hover();
+		const pointed = await card.evaluate((article) => {
+			const colour = (selector: string) => {
+				const part = article.querySelector(selector);
+				return part && getComputedStyle(part).color;
+			};
+			const tile = article.querySelector('[data-testid="service-icon"]');
+			return {
+				name: colour("h2"),
+				summary: colour("p"),
+				arrow: colour("svg.lucide-arrow-right"),
+				tile: tile && getComputedStyle(tile).backgroundColor,
+				icon: colour('[data-testid="service-icon"] svg'),
+			};
+		});
+		const white = await tokenColor(page, "surface-base");
+		expect(pointed, `${title} under the pointer`).toEqual({
+			name: white,
+			summary: summary === undefined ? null : white,
+			arrow: white,
+			tile: await tokenColor(page, "accent-warm"),
+			icon: await tokenColor(page, "brand-dark"),
+		});
+		await card.getByRole("link").press("Enter");
+		await expect(page, `${title} by Enter`).toHaveURL(href);
+		// A press on the tile a citizen points at, and on the card's lower corner, opens the page
+		// (CODING_STANDARDS "Tests": a card whose whole surface is one link).
+		for (const where of ["its tile", "its lower corner"]) {
+			await page.goto(path);
+			await card.scrollIntoViewIfNeeded();
+			const tile = await boxOf(card.getByTestId("service-icon"), `${title}: the tile`);
+			const whole = await boxOf(card, `${title}: the card`);
+			const point =
+				where === "its tile"
+					? { x: tile.x + tile.width / 2, y: tile.y + tile.height / 2 }
+					: { x: whole.x + whole.width - 8, y: whole.y + whole.height - 8 };
+			await pressInside(page, card.getByRole("link"), point, `${title}, ${where}`);
+			await expect(page, `${title} from ${where}`).toHaveURL(href);
+		}
+		await page.goto(path);
+		await expectRisesUnderPointer(page, card, card.getByTestId("service-surface"), 8);
+		await expect(page, `${title} from the strip the lift left`).toHaveURL(href);
+	}
+	await page.emulateMedia({ reducedMotion: "reduce" });
+}
+
 /** The widest header on the field (a Post's, an Announcement's, a Document's page), 48 rem. */
 export const HEADER_WIDEST = 768;
 

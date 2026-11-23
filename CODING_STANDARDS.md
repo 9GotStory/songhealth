@@ -98,7 +98,10 @@ and why, and `.jscpd-baseline.json` records them.
   `brand-primary` ring passed every suite at 1.89:1 on the field (#281 retro; Product Owner,
   2026-11-13: #281 comment 6848893055). Such a card takes `focus-ring-banded`, a white band on
   both sides of the ring (#283 comment 6854670042). `expectBlocksOverFieldEdge` (`tests/browser/public.helpers.ts`) fails a part over the
-  field's edge whose ring meets the field past its own card without that band (#312 retro).
+  field's edge whose ring meets the field past its own card without that band (#312 retro). The
+  band is a `box-shadow`, so the element that carries it takes no `hover:shadow-*` unless
+  `not-focus-visible` guards it, or the hover shadow drops the band while the element has focus
+  (`tests/node/public-hover.test.ts`; #393 retro, #408).
 - A link held to its lines carries the clamp itself (`line-clamp-2 w-fit` on the `a`), not its
   heading: the clamp's hidden overflow cuts the link's focus ring, which lies outside the link's
   box (#315 retro: axe's focus check failed the Document row's title).

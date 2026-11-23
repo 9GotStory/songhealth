@@ -96,6 +96,8 @@ import {
 	rowTileLook,
 	rowTileShape,
 	rowTileShapeAt,
+	serviceCardParts,
+	serviceCardPartsAsSpecified,
 	shownWhole,
 	siteTitleParts,
 	test,
@@ -200,82 +202,11 @@ test("the catalog's card is the Homepage's: white, radius 22, 144 px high or mor
 		await card.scrollIntoViewIfNeeded();
 		await page.mouse.move(0, 0);
 		const phone = width < 640;
-		// Read in the page, so a part today's card lacks reads as missing rather than stopping here.
-		seen[width] = await card.evaluate((article, phone) => {
-			const style = (element: Element) => getComputedStyle(element);
-			const centre = (element: Element | null) => {
-				if (!element) return undefined;
-				const box = element.getBoundingClientRect();
-				return box.y + box.height / 2;
-			};
-			const heading = article.querySelector("h2, h3");
-			const summary = [...article.querySelectorAll("p")].find((p) =>
-				p.textContent?.includes("สรุปบริการที่ยาว"),
-			);
-			const arrow = article.querySelector("svg.lucide-arrow-right");
-			const icon = article.querySelector('[data-testid="service-icon"]');
-			const surface = article.querySelector('[data-testid="service-surface"]');
-			const box = (surface ?? article).getBoundingClientRect();
-			// 16 px in from the corner, inside the card's 22 px rounding and the circle.
-			const corner = document
-				.elementsFromPoint(box.right - 16, box.bottom - 16)
-				.find(
-					(element) =>
-						article.contains(element) &&
-						!/^rgba\(.*,\s*0\)$|^transparent$/.test(style(element).backgroundColor),
-				);
-			const shown = summary !== undefined && summary.getClientRects().length > 0;
-			return {
-				heading: heading && {
-					level: heading.tagName,
-					type: [style(heading).fontSize, style(heading).lineHeight, style(heading).fontWeight],
-				},
-				surface: surface && {
-					fill: style(surface).backgroundColor,
-					radius: style(surface).borderTopLeftRadius,
-					tall: phone ? undefined : box.height >= 144,
-				},
-				summary: shown
-					? {
-							colour: style(summary).color,
-							type: [style(summary).fontSize, style(summary).lineHeight],
-							lines: Math.round(
-								summary.getBoundingClientRect().height /
-									Number.parseFloat(style(summary).lineHeight),
-							),
-							clamped: summary.scrollHeight > summary.clientHeight,
-						}
-					: "hidden",
-				arrow: arrow && [arrow.getBoundingClientRect().width, arrow.getBoundingClientRect().height],
-				corner: corner && style(corner).backgroundColor,
-				oneLine:
-					phone && icon && heading && arrow
-						? [centre(heading)! - centre(icon)!, centre(arrow)! - centre(icon)!].map((gap) =>
-								Math.round(Math.abs(gap)),
-							)
-						: undefined,
-			};
-		}, phone);
-		expected[width] = {
-			heading: { level: "H2", type: ["18px", "30px", "600"] },
-			surface: {
-				fill: await tokenColor(page, "surface-base"),
-				radius: "22px",
-				tall: phone ? undefined : true,
-			},
-			summary: phone
-				? "hidden"
-				: {
-						colour: await tokenColor(page, "text-secondary-on-soft"),
-						type: ["14px", "22px"],
-						lines: 3,
-						clamped: true,
-					},
-			arrow: [20, 20],
-			corner: await tokenColor(page, "surface-soft"),
-			// From 640 px the parts sit at the card's top, which this does not read.
-			oneLine: phone ? [0, 0] : undefined,
-		};
+		seen[width] = await serviceCardParts(card, phone);
+		expected[width] = await serviceCardPartsAsSpecified(page, phone, {
+			words: LONG_SUMMARY.trim(),
+			cut: "three lines",
+		});
 	}
 	expect(seen).toEqual(expected);
 });

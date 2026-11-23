@@ -6,14 +6,16 @@
 // The page opens on the deep field as the lists do (Feature 011 #339; spec #338 "Decisions", 5,
 // and "`/health`"; ListHeading): the label "สุขภาพ", the Homepage's Health Information label, with
 // the heart-pulse icon, over its H1. Its two destinations follow over the field's lower edge as the
-// Homepage's Quick Access tiles (HomeQuickLink), two to a row at every width, 12 px apart below
-// `sm` and 20 px from `sm`, each revealed as it comes into the window (`scroll-reveal`).
+// Service catalog's cards (Feature 014 #420; spec #417 "The cards"; HomeServiceCard `kind="list"`),
+// each with its list's heading icon and from `sm` its list's lead (src/lib/health.ts), one to a
+// row below `sm` and two from `sm`, 12 px apart below `sm` and 20 px from `sm`, each revealed as it
+// comes into the window (`scroll-reveal`).
 import HeartPulse from "@lucide/astro/icons/heart-pulse";
-import HomeQuickLink from "../../components/HomeQuickLink.astro";
+import HomeServiceCard from "../../components/HomeServiceCard.astro";
 import ListBody from "../../components/ListBody.astro";
 import ListHeading from "../../components/ListHeading.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { HEALTH_AREAS, HEALTH_PATH, HEALTH_TITLE } from "../../lib/health";
+import { HEALTH_DESTINATIONS, HEALTH_PATH, HEALTH_TITLE } from "../../lib/health";
 
 const lead = "ความรู้สุขภาพสำหรับประชาชน และรายงานสุขภาพของสำนักงานสาธารณสุขอำเภอสองและเครือข่าย";
 ---
@@ -23,10 +25,10 @@ const lead = "ความรู้สุขภาพสำหรับประ
 		<HeartPulse slot="icon" class="shrink-0" size={24} />
 	</ListHeading>
 	<ListBody>
-		<ul class="grid grid-cols-2 gap-3 sm:gap-5">
-			{HEALTH_AREAS.map((area) => (
-				<li class="scroll-reveal">
-					<HomeQuickLink href={area.href} label={area.label} kind="list" />
+		<ul class="grid gap-3 sm:grid-cols-2 sm:gap-5">
+			{HEALTH_DESTINATIONS.map((destination) => (
+				<li class="scroll-reveal min-w-0">
+					<HomeServiceCard destination={destination} kind="list" />
 				</li>
 			))}
 		</ul>

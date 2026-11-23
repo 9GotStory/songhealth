@@ -90,6 +90,20 @@ export async function readBasicPage(slug: string): Promise<BasicPage | undefined
 	return { entry, isPreview, documents };
 }
 
+/**
+ * The summary of the Basic Page at `slug` while it is published, as /about's โครงสร้างองค์กร card
+ * shows the `organization` page's (Feature 014 #420; spec #417 decision 5). A collection read stays
+ * published-only even under a preview token (docs/agents/emdash-1.1.0.md "Public reads"), so a
+ * draft's summary never shows; undefined without a published page or a summary.
+ */
+export async function publishedSummary(slug: string): Promise<string | undefined> {
+	const { entries, error } = await getEmDashCollection<"pages", BasicPageData>("pages", {
+		where: { slug: [slug] },
+	});
+	if (error) throw error;
+	return entries[0]?.data.summary ?? undefined;
+}
+
 /** The footer's links to the reserved Basic Pages that are published, in footer order. */
 export async function footerPageLinks(): Promise<{ label: string; href: string }[]> {
 	const { entries, error } = await getEmDashCollection<"pages", BasicPageData>("pages", {

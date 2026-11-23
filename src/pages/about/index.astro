@@ -13,26 +13,32 @@
 // header (PostHeader.astro): the page's title as the H1 and its summary, or the H1 เกี่ยวกับเรา and
 // no lead without the page. The field's content ends 96 px above its lower edge below `sm` and
 // 128 px from `sm`, as a list's heading's (ListHeading.astro), and the six sub-pages follow over
-// that edge (ListBody.astro) as the Homepage's Quick Access tiles, `kind="list"` as on /health:
-// each label an H2, two to a row below `lg` and three from `lg`, 12 px apart below `sm` and 20 px
-// from `sm`, each revealed as it comes into the window (`scroll-reveal`). 48 px under them follow
-// the page's body and related Documents, every Basic Page's (BasicPageText.astro), which show at
-// once; with neither the page ends with the tiles. The page passes no `crumbs` to the shell, which
+// that edge (ListBody.astro) as the Service catalog's cards, as on /health (Feature 014 #420; spec
+// #417 "The cards"; HomeServiceCard `kind="list"`): each name an H2, with its page's heading icon
+// and from `sm` its page's lead, and for โครงสร้างองค์กร `network` and the published `organization`
+// Basic Page's summary, none while that page is not published (src/lib/about.ts); one to a row
+// below `sm`, two from `sm` and three from `lg`, 12 px apart below `sm` and 20 px from `sm`, each
+// revealed as it comes into the window (`scroll-reveal`). 48 px under them follow the page's body
+// and related Documents, every Basic Page's (BasicPageText.astro), which show at once; with
+// neither the page ends with the cards. The page passes no `crumbs` to the shell, which
 // then shows no breadcrumb above the page, since the header shows it on the field.
 import BasicPageText from "../../components/BasicPageText.astro";
 import DeepField from "../../components/DeepField.astro";
-import HomeQuickLink from "../../components/HomeQuickLink.astro";
+import HomeServiceCard from "../../components/HomeServiceCard.astro";
 import ListBody from "../../components/ListBody.astro";
 import PostHeader from "../../components/PostHeader.astro";
 import SiteLayout from "../../layouts/SiteLayout.astro";
-import { ABOUT_SUBPAGES, ABOUT_TITLE } from "../../lib/about";
-import { basicPagePath, readBasicPage } from "../../lib/basic-pages";
+import { ABOUT_TITLE, aboutDestinations } from "../../lib/about";
+import { basicPagePath, publishedSummary, readBasicPage } from "../../lib/basic-pages";
 
 /** The page's description while the `about` Basic Page gives none. */
 const DESCRIPTION =
 	"ข้อมูลสำนักงานสาธารณสุขอำเภอสอง โครงสร้างองค์กร ผู้บริหาร บุคลากร นโยบาย แผนงาน และผลการดำเนินงาน";
 
-const page = await readBasicPage("about");
+const [page, organizationSummary] = await Promise.all([
+	readBasicPage("about"),
+	publishedSummary("organization"),
+]);
 const data = page?.entry.data;
 const title = data?.title ?? ABOUT_TITLE;
 ---
@@ -59,10 +65,10 @@ const title = data?.title ?? ABOUT_TITLE;
 	</DeepField>
 	<ListBody>
 		<div class="flex flex-col gap-12">
-			<ul class="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
-				{ABOUT_SUBPAGES.map((subpage) => (
-					<li class="scroll-reveal">
-						<HomeQuickLink href={subpage.href} label={subpage.label} kind="list" />
+			<ul class="grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+				{aboutDestinations(organizationSummary).map((destination) => (
+					<li class="scroll-reveal min-w-0">
+						<HomeServiceCard destination={destination} kind="list" />
 					</li>
 				))}
 			</ul>

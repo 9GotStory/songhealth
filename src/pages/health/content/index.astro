@@ -19,7 +19,7 @@ import ListBody from "../../../components/ListBody.astro";
 import ListHeading from "../../../components/ListHeading.astro";
 import Pagination from "../../../components/Pagination.astro";
 import SiteLayout from "../../../layouts/SiteLayout.astro";
-import { HEALTH_CONTENT_TITLE } from "../../../lib/health";
+import { HEALTH_CONTENT_LEAD, HEALTH_CONTENT_TITLE } from "../../../lib/health";
 import {
 	healthContentListPath,
 	healthContentPath,
@@ -29,7 +29,7 @@ import { PAGE_PARAM, pageHref, parsePageNumber } from "../../../lib/pagination";
 import { TOPIC_PARAM, offeredTerms } from "../../../lib/terms";
 
 const title = HEALTH_CONTENT_TITLE;
-const lead = "ความรู้ด้านสุขภาพสำหรับประชาชนในอำเภอสอง เลือกประเด็นสุขภาพที่สนใจได้";
+const lead = HEALTH_CONTENT_LEAD;
 const page = parsePageNumber(Astro.url.searchParams.get(PAGE_PARAM));
 const topic = Astro.url.searchParams.get(TOPIC_PARAM)?.trim() ?? "";
 const [topics, { entries, hasMore }] = await Promise.all([
