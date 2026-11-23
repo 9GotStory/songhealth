@@ -3571,7 +3571,8 @@ export async function readDestinationCards(
 		named: 1,
 		href,
 		h2: title,
-		icon: { hidden: "true", names: [`lucide-${icon}`] },
+		// Lucide adds an older name's class to some icons, such as `lucide-user-2` to `user-round`.
+		icon: { hidden: "true", names: expect.arrayContaining([`lucide-${icon}`]) },
 	}));
 	for (const width of widths) {
 		await page.setViewportSize({ width, height: 900 });
