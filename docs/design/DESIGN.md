@@ -1150,7 +1150,8 @@ fiscal year's page (`/ita/{fiscal-year}`).
     `scripts/measure-focus-contrast.ts` on `/health`'s two tiles: beside the ring, with its band,
     no pixel under 3:1 at any width, the lowest 5.22:1 from 768 px and 2.80:1 on a few blended
     pixels at 375 px; the ring alone over the field read under 3:1 on 56 to 61 % of its pixels,
-    which the band answers.
+    which the band answers. Since Feature 014 (#420) `/health` shows its destinations as the
+    Service catalog's cards, whose readings §7.3 and §9.9 give.
   - At `fad2249` (#340), the same on the whole of `/services`, with the demo dataset's nine Services
     and with a full first page of twelve synthetic ones (`lists-by-count.ts`, `LIST_COUNT=24`): a
     Service card's summary 5.07:1 where it crosses the corner circle (1,024 and 768 px) and 5.66:1
