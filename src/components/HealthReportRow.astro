@@ -5,14 +5,14 @@
 // with the report's tile, the facts line, the title in two lines at most, from `sm` the summary,
 // the reporting period, and from `sm` the round arrow.
 //
-// The tile is the Document row's file tile in size and gradient (FileTile: 68 px below `sm`, 92 px
-// from `sm`) with the 24 px file-chart-column and under it the fiscal year at small size,
-// semibold, in accent-warm, the measured exception FileTile's "PDF" is (docs/design/DESIGN.md
-// §3.2), or the icon alone for a report without one; it is decorative, since the facts line names
-// the year too. The facts line is MetaLine's: the Report Type, the date the list orders by (the
-// report date, else the publication: src/lib/health-reports.ts healthReportDate) and the fiscal
-// year, which wraps between facts. The summary is at label size in text-secondary, two lines at
-// most, and none below `sm`; the period at small size in text-secondary.
+// The tile is the row's light tile (RowTile; Feature 014 #418, spec #417 "The light row tile": 68
+// px below `sm`, 92 px from `sm`) with the 24 px file-chart-column in brand-primary and under it
+// the fiscal year at small size, semibold, in brand-dark, or the icon alone for a report without
+// one; it is decorative, since the facts line names the year too. The facts line is MetaLine's: the
+// Report Type, the date the list orders by (the report date, else the publication:
+// src/lib/health-reports.ts healthReportDate) and the fiscal year, which wraps between facts. The
+// summary is at label size in text-secondary, two lines at most, and none below `sm`; the period at
+// small size in text-secondary.
 //
 // A native link named by the title covers the whole row; the facts and the period stay readable
 // outside the link's name (WCAG 2.2 SC 2.5.3). A report row has no download: the list does not
@@ -29,6 +29,7 @@ import FileChartColumn from "@lucide/astro/icons/file-chart-column";
 import { healthReportDate, healthReportPath, type HealthReportEntry } from "../lib/health-reports";
 import { termsOf } from "../lib/terms";
 import MetaLine from "./MetaLine.astro";
+import RowTile from "./RowTile.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
@@ -47,15 +48,12 @@ const titleId = `report-${crypto.randomUUID()}`;
 		data-testid="report-surface"
 		class="relative flex items-center gap-3.5 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:translate-x-2.5 motion-safe:group-hover:shadow-deep sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5"
 	>
-		<p
-			aria-hidden="true"
-			class="flex size-17 shrink-0 flex-col items-center justify-center gap-1 rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-surface-base sm:size-23 sm:rounded-18"
-		>
+		<RowTile class="gap-1">
 			<FileChartColumn class="shrink-0" size={24} />
 			{data.fiscal_year ? (
-				<span class="text-small font-semibold text-accent-warm">{data.fiscal_year}</span>
+				<span class="text-small font-semibold text-brand-dark">{data.fiscal_year}</span>
 			) : null}
-		</p>
+		</RowTile>
 		<div class="flex min-w-0 flex-1 flex-col gap-1">
 			<MetaLine
 				facts={[

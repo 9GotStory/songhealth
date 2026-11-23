@@ -56,7 +56,10 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
+	fileTileLines,
 	isoDay,
+	lightRowTile,
+	lightRowTileStates,
 	pointAt,
 	pressOpens,
 	SECTION_CRUMBS,
@@ -81,6 +84,8 @@ import {
 	fileBlockLookAsSpecified,
 	fileBlockOf,
 	expectPostTitleSizes,
+	rowTileLook,
+	rowTileStates,
 	unavailableNoticeIn,
 	gutterAt,
 	HEADER_WIDEST,
@@ -232,7 +237,7 @@ const LONG_TITLE =
 /** A summary longer than two lines of a row at every width from 640 px. */
 const LONG_SUMMARY = `${SYNTHETIC_FIXTURE_MARK} ${"สรุปเอกสารแผนปฏิบัติการด้านสุขภาพของเครือข่ายบริการสุขภาพอำเภอ ฉบับปรับปรุงประจำปีงบประมาณ ".repeat(6)}`;
 
-test("each /documents row: the file's tile with file-text and the file's type, 68 px below 640 px and 92 px from 640 px; the facts line; the title as an H2 in two lines at most, linking to its page; from 640 px the summary in two lines at most; exactly two links; rows 14 px apart", async ({
+test("each /documents row: the light file tile, surface-soft with file-text in brand-primary over the file's type in brand-dark, 68 px with radius 14 below 640 px and 92 px with radius 18 from 640 px, unchanged under the pointer and under focus; the facts line; the title as an H2 in two lines at most, linking to its page; from 640 px the summary in two lines at most; exactly two links; rows 14 px apart", async ({
 	page,
 }) => {
 	const type = await createTerm("document_type", "คู่มือ");
@@ -263,33 +268,20 @@ test("each /documents row: the file's tile with file-text and the file's type, 6
 	await expect(parts.facts).toContainText("ปีงบประมาณ 2569");
 
 	const summary = row.getByText(LONG_SUMMARY.trim());
-	const tileOnce = async () => {
-		if ((await parts.tile.count()) === 0) return undefined;
-		return parts.tile.evaluate((tile) => ({
-			decorative: tile.closest('[aria-hidden="true"]') !== null,
-			gradient: getComputedStyle(tile).backgroundImage.includes("linear-gradient"),
-			type: tile.textContent?.trim(),
-			typeColour: getComputedStyle(tile.querySelector("span") ?? tile).color,
-		}));
-	};
 	const seen: Record<string, unknown> = {
-		tile: await tileOnce(),
+		tile: await rowTileStates(parts.tile, parts.facts, parts.title.getByRole("link")),
 		titleColour: (await textStyle(parts.title.getByRole("link"))).colour,
 		summaryColour: (await textStyle(summary)).colour,
 	};
 	const expected: Record<string, unknown> = {
-		tile: {
-			decorative: true,
-			gradient: true,
-			type: "PDF",
-			typeColour: await tokenColor(page, "accent-warm"),
-		},
+		// The light tile (spec #417 decision 12, P1 A), the same under the pointer and under focus.
+		tile: await lightRowTileStates(page, fileTileLines("PDF")),
 		// The title's colour and sizes as the prototype's (Product Owner, 2026-11-16: #315 comment
 		// 6908747140, item 1).
 		titleColour: await tokenColor(page, "text-primary"),
 		summaryColour: await tokenColor(page, "text-secondary"),
 	};
-	for (const width of [1440, 1024, 768, 640, 639, 375, 320]) {
+	for (const width of [1440, 1024, 1023, 768, 640, 639, 375, 320]) {
 		await page.setViewportSize({ width, height: 900 });
 		const wide = width >= 640;
 		const [upper, lower] = [
@@ -299,6 +291,9 @@ test("each /documents row: the file's tile with file-text and the file's type, 6
 		const tile = (await parts.tile.count()) > 0 ? await boxOf(parts.tile, "the tile") : undefined;
 		seen[width] = {
 			tile: tile && [Math.round(tile.width), Math.round(tile.height)],
+			tileRadius: await parts.tile.evaluate(
+				(element) => getComputedStyle(element).borderTopLeftRadius,
+			),
 			titleSize: (await textStyle(parts.title)).size,
 			// The title's link holds its lines, so its focus ring is not cut where they are.
 			title: await shownLines(parts.title.getByRole("link")),
@@ -311,6 +306,7 @@ test("each /documents row: the file's tile with file-text and the file's type, 6
 		};
 		expected[width] = {
 			tile: wide ? [92, 92] : [68, 68],
+			tileRadius: wide ? "18px" : "14px",
 			titleSize: wide ? 18 : 16,
 			title: { lines: 2, clamped: true },
 			summary: wide ? { lines: 2, clamped: true } : "hidden",
@@ -379,7 +375,7 @@ test("a row's download is a 44 px brand-primary pill with the 20 px download ico
 	expect(seen, "the row's download").toEqual(expected);
 });
 
-test("a row whose file cannot be served shows ไฟล์ on its tile and ไฟล์ไม่พร้อมให้บริการ in small semibold text-secondary in place of the download, and links only its title", async ({
+test("a row whose file cannot be served shows ไฟล์ in brand-dark under file-text on its light tile and ไฟล์ไม่พร้อมให้บริการ in small semibold text-secondary in place of the download, and links only its title", async ({
 	page,
 }) => {
 	const document = await createDocument("row-file-gone");
@@ -395,7 +391,7 @@ test("a row whose file cannot be served shows ไฟล์ on its tile and ไ�
 	const { tile } = documentRowParts(row);
 	expect(
 		{
-			tile: (await tile.count()) === 1 ? (await tile.textContent())?.trim() : undefined,
+			tile: await rowTileLook(tile),
 			unavailable: await textStyle(unavailable),
 			links: await row
 				.getByRole("link")
@@ -403,7 +399,7 @@ test("a row whose file cannot be served shows ไฟล์ on its tile and ไ�
 		},
 		"the row without its file",
 	).toEqual({
-		tile: "ไฟล์",
+		tile: await lightRowTile(page, fileTileLines("ไฟล์")),
 		unavailable: {
 			size: 13,
 			weight: "600",
@@ -1151,7 +1147,7 @@ test.describe("a Document's page on the field", () => {
 		expect(seen, "the card over the field's edge").toEqual(expected);
 	});
 
-	test("the card holds first the file: the tile with file-text and the type in accent-warm, 68 px below 640 px and 92 px from 640 px, beside it the H2 ไฟล์เอกสาร with the type and size under it, and the download ดาวน์โหลดเอกสาร with the type and size, at the card's right and 52 px high from 640 px, across the card under them and 44 px high below 640 px; then a 1 px border-default rule and the details, 20 px apart", async ({
+	test("the card holds first the file: the light tile with file-text in brand-primary and the type in brand-dark, 68 px with radius 14 below 640 px and 92 px with radius 18 from 640 px, beside it the H2 ไฟล์เอกสาร with the type and size under it, and the download ดาวน์โหลดเอกสาร with the type and size, at the card's right and 52 px high from 640 px, across the card under them and 44 px high below 640 px; then a 1 px border-default rule and the details, 20 px apart", async ({
 		page,
 	}) => {
 		// A superseded Document's download is a current one's (#315 comment 6909993217).

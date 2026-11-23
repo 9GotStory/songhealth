@@ -60,6 +60,7 @@ import {
 	DESKTOP_VIEWPORT,
 	HEADER_WIDEST,
 	HOME_CRUMB,
+	HOSPITAL_TILE_LINES,
 	LIST_END,
 	MOBILE_VIEWPORT,
 	SECTION_CRUMBS,
@@ -80,15 +81,20 @@ import {
 	expectSiteNotFound,
 	fieldEdge,
 	fieldParts,
+	fileTileLines,
 	heldBack,
 	itemsPerRow,
 	leadLinksOf,
+	lightRowTile,
 	listedItem,
 	listedTitles,
 	offeredLabels,
 	ownTitles,
 	placesAtTwoWidths,
 	readHeaderOnField,
+	rowTileLook,
+	rowTileShape,
+	rowTileShapeAt,
 	shownWhole,
 	siteTitleParts,
 	test,
@@ -1199,6 +1205,44 @@ test.describe("a Service's page on the field", () => {
 			};
 		}
 		expect(seen, "the guidance and the two sections under the card").toEqual(expected);
+	});
+
+	test("each row's tile under เอกสารที่เกี่ยวข้อง and หน่วยบริการสุขภาพที่ให้บริการนี้ is the light tile, surface-soft with file-text in brand-primary over the file's type in brand-dark, or the hospital alone in brand-primary; 68 px with radius 14 below 640 px and 92 px with radius 18 from 640 px", async ({
+		page,
+	}) => {
+		await page.goto(pathOf(full));
+		const main = page.getByRole("main");
+		const tiles = {
+			file: main
+				.getByRole("region", { name: RELATED.title })
+				.getByRole("article")
+				.first()
+				.locator("svg.lucide-file-text")
+				.locator("xpath=.."),
+			hospital: main
+				.getByRole("region", { name: OFFERING.title })
+				.getByRole("article")
+				.first()
+				.locator("svg.lucide-hospital")
+				.locator("xpath=.."),
+		};
+		const seen: Record<string, unknown> = {
+			file: await rowTileLook(tiles.file),
+			hospital: await rowTileLook(tiles.hospital),
+		};
+		const expected: Record<string, unknown> = {
+			// Spec #417 decision 12 (P1 A).
+			file: await lightRowTile(page, fileTileLines("PDF")),
+			hospital: await lightRowTile(page, HOSPITAL_TILE_LINES),
+		};
+		for (const width of [320, 639, 640, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			for (const [name, tile] of Object.entries(tiles)) {
+				seen[`${name} at ${width}`] = await rowTileShape(tile);
+				expected[`${name} at ${width}`] = rowTileShapeAt(width);
+			}
+		}
+		expect(seen, "the rows' light tiles").toEqual(expected);
 	});
 
 	test("a row under หน่วยบริการสุขภาพที่ให้บริการนี้ is the directory's, its name an H3: its เปิดแผนที่, named with the Health Service, sits at the row's right from 1,024 px in the text column, under the text from 640 px and across the row below 640 px", async ({

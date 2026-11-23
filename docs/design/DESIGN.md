@@ -1,6 +1,6 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.7, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.8, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
@@ -14,8 +14,10 @@
 > About pages, the Contact page and a Basic Page follows spec #365, implemented by #366–#372, and
 > was accepted on #365 (Product Owner, 2026-11-21: #365 comment 7060805067). Feature 013's
 > redesign of the ITA pages follows spec #392, implemented by #393–#397, and was accepted on #392
-> (Product Owner, 2026-11-23: #392 comment 7092932555).
-> **Updated:** 2026-11-23 (#397); first drafted 2026-10-30
+> (Product Owner, 2026-11-23: #392 comment 7092932555). Feature 014's light row tile and
+> `/health`'s and `/about`'s cards follow spec #417, implemented by #418–#421; its acceptance is
+> due on #417.
+> **Updated:** 2026-11-23 (#418); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -120,6 +122,14 @@
 > implement the pages, each with its own decisions in §13's change history, and #397 the
 > documents, the measures and the limits. Every page outside the feature keeps its design.
 
+> **Feature 014 decision (Product Owner, 2026-11-23; spec #417, #417 comment 7094711736):** every
+> row tile of 68 px (92 px from `sm`) turns light and the rows share one tile (`RowTile`): flat
+> `surface-soft`, its icon, a MOIT's number or an Announcement's day `brand-primary`, its second
+> line `brand-dark` (§3.2, §7.3). #418 builds it on the file, MOIT, Health Report and Health
+> Service rows; the other tickets add the Announcement's date tile and `/health`'s and `/about`'s
+> cards, each with its own decisions in §13's change history. Nothing a page reads, orders or
+> links to changes.
+
 ## 1. Scope, authority and status
 
 This document records the public presentation of Songhealth: its tokens, its components, the
@@ -202,7 +212,7 @@ health-service network.
   the label "ITA", with each fiscal year that has a published MOIT as a large white card over the
   field's edge, its year as an H2 beside a gradient calendar tile (§8.3), and to a fiscal year's
   page (#394), under the same label, with each of the year's MOITs as a white row over the edge,
-  its number on the Document row's gradient tile (§8.3). A MOIT's page opens on the field with the
+  its number on the Document row's tile, light since Feature 014 (§8.3). A MOIT's page opens on the field with the
   Post page's header, its fiscal year in the outlined pill and "MOIT n" opening its H1, no larger
   than H2 size (§8.3, §9.11; #395), and its table of contents' panel and Requirement cards lie
   over the field's edge (§8.3, §9.11; #396).
@@ -272,14 +282,14 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces |
-| `brand-dark` | `#123c33` | headings, the deep green field, dark bands |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip and, on `/about/leadership`, of the featured first leader (§7.3), the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on a Document row on `/documents` and in an Announcement's related Documents, and in the card on a Document's and a Health Report's page, the file's type on its tile (§7.3, §9.4, §9.5, §9.6); on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), on a Document's header the pill of a superseded or expired status (§9.5), and on a Health Report's header the pill of "วันที่รายงาน" and the report date (§9.6); on a fiscal year's card on the ITA landing, the `calendar-check` on its gradient tile, and on a MOIT's row on a fiscal year's page, "MOIT" over the number on its tile (§8.3); on a MOIT's header, "MOIT n" opening its H1 on the deep field (§9.11) |
+| `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces; the icon or a MOIT's number on a row's light tile (§7.3) |
+| `brand-dark` | `#123c33` | headings, the deep green field, dark bands; the file's type, "MOIT" or a report's fiscal year on a row's light tile (§7.3) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip and, on `/about/leadership`, of the featured first leader (§7.3), the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), on a Document's header the pill of a superseded or expired status (§9.5), and on a Health Report's header the pill of "วันที่รายงาน" and the report date (§9.6); on a fiscal year's card on the ITA landing, the `calendar-check` on its gradient tile (§8.3); a row's tile, which is light, holds none (Feature 014 #418); on a MOIT's header, "MOIT n" opening its H1 on the deep field (§9.11) |
 | `text-primary` | `#16211d` | body text |
 | `text-secondary` | `#65736d` | leads, meta lines |
 | `bg-page` | `#f6f9f7` | the page |
 | `surface-base` | `#ffffff` | cards, white bands |
-| `surface-soft` | `#eaf5f0` | soft bands, the Current Announcements' band and its general category badge |
+| `surface-soft` | `#eaf5f0` | soft bands, the Current Announcements' band and its general category badge; the ground of a row's light tile (`RowTile`): the file tile of a Document row and of the card on a Document's and a Health Report's page, and a MOIT's, a Health Report's and a Health Service's row's tile (§7.3, §8.3; Feature 014 #418) |
 | `border-default` | `#dce7e2` | borders |
 | `topic-blue` | `#f0f5fc` | the procurement Announcement badge's fill (§8.7); `topic-green`, the old Health Information cards' other fill, left the tokens with them (#246), `contact-visual-from` and `-to`, the map stand-in's fill, with it (#247), and `activity-visual-from` and `-to`, the old Activity card's fill without a picture, with that card (#313) |
 | `divider` | `#dbe8e3` | separators inside a white box: the line above a post's topics; the rule in the card on a Document's and a Health Report's page is `border-default` (§9.5, §9.6) |
@@ -360,8 +370,8 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-secondary-on-soft` (the tagline) on the header's surface over `brand-dark`, the darkest fill a page scrolls under it (`text-secondary` there would be 4.15:1) | 4.73:1 |
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
-| `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, one of the two exceptions to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
-| `accent-warm` (the file's type, "PDF") on the file tile (`FileTile`) of a Document row on `/documents` and in an Announcement's related Documents (§9.4), and in the card on a Document's and a Health Report's page (§9.5, §9.6), the same gradient at the same sizes: measured, the other exception (§7.3; spec #311 "The Document repository"), and "ไฟล์" there when the file cannot be served; the fiscal year on a Health Report row's tile on `/health/reports`, its own tile of the file tile's size and gradient with `file-chart-column` (§7.3; #342); "MOIT" over the number on a MOIT's row on a fiscal year's page, on the same tile (`RowTile`, §8.3; #394) | 5.60:1 or more ("PDF" at 375 and 320 px); "ไฟล์" 5.68:1 (#315); on a Document's page 5.60:1 or more (#317); a report row's fiscal year 5.60:1 or more (#342); on a Health Report's page 5.68:1 (#343); "MOIT" 4.69:1 or more (375 and 320 px, `scripts/measure-text-contrast.ts --all-text` on `/ita/2570` at `f77e864`, #394) |
+| `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, the one exception to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
+| `brand-primary` (the icon, a MOIT's number) and `brand-dark` (the file's type or "ไฟล์", "MOIT", a report's fiscal year) on a row's light tile (`RowTile`, flat `surface-soft`): the file tile of a Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents, and in the card on a Document's and a Health Report's page (§9.4 to §9.9), a MOIT's row (§8.3), a Health Report's row and a Health Service's (§7.3; spec #417 decision 12, prototype P1 A, measured at `9a29f44`'s pages rewritten) | `brand-primary` 5.78:1 and `brand-dark` 10.94:1, from the token values; the prototype read the same at its lowest |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7, and the label on its page, §9.4) | 13.85:1 |
@@ -448,8 +458,9 @@ own module.
   submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The hero's search field opens with a 20 px `search`
   icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's cards, small and large, `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3; in a
   list heading's tile `heart` on `/activities`, `file-text` on `/announcements` and `folder-open` on
-  `/documents`, §7.8), and so does a Document row's file tile on `/documents`, with `file-text`
-  (§7.3), and a Health Service row's tile on `/health-services`, with `hospital`, whose
+  `/documents`, §7.8), and so does a row's light tile, its icon in `brand-primary` (§7.3; Feature
+  014 #418): a Document row's file tile on `/documents`, with `file-text`, a Health Service row's
+  tile on `/health-services`, with `hospital`, whose
   "เปิดแผนที่" opens with a 20 px `map-pin` and ends in the 16 px `arrow-up-right` (§7.3; Feature
   011 #341), and a Health Report row's tile on `/health/reports`, with `file-chart-column`, whose
   round arrow holds the Announcement row's 20 px `arrow-right` (§7.3; #342). A Service card shows
@@ -502,8 +513,9 @@ production sets the office's approved file: the MOPH emblem, as the legacy site 
     go two to a row, and the Services' grid overlaps the deep field's edge (§8.4). A list's
     heading has its link at its right, and the field under it or under a post's header the small
     glow in its corner (§7.8, §9.1); a list's small cards go two to a row, each with its picture
-    above its text and its summary, and its large card spans the row (§7.3); a Document row's, a
-    Health Service row's and a Health Report row's tile grows from 68 to 92 px, and the row's name
+    above its text and its summary, and its large card spans the row (§7.3); a row's light tile
+    (a Document row's, a MOIT's, a Health Service row's and a Health Report row's) grows from 68 to
+    92 px and its radius from 14 to 18, and the row's name
     or title from body to body-large size, and a Health Report row shows its summary and its round
     arrow (§7.3);
   - `lg`, from 1,024 px: desktop, with the main navigation in the header (§7.4), the two-column
@@ -549,7 +561,7 @@ this document names:
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9), and a MOIT's page, on its own `DeepField` with `ListBody` after it, with "MOIT n" opening its H1 and the H1 no larger than H2 size (§9.11) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons; with `arrow`, semibold with a 16 px `arrow-right`, `/contact`'s routes, §9.10), `ArrowLink` (onward links), `Pagination`, `Breadcrumb`; `ContentLink`'s `compact` form, the footer's official channels and `/contact`'s pills (§9.10) |
-| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RequirementCard`, a MOIT's Requirement card, and `MoitNeighbours`, the links to the MOITs before and after it, on a MOIT's page (§8.3, §9.11); `RowTile`, the gradient tile of 68 px and 92 px from `sm`, which `FileTile` and `ItaMoitRow` share, each with its own lines; `RelatedDocuments` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RequirementCard`, a MOIT's Requirement card, and `MoitNeighbours`, the links to the MOITs before and after it, on a MOIT's page (§8.3, §9.11); `RowTile`, the light row tile of 68 px and 92 px from `sm` on flat `surface-soft`, which `FileTile`, `ItaMoitRow`, `HealthReportRow` and `HealthServiceMapRow` share, each with its own lines (Feature 014 #418); `RelatedDocuments` |
 
 ### 7.2 Component rules
 
@@ -656,11 +668,13 @@ this document names:
 - **The Document row** on `/documents` (Feature 010 #315; spec #311 "The Document repository",
   decisions 2, 8, 16 and 17), and under an Announcement's "เอกสารที่เกี่ยวข้อง" with its title an H3
   (§9.4; #316), `DocumentDownloadRow`: a white row, radius 22, the `card` shadow,
-  14 px apart, after the filter form. It holds the file's tile, the Announcement row's date tile
-  in size and gradient (68 px, radius 14, below `sm`; 92 px, radius 18, from `sm`; §8.7), with the
-  24 px `file-text` and under it the file's type ("PDF") at small size, semibold, in
-  `accent-warm` (§3.2), or "ไฟล์" when the file cannot be served or carries no type in its name;
-  it is decorative. Beside the
+  14 px apart, after the filter form. It holds the file's tile (`FileTile`), the row's light tile
+  (`RowTile`; Feature 014 #418, spec #417 "The light row tile", decision 12): the Announcement
+  row's date tile in size (68 px, radius 14, below `sm`; 92 px, radius 18, from `sm`; §8.7) on
+  flat `surface-soft`, with the 24 px `file-text` in `brand-primary` and under it the file's type
+  ("PDF") at small size, semibold, in `brand-dark` (§3.2), or "ไฟล์" when the file cannot be served
+  or carries no type in its name; it is decorative, and stays as it is under the pointer and under
+  focus. Beside the
   tile: the facts line as before (`MetaLine`: type, Document date, "ปีงบประมาณ" and the year);
   a superseded or expired Document's `accent-warm` attention label on its own line; the title,
   an H2, `text-primary`, semibold, body size below `sm` and body-large from `sm`, two lines at
@@ -699,9 +713,10 @@ this document names:
 - **The Health Service row** on `/health-services` (Feature 011 #341; spec #338 "The Health
   Service Directory", decisions 12 and 16), `HealthServiceMapRow`: the Document row's white row,
   radius 22, the `card` shadow and padding, 14 px apart, after the filter form, in one column at
-  any count (decision 13). It holds the Document row's tile in size and gradient (68 px, radius
-  14, below `sm`; 92 px, radius 18, from `sm`) with the 24 px `hospital` in `accent-warm`; it is
-  decorative. Beside the tile: the facts line (`MetaLine`: the Facility Type and the Area,
+  any count (decision 13). It holds the row's light tile (`RowTile`, as the Document row's: 68 px,
+  radius 14, below `sm`; 92 px, radius 18, from `sm`; flat `surface-soft`) with the 24 px
+  `hospital` alone in `brand-primary` (Feature 014 #418); it is decorative, and stays as it is
+  under the pointer and under focus. Beside the tile: the facts line (`MetaLine`: the Facility Type and the Area,
   separated by "•", at small size in `text-secondary`), which wraps between facts and inside a fact
   only when that fact alone is wider than the line (Product Owner, 2026-11-18: #341 comment
   6966593423, item 2); a temporarily closed or inactive Health Service's `accent-warm` attention
@@ -734,11 +749,12 @@ this document names:
 - **The Health Report row** on `/health/reports` (Feature 011 #342; spec #338 "The Health Reports
   list", decisions 1 and 12), `HealthReportRow`: the Announcement row (§8.7) without its badge, a
   white row, radius 22, the `card` shadow and the Announcement row's padding, 14 px apart, over
-  the field's edge, in one column at any count. It holds the Document row's tile in size and
-  gradient (68 px, radius 14, below `sm`; 92 px, radius 18, from `sm`) with the 24 px
-  `file-chart-column` in `surface-base` and under it the fiscal year at small size, semibold, in
-  `accent-warm`, as the file tile's "PDF" (§3.2), or the icon alone for a report without a fiscal
-  year; it is decorative. Beside the tile, 4 px apart: the facts line (`MetaLine`: the Report
+  the field's edge, in one column at any count. It holds the row's light tile (`RowTile`, as the
+  Document row's: 68 px, radius 14, below `sm`; 92 px, radius 18, from `sm`; flat `surface-soft`;
+  Feature 014 #418, where the row's own copy of the tile went) with the 24 px `file-chart-column`
+  in `brand-primary` and under it the fiscal year at small size, semibold, in `brand-dark`, as the
+  file tile's "PDF" (§3.2), or the icon alone for a report without a fiscal year; it is
+  decorative, and stays as it is under the pointer and under focus. Beside the tile, 4 px apart: the facts line (`MetaLine`: the Report
   Type, the date the list orders by, the report date or else the publication, and "ปีงบประมาณ" with
   the year, separated by "•", at small size in `text-secondary`), which wraps between facts and
   inside a fact only when that fact alone is wider than the line; the title, an H2,
@@ -1367,9 +1383,10 @@ the looks the Product Owner picked from Feature 013's prototype (spec #392 decis
   apart. A row is white with the `card` shadow and the `deep` shadow under the pointer, radius
   22, 12 px of padding and from `sm` 18 px above, below and at the left and 22 px at the right.
   Its parts lie in one line at every width, 14 px apart and 22 px from `sm`:
-  - the Document row's gradient tile (`RowTile`, §7.3: 68 px with radius 14 below `sm`, 92 px
-    with radius 18 from `sm`) with "MOIT" at small size, semibold, in `accent-warm` (§3.2) over
-    the number at H3 size, H2 size from `sm`, in `surface-base`;
+  - the row's light tile (`RowTile`, §7.3: 68 px with radius 14 below `sm`, 92 px with radius 18
+    from `sm`, flat `surface-soft`; Feature 014 #418) with "MOIT" at small size, semibold, in
+    `brand-dark` (§3.2) over the number at H3 size, H2 size from `sm`, in `brand-primary`,
+    unchanged under the pointer and under focus;
   - the title as an H2 at body size, body-large from `sm`, semibold, in `text-primary`, shown whole
     on as many lines as it needs, a link as wide as its words that is underlined and
     `brand-primary` under the pointer; 4 px under it the facts line at small size in `text-secondary`, "หลักฐาน n รายการ",
@@ -2060,8 +2077,9 @@ same way (`FileBlock`, §9.6).
   "ฉบับปัจจุบัน" stays in the details. With no room left on the row, the status's pill starts the
   next row 8 px under the type's.
 - **The card** over the field's edge, as §9.4's in place and look, holds first the file:
-  `FileTile` (the Document row's tile, §7.3: 68 px below `sm`, 92 px from `sm`, the gradient,
-  `file-text` and the type in `accent-warm`, decorative); 16 px beside it the H2 "ไฟล์เอกสาร" at
+  `FileTile` (the Document row's light tile, §7.3: 68 px below `sm`, 92 px from `sm`, flat
+  `surface-soft`, `file-text` in `brand-primary` and the type in `brand-dark`, decorative;
+  Feature 014 #418); 16 px beside it the H2 "ไฟล์เอกสาร" at
   body-large, semibold, `brand-dark`, with the file's type and size under it at small size in
   `text-secondary`; and the download, `FileDownloadLink` in the row's look with today's words,
   "ดาวน์โหลดเอกสาร" semibold and the type and size in regular weight, linking to the file at
@@ -3577,3 +3595,19 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (`docs/evidence/397-ita-pages-evidence-round.md`). Authority: spec #392 "Documents" and "Decisions the Product
   Owner made", the decisions on #393, #395 and #396, the notes on #397, and #397 comments
   7090321604 and 7091473095. No page changed.
+- **v1.8 the light row tile (2026-11-23, Feature 014 #418):** every row that has a tile and holds
+  no state shares one light tile (`RowTile`): flat `surface-soft` in place of the `brand-primary`
+  to `brand-dark` gradient, at its size and radius as before (68 px with radius 14 below `sm`, 92
+  px with radius 18 from `sm`), its first line `brand-primary` and its second `brand-dark`, each
+  at its size and weight as before, hidden from assistive technology and unchanged under the
+  pointer and under focus. It shows as the Document row's file tile (`FileTile`: `file-text` over
+  the type or "ไฟล์") on `/documents`, the About Document pages and an Announcement's, a Service's
+  and a Basic Page's related Documents, and in the card on a Document's and a Health Report's
+  page; on a MOIT's row ("MOIT" in `brand-dark` over the number in `brand-primary`); on a Health
+  Report's row, whose own copy of the tile goes (`file-chart-column` over the fiscal year, or
+  the icon alone); and as a Health Service's hospital tile (`hospital` alone). The `accent-warm`
+  exceptions on the file tile, a Health Report row's tile and a MOIT row's tile go from §3.2 and
+  `CODING_STANDARDS.md`, and the Announcement's date tile keeps its own until #419. A Feature 014
+  banner names the feature, and §2, §3.1 (`brand-primary`, `brand-dark`, `surface-soft`,
+  `accent-warm`), §3.2, §5, §6, §7.1, §7.3, §8.3 and §9.5 state the light tile. Authority: spec
+  #417 "The light row tile" and decisions 1, 3 and 12, and #417 comment 7094711736.

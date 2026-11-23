@@ -112,6 +112,8 @@ import {
 	fileBlockOf,
 	isoDay,
 	itemsPerRow,
+	lightRowTile,
+	lightRowTileStates,
 	listedItem,
 	listedTitles,
 	listHeading,
@@ -122,6 +124,8 @@ import {
 	pressInside,
 	readHeaderOnField,
 	rowShadow,
+	rowTileLook,
+	rowTileStates,
 	shownLines,
 	shownWhole,
 	siteTitleParts,
@@ -860,7 +864,7 @@ const linkCoversRow = (row: Locator) =>
 		);
 	});
 
-test("each /health/reports row: the file-chart-column tile, 68 px below 640 px and 92 px from 640 px, with the fiscal year under the icon in accent-warm, or the icon alone without one; the facts line with the Report Type, the date the list orders by and the fiscal year, each only when set; the title as an H2 in two lines at most; from 640 px the summary in two lines at most; the reporting period; from 640 px the round arrow; one link named by the title covers the row, and the rows are 14 px apart", async ({
+test("each /health/reports row: the light tile, surface-soft with file-chart-column in brand-primary, 68 px with radius 14 below 640 px and 92 px with radius 18 from 640 px, with the fiscal year under the icon in brand-dark, or the icon alone without one, unchanged under the pointer and under focus; the facts line with the Report Type, the date the list orders by and the fiscal year, each only when set; the title as an H2 in two lines at most; from 640 px the summary in two lines at most; the reporting period; from 640 px the round arrow; one link named by the title covers the row, and the rows are 14 px apart", async ({
 	page,
 }) => {
 	const type = await createTerm("report_type", "รายงานสถานการณ์โรค");
@@ -893,25 +897,6 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 	await expect(row.getByRole("link")).toHaveAccessibleName(full.title);
 	await expect(row.getByRole("link")).toHaveAttribute("href", `/health/reports/${full.slug}`);
 
-	/** The tile as it shows now: decorative, its gradient, its icon, and the words under it. */
-	const tileOf = async (tile: Locator) => {
-		if ((await tile.count()) === 0) return undefined;
-		return tile.evaluate((element) => {
-			const icon = element.querySelector("svg");
-			const year = element.querySelector("span");
-			return {
-				decorative: element.closest('[aria-hidden="true"]') !== null,
-				gradient: getComputedStyle(element).backgroundImage.includes("linear-gradient"),
-				icon: [icon?.getBoundingClientRect().width, getComputedStyle(icon ?? element).color],
-				year: year && {
-					text: year.textContent?.trim(),
-					colour: getComputedStyle(year).color,
-					size: parseFloat(getComputedStyle(year).fontSize),
-					weight: getComputedStyle(year).fontWeight,
-				},
-			};
-		});
-	};
 	const factsParts = (line: Locator) =>
 		line.evaluate((element) => [...element.children].map((part) => part.textContent?.trim()));
 	const [secondary, primary] = [
@@ -919,8 +904,8 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 		await tokenColor(page, "text-primary"),
 	];
 	const seen: Record<string, unknown> = {
-		tile: await tileOf(parts.tile),
-		bareTile: await tileOf(reportRowParts(bareRow).tile),
+		tile: await rowTileStates(parts.tile, row, row.getByRole("link")),
+		bareTile: await rowTileLook(reportRowParts(bareRow).tile),
 		factsParts: await factsParts(facts),
 		factsStyle: await textStyle(facts),
 		bareFacts: await factsParts(bareFacts),
@@ -943,23 +928,14 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 				: undefined,
 	};
 	const expected: Record<string, unknown> = {
-		tile: {
-			decorative: true,
-			gradient: true,
-			icon: [24, await tokenColor(page, "surface-base")],
-			year: {
-				text: "2569",
-				colour: await tokenColor(page, "accent-warm"),
-				size: 13,
-				weight: "600",
-			},
-		},
-		bareTile: {
-			decorative: true,
-			gradient: true,
-			icon: [24, await tokenColor(page, "surface-base")],
-			year: null,
-		},
+		// The light tile (spec #417 decision 12, P1 A), the same under the pointer and under focus.
+		tile: await lightRowTileStates(page, [
+			{ line: "file-chart-column", token: "brand-primary", size: 24 },
+			{ line: "2569", token: "brand-dark", size: 13, weight: "600" },
+		]),
+		bareTile: await lightRowTile(page, [
+			{ line: "file-chart-column", token: "brand-primary", size: 24 },
+		]),
 		factsParts: [type.label, "•", thaiDate(in2032(1, 2)), "•", "ปีงบประมาณ 2569"],
 		factsStyle: { size: 13, weight: "400", colour: secondary, underline: false },
 		bareFacts: [thaiDate(bareAt)],
@@ -982,6 +958,9 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 		const tile = (await parts.tile.count()) > 0 ? await boxOf(parts.tile, "the tile") : undefined;
 		seen[width] = {
 			tile: tile && [Math.round(tile.width), Math.round(tile.height)],
+			tileRadius:
+				tile &&
+				(await parts.tile.evaluate((element) => getComputedStyle(element).borderTopLeftRadius)),
 			yearUnderIcon:
 				tile &&
 				(await parts.tile.evaluate((element) => {
@@ -1010,6 +989,7 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 		};
 		expected[width] = {
 			tile: wide ? [92, 92] : [68, 68],
+			tileRadius: wide ? "18px" : "14px",
 			yearUnderIcon: true,
 			// The Announcement row's.
 			padding: wide ? ["18px", "22px", "18px", "18px"] : ["12px", "12px", "12px", "12px"],
@@ -1429,7 +1409,7 @@ test.describe("a Health Report's page on the field", () => {
 		expect(seen, "the card over the field's edge").toEqual(expected);
 	});
 
-	test("the card holds first the report Document: the tile with file-text and the type in accent-warm, 68 px below 640 px and 92 px from 640 px, beside it the H2 เอกสารรายงาน, the Document's title as a semibold brand-primary underlined link to its page and the type and size under it, and the download ดาวน์โหลดเอกสาร with the type and size, at the card's right and 52 px high from 640 px, across the card under them below 640 px; then a 1 px border-default rule and the details, 20 px apart", async ({
+	test("the card holds first the report Document: the light tile with file-text in brand-primary and the type in brand-dark, 68 px with radius 14 below 640 px and 92 px with radius 18 from 640 px, beside it the H2 เอกสารรายงาน, the Document's title as a semibold brand-primary underlined link to its page and the type and size under it, and the download ดาวน์โหลดเอกสาร with the type and size, at the card's right and 52 px high from 640 px, across the card under them below 640 px; then a 1 px border-default rule and the details, 20 px apart", async ({
 		page,
 	}) => {
 		await page.goto(pathOf(full));
