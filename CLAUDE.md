@@ -124,8 +124,9 @@ rules. Product Owner decisions and the current documents rank above both (Author
    Owner ask before `/code-review` (#313 retro).
 4. Sort every finding: a provable defect inside the ticket's scope (accessibility, contrast,
    overflow, a broken interaction) gets its fix and test; a taste suggestion or out-of-scope change
-   becomes a pending confirmation for the Product Owner; a finding against the contract is reported
-   as a conflict.
+   becomes a pending confirmation for the Product Owner, unless a recorded Product Owner decision
+   already settles it, when the pull request lists it with that decision (#418 retro); a finding
+   against the contract is reported as a conflict.
 5. Rerun the checks the fixes touch, then `/code-review` and `/pr` as before. The gate's results
    are self-review.
 
