@@ -1,10 +1,11 @@
 ---
-// A row's tile, the one every row that has a tile shares (Feature 014 #418; spec #417 "The light
-// row tile", decision 12, prototype P1 A): flat `surface-soft`, 68 px with radius 14 below `sm` and
-// 92 px with radius 18 from `sm`, its lines centred one under another. Its first line (an icon, a
-// MOIT's number) is `brand-primary`, which the tile gives its children; its second line (the
-// file's type, "MOIT", a report's fiscal year) sets `brand-dark` itself. Each line keeps its own
-// size and weight. The Document row's file tile (FileTile), a MOIT's row (ItaMoitRow), a Health
+// The light row tile (Feature 014 #418; spec #417 "The light row tile", decision 12, prototype
+// P1 A), which the Document, MOIT, Health Report and Health Service rows share; the Announcement
+// row's date tile keeps its gradient until #419. Flat `surface-soft`, 68 px with radius 14 below
+// `sm` and 92 px with radius 18 from `sm`, its lines centred one under another. The tile gives its
+// lines `brand-primary`, the icon's and a MOIT's number's colour; the file's type, "MOIT" (over
+// the number) and a report's fiscal year set `brand-dark` themselves. Each line keeps its own size
+// and weight. The Document row's file tile (FileTile), a MOIT's row (ItaMoitRow), a Health
 // Report's row (HealthReportRow) and a Health Service's row (HealthServiceMapRow) show it. It is
 // decorative, since the words beside it say what it says: hidden from assistive technology. It
 // stays as it is under the pointer and under focus (spec #417 decision 3).
