@@ -371,7 +371,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, the one exception to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
-| `brand-primary` (the icon, a MOIT's number) and `brand-dark` (the file's type or "ไฟล์", "MOIT", a report's fiscal year) on a row's light tile (`RowTile`, flat `surface-soft`): the file tile of a Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents, and in the card on a Document's and a Health Report's page (§9.4 to §9.9), a MOIT's row (§8.3), a Health Report's row and a Health Service's (§7.3; spec #417 decision 12, prototype P1 A, measured at `9a29f44`'s pages rewritten) | `brand-primary` 5.78:1 and `brand-dark` 10.94:1, from the token values; the prototype read the same at its lowest |
+| `brand-primary` (the icon, a MOIT's number) and `brand-dark` (the file's type or "ไฟล์", "MOIT", a report's fiscal year) on a row's light tile (`RowTile`, flat `surface-soft`): the file tile of a Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents, and in the card on a Document's and a Health Report's page (§9.4 to §9.9), a MOIT's row (§8.3), a Health Report's row and a Health Service's (§7.3; spec #417 decision 12, prototype P1 A) | measured with `scripts/measure-text-contrast.ts --all-text --fold` at the five widths at `2d2b027` (#418): a MOIT's number 5.78:1; "PDF", "ไฟล์", "MOIT" and a report's fiscal year 10.94:1, as the token values and the prototype give them |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7, and the label on its page, §9.4) | 13.85:1 |
@@ -705,8 +705,8 @@ this document names:
   page shows its one Document
   as a Document's page shows its file (§9.6; Feature 011 #343). With
   `--all-text` at the five widths every text of a row reads 4.97:1 or more, the facts line, the
-  summary and "ไฟล์ไม่พร้อมให้บริการ" in `text-secondary` the lowest; the tile's "PDF" 5.60:1 or
-  more, the download's words 6.45:1, the attention label 7.75:1 and the title 16.54:1. Both
+  summary and "ไฟล์ไม่พร้อมให้บริการ" in `text-secondary` the lowest; the tile's "PDF" and "ไฟล์" 10.94:1 on the light tile (#418, at `2d2b027`),
+  the download's words 6.45:1, the attention label 7.75:1 and the title 16.54:1. Both
   links' rings lie on the row's white: under each ring 6.45:1 at the five widths, beside the
   download's 6.07:1 or more (#315; measured at `fac3acd` with `scripts/measure-text-contrast.ts`,
   `scripts/measure-focus-contrast.ts` and `scripts/screenshot-fixtures/lists-by-count.ts`).
@@ -770,7 +770,7 @@ this document names:
   reaches back over the strip it left, as the Announcement row's. Each row reveals as it comes
   into the window and shows whole while it holds the keyboard's focus (§8.12). With `--all-text`
   at the five widths every text of a row reads 4.97:1 or more, the facts line, the summary and the
-  period in `text-secondary` the lowest; the tile's fiscal year 5.60:1 or more and the title
+  period in `text-secondary` the lowest; the tile's fiscal year 10.94:1 on the light tile (#418, at `2d2b027`) and the title
   16.54:1. The first row's ring, over the field's edge, reads 1.00:1 under it on about half its
   length, and with the band 5.43:1 or more beside it, none under 3:1; a later row's 5.39:1 under
   it and 6.07:1 beside it (#342; measured at `7b49b6e` with `scripts/measure-text-contrast.ts` on
@@ -1154,7 +1154,7 @@ fiscal year's page (`/ita/{fiscal-year}`).
     `CASE=plans-full`), at the five widths, the lowest reading of each text: the lead 6.36:1
     (`/about/policies`, 320 px), the H1 6.80:1 (`/about/results`, 320 px), the label 8.48:1
     (320 px), the breadcrumb's links 9.34:1 and its current page 6.52:1 (`/about/results`,
-    320 px); a row's facts line and summary 4.97:1, the tile's "PDF" 5.60:1, the download's words
+    320 px); a row's facts line and summary 4.97:1, the tile's "PDF" 10.94:1 on the light tile (#418, at `2d2b027`), the download's words
     6.45:1, "ถูกแทนที่แล้ว" 7.75:1 and the title 16.54:1, as on `/documents` (§7.3); the pager's
     "หน้า 1" under the last row 4.69:1 and its links 6.45:1; a page past the last, the empty
     state's message 16.54:1 and "กลับไปหน้าแรกของรายการ" 6.45:1. `scripts/measure-focus-contrast.ts`
@@ -2055,7 +2055,7 @@ A Document's page takes the same header and card (§9.5).
   lowest of each text: the breadcrumb's links 8.84:1 and its current page 5.27:1 (375 px); "เผยแพร่"
   and the date 7.75:1; the type's words 7.60:1 (320 px); the H1 6.36:1 (320 px); the card's terms
   4.97:1 and values 16.54:1; "เปิดอยู่" 6.45:1 and "ปิดแล้ว" 13.85:1; the label "เอกสารเผยแพร่"
-  6.09:1 and the H2 15.47:1; a related row's "PDF" 5.60:1, facts and summary 4.97:1, title 16.54:1
+  6.09:1 and the H2 15.47:1; a related row's "PDF" 10.94:1 on the light tile (#418, at `2d2b027`), facts and summary 4.97:1, title 16.54:1
   and download 6.45:1. `scripts/measure-focus-contrast.ts` read the row's title link and download
   rings at 6.45:1 under them and 6.07:1 or more beside them, and the breadcrumb's `accent-warm` ring
   on the field at 6.61:1 or more, none under 3:1; at `47fc28a` the second link's ring read 6.01:1
@@ -2114,7 +2114,7 @@ same way (`FileBlock`, §9.6).
   Document's and a file-gone Document's page (`scripts/screenshot-fixtures/lists-by-count.ts`,
   `LIST=documents`), the lowest of each text: the breadcrumb's links 9.34:1 (320 px) and its
   current page 5.48:1 (375 and 320 px); the type's pill 9.34:1 (320 px) and the status's 7.75:1;
-  the H1 6.27:1 (320 px) and the summary 6.45:1; the tile's "PDF" 5.60:1; the H2 12.21:1, the type
+  the H1 6.27:1 (320 px) and the summary 6.45:1; the tile's "PDF" 10.94:1 on the light tile (#418, at `2d2b027`); the H2 12.21:1, the type
   and size 4.97:1 and the download's words 6.45:1; the details' terms 4.97:1, values 16.54:1,
   "ฉบับปัจจุบัน" 10.94:1, the attention labels 7.75:1 and a topic's link 6.45:1; the notice's
   "ไฟล์ไม่พร้อมให้บริการ" 10.94:1, its line 5.07:1 and "ติดต่อเรา" 5.78:1; the successor's note
@@ -2168,7 +2168,7 @@ Feature 011 #343 (spec #338 "The three pages: the header", "The card over the fi
   `LIST=health-reports`: the report Document unpublished, and its file deleted), the lowest of each
   text: the breadcrumb's links 6.61:1 and its current page 5.34:1 (375 px); "วันที่รายงาน" and the
   date 7.75:1; the type's pill 5.79:1 (375 px); the H1 6.19:1 (375 px) and the summary 6.45:1; the
-  tile's "PDF" 5.68:1; the H2 12.21:1, the Document's title 6.45:1, the type and size 4.97:1 and
+  tile's "PDF" 10.94:1 on the light tile (#418, at `2d2b027`); the H2 12.21:1, the Document's title 6.45:1, the type and size 4.97:1 and
   the download's words 6.45:1; the details' terms 4.97:1 and values 16.54:1; the notice's
   "เอกสารรายงานไม่พร้อมให้บริการ" 10.94:1, its line 5.07:1 and "ติดต่อเรา" 5.78:1.
 
@@ -2227,8 +2227,8 @@ field, header and card (`PostHeader`, `CardOverField`), though a Service is not 
   and the summary 6.45:1; the card's terms 4.97:1 and values 16.54:1, the category links 6.45:1,
   "ไปยังเว็บไซต์ของบริการ" 6.45:1 and its note 4.97:1; the guidance's H2s 10.22:1, its text
   15.61:1 and a channel's link 6.09:1; the labels "เอกสารเผยแพร่" and "หน่วยบริการ" 6.09:1 and
-  their H2s 15.47:1; a Document row's "PDF" 5.60:1, facts and summary 4.97:1, title 16.54:1 and
-  download 6.45:1; a Health Service row's facts, official name and address 4.97:1, name 16.54:1,
+  their H2s 15.47:1; a Document row's "PDF" 10.94:1 on the light tile (#418, at `2d2b027`), facts and summary 4.97:1, title 16.54:1
+  and download 6.45:1; a Health Service row's facts, official name and address 4.97:1, name 16.54:1,
   "เปิดแผนที่" 6.45:1, and "ปิดให้บริการชั่วคราว" and "ไม่เปิดให้บริการแล้ว" 7.75:1.
 
 ### 9.8 A Health Service's page: its location first in the card over the field's edge
@@ -2330,7 +2330,7 @@ a list's field before its tiles, with the same body and related Documents after 
   Documents, one superseded), the lowest of each text: the breadcrumb's links 9.09:1 and its
   current page 5.27:1 (320 px); the H1 5.34:1 (`/pages/privacy`, 375 px) and the summary 6.19:1;
   the body's headings 11.52:1 and text 15.61:1; the label "เอกสารเผยแพร่" 6.09:1 and the H2
-  15.47:1; a row's facts and summary 4.97:1, its title 16.54:1, "PDF" 5.60:1, the download
+  15.47:1; a row's facts and summary 4.97:1, its title 16.54:1, "PDF" 10.94:1 on the light tile (#418, at `2d2b027`), the download
   6.45:1 and "ถูกแทนที่แล้ว" 7.75:1.
 
 **`/about`** (Feature 012 #371; spec #365 "`/about`", decisions 2, 3, 8 and 10, "Motion"; P1 A):
@@ -2367,7 +2367,7 @@ a list's field before its tiles, with the same body and related Documents after 
   links 10.27:1 and its current page 8.96:1 (320 px); the H1 5.86:1 (320 px), and "เกี่ยวกับเรา"
   8.36:1 without the page; the summary 4.85:1 (1,024 px, where the large ring runs behind it; the
   prototype read 4.92:1); the tiles' labels 16.54:1; the body's headings 11.52:1 and text 15.61:1;
-  "เอกสารเผยแพร่" 6.09:1, a row's facts and summary 4.97:1, "PDF" 5.60:1 and the download 6.45:1.
+  "เอกสารเผยแพร่" 6.09:1, a row's facts and summary 4.97:1, "PDF" 10.94:1 on the light tile (#418, at `2d2b027`) and the download 6.45:1.
   `scripts/measure-focus-contrast.ts` on the tiles of the first row, which meet the field, and of
   the second: beside the ring, with focus, no pixel under 3:1 at any of the five widths, where the
   ring alone over the field reads 1.00:1.
@@ -3609,5 +3609,10 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   exceptions on the file tile, a Health Report row's tile and a MOIT row's tile go from §3.2 and
   `CODING_STANDARDS.md`, and the Announcement's date tile keeps its own until #419. A Feature 014
   banner names the feature, and §2, §3.1 (`brand-primary`, `brand-dark`, `surface-soft`,
-  `accent-warm`), §3.2, §5, §6, §7.1, §7.3, §8.3 and §9.5 state the light tile. Authority: spec
+  `accent-warm`), §3.2, §5, §6, §7.1, §7.3, §8.3 and §9.5 state the light tile, and the readings in
+  §3.2, §7.3, §7.8, §9.4, §9.5, §9.6, §9.7 and §9.9 take its "PDF", "ไฟล์" and fiscal year at 10.94:1, read at
+  `2d2b027` on `/documents`, `/about/plans`, `/about`, a Document's, a Health Report's, an
+  Announcement's and two Services' pages, `/health/reports`, `/ita/2570` and `/health-services`,
+  where every other text reads as before (4.97:1 or more; `/about`'s summary 4.85:1 over its
+  ring, unchanged). Authority: spec
   #417 "The light row tile" and decisions 1, 3 and 12, and #417 comment 7094711736.
