@@ -17,7 +17,7 @@
 > (Product Owner, 2026-11-23: #392 comment 7092932555). Feature 014's light row tile and
 > `/health`'s and `/about`'s cards follow spec #417, implemented by #418–#421; its acceptance is
 > due on #417.
-> **Updated:** 2026-11-23 (#418); first drafted 2026-10-30
+> **Updated:** 2026-11-23 (#419); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -282,22 +282,22 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces; the icon or a MOIT's number on a row's light tile (§7.3) |
-| `brand-dark` | `#123c33` | headings, the deep green field, dark bands; the file's type, "MOIT" or a report's fiscal year on a row's light tile (§7.3) |
-| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip and, on `/about/leadership`, of the featured first leader (§7.3), the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the month and year on a current one's date tile, the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), on a Document's header the pill of a superseded or expired status (§9.5), and on a Health Report's header the pill of "วันที่รายงาน" and the report date (§9.6); on a fiscal year's card on the ITA landing, the `calendar-check` on its gradient tile (§8.3); the light tile of the Document, MOIT, Health Report and Health Service rows holds none (Feature 014 #418); on a MOIT's header, "MOIT n" opening its H1 on the deep field (§9.11) |
+| `brand-primary` | `#0b6b57` | links, primary buttons, the focus ring on light surfaces; the icon, a MOIT's number or an Announcement's day on a row's light tile (§7.3, §8.7) |
+| `brand-dark` | `#123c33` | headings, the deep green field, dark bands; the file's type, "MOIT", a report's fiscal year or an Announcement's month and year on a row's light tile (§7.3, §8.7) |
+| `accent-warm` | `#f3c95f` | a status that needs attention, the skip link, the focus ring and eyebrows on dark surfaces; on the Homepage, the words the hero's headline marks, the search's submit button, the sheet behind the Featured card, a section heading's icon tile, a Service card's tile under the pointer, the ring of the first person in the Leadership strip and, on `/about/leadership`, of the featured first leader (§7.3), the large News card's date pill and the tile of its visual, and on an Announcement row (the Current Announcements and the Announcements list) the recruitment badge, a status that is not open yet and the arrow's circle under the pointer; on the field under a list's heading, the heading's icon tile and its link under the pointer (§7.8); on `/services`, as on the Homepage, a Service card's tile under the pointer (§8.4; Feature 011 #340); on a list's large card, as on the Homepage's, its date pill and the tile of its visual (§7.3); on a Post page's and an Announcement's header, the pill of "เผยแพร่" and the date (§9.1, §9.4), on a Document's header the pill of a superseded or expired status (§9.5), and on a Health Report's header the pill of "วันที่รายงาน" and the report date (§9.6); on a fiscal year's card on the ITA landing, the `calendar-check` on its gradient tile (§8.3); the rows' light tile, an Announcement's date tile among them, holds none (Feature 014 #418, #419); on a MOIT's header, "MOIT n" opening its H1 on the deep field (§9.11) |
 | `text-primary` | `#16211d` | body text |
-| `text-secondary` | `#65736d` | leads, meta lines |
+| `text-secondary` | `#65736d` | leads, meta lines; the day and the month and year on a closed Announcement's date tile (§8.7; Feature 014 #419) |
 | `bg-page` | `#f6f9f7` | the page |
 | `surface-base` | `#ffffff` | cards, white bands |
-| `surface-soft` | `#eaf5f0` | soft bands, the Current Announcements' band and its general category badge; the ground of a row's light tile (`RowTile`): the file tile of a Document row and of the card on a Document's and a Health Report's page, and a MOIT's, a Health Report's and a Health Service's row's tile (§7.3, §8.3; Feature 014 #418) |
-| `border-default` | `#dce7e2` | borders |
+| `surface-soft` | `#eaf5f0` | soft bands, the Current Announcements' band and its general category badge; the ground of a row's light tile (`RowTile`): the file tile of a Document row and of the card on a Document's and a Health Report's page, and a MOIT's, a Health Report's, a Health Service's and a current Announcement's row's tile (§7.3, §8.3, §8.7; Feature 014 #418, #419) |
+| `border-default` | `#dce7e2` | borders; the 1 px edge of a closed Announcement's date tile (§8.7; Feature 014 #419) |
 | `topic-blue` | `#f0f5fc` | the procurement Announcement badge's fill (§8.7); `topic-green`, the old Health Information cards' other fill, left the tokens with them (#246), `contact-visual-from` and `-to`, the map stand-in's fill, with it (#247), and `activity-visual-from` and `-to`, the old Activity card's fill without a picture, with that card (#313) |
 | `divider` | `#dbe8e3` | separators inside a white box: the line above a post's topics; the rule in the card on a Document's and a Health Report's page is `border-default` (§9.5, §9.6) |
 | `hero-chip`, `hero-secondary-fill`, `hero-secondary-border` | white at 12 %, 6 %, 28 % | the hero's chip; a secondary link on a dark surface |
 | `text-secondary-on-soft` | `#5d6a64` | secondary text on `surface-soft` (contrast fix, #51) |
 | `border-input` | `#7a8a83` | input boundaries (contrast fix, #51) |
 | `procurement-text`, `procurement-border` | `#1d4f91`, `#c9dbf3` | the procurement Announcement badge's text and border, on `topic-blue` (Feature 008, #239) |
-| `status-closed` | `#e7ecea` | a closed Announcement's status label and date tile on the Announcements list, and its status label on its page (Feature 008, #239; Feature 010, #314, #316) |
+| `status-closed` | `#e7ecea` | a closed Announcement's status label on the Announcements list and on its page (Feature 008, #239; Feature 010, #314, #316) |
 | `deep-highlight` | `#0f8a70` | the highlight in the deep green field's gradient and in the deep visual's (Feature 008, #239) |
 | `plain-visual-to` | `#d6ece2` | the plain visual's second stop, after `surface-soft` (Feature 008, #239) |
 
@@ -307,8 +307,8 @@ Latest News uses both again (§8.6): `plain-visual` on a small card without a pi
 `deep-highlight` in the `deep-visual` utility on the large one; so do the cards of the News,
 Health News and Health Content lists (§7.3). The
 Current Announcements use `procurement-text` and `procurement-border` on the procurement badge
-(§8.7). `status-closed` is the fill of a closed Announcement's dotted status label and date tile,
-which the Announcements list shows (§8.7; Feature 010 #314), and of the label in the details card
+(§8.7). `status-closed` is the fill of a closed Announcement's dotted status label, which the
+Announcements list shows (§8.7; Feature 010 #314), and of the label in the details card
 on its page (§9.4; #316): the Homepage lists current Announcements only. Some fills are a token at an opacity, not a token of their own: the hero's decorations and
 chip (`accent-warm` at 28 %, 30 %, 38 % and 50 %, `surface-soft` at 16 %, `surface-base` at 18 %
 and 22 %), the header's
@@ -370,11 +370,11 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-secondary-on-soft` (the tagline) on the header's surface over `brand-dark`, the darkest fill a page scrolls under it (`text-secondary` there would be 4.15:1) | 4.73:1 |
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
-| `accent-warm` (the month and year) on a current Announcement's date tile, on the Homepage and the Announcements list, where they sit on its `brand-primary` to `brand-dark` gradient: measured, the one exception to the row above (§8.7; #245 comment 6812837231) | 5.45:1 or more on the Homepage; 5.37:1 or more on the list (#314) |
+| `brand-primary` (the day) and `brand-dark` (the month and year) on a current Announcement's date tile, the light tile (`RowTile`, flat `surface-soft`), on the Homepage and the Announcements list, whatever its status (§8.7; spec #417 decisions 1 and 12, #419); `text-secondary` (the day, the month and year) on a closed Announcement's tile, `surface-base` with a `border-default` edge, on the Announcements list (spec #417 decision 13) | measured with `scripts/measure-text-contrast.ts --all-text --fold` at the five widths at `404bffc` (#419) on the Homepage (the demo dataset and `homepage-announcements`) and `/announcements` (the demo dataset and `lists-by-count` with 21, pages 1 and 2): the day 5.78:1, the month and year 10.94:1, a closed tile's day and month and year 4.97:1, as the token values and the prototype give them |
 | `brand-primary` (the icon, a MOIT's number) and `brand-dark` (the file's type or "ไฟล์", "MOIT", a report's fiscal year) on a row's light tile (`RowTile`, flat `surface-soft`): the file tile of a Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents, and in the card on a Document's and a Health Report's page (§9.4 to §9.9), a MOIT's row (§8.3), a Health Report's row and a Health Service's (§7.3; spec #417 decision 12, prototype P1 A) | measured with `scripts/measure-text-contrast.ts --all-text --fold` at the five widths at `2d2b027` (#418): a MOIT's number 5.78:1; "PDF", "ไฟล์", "MOIT" and a report's fiscal year 10.94:1, as the token values and the prototype give them |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
-| `text-primary` on `status-closed` (a closed Announcement's dotted label and date tile, §8.7, and the label on its page, §9.4) | 13.85:1 |
+| `text-primary` on `status-closed` (a closed Announcement's dotted label, §8.7, and the label on its page, §9.4) | 13.85:1 |
 | `text-secondary-on-soft` on `surface-base`, the lightest the Current Announcements' glow makes the band under its lead | 5.66:1 |
 | `surface-base` (the label, the lead and the counts' words) on the Health Service Discovery band's gradient: measured (§8.9) | 5.20:1 or more |
 | `surface-base` (the breadcrumb, the label, the H1 and the lead) on the field under a list's heading (`/news`, Health News, Health Content at `fb11b3e`, #287; `/activities`, `/announcements`, `/documents` at `8643ef1`, #312; `/health`, `/health/reports`, `/services` with its links under the lead, `/health-services` at `06b4b58`, #339): measured with `scripts/measure-text-contrast.ts` at the five widths (§7.8) | 6.27:1 or more; the breadcrumb's current page 5.07:1 on `/health-services` at 375 px (#339) |
@@ -561,7 +561,7 @@ this document names:
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9), and a MOIT's page, on its own `DeepField` with `ListBody` after it, with "MOIT n" opening its H1 and the H1 no larger than H2 size (§9.11) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons; with `arrow`, semibold with a 16 px `arrow-right`, `/contact`'s routes, §9.10), `ArrowLink` (onward links), `Pagination`, `Breadcrumb`; `ContentLink`'s `compact` form, the footer's official channels and `/contact`'s pills (§9.10) |
-| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RequirementCard`, a MOIT's Requirement card, and `MoitNeighbours`, the links to the MOITs before and after it, on a MOIT's page (§8.3, §9.11); `RowTile`, the light row tile of 68 px and 92 px from `sm` on flat `surface-soft`, which `FileTile`, `ItaMoitRow`, `HealthReportRow` and `HealthServiceMapRow` share, each with its own lines (Feature 014 #418); `RelatedDocuments` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RequirementCard`, a MOIT's Requirement card, and `MoitNeighbours`, the links to the MOITs before and after it, on a MOIT's page (§8.3, §9.11); `RowTile`, the light row tile of 68 px and 92 px from `sm` on flat `surface-soft`, which `FileTile`, `ItaMoitRow`, `HealthReportRow`, `HealthServiceMapRow` and `AnnouncementRow` share, each with its own lines (Feature 014 #418, #419), read aloud on an Announcement's row and white with an edge on a closed one's (§8.7); `RelatedDocuments` |
 
 ### 7.2 Component rules
 
@@ -669,12 +669,15 @@ this document names:
   decisions 2, 8, 16 and 17), and under an Announcement's "เอกสารที่เกี่ยวข้อง" with its title an H3
   (§9.4; #316), `DocumentDownloadRow`: a white row, radius 22, the `card` shadow,
   14 px apart, after the filter form. It holds the file's tile (`FileTile`), the row's light tile
-  (`RowTile`; Feature 014 #418, spec #417 "The light row tile", decision 12): the Announcement
-  row's date tile in size (68 px, radius 14, below `sm`; 92 px, radius 18, from `sm`; §8.7) on
-  flat `surface-soft`, with the 24 px `file-text` in `brand-primary` and under it the file's type
-  ("PDF") at small size, semibold, in `brand-dark` (§3.2), or "ไฟล์" when the file cannot be served
-  or carries no type in its name; it is decorative, and stays as it is under the pointer and under
-  focus. Beside the
+  (`RowTile`; Feature 014 #418, spec #417 "The light row tile", decision 12): 68 px with radius
+  14 below `sm` and 92 px with radius 18 from `sm`, on flat `surface-soft`, with the 24 px
+  `file-text` in `brand-primary` and under it the file's type ("PDF") at small size, semibold, in
+  `brand-dark` (§3.2), or "ไฟล์" when the file cannot be served or carries no type in its name; it
+  is decorative, and stays as it is under the pointer and under focus. An Announcement row's date
+  tile is the same tile (§8.7; Feature 014 #419), read by assistive technology since the row says
+  its date nowhere else (Product Owner, 2026-11-23: #419 comment 7100237929), and on a closed
+  Announcement white with a 1 px `border-default` edge inside its size and `text-secondary`
+  lines (spec #417 decision 13). Beside the
   tile: the facts line as before (`MetaLine`: type, Document date, "ปีงบประมาณ" and the year);
   a superseded or expired Document's `accent-warm` attention label on its own line; the title,
   an H2, `text-primary`, semibold, body size below `sm` and body-large from `sm`, two lines at
@@ -1574,14 +1577,17 @@ News as a section of their own. Their row is also the Announcements list's (belo
   scroll, 24 px below the sticky header (`--header-offset`, §7.4). Below `lg` the link is at the
   heading's right, a round 44 px arrow button below `sm`, and the lead is under both.
 - **A row** is white, radius 22, with the `card` shadow, 14 px from the next:
-  - the date tile, 92 px with radius 18 (68 px and 14 below `sm`), a `brand-primary` to
-    `brand-dark` gradient: the day in `surface-base` at 34 / 38 bold (24 / 28 below `sm`), the
-    month and year under it at 13 / 20 in `accent-warm`. The widest month and year, "เม.ย." with
-    a year, is 57 px in the 68 px tile. On the gradient under the month and year,
-    `scripts/measure-text-contrast.ts` with
-    `scripts/screenshot-fixtures/homepage-announcements.ts` read `accent-warm` at 5.60:1 at 1,440,
-    1,024 and 768 px and 5.45:1 at 375 and 320 px, the day at 7.58:1 or more, and the lead over
-    the glow at 4.74:1 or more, at the application code of `e298e78`;
+  - the date tile, the rows' light tile (`RowTile`, §7.3; Feature 014 #419, spec #417 decisions
+    1 and 12), 92 px with radius 18 (68 px and 14 below `sm`), flat `surface-soft`: the day in
+    `brand-primary` at 34 / 38 bold (24 / 28 below `sm`), the month and year under it at 13 / 20
+    in `brand-dark`, whatever the Announcement's status (not open yet, open, or without dates).
+    Unlike the other rows' tiles it is read by assistive technology, since the row says its date
+    nowhere else (Product Owner, 2026-11-23: #419 comment 7100237929), and it stays as it is under
+    the pointer and under focus (decision 3). The widest month and year, "เม.ย." with a year, is
+    57 px in the 68 px tile. `scripts/measure-text-contrast.ts --all-text --fold` read the day at
+    5.78:1 and the month and year at 10.94:1 at the five widths, on the demo dataset and with
+    `scripts/screenshot-fixtures/homepage-announcements.ts`, at `404bffc` (#419); the lead over the
+    glow read 4.74:1 or more at the application code of `e298e78`;
   - the category, the first `announcement_type` term, as a pill badge at 13 / 20 semibold:
     procurement in `procurement-text` on `topic-blue` with a 1 px `procurement-border` edge,
     recruitment in `brand-dark` on `accent-warm`, any other, and one added later, in
@@ -1602,13 +1608,14 @@ News as a section of their own. Their row is also the Announcements list's (belo
 - **On the Announcements list** (`/announcements`; Feature 010 #314, spec #311 "The Announcements
   list") the row is the same, over the field's lower edge (§7.8), with three differences:
   - the title is an H2 under the page's H1;
-  - a closed Announcement, which the list shows after every current one, has its date tile in
-    `status-closed` with its day and its month and year in `text-primary` (13.85:1), and its
-    label "ปิดแล้ว" after the dot in `status-closed` with `text-primary`, so the closed rows read
-    grey where they begin (Product Owner, 2026-11-15: spec #311 "Decisions", 13, variant B); its
-    type's badge keeps its colour, as variant B showed, so the types still differ by colour on a
-    closed row (Product Owner, 2026-11-16: #314 comment 6906496480); a current one's tile keeps
-    the gradient with the month and year in `accent-warm`;
+  - a closed Announcement, which the list shows after every current one, has its date tile white
+    (`surface-base`) with a 1 px `border-default` edge inside its size, its day and its month and
+    year in `text-secondary` at their sizes and weights, so it reads apart from a current one's
+    light tile (Feature 014 #419; spec #417 "A closed Announcement's tile", decision 13, prototype
+    P2); its label "ปิดแล้ว" after the dot stays `status-closed` with `text-primary` (Product
+    Owner, 2026-11-15: spec #311 "Decisions", 13, variant B), so the status is said in words, not
+    by colour alone; its type's badge keeps its colour, as variant B showed, so the types still
+    differ by colour on a closed row (Product Owner, 2026-11-16: #314 comment 6906496480);
   - the link's focus ring has the lists' `surface-base` band on both sides (`focus-ring-banded`,
     §7.3), since the first row's ring lies over the field (#283 comment 6854670042); the
     Homepage's ring, on its band, has none.
@@ -1618,13 +1625,15 @@ News as a section of their own. Their row is also the Announcements list's (belo
   Measured at `2cb2e11` on `/announcements` with `scripts/screenshot-fixtures/lists-by-count.ts`
   (`LIST=announcements LIST_COUNT=8`: the three badges, open, not yet open, closed and undated
   rows) at 1,440, 1,024, 768, 375 and 320 px: `scripts/measure-text-contrast.ts --all-text` read
-  a current tile's month and year at 5.52:1 or more from 768 px and 5.37:1 at 375 and 320 px, its
-  day at 7.79:1 or more; a closed tile's day, month and year and its "ปิดแล้ว" 13.85:1; the
-  badges 7.43:1 (procurement), 7.75:1 (recruitment) and 5.78:1 (any other); "เปิดอยู่" 6.45:1,
+  "ปิดแล้ว" 13.85:1; the badges 7.43:1 (procurement), 7.75:1 (recruitment) and 5.78:1 (any other); "เปิดอยู่" 6.45:1,
   "ยังไม่เปิด" 7.75:1, the status line's dates 4.97:1 and the titles 16.54:1.
   `scripts/measure-focus-contrast.ts` read the first row's ring, over the field's edge, at 5.40:1
   or more beside it with its band, none of it under 3:1, at every width; without the band, about
-  half of the ring's pixels lie on the field under 3:1. An
+  half of the ring's pixels lie on the field under 3:1. Read again at `404bffc` (#419) on the demo
+  dataset and with `lists-by-count.ts` (`LIST_COUNT=21`, which puts a closed Announcement on page 2
+  too), `--all-text --fold` gave a current tile's day 5.78:1 and its month and year 10.94:1, a
+  closed tile's day and month and year 4.97:1, and "ปิดแล้ว" 13.85:1, at the five widths; at 320
+  px the widest month and year, 57 px, fits the 66 px inside the closed tile's edge. An
   Announcement's page shows the dotted label in its details card (§9.4), and a search
   result keeps the earlier label, closed in `brand-dark` on `accent-warm` (`StatusLabel`). `tests/browser/public-announcements.spec.ts` reads the row's
   parts, a closed row against a current one, the hover, the keyboard and the order across pages;
@@ -3618,3 +3627,21 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   where every other text reads as before (4.97:1 or more; `/about`'s summary 4.85:1 over its
   ring, unchanged). Authority: spec
   #417 "The light row tile" and decisions 1, 3 and 12, and #417 comment 7094711736.
+- **v1.8 the light date tile and the white closed tile (2026-11-23, Feature 014 #419):** an
+  Announcement's date tile on the Homepage's Current Announcements and on `/announcements` is the
+  rows' light tile (`RowTile`) in place of the `brand-primary` to `brand-dark` gradient, whatever
+  its status: the day bold in `brand-primary`, the month and year regular at small size in
+  `brand-dark` in place of `accent-warm`, at their sizes as before. It stays read by assistive
+  technology, as before, since the row says its date nowhere else (Product Owner, 2026-11-23:
+  #419 comment 7100237929), so `RowTile` takes an option to be read. A closed Announcement's tile,
+  which only `/announcements` shows, is white with a 1 px `border-default` edge inside its size and
+  its lines in `text-secondary`, in place of `status-closed` with `text-primary`; its "ปิดแล้ว"
+  label keeps `status-closed` with `text-primary`. The last `accent-warm` exception on the
+  gradient tile goes from §3.2 and `CODING_STANDARDS.md`; §3.1 (`brand-primary`, `brand-dark`,
+  `accent-warm`, `text-secondary`, `surface-soft`, `border-default`, `status-closed`), §3.2, §7.1,
+  §7.3 and §8.7 state the two tiles, with the readings at `404bffc`: the day 5.78:1, the month and year
+  10.94:1 and a closed tile's lines 4.97:1 on the Homepage and `/announcements` at the five
+  widths, where the rows' badges, status labels, dates and titles read as §8.7 records them.
+  Authority: spec #417
+  "The light row tile", "A closed Announcement's tile" and decisions 1, 3, 12 and 13, #417
+  comment 7094711736, and #419 comment 7100237929.

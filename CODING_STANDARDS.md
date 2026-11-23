@@ -109,13 +109,11 @@ and why, and `.jscpd-baseline.json` records them.
   header"; spec #338 "The three pages: the header"; spec #392 decision 8), it is 4.10:1 or less,
   so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product Owner, 2026-11-11:
   #242 comment 6797113372, item 1). "MOIT n" opening a MOIT's H1 there is large text, measured at
-  3:1 or more (§3.1, §9.11; spec #392 decision 8). One
-  measured exception, on a gradient tile: the month and year on a current Announcement's date
-  tile (its readings in `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12: #245
-  comment 6812837231). A change to that tile's size or gradient needs a new measure. The file,
-  MOIT, Health Report and Health Service rows' tile is the light one (`RowTile`: `surface-soft`,
-  its icon or number `brand-primary`, its type, "MOIT" or year `brand-dark`; §3.2; spec #417
-  decision 12), which holds no `accent-warm`.
+  3:1 or more (§3.1, §9.11; spec #392 decision 8). Every
+  row's tile is the light one (`RowTile`: `surface-soft`, its icon, a MOIT's number or an
+  Announcement's day `brand-primary`, its type, "MOIT", a report's year or an Announcement's month
+  and year `brand-dark`; a closed Announcement's white with a `border-default` edge and
+  `text-secondary` lines; §3.2; spec #417 decisions 12 and 13), which holds no `accent-warm`.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
   state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`
