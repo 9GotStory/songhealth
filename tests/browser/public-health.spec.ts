@@ -98,6 +98,7 @@ import {
 	expectFocusRingWhole,
 	expectImageLoaded,
 	expectLabelAboveArrow,
+	expectGridRevealsBelowShortWindow,
 	expectListMovesOnlyWhenAllowed,
 	expectNoHorizontalScroll,
 	expectPostTitleSizes,
@@ -122,7 +123,6 @@ import {
 	readHeaderOnField,
 	rowShadow,
 	shownLines,
-	shownOpacity,
 	shownWhole,
 	siteTitleParts,
 	test,
@@ -349,34 +349,7 @@ test("/health moves only when motion is allowed: the heading and then the lead r
 		grid: healthTiles(page),
 	});
 
-	// A window shorter than the field puts the tiles below it as the page opens, well below: just
-	// under a 300 px window Chromium gives a tile's view timeline no progress, and it shows whole.
-	const short = { width: 1440, height: 200 };
-	await page.emulateMedia({ reducedMotion: "no-preference" });
-	await page.setViewportSize(short);
-	await page.goto("/health");
-	const items = healthTiles(page).getByRole("listitem");
-	for (const tile of await items.all()) {
-		expect((await boxOf(tile, "a tile")).y, "a tile lies below the window").toBeGreaterThan(
-			short.height,
-		);
-	}
-	// The two share a row, so both are read before either comes into the window.
-	for (const tile of await items.all()) {
-		expect(await shownOpacity(tile), "a tile below the window waits").toBe(0);
-	}
-	for (const tile of await items.all()) {
-		await tile.scrollIntoViewIfNeeded();
-		await expect.poll(() => shownOpacity(tile), { message: "a tile in the window shows" }).toBe(1);
-	}
-	await page.goto("/health");
-	await items.last().getByRole("link").focus();
-	await expect
-		.poll(() => shownOpacity(items.last()), {
-			message: "the last tile, focused, shows whole",
-			timeout: 3_000,
-		})
-		.toBe(1);
+	await expectGridRevealsBelowShortWindow(page, "/health", healthTiles(page), "a tile");
 });
 
 test.describe("/health without JavaScript", () => {

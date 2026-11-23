@@ -24,7 +24,7 @@
 //     scripts/screenshot-fixtures/about-contact-cases.ts <out-dir>
 
 import type { Capture, Fixtures, FixtureKit } from "../capture-with-fixtures.ts";
-import { HOMEPAGE_WIDTHS } from "./homepage-widths.ts";
+import { atWidths, caseOf } from "./homepage-widths.ts";
 
 const CASES = [
 	"plans-full",
@@ -37,14 +37,7 @@ const CASES = [
 
 type Case = (typeof CASES)[number];
 
-const which = process.env.CASE as Case;
-if (!CASES.includes(which)) {
-	throw new Error(`CASE must be one of ${CASES.join(", ")}: ${process.env.CASE}`);
-}
-
-/** `path` at the five widths, each named `${name}-${width}`. */
-const atWidths = (name: string, path: string): Capture[] =>
-	HOMEPAGE_WIDTHS.map((width) => ({ name: `${name}-${width}`, path: `${path}@${width}` }));
+const which = caseOf(CASES);
 
 const DAY = 24 * 60 * 60 * 1000;
 

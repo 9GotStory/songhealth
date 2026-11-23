@@ -1,0 +1,56 @@
+---
+// The links from a MOIT's page to the MOITs before and after it in its own fiscal year (Feature 004
+// #124; Feature 013 #396; spec #392 "A MOIT's page: the body over the field's edge";
+// src/lib/ita.ts moitNeighbours), so an assessor never lands in another year by accident. Each
+// names the MOIT it leads to (Product Owner, 2026-11-02: #124 comment 6577248920).
+//
+// Two white cards with the `card` shadow, radius 24 and 20 px inside, side by side from `sm`, the
+// previous with chevron-left at its start and the next with chevron-right at its end, as the
+// pager's previous and next. Under the pointer each takes a 1 px `brand-primary` edge and its
+// words turn `brand-primary`. Nothing renders where the MOIT has neither.
+import ChevronLeft from "@lucide/astro/icons/chevron-left";
+import ChevronRight from "@lucide/astro/icons/chevron-right";
+import { moitLabel, moitPath } from "../lib/ita";
+import type { MoitEntry } from "../lib/moits";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	previous: MoitEntry | undefined;
+	next: MoitEntry | undefined;
+}
+
+const { previous, next } = Astro.props;
+const linkClasses =
+	"flex items-center gap-3 rounded-24 border border-transparent bg-surface-base p-5 text-brand-dark shadow-card hover:border-brand-primary hover:text-brand-primary motion-safe:transition-colors";
+---
+
+{(previous || next) && (
+	<nav aria-label="ตัวชี้วัดอื่นในปีงบประมาณเดียวกัน" class="grid gap-4 sm:grid-cols-2">
+		{previous && (
+			<a class={linkClasses} rel="prev" href={moitPath(previous.id)}>
+				<ChevronLeft class="shrink-0 text-brand-primary" size={16} />
+				<span class="flex min-w-0 flex-col gap-1">
+					<span class="text-small text-text-secondary">ตัวชี้วัดก่อนหน้า</span>
+					<span class="font-semibold wrap-anywhere">
+						{moitLabel(previous.data.number)} <ThaiTitle text={previous.data.title} />
+					</span>
+				</span>
+			</a>
+		)}
+		{next && (
+			<a
+				class:list={[linkClasses, "justify-between sm:col-start-2"]}
+				rel="next"
+				href={moitPath(next.id)}
+			>
+				<span class="flex min-w-0 flex-col gap-1">
+					<span class="text-small text-text-secondary">ตัวชี้วัดถัดไป</span>
+					<span class="font-semibold wrap-anywhere">
+						{moitLabel(next.data.number)} <ThaiTitle text={next.data.title} />
+					</span>
+				</span>
+				<ChevronRight class="shrink-0 text-brand-primary" size={16} />
+			</a>
+		)}
+	</nav>
+)}

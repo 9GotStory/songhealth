@@ -92,7 +92,17 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   #366–#372). `docs/design/DESIGN.md` v1.6 records it with the code, and
   `docs/evidence/372-about-contact-basic-page-evidence-round.md` its evidence and what that does
   not cover. The Product Owner accepted it on 2026-11-21 (#365 comment 7060805067), and it was
-  merged into `main`. Every other page keeps its design until its own feature.
+  merged into `main`.
+- **Feature 013 `ita-pages`:** complete: the ITA pages redesigned after Feature 012's pages as
+  built, in the look the Product Owner picked from a prototype: the landing `/ita` and a fiscal
+  year's page headed on the deep green field under the label "ITA", the landing with a white card
+  per fiscal year, a fiscal year's page with a white row per MOIT and its "MOIT n" tile, and a
+  MOIT's page with the Post page's header, its table of contents in a white panel and its
+  Requirement cards over the field's edge. Every address, read and behaviour stays (spec #392,
+  tickets #393–#397). `docs/design/DESIGN.md` v1.7 records it with the code, and
+  `docs/evidence/397-ita-pages-evidence-round.md` its evidence and what that does not cover. The
+  Product Owner accepted it on 2026-11-23 (#392 comment 7092932555), and it was merged into
+  `main`. Every other page keeps its design until its own feature.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,

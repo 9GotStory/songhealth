@@ -1,0 +1,25 @@
+---
+// A row's tile on the gradient (Feature 010 #315; Feature 013 #394, spec #392 "A fiscal year's
+// page"): `brand-primary` to `brand-dark`, the Announcement row's date tile in size (§8.7), 68 px
+// with radius 14 below `sm` and 92 px with radius 18 from `sm`, its lines centred one under another
+// in `surface-base`. The Document row's file tile (FileTile) and a MOIT's row on a fiscal year's
+// page (ItaMoitRow) show it, each with its own lines. It is decorative, since the words beside it
+// say what it says: hidden from assistive technology.
+
+interface Props {
+	/** The gap between its lines, such as `gap-1`; none where its lines touch. */
+	class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<p
+	aria-hidden="true"
+	class:list={[
+		"flex size-17 shrink-0 flex-col items-center justify-center rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-surface-base sm:size-23 sm:rounded-18",
+		className,
+	]}
+>
+	<slot />
+</p>

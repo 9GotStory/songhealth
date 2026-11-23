@@ -857,6 +857,47 @@ export function shownOpacity(part: Locator): Promise<number> {
 }
 
 /**
+ * A list's grid, `grid`, at `path` in a window shorter than the deep field, with motion allowed:
+ * each of its items opens below the window, waits there unseen and shows whole once scrolled into
+ * the window, and the last, given the keyboard's focus as the page opens, shows whole. Just under a
+ * 300 px window Chromium gives an item's view timeline no progress and it shows whole, so the
+ * window is 200 px. `what` names one item, such as "a tile" (/health; the ITA landing, #393).
+ */
+export async function expectGridRevealsBelowShortWindow(
+	page: Page,
+	path: string,
+	grid: Locator,
+	what: string,
+): Promise<void> {
+	const short = { width: 1440, height: 200 };
+	await page.emulateMedia({ reducedMotion: "no-preference" });
+	await page.setViewportSize(short);
+	await page.goto(path);
+	const items = grid.getByRole("listitem");
+	for (const item of await items.all()) {
+		expect((await boxOf(item, what)).y, `${what} lies below the window`).toBeGreaterThan(
+			short.height,
+		);
+	}
+	// Items share a row, so each is read before any comes into the window.
+	for (const item of await items.all()) {
+		expect(await shownOpacity(item), `${what} below the window waits`).toBe(0);
+	}
+	for (const item of await items.all()) {
+		await item.scrollIntoViewIfNeeded();
+		await expect.poll(() => shownOpacity(item), { message: `${what} in the window shows` }).toBe(1);
+	}
+	await page.goto(path);
+	await items.last().getByRole("link").focus();
+	await expect
+		.poll(() => shownOpacity(items.last()), {
+			message: `the last of ${path}'s items, focused, shows whole`,
+			timeout: 3_000,
+		})
+		.toBe(1);
+}
+
+/**
  * The parts of `scope` an effect holds back as the page is now: any that is not fully opaque or
  * lies away from its place. Decorations, hidden from assistive technology, are left out.
  */
@@ -1623,7 +1664,8 @@ export async function expectStartsOverFieldEdge(
  * such a ring lies on the deep field beside its card, where `brand-primary` reads under 3:1
  * (CODING_STANDARDS "Public pages"). Each is named by its tag and the first words of its name. In
  * #281 and #312 such a card passed every suite, and only scripts/measure-focus-contrast.ts found
- * it (#312 retro).
+ * it (#312 retro). A disclosure's `summary` takes focus too, as a MOIT's Requirement card's head
+ * does over the field's edge (#396).
  */
 export async function ringsOverFieldUnbanded(
 	block: Locator,
@@ -1638,7 +1680,7 @@ export async function ringsOverFieldUnbanded(
 				!/^rgba\(.*,\s*0\)$|^transparent$/.test(getComputedStyle(element).backgroundColor);
 			const unbanded: string[] = [];
 			for (const part of root.querySelectorAll<HTMLElement>(
-				"a[href], button, input, select, textarea, [tabindex]",
+				"a[href], button, input, select, textarea, summary, [tabindex]",
 			)) {
 				if (part.tabIndex < 0 || part.getClientRects().length === 0) continue;
 				part.focus({ preventScroll: true });
@@ -2115,6 +2157,11 @@ interface HeadingOnField {
 	/** The crumbs before the list's own, root first. */
 	crumbs: ReadonlyArray<readonly [label: string, href: string]>;
 	heading: ListHeadingText;
+	/**
+	 * The breadcrumb's current page where it is not the H1, such as the ITA landing's "ITA", the main
+	 * navigation's word (Feature 013 #393; #124 comment 6577248920).
+	 */
+	current?: string;
 	/** The Lucide icon in the heading's tile. */
 	icon: string;
 	/**
@@ -2154,7 +2201,7 @@ export function testHeadingOnField(list: HeadingOnField): void {
 		expect(response?.status(), `GET ${path}`).toBe(200);
 		const main = page.getByRole("main");
 		await expect(main.getByRole("heading", { level: 1 })).toHaveText(text.title);
-		await expectBreadcrumb(page, list.crumbs, text.title);
+		await expectBreadcrumb(page, list.crumbs, list.current ?? text.title);
 		await expect(main.getByText(text.lead, { exact: true })).toBeVisible();
 
 		const heading = listHeading(page, text);
@@ -3285,6 +3332,11 @@ export interface HeaderOnField {
 	 * `warm`, accent-warm; none for a page whose header has no row of pills.
 	 */
 	pills: Array<{ words: string; look: "outlined" | "warm" }>;
+	/**
+	 * The words that open the title in `accent-warm`, as a MOIT's "MOIT n" (Feature 013 #395); none
+	 * where the whole title is in `surface-base`, as on every other page with this header.
+	 */
+	titlePrefix?: string;
 	/** The line under the title as staff typed it, and on how many lines it shows at 1,440 px. */
 	under?: { text: string; lines: number };
 }
@@ -3294,7 +3346,8 @@ export interface HeaderOnField {
  * header" set it (docs/design/DESIGN.md §9.4): at 320, 375 and 1,440 px the breadcrumb in white;
  * 24 px under it the row of pills, each with its 1 px edge in its look, the next 8 px beside the
  * one before it or, where the row wraps, at the row's start 8 px under it; the title under them, or
- * 24 px under the breadcrumb without a pill; each on the field, the header 48 rem wide at most; and
+ * 24 px under the breadcrumb without a pill, its words in `surface-base` after the `titlePrefix`
+ * in `accent-warm` where it has one; each on the field, the header 48 rem wide at most; and
  * the line under the title at body-large in white with the line breaks staff typed. The test
  * compares `seen` with `expected`, beside its own reads.
  */
@@ -3353,6 +3406,22 @@ export async function readHeaderOnField(page: Page, header: HeaderOnField) {
 					.evaluate((crumb) => getComputedStyle(crumb).color),
 				await parts.title.evaluate((heading) => getComputedStyle(heading).color),
 			],
+			// The title's words in runs of one colour, in reading order: the lead's run, then the rest.
+			titleRuns: await parts.title.evaluate((heading, prefix) => {
+				const runs: Array<{ words: string; colour: string }> = [];
+				const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
+				for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+					const words = node.textContent?.trim();
+					if (!words || !node.parentElement) continue;
+					const colour = getComputedStyle(node.parentElement).color;
+					const last = runs.at(-1);
+					if (last?.colour === colour) last.words += ` ${words}`;
+					else runs.push({ words, colour });
+				}
+				return runs.map(({ words, colour }, index) =>
+					index === 0 && prefix ? { words, colour } : { colour },
+				);
+			}, header.titlePrefix),
 		};
 		expected[viewport.width] = {
 			onField: true,
@@ -3366,6 +3435,9 @@ export async function readHeaderOnField(page: Page, header: HeaderOnField) {
 				edge: "1px",
 			})),
 			white: [white, white, white],
+			titleRuns: header.titlePrefix
+				? [{ words: header.titlePrefix, colour: look.warm.fill }, { colour: white }]
+				: [{ colour: white }],
 		};
 	}
 

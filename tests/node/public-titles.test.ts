@@ -5,7 +5,7 @@
 // a card or row component picks its level with. A rich-text body's own heading is body text:
 // BodyHeading.astro renders the block it is given through its slot. This test reads the templates
 // under src/ and fails on a heading whose content has no <ThaiTitle>. ThaiTitle also renders titles
-// that are no heading, such as the site title in the header and a Quick Link card's label, and
+// that are no heading, such as the site title in the header and a Homepage Quick Link's label, and
 // review checks those (CODING_STANDARDS "Public pages").
 
 import assert from "node:assert/strict";
@@ -39,9 +39,11 @@ describe("headings on public pages", () => {
 			"components/ContentCard.astro",
 			"components/SectionHeading.astro",
 			"components/HomeActivityTile.astro",
-			// A Basic Page's H1 and its related Documents' H3s (Feature 012 #368).
+			// A Basic Page's and a MOIT's H1 and a Basic Page's related Documents' H3s (Feature 012
+			// #368; Feature 013 #395), and a MOIT's Requirements' H2s and H3s (#396).
 			"components/PostHeader.astro",
 			"components/DocumentDownloadRow.astro",
+			"components/RequirementCard.astro",
 			BODY_HEADING,
 		]) {
 			assert.ok(files.has(file), `a heading in ${file}`);

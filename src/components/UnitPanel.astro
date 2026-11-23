@@ -1,7 +1,7 @@
 ---
 // An organizational unit's panel on /about/personnel (Feature 012 #370; spec #365 decision 12,
 // "Personnel"; prototype P3 A): white with the `card` shadow and radius 24, 20 px of padding and
-// 28 px from `sm`. Its head is a 40 px `surface-soft` tile with the 20 px users-round in
+// 28 px from `sm`. Its head is the 40 px soft tile (SoftTile) with the 20 px users-round in
 // `brand-primary`, decorative, beside the unit's name as an H2 at H3 size, over a 1 px
 // `border-default` rule 16 px under them. Without a unit the heading reads "ไม่ระบุหน่วยงาน".
 //
@@ -15,6 +15,7 @@
 import UsersRound from "@lucide/astro/icons/users-round";
 import PersonPicture from "./PersonPicture.astro";
 import PublicContact from "./PublicContact.astro";
+import SoftTile from "./SoftTile.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 import type { PersonnelEntry } from "../lib/personnel";
 import { shownName } from "../lib/personnel-directory";
@@ -38,12 +39,9 @@ const { unit, people, headingId } = Astro.props;
 	class="scroll-reveal flex flex-col gap-5 rounded-24 bg-surface-base p-5 shadow-card sm:p-7"
 >
 	<div class="flex items-center gap-3 border-b border-border-default pb-4">
-		<span
-			aria-hidden="true"
-			class="flex size-10 shrink-0 items-center justify-center rounded-14 bg-surface-soft text-brand-primary"
-		>
+		<SoftTile>
 			<UsersRound class="shrink-0" size={20} />
-		</span>
+		</SoftTile>
 		<h2 id={headingId} class="min-w-0 text-h3 wrap-anywhere text-text-primary">
 			<ThaiTitle text={unit ?? NO_UNIT} />
 		</h2>

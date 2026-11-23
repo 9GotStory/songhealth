@@ -74,7 +74,7 @@ and why, and `.jscpd-baseline.json` records them.
   card and row title, the Featured title, and the site title in the header and the footer. Body
   text, summaries and labels render as they are.
   `tests/node/public-titles.test.ts` checks the headings, and review checks the titles that are no
-  heading, such as a Quick Link card's label.
+  heading, such as a Homepage Quick Link's label.
 - An effect that holds a part back or moves it, such as an entrance or a reveal, follows
   `docs/design/DESIGN.md` §8.12: it runs only on a screen without a reduced-motion preference; it
   ends by itself within five seconds unless the visitor's scrolling drives it (WCAG 2.2 SC 2.2.2);
@@ -104,10 +104,12 @@ and why, and `.jscpd-baseline.json` records them.
   box (#315 retro: axe's focus check failed the Document row's title).
 - `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
   the Homepage's and the one under a list's heading or a Post page's, an Announcement's, a
-  Document's, a Health Report's, a Service's or a Health Service's header (spec #280 "The field
-  under a heading"; spec #311 "An Announcement's page and a Document's page: the header"; spec
-  #338 "The three pages: the header"), it is 4.10:1 or less, so small text there is `surface-base`
-  (`docs/design/DESIGN.md` §3.2; Product Owner, 2026-11-11: #242 comment 6797113372, item 1). Two
+  Document's, a Health Report's, a Service's, a Health Service's or a MOIT's header (spec #280
+  "The field under a heading"; spec #311 "An Announcement's page and a Document's page: the
+  header"; spec #338 "The three pages: the header"; spec #392 decision 8), it is 4.10:1 or less,
+  so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product Owner, 2026-11-11:
+  #242 comment 6797113372, item 1). "MOIT n" opening a MOIT's H1 there is large text, measured at
+  3:1 or more (§3.1, §9.11; spec #392 decision 8). Two
   measured exceptions, on the same gradient tile: the month and year on a current Announcement's
   date tile (its readings in `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12:
   #245 comment 6812837231), and the file's type on the file tile (`FileTile`) of a Document row on
@@ -115,10 +117,11 @@ and why, and `.jscpd-baseline.json` records them.
   Page's related Documents, and in the card on a Document's and a Health Report's page (§3.2, §7.3,
   §9.5, §9.6 and §9.9; spec #311 "The Document repository", "The card over the field's edge"; spec
   #338 "The card over the field's edge", decision 3; spec #365 "The About Document pages", "A Basic
-  Page"), and the fiscal year on a
-  Health Report row's tile on `/health/reports`, a tile of the file tile's size and gradient
-  (§3.2, §7.3; spec #338 "The Health Reports list"). A change to any of these tiles' size or
-  gradient needs a new measure.
+  Page"), the fiscal year on a Health Report row's tile on `/health/reports`, a tile of the file
+  tile's size and gradient (§3.2, §7.3; spec #338 "The Health Reports list"), and "MOIT" over the
+  number on a MOIT's row on a fiscal year's page, on the file tile's gradient box (`RowTile`; §3.2,
+  §8.3; spec #392 "A fiscal year's page"). A change to any of these tiles' size or gradient needs a
+  new measure.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
   state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`

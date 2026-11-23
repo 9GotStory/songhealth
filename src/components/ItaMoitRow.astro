@@ -1,0 +1,64 @@
+---
+// A MOIT as a row on its fiscal year's page (Feature 013 #394; spec #392 "A fiscal year's page",
+// decision 12; prototype P2 A): white with the `card` shadow, radius 22, 12 px of padding and from
+// `sm` 18 px above, below and at the left and 22 px at the right, its parts in one line at every
+// width, 14 px apart and 22 px from `sm`:
+//
+// - the Document row's tile (RowTile): "MOIT" at small size, semibold, in accent-warm, the measured
+//   exception FileTile's type is on this gradient (docs/design/DESIGN.md §3.2), over the number at
+//   H3 size, H2 size from `sm`, in surface-base;
+// - the title as an H2 at body size, body-large from `sm`, semibold, shown whole on as many lines
+//   as it needs, and 4 px under it the facts line at small size in text-secondary: the Evidence
+//   count as the MOIT's own page counts it (src/lib/ita.ts groupEvidence), then "ปรับปรุงล่าสุด"
+//   with the date when staff set it;
+// - from `sm` the Homepage's 20 px card arrow, arrow-right, in brand-primary at the row's right
+//   end.
+//
+// The tile and the arrow are decorative, so the title's link carries "MOIT n" for assistive
+// technology alone and is named "MOIT n" and the title.
+// Only the title is a link, as in a Document's row: a block as wide as its words, so its focus ring
+// is one box around every line, and brand-primary and underlined under the pointer, while the row
+// takes the `deep` shadow. The first row lies over the deep field's lower edge, so the link's focus
+// ring has the lists' white band (`focus-ring-banded`); the shadow is the row's, so the band stays
+// under the pointer.
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+import { groupEvidence, moitLabel, moitPath } from "../lib/ita";
+import type { MoitEntry } from "../lib/moits";
+import DateText from "./DateText.astro";
+import RowTile from "./RowTile.astro";
+import ThaiTitle from "./ThaiTitle.astro";
+
+interface Props {
+	moit: MoitEntry;
+}
+
+const { id, data } = Astro.props.moit;
+---
+
+<article class="flex items-center gap-3.5 rounded-22 bg-surface-base p-3 shadow-card hover:shadow-deep motion-safe:transition-shadow motion-safe:duration-300 sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5">
+	<RowTile>
+		<span class="text-small font-semibold text-accent-warm">MOIT</span>
+		<span class="text-h3 sm:text-h2">{data.number}</span>
+	</RowTile>
+	<div class="flex min-w-0 flex-1 flex-col gap-1">
+		<h2 class="text-body font-semibold wrap-anywhere sm:text-body-large">
+			<a
+				class="focus-ring-banded block w-fit underline-offset-4 hover:text-brand-primary hover:underline"
+				href={moitPath(id)}
+			>
+				<span class="sr-only">{`${moitLabel(data.number)} `}</span>
+				<ThaiTitle text={data.title} />
+			</a>
+		</h2>
+		<p class="text-small text-text-secondary">
+			หลักฐาน {groupEvidence(data.evidence).total} รายการ
+			{data.updated_on && (
+				<>
+					{" · ปรับปรุงล่าสุด "}
+					<DateText value={data.updated_on} />
+				</>
+			)}
+		</p>
+	</div>
+	<ArrowRight class="shrink-0 text-brand-primary max-sm:hidden" size={20} />
+</article>
