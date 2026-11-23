@@ -26,7 +26,14 @@ describe("comment width", () => {
 
 	it("keeps every comment line of the code Prettier formats within 100 columns", async () => {
 		const wide = await wideComments(await formattedCode());
-		assert.deepEqual(wide, [], `npm run format rewraps these comment lines:\n${wide.join("\n")}`);
+		// The message names the one-command fix for just these files (#419 retro: a one-file
+		// `npx prettier --write` left the comments, and `npm run format -- <file>` ran the whole tree).
+		const files = [...new Set(wide.map((entry) => entry.slice(0, entry.lastIndexOf(":"))))];
+		assert.deepEqual(
+			wide,
+			[],
+			`npm run format:files -- ${files.join(" ")} rewraps these comment lines:\n${wide.join("\n")}`,
+		);
 	});
 });
 
