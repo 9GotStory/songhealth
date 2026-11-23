@@ -1,10 +1,14 @@
 ---
-// A row's tile on the gradient (Feature 010 #315; Feature 013 #394, spec #392 "A fiscal year's
-// page"): `brand-primary` to `brand-dark`, the Announcement row's date tile in size (§8.7), 68 px
-// with radius 14 below `sm` and 92 px with radius 18 from `sm`, its lines centred one under another
-// in `surface-base`. The Document row's file tile (FileTile) and a MOIT's row on a fiscal year's
-// page (ItaMoitRow) show it, each with its own lines. It is decorative, since the words beside it
-// say what it says: hidden from assistive technology.
+// The light row tile (Feature 014 #418; spec #417 "The light row tile", decision 12, prototype
+// P1 A), which the Document, MOIT, Health Report and Health Service rows share; the Announcement
+// row's date tile keeps its gradient until #419. Flat `surface-soft`, 68 px with radius 14 below
+// `sm` and 92 px with radius 18 from `sm`, its lines centred one under another. The tile gives its
+// lines `brand-primary`, the icon's and a MOIT's number's colour; the file's type, "MOIT" (over
+// the number) and a report's fiscal year set `brand-dark` themselves. Each line keeps its own size
+// and weight. The Document row's file tile (FileTile), a MOIT's row (ItaMoitRow), a Health
+// Report's row (HealthReportRow) and a Health Service's row (HealthServiceMapRow) show it. It is
+// decorative, since the words beside it say what it says: hidden from assistive technology. It
+// stays as it is under the pointer and under focus (spec #417 decision 3).
 
 interface Props {
 	/** The gap between its lines, such as `gap-1`; none where its lines touch. */
@@ -17,7 +21,7 @@ const { class: className } = Astro.props;
 <p
 	aria-hidden="true"
 	class:list={[
-		"flex size-17 shrink-0 flex-col items-center justify-center rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-surface-base sm:size-23 sm:rounded-18",
+		"flex size-17 shrink-0 flex-col items-center justify-center rounded-14 bg-surface-soft text-brand-primary sm:size-23 sm:rounded-18",
 		className,
 	]}
 >

@@ -53,7 +53,10 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
+	documentRowParts,
+	fileTileLines,
 	isoDay,
+	lightRowTile,
 	pressInside,
 	SECTION_CRUMBS,
 	MOBILE_VIEWPORT,
@@ -78,6 +81,9 @@ import {
 	ownTitles,
 	pillStyle,
 	pointAtRowEdge,
+	rowTileLook,
+	rowTileShapeAcross,
+	rowTileShapeAcrossAsSpecified,
 	shownLines,
 	siteTitleParts,
 	test,
@@ -681,7 +687,7 @@ test("/announcements pages through its Announcements, current ones before closed
 	);
 });
 
-test("an Announcement page shows its type, dates, details and its published attached Documents, each linking to its Document page", async ({
+test("an Announcement page shows its type, dates, details and its published attached Documents, each on the light file tile and linking to its Document page", async ({
 	page,
 }) => {
 	const type = await createTerm("announcement_type", "รับสมัคร");
@@ -756,10 +762,14 @@ test("an Announcement page shows its type, dates, details and its published atta
 			name: `ดาวน์โหลด (PDF, 2 KB) ${document.title}`,
 			exact: true,
 		});
+		const row = attached.getByRole("article").filter({ hasText: document.title });
 		rows.push({
 			title: await attached
 				.getByRole("link", { name: document.title, exact: true })
 				.getAttribute("href"),
+			// The light file tile (Feature 014 #418; spec #417 decision 12, P1 A).
+			tile: await rowTileLook(documentRowParts(row, 3).tile),
+			tileShape: await rowTileShapeAcross(documentRowParts(row, 3).tile),
 			download:
 				(await download.count()) === 1
 					? {
@@ -769,14 +779,17 @@ test("an Announcement page shows its type, dates, details and its published atta
 					: "no download",
 		});
 	}
-	expect(rows, "each row's title link and its download").toEqual(
-		[second, first].map((document) => ({
-			title: `/documents/${document.slug}`,
-			download: { href: `/_emdash/api/media/file/${file.storageKey}`, file: file.filename },
-		})),
-	);
 	await expect(fieldParts(page).title, "the title on the deep field").toHaveText(
 		announcement.title,
+	);
+	const lightFileTile = await lightRowTile(page, fileTileLines("PDF"));
+	expect(rows, "each row's title link, its tile and its download").toEqual(
+		[second, first].map((document) => ({
+			title: `/documents/${document.slug}`,
+			tile: lightFileTile,
+			tileShape: rowTileShapeAcrossAsSpecified(),
+			download: { href: `/_emdash/api/media/file/${file.storageKey}`, file: file.filename },
+		})),
 	);
 });
 

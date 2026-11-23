@@ -8,12 +8,12 @@
 // "เปิดแผนที่" when it has coordinates. Its name is a heading one level below the list's own: H2
 // in the directory, H3 under a Service's section heading.
 //
-// The tile is the Document row's file tile in size and gradient (68 px below `sm`, 92 px from
-// `sm`) with the 24 px hospital in accent-warm; it is decorative. The facts line is MetaLine's,
-// which wraps between facts (#341 comment 6966593423, item 2). The name is text-primary, body size
-// below `sm` and body-large from `sm`, two lines at most, as the Document row's title; the address
-// keeps the line breaks staff typed, at label size, two lines at most at every width (spec #338
-// "How this differs from the prototype").
+// The tile is the row's light tile (RowTile; Feature 014 #418, spec #417 "The light row tile": 68
+// px below `sm`, 92 px from `sm`) with the 24 px hospital alone in brand-primary; it is decorative.
+// The facts line is MetaLine's, which wraps between facts (#341 comment 6966593423, item 2). The
+// name is text-primary, body size below `sm` and body-large from `sm`, two lines at most, as the
+// Document row's title; the address keeps the line breaks staff typed, at label size, two lines at
+// most at every width (spec #338 "How this differs from the prototype").
 //
 // No link covers the row: the name and the map are its two links and its two focus stops. The
 // name turns brand-primary and underlined under the pointer on its own link only, and the row
@@ -26,6 +26,7 @@ import { healthServiceRowParts, type HealthServiceEntry } from "../lib/health-se
 import HealthServiceStatus from "./HealthServiceStatus.astro";
 import MapLink from "./MapLink.astro";
 import MetaLine from "./MetaLine.astro";
+import RowTile from "./RowTile.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
@@ -40,12 +41,9 @@ const { name, href, facts, status } = healthServiceRowParts(healthService);
 ---
 
 <article class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3.5 gap-y-3 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition-shadow motion-safe:duration-300 motion-safe:hover:shadow-deep sm:gap-x-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
-	<p
-		aria-hidden="true"
-		class="flex size-17 shrink-0 items-center justify-center rounded-14 bg-linear-140 from-brand-primary to-brand-dark text-accent-warm sm:size-23 sm:rounded-18"
-	>
+	<RowTile>
 		<Hospital class="shrink-0" size={24} />
-	</p>
+	</RowTile>
 	<div class="flex min-w-0 flex-col gap-1">
 		<MetaLine facts={facts} />
 		{status && (

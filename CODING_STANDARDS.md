@@ -109,19 +109,13 @@ and why, and `.jscpd-baseline.json` records them.
   header"; spec #338 "The three pages: the header"; spec #392 decision 8), it is 4.10:1 or less,
   so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product Owner, 2026-11-11:
   #242 comment 6797113372, item 1). "MOIT n" opening a MOIT's H1 there is large text, measured at
-  3:1 or more (§3.1, §9.11; spec #392 decision 8). Two
-  measured exceptions, on the same gradient tile: the month and year on a current Announcement's
-  date tile (its readings in `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12:
-  #245 comment 6812837231), and the file's type on the file tile (`FileTile`) of a Document row on
-  `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic
-  Page's related Documents, and in the card on a Document's and a Health Report's page (§3.2, §7.3,
-  §9.5, §9.6 and §9.9; spec #311 "The Document repository", "The card over the field's edge"; spec
-  #338 "The card over the field's edge", decision 3; spec #365 "The About Document pages", "A Basic
-  Page"), the fiscal year on a Health Report row's tile on `/health/reports`, a tile of the file
-  tile's size and gradient (§3.2, §7.3; spec #338 "The Health Reports list"), and "MOIT" over the
-  number on a MOIT's row on a fiscal year's page, on the file tile's gradient box (`RowTile`; §3.2,
-  §8.3; spec #392 "A fiscal year's page"). A change to any of these tiles' size or gradient needs a
-  new measure.
+  3:1 or more (§3.1, §9.11; spec #392 decision 8). One
+  measured exception, on a gradient tile: the month and year on a current Announcement's date
+  tile (its readings in `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12: #245
+  comment 6812837231). A change to that tile's size or gradient needs a new measure. The file,
+  MOIT, Health Report and Health Service rows' tile is the light one (`RowTile`: `surface-soft`,
+  its icon or number `brand-primary`, its type, "MOIT" or year `brand-dark`; §3.2; spec #417
+  decision 12), which holds no `accent-warm`.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
   state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`

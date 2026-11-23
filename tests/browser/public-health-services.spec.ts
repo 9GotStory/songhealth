@@ -41,6 +41,7 @@ import {
 	DESKTOP_VIEWPORT,
 	HEADER_WIDEST,
 	HOME_CRUMB,
+	HOSPITAL_TILE_LINES,
 	LIST_END,
 	SECTION_CRUMBS,
 	boxOf,
@@ -61,6 +62,7 @@ import {
 	fieldEdge,
 	fieldParts,
 	itemsPerRow,
+	lightRowTileStates,
 	listedItem,
 	listedTitles,
 	ownTitles,
@@ -68,6 +70,9 @@ import {
 	pressOpens,
 	readHeaderOnField,
 	rowShadow,
+	rowTileShape,
+	rowTileShapeAt,
+	rowTileStates,
 	shownLines,
 	shownOpacity,
 	shownWhole,
@@ -258,7 +263,7 @@ const one = { lines: 1, widerThanLine: false };
 const nextRow = (row: Locator) =>
 	row.locator("xpath=ancestor::li[1]/following-sibling::li[1]").getByRole("article");
 
-test("each /health-services row: the hospital tile, 68 px below 640 px and 92 px from 640 px; the facts line; the shown name as an H2 in two lines at most, linking to its page; the official name when the display name differs; the address in two lines at most at label size at every width; the name and the map its two links; rows 14 px apart", async ({
+test("each /health-services row: the light hospital tile, surface-soft with the hospital in brand-primary, 68 px with radius 14 below 640 px and 92 px with radius 18 from 640 px, unchanged under the pointer and under focus; the facts line; the shown name as an H2 in two lines at most, linking to its page; the official name when the display name differs; the address in two lines at most at label size at every width; the name and the map its two links; rows 14 px apart", async ({
 	page,
 }) => {
 	const type = await createTerm("facility_type", "โรงพยาบาลส่งเสริมสุขภาพตำบล");
@@ -283,24 +288,12 @@ test("each /health-services row: the hospital tile, 68 px below 640 px and 92 px
 	const official = row.getByText(long.officialName, { exact: true });
 	const address = row.getByText(LONG_ADDRESS.trim());
 
-	const tileOnce = async () => {
-		if ((await parts.tile.count()) === 0) return undefined;
-		return parts.tile.evaluate((tile) => ({
-			decorative: tile.closest('[aria-hidden="true"]') !== null,
-			gradient: getComputedStyle(tile).backgroundImage.includes("linear-gradient"),
-			icon: [
-				tile.querySelector("svg")?.getBoundingClientRect().width,
-				getComputedStyle(tile.querySelector("svg") ?? tile).color,
-			],
-		}));
-	};
-	const [secondary, primary, accentWarm] = [
+	const [secondary, primary] = [
 		await tokenColor(page, "text-secondary"),
 		await tokenColor(page, "text-primary"),
-		await tokenColor(page, "accent-warm"),
 	];
 	const seen: Record<string, unknown> = {
-		tile: await tileOnce(),
+		tile: await rowTileStates(parts.tile, row.getByRole("link", { name: long.title, exact: true })),
 		facts: await textStyle(parts.facts),
 		titleColour: (await textStyle(parts.title.getByRole("link"))).colour,
 		official: await textStyle(official),
@@ -319,7 +312,9 @@ test("each /health-services row: the hospital tile, 68 px below 640 px and 92 px
 		}),
 	};
 	const expected: Record<string, unknown> = {
-		tile: { decorative: true, gradient: true, icon: [24, accentWarm] },
+		// The light tile (spec #417 decision 12, P1 A) with the hospital alone, the same under the
+		// pointer and under focus.
+		tile: await lightRowTileStates(page, HOSPITAL_TILE_LINES),
 		facts: { size: 13, weight: "400", colour: secondary, underline: false },
 		// The name's colour and sizes as the Document row's (#315 comment 6908747140, item 1).
 		titleColour: primary,
@@ -329,16 +324,15 @@ test("each /health-services row: the hospital tile, 68 px below 640 px and 92 px
 		factsParts: [type.label, "•", area.label],
 		surface: [await tokenColor(page, "surface-base"), "22px"],
 	};
-	for (const width of [1440, 1024, 768, 640, 639, 375, 320]) {
+	for (const width of [1440, 1024, 1023, 768, 640, 639, 375, 320]) {
 		await page.setViewportSize({ width, height: 900 });
 		const wide = width >= 640;
 		const [upper, lower] = [
 			await boxOf(row, "the first row"),
 			await boxOf(nextRow(row), "the next row"),
 		];
-		const tile = (await parts.tile.count()) > 0 ? await boxOf(parts.tile, "the tile") : undefined;
 		seen[width] = {
-			tile: tile && [Math.round(tile.width), Math.round(tile.height)],
+			tile: await rowTileShape(parts.tile),
 			titleSize: (await textStyle(parts.title)).size,
 			// The name's link holds its lines, so its focus ring is not cut where they are.
 			title: await shownLines(parts.title.getByRole("link")),
@@ -347,7 +341,7 @@ test("each /health-services row: the hospital tile, 68 px below 640 px and 92 px
 			gap: Math.round(lower.y - (upper.y + upper.height)),
 		};
 		expected[width] = {
-			tile: wide ? [92, 92] : [68, 68],
+			tile: rowTileShapeAt(width),
 			titleSize: wide ? 18 : 16,
 			title: { lines: 2, clamped: true },
 			address: { lines: 2, clamped: true },

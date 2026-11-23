@@ -26,10 +26,10 @@
 	 * button, the sheet behind the Featured card, a section heading's icon tile, a Service card's
 	 * tile under the pointer, and the ring of the first person in the Leadership strip. On the field
 	 * under a list's heading (spec #280): the heading's icon tile, and its link under the pointer. On
-	 * the gradient tile of a Document row (the file's type) and of a Health Service row (its
-	 * hospital icon; Feature 011 #341) and of a fiscal year's card on the ITA landing (its
-	 * calendar-check; Feature 013 #393). The ring of the featured first leader on /about/leadership
-	 * (Feature 012 #367).
+	 * the gradient tile of a fiscal year's card on the ITA landing (its calendar-check; Feature 013
+	 * #393); the Document, MOIT, Health Report and Health Service rows' light tile (Feature 014
+	 * #418) holds none. The ring of the featured first leader on /about/leadership (Feature 012
+	 * #367).
 	 */
 	--color-accent-warm: #f3c95f;
 	--color-text-primary: #16211d;

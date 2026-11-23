@@ -693,6 +693,146 @@ export function rowShadow(row: Locator) {
 	});
 }
 
+/** A line of a row's tile: an icon by its Lucide name ("file-text"), or the words it shows. */
+interface RowTileLine {
+	line: string;
+	colour: string;
+	/** An icon's width, or the words' font size, in px. */
+	size: number;
+	/** The words' weight; none for an icon. */
+	weight?: string;
+}
+
+/**
+ * How a row's tile looks (src/components/RowTile.astro): hidden from assistive technology, its
+ * ground's colour and image, and each of its lines in order, "no tile" without one.
+ */
+export async function rowTileLook(tile: Locator) {
+	if ((await tile.count()) !== 1) return "no tile";
+	return tile.evaluate((element) => {
+		const style = getComputedStyle(element);
+		const lines = [...element.children].map((child): RowTileLine => {
+			const read = getComputedStyle(child);
+			if (child.tagName.toLowerCase() === "svg") {
+				const name = [...child.classList].find((word) => /^lucide-(?!icon$)/.test(word));
+				return {
+					line: name?.slice("lucide-".length) ?? "an icon",
+					colour: read.color,
+					size: Math.round(child.getBoundingClientRect().width),
+				};
+			}
+			return {
+				line: child.textContent?.trim() ?? "",
+				colour: read.color,
+				size: Number.parseFloat(read.fontSize),
+				weight: read.fontWeight,
+			};
+		});
+		return {
+			decorative: element.closest('[aria-hidden="true"]') !== null,
+			ground: [style.backgroundColor, style.backgroundImage],
+			lines,
+		};
+	});
+}
+
+/**
+ * The light row tile as spec #417 sets it ("The light row tile", P1 A): hidden from assistive
+ * technology, on flat `surface-soft`, with `lines` in order, each in its token: the icon or a
+ * MOIT's number `brand-primary`, the file's type, "MOIT" or a report's fiscal year `brand-dark`.
+ */
+export async function lightRowTile(
+	page: Page,
+	lines: { line: string; token: "brand-primary" | "brand-dark"; size: number; weight?: string }[],
+) {
+	return {
+		decorative: true,
+		ground: [await tokenColor(page, "surface-soft"), "none"],
+		lines: await Promise.all(
+			lines.map(async ({ token, ...line }) => ({ ...line, colour: await tokenColor(page, token) })),
+		),
+	};
+}
+
+/** The file tile's lines (FileTile.astro): file-text over the file's type, or "ไฟล์". */
+export const fileTileLines = (type: string) =>
+	[
+		{ line: "file-text", token: "brand-primary", size: 24 },
+		{ line: type, token: "brand-dark", size: 13, weight: "600" },
+	] as const satisfies Parameters<typeof lightRowTile>[1];
+
+/** A row's tile's width, height and corner radius at the window's width, "no tile" without one. */
+export async function rowTileShape(tile: Locator) {
+	if ((await tile.count()) !== 1) return "no tile";
+	return tile.evaluate((element) => {
+		const box = element.getBoundingClientRect();
+		return [
+			Math.round(box.width),
+			Math.round(box.height),
+			getComputedStyle(element).borderTopLeftRadius,
+		];
+	});
+}
+
+/**
+ * A row's tile's shape at `width` (RowTile.astro): 68 px with radius 14 below `sm`, 92 px with
+ * radius 18 from `sm`.
+ */
+export const rowTileShapeAt = (width: number) =>
+	width >= 640 ? [92, 92, "18px"] : [68, 68, "14px"];
+
+/** The widths spec #417's acceptance reads a row's tile at: each side of `sm` and `lg`, wide. */
+const ROW_TILE_WIDTHS = [320, 639, 640, 1023, 1024, 1440];
+
+/**
+ * A row's tile's shape (rowTileShape) at each of ROW_TILE_WIDTHS, the window's height 900, then
+ * the window back at its size, for a test that reads the rest of its row at one width.
+ */
+export async function rowTileShapeAcross(tile: Locator) {
+	const page = tile.page();
+	const size = page.viewportSize();
+	const seen: Record<number, unknown> = {};
+	for (const width of ROW_TILE_WIDTHS) {
+		await page.setViewportSize({ width, height: 900 });
+		seen[width] = await rowTileShape(tile);
+	}
+	if (size) await page.setViewportSize(size);
+	return seen;
+}
+
+/** rowTileShapeAcross as RowTile.astro specifies it (rowTileShapeAt at each width). */
+export const rowTileShapeAcrossAsSpecified = () =>
+	Object.fromEntries(ROW_TILE_WIDTHS.map((width) => [width, rowTileShapeAt(width)]));
+
+/** The hospital tile's line (HealthServiceMapRow.astro): the hospital alone. */
+export const HOSPITAL_TILE_LINES = [
+	{ line: "hospital", token: "brand-primary", size: 24 },
+] as const satisfies Parameters<typeof lightRowTile>[1];
+
+/**
+ * A row's tile at rest, with the pointer on the tile's middle (so on its row too) and with `link`
+ * focused (the pointer away), each as rowTileLook reads it: the tile stays as it is under both
+ * (spec #417 decision 3). The pointer moves to the tile's place rather than hovering it, since on a
+ * Health Report row the row's link lies over the tile.
+ */
+export async function rowTileStates(tile: Locator, link: Locator) {
+	const rest = await rowTileLook(tile);
+	const box = await boxOf(tile, "the tile");
+	await tile.page().mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	const pointed = await rowTileLook(tile);
+	await tile.page().mouse.move(0, 0);
+	await link.focus();
+	const focused = await rowTileLook(tile);
+	await link.blur();
+	return { rest, pointer: pointed, focus: focused };
+}
+
+/** What rowTileStates reads of a light tile with `lines` (lightRowTile). */
+export async function lightRowTileStates(page: Page, lines: Parameters<typeof lightRowTile>[1]) {
+	const tile = await lightRowTile(page, lines);
+	return { rest: tile, pointer: tile, focus: tile };
+}
+
 /**
  * The parts of a Document row a citizen meets, found by what they say and do: on /documents and
  * the About Document pages, titled H2 (Feature 010 #315; Feature 012 #366), and under a page's
@@ -3545,12 +3685,7 @@ type FileBlock = ReturnType<typeof fileBlockOf>;
 export async function fileBlockLook(block: FileBlock) {
 	if ((await block.download.count()) !== 1 || (await block.rule.count()) !== 1) return false;
 	return {
-		tile: await block.tile.evaluate((element) => ({
-			decorative: element.closest('[aria-hidden="true"]') !== null,
-			gradient: getComputedStyle(element).backgroundImage.includes("linear-gradient"),
-			type: element.textContent?.trim(),
-			typeColour: getComputedStyle(element.querySelector("span") ?? element).color,
-		})),
+		tile: await rowTileLook(block.tile),
 		heading: await typeOf(block.heading),
 		typeAndSize: await typeOf(block.typeAndSize),
 		download: {
@@ -3573,11 +3708,10 @@ export async function fileBlockLook(block: FileBlock) {
 
 /**
  * A file block's look as spec #311 sets it and spec #338 takes it (docs/design/DESIGN.md §9.5,
- * §9.6): the tile decorative, on
- * the gradient, with the type in accent-warm; the H2 at body-large, semibold, brand-dark; the type
- * and size at small size in text-secondary; the brand-primary download with its words semibold,
- * the type and size regular and the 20 px icon, linking to `file` at EmDash's media URL under its
- * name; a 1 px border-default rule.
+ * §9.6): the light file tile (spec #417 "The light row tile"); the H2 at body-large, semibold,
+ * brand-dark; the type and size at small size in text-secondary; the brand-primary download with
+ * its words semibold, the type and size regular and the 20 px icon, linking to `file` at EmDash's
+ * media URL under its name; a 1 px border-default rule.
  */
 export async function fileBlockLookAsSpecified(
 	page: Page,
@@ -3585,12 +3719,7 @@ export async function fileBlockLookAsSpecified(
 	file: { storageKey: string; filename: string },
 ) {
 	return {
-		tile: {
-			decorative: true,
-			gradient: true,
-			type,
-			typeColour: await tokenColor(page, "accent-warm"),
-		},
+		tile: await lightRowTile(page, fileTileLines(type)),
 		heading: [18, "600", await tokenColor(page, "brand-dark")],
 		typeAndSize: [13, "400", await tokenColor(page, "text-secondary")],
 		download: {
@@ -3637,7 +3766,7 @@ export async function fileBlockAt(block: FileBlock, lines: Locator[], width: num
 			Math.round(Math.min(tileBox.y, textTop) - cardBox.y - 20),
 		],
 		tileCentred: Math.abs(tileBox.y + tileBox.height / 2 - (textTop + textEnd) / 2) <= 1,
-		tile: [Math.round(tileBox.width), Math.round(tileBox.height)],
+		tile: await rowTileShape(block.tile),
 		headingBesideTile: Math.round(text[0]!.x - tileBox.x - tileBox.width),
 		linesUnderHeading: text
 			.slice(1)
@@ -3669,12 +3798,12 @@ export async function fileBlockAt(block: FileBlock, lines: Locator[], width: num
 /**
  * A file block's places at `width` as spec #311 sets them and spec #338 takes them
  * (docs/design/DESIGN.md §9.5, §9.6): the block
- * 20 px inside the card's corner, the tile centred on the text, 68 px below `sm` and 92 px from
- * `sm`, the H2 16 px beside it and each of `lines` lines straight under it; from `sm` the download
- * at the card's right, 52 px high and 16 px or more beside the text, below `sm` across the card
- * 16 px under the tile and the text, 44 px high or more; the rule 20 px under the block across the
- * card and the details 20 px under it. The download's words take `wordLines` lines, centred, the
- * type and size kept on one, 8 px inside its edges.
+ * 20 px inside the card's corner, the tile centred on the text, 68 px with radius 14 below `sm`
+ * and 92 px with radius 18 from `sm`, the H2 16 px beside it and each of `lines` lines straight
+ * under it; from `sm` the download at the card's right, 52 px high and 16 px or more beside the
+ * text, below `sm` across the card 16 px under the tile and the text, 44 px high or more; the rule
+ * 20 px under the block across the card and the details 20 px under it. The download's words take
+ * `wordLines` lines, centred, the type and size kept on one, 8 px inside its edges.
  */
 export function fileBlockAsSpecified(
 	width: number,
@@ -3684,7 +3813,7 @@ export function fileBlockAsSpecified(
 	return {
 		tileFirst: [0, 0],
 		tileCentred: true,
-		tile: wide ? [92, 92] : [68, 68],
+		tile: rowTileShapeAt(width),
 		headingBesideTile: 16,
 		linesUnderHeading: Array.from({ length: lines }, () => 0),
 		download: wide

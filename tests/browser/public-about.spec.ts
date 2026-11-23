@@ -59,6 +59,11 @@ import {
 	LIST_END,
 	LIST_FIELD_LOOK,
 	SECTION_CRUMBS,
+	fileTileLines,
+	lightRowTile,
+	rowTileLook,
+	rowTileShapeAcross,
+	rowTileShapeAcrossAsSpecified,
 	selfRunningEnds,
 	boxOf,
 	deepField,
@@ -378,7 +383,7 @@ test.describe("an About Document page's rows", () => {
 		expect(seen, "the field's glow and ring").toEqual(expected);
 	});
 
-	test("each row on an About Document page: the file's tile with file-text and PDF; the facts line with the Document Type, the date and the fiscal year; the title as an H2 linking to its page; from 640 px the summary in two lines at most; the download named ดาวน์โหลด, the file's type and size and the title, linking to the file; exactly two links; rows 14 px apart", async ({
+	test("each row on an About Document page: the light file tile, surface-soft with file-text in brand-primary over PDF in brand-dark; the facts line with the Document Type, the date and the fiscal year; the title as an H2 linking to its page; from 640 px the summary in two lines at most; the download named ดาวน์โหลด, the file's type and size and the title, linking to the file; exactly two links; rows 14 px apart", async ({
 		page,
 	}) => {
 		const seen: Record<string, unknown> = {};
@@ -393,8 +398,8 @@ test.describe("an About Document page's rows", () => {
 			const facts = [title, thaiDate(DOCUMENT_AT), "ปีงบประมาณ 2569"];
 			const factsLine = (await parts.facts.textContent()) ?? "";
 			seen[path] = {
-				tile:
-					(await parts.tile.count()) === 1 ? (await parts.tile.textContent())?.trim() : "no tile",
+				tile: await rowTileLook(parts.tile),
+				tileShape: await rowTileShapeAcross(parts.tile),
 				// What today's row already shows: its facts line.
 				facts: facts.filter((fact) => factsLine.includes(fact)),
 				href: await parts.title.getByRole("link").getAttribute("href"),
@@ -410,7 +415,8 @@ test.describe("an About Document page's rows", () => {
 				links: await row.getByRole("link").count(),
 			};
 			expected[path] = {
-				tile: "PDF",
+				tile: await lightRowTile(page, fileTileLines("PDF")),
+				tileShape: rowTileShapeAcrossAsSpecified(),
 				facts,
 				href: `/documents/${first!.slug}`,
 				download: {
@@ -1158,7 +1164,7 @@ test.describe("a Basic Page on the field", () => {
 		expect(seen, "a Basic Page's header on the field").toEqual(expected);
 	});
 
-	test("the body follows on the page's colour in the 48 rem text column, 32 px under the field below 1,024 px and 40 px from 1,024 px; 48 px under it เอกสารที่เกี่ยวข้อง with the Homepage's section heading (the folder-open tile, the label เอกสารเผยแพร่ and the H2), its rows 24 px under the heading below 640 px and 28 px from 640 px and 14 px apart, each titled with an H3 and with its download, in the same column; then the page's own 64 px, 80 px from 1,024 px; without a body the Documents start where it would", async ({
+	test("the body follows on the page's colour in the 48 rem text column, 32 px under the field below 1,024 px and 40 px from 1,024 px; 48 px under it เอกสารที่เกี่ยวข้อง with the Homepage's section heading (the folder-open tile, the label เอกสารเผยแพร่ and the H2), its rows 24 px under the heading below 640 px and 28 px from 640 px and 14 px apart, each with the light file tile, titled with an H3 and with its download, in the same column; then the page's own 64 px, 80 px from 1,024 px; without a body the Documents start where it would", async ({
 		page,
 	}) => {
 		const main = page.getByRole("main");
@@ -1212,15 +1218,24 @@ test.describe("a Basic Page on the field", () => {
 		seen.rowNames = [];
 		for (const [index, document] of related.entries()) {
 			const row = rows.nth(index);
-			const { title } = documentRowParts(row, 3);
+			const { title, tile: rowTile } = documentRowParts(row, 3);
 			(seen.rowNames as unknown[]).push({
 				title: (await title.count()) === 1 && (await title.textContent())?.trim(),
+				// Each row's file tile is the light one (spec #417 "The light row tile").
+				tile: await rowTileLook(rowTile),
+				tileShape: await rowTileShapeAcross(rowTile),
 				download: await row
 					.getByRole("link", { name: `ดาวน์โหลด (PDF, 11.8 KB) ${document.title}`, exact: true })
 					.count(),
 			});
 		}
-		expected.rowNames = related.map((document) => ({ title: document.title, download: 1 }));
+		const lightFileTile = await lightRowTile(page, fileTileLines("PDF"));
+		expected.rowNames = related.map((document) => ({
+			title: document.title,
+			tile: lightFileTile,
+			tileShape: rowTileShapeAcrossAsSpecified(),
+			download: 1,
+		}));
 		for (const width of [320, 639, 640, 1023, 1024, 1440]) {
 			await page.setViewportSize({ width, height: 900 });
 			const at = `at ${width} px`;
