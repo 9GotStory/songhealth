@@ -370,7 +370,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `text-secondary-on-soft` (the tagline) on the header's surface over `brand-dark`, the darkest fill a page scrolls under it (`text-secondary` there would be 4.15:1) | 4.73:1 |
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
-| `brand-primary` (the day) and `brand-dark` (the month and year) on a current Announcement's date tile, the light tile (`RowTile`, flat `surface-soft`), on the Homepage and the Announcements list, whatever its status (§8.7; spec #417 decisions 1 and 12, #419); `text-secondary` (the day, the month and year) on a closed Announcement's tile, `surface-base` with a `border-default` edge, on the Announcements list (spec #417 decision 13) | on the prototype (spec #417 "Measured in the prototype"): the day 5.78:1, the month and year 10.94:1, a closed tile's lines 4.97:1 |
+| `brand-primary` (the day) and `brand-dark` (the month and year) on a current Announcement's date tile, the light tile (`RowTile`, flat `surface-soft`), on the Homepage and the Announcements list, whatever its status (§8.7; spec #417 decisions 1 and 12, #419); `text-secondary` (the day, the month and year) on a closed Announcement's tile, `surface-base` with a `border-default` edge, on the Announcements list (spec #417 decision 13) | measured with `scripts/measure-text-contrast.ts --all-text --fold` at the five widths at `404bffc` (#419) on the Homepage (the demo dataset and `homepage-announcements`) and `/announcements` (the demo dataset and `lists-by-count` with 21, pages 1 and 2): the day 5.78:1, the month and year 10.94:1, a closed tile's day and month and year 4.97:1, as the token values and the prototype give them |
 | `brand-primary` (the icon, a MOIT's number) and `brand-dark` (the file's type or "ไฟล์", "MOIT", a report's fiscal year) on a row's light tile (`RowTile`, flat `surface-soft`): the file tile of a Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents, and in the card on a Document's and a Health Report's page (§9.4 to §9.9), a MOIT's row (§8.3), a Health Report's row and a Health Service's (§7.3; spec #417 decision 12, prototype P1 A) | measured with `scripts/measure-text-contrast.ts --all-text --fold` at the five widths at `2d2b027` (#418): a MOIT's number 5.78:1; "PDF", "ไฟล์", "MOIT" and a report's fiscal year 10.94:1, as the token values and the prototype give them |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
@@ -1584,8 +1584,10 @@ News as a section of their own. Their row is also the Announcements list's (belo
     Unlike the other rows' tiles it is read by assistive technology, since the row says its date
     nowhere else (Product Owner, 2026-11-23: #419 comment 7100237929), and it stays as it is under
     the pointer and under focus (decision 3). The widest month and year, "เม.ย." with a year, is
-    57 px in the 68 px tile. The lead over the glow read 4.74:1 or more at the
-    application code of `e298e78`;
+    57 px in the 68 px tile. `scripts/measure-text-contrast.ts --all-text --fold` read the day at
+    5.78:1 and the month and year at 10.94:1 at the five widths, on the demo dataset and with
+    `scripts/screenshot-fixtures/homepage-announcements.ts`, at `404bffc` (#419); the lead over the
+    glow read 4.74:1 or more at the application code of `e298e78`;
   - the category, the first `announcement_type` term, as a pill badge at 13 / 20 semibold:
     procurement in `procurement-text` on `topic-blue` with a 1 px `procurement-border` edge,
     recruitment in `brand-dark` on `accent-warm`, any other, and one added later, in
@@ -1627,7 +1629,11 @@ News as a section of their own. Their row is also the Announcements list's (belo
   "ยังไม่เปิด" 7.75:1, the status line's dates 4.97:1 and the titles 16.54:1.
   `scripts/measure-focus-contrast.ts` read the first row's ring, over the field's edge, at 5.40:1
   or more beside it with its band, none of it under 3:1, at every width; without the band, about
-  half of the ring's pixels lie on the field under 3:1. An
+  half of the ring's pixels lie on the field under 3:1. Read again at `404bffc` (#419) on the demo
+  dataset and with `lists-by-count.ts` (`LIST_COUNT=21`, which puts a closed Announcement on page 2
+  too), `--all-text --fold` gave a current tile's day 5.78:1 and its month and year 10.94:1, a
+  closed tile's day and month and year 4.97:1, and "ปิดแล้ว" 13.85:1, at the five widths; at 320
+  px the widest month and year, 57 px, fits the 66 px inside the closed tile's edge. An
   Announcement's page shows the dotted label in its details card (§9.4), and a search
   result keeps the earlier label, closed in `brand-dark` on `accent-warm` (`StatusLabel`). `tests/browser/public-announcements.spec.ts` reads the row's
   parts, a closed row against a current one, the hover, the keyboard and the order across pages;
@@ -3633,6 +3639,9 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   label keeps `status-closed` with `text-primary`. The last `accent-warm` exception on the
   gradient tile goes from §3.2 and `CODING_STANDARDS.md`; §3.1 (`brand-primary`, `brand-dark`,
   `accent-warm`, `text-secondary`, `surface-soft`, `border-default`, `status-closed`), §3.2, §7.3
-  and §8.7 state the two tiles. Authority: spec #417
+  and §8.7 state the two tiles, with the readings at `404bffc`: the day 5.78:1, the month and year
+  10.94:1 and a closed tile's lines 4.97:1 on the Homepage and `/announcements` at the five
+  widths, where the rows' badges, status labels, dates and titles read as §8.7 records them.
+  Authority: spec #417
   "The light row tile", "A closed Announcement's tile" and decisions 1, 3, 12 and 13, #417
   comment 7094711736, and #419 comment 7100237929.
