@@ -70,6 +70,8 @@ import {
 	pressOpens,
 	readHeaderOnField,
 	rowShadow,
+	rowTileShape,
+	rowTileShapeAt,
 	rowTileStates,
 	shownLines,
 	shownOpacity,
@@ -291,11 +293,7 @@ test("each /health-services row: the light hospital tile, surface-soft with the 
 		await tokenColor(page, "text-primary"),
 	];
 	const seen: Record<string, unknown> = {
-		tile: await rowTileStates(
-			parts.tile,
-			parts.facts,
-			row.getByRole("link", { name: long.title, exact: true }),
-		),
+		tile: await rowTileStates(parts.tile, row.getByRole("link", { name: long.title, exact: true })),
 		facts: await textStyle(parts.facts),
 		titleColour: (await textStyle(parts.title.getByRole("link"))).colour,
 		official: await textStyle(official),
@@ -333,12 +331,8 @@ test("each /health-services row: the light hospital tile, surface-soft with the 
 			await boxOf(row, "the first row"),
 			await boxOf(nextRow(row), "the next row"),
 		];
-		const tile = (await parts.tile.count()) > 0 ? await boxOf(parts.tile, "the tile") : undefined;
 		seen[width] = {
-			tile: tile && [Math.round(tile.width), Math.round(tile.height)],
-			tileRadius:
-				tile &&
-				(await parts.tile.evaluate((element) => getComputedStyle(element).borderTopLeftRadius)),
+			tile: await rowTileShape(parts.tile),
 			titleSize: (await textStyle(parts.title)).size,
 			// The name's link holds its lines, so its focus ring is not cut where they are.
 			title: await shownLines(parts.title.getByRole("link")),
@@ -347,8 +341,7 @@ test("each /health-services row: the light hospital tile, surface-soft with the 
 			gap: Math.round(lower.y - (upper.y + upper.height)),
 		};
 		expected[width] = {
-			tile: wide ? [92, 92] : [68, 68],
-			tileRadius: wide ? "18px" : "14px",
+			tile: rowTileShapeAt(width),
 			titleSize: wide ? 18 : 16,
 			title: { lines: 2, clamped: true },
 			address: { lines: 2, clamped: true },

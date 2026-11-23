@@ -53,6 +53,7 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
+	documentRowParts,
 	fileTileLines,
 	isoDay,
 	lightRowTile,
@@ -765,7 +766,7 @@ test("an Announcement page shows its type, dates, details and its published atta
 				.getByRole("link", { name: document.title, exact: true })
 				.getAttribute("href"),
 			// The light file tile (Feature 014 #418; spec #417 decision 12, P1 A).
-			tile: await rowTileLook(row.locator("svg.lucide-file-text").locator("xpath=..")),
+			tile: await rowTileLook(documentRowParts(row, 3).tile),
 			download:
 				(await download.count()) === 1
 					? {

@@ -85,6 +85,8 @@ import {
 	fileBlockOf,
 	expectPostTitleSizes,
 	rowTileLook,
+	rowTileShape,
+	rowTileShapeAt,
 	rowTileStates,
 	unavailableNoticeIn,
 	gutterAt,
@@ -269,7 +271,7 @@ test("each /documents row: the light file tile, surface-soft with file-text in b
 
 	const summary = row.getByText(LONG_SUMMARY.trim());
 	const seen: Record<string, unknown> = {
-		tile: await rowTileStates(parts.tile, parts.facts, parts.title.getByRole("link")),
+		tile: await rowTileStates(parts.tile, parts.title.getByRole("link")),
 		titleColour: (await textStyle(parts.title.getByRole("link"))).colour,
 		summaryColour: (await textStyle(summary)).colour,
 	};
@@ -288,12 +290,8 @@ test("each /documents row: the light file tile, surface-soft with file-text in b
 			await boxOf(row, "the first row"),
 			await boxOf(listedItem(page, plain.title), "the second row"),
 		];
-		const tile = (await parts.tile.count()) > 0 ? await boxOf(parts.tile, "the tile") : undefined;
 		seen[width] = {
-			tile: tile && [Math.round(tile.width), Math.round(tile.height)],
-			tileRadius: await parts.tile.evaluate(
-				(element) => getComputedStyle(element).borderTopLeftRadius,
-			),
+			tile: await rowTileShape(parts.tile),
 			titleSize: (await textStyle(parts.title)).size,
 			// The title's link holds its lines, so its focus ring is not cut where they are.
 			title: await shownLines(parts.title.getByRole("link")),
@@ -305,8 +303,7 @@ test("each /documents row: the light file tile, surface-soft with file-text in b
 			gap: Math.round(lower.y - (upper.y + upper.height)),
 		};
 		expected[width] = {
-			tile: wide ? [92, 92] : [68, 68],
-			tileRadius: wide ? "18px" : "14px",
+			tile: rowTileShapeAt(width),
 			titleSize: wide ? 18 : 16,
 			title: { lines: 2, clamped: true },
 			summary: wide ? { lines: 2, clamped: true } : "hidden",

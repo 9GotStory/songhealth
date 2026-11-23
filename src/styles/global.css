@@ -28,8 +28,8 @@
 	 * under a list's heading (spec #280): the heading's icon tile, and its link under the pointer. On
 	 * the gradient tile of a fiscal year's card on the ITA landing (its calendar-check; Feature 013
 	 * #393); the Document, MOIT, Health Report and Health Service rows' light tile (Feature 014
-	 * #418) holds none. The ring of the featured first
-	 * leader on /about/leadership (Feature 012 #367).
+	 * #418) holds none. The ring of the featured first leader on /about/leadership (Feature 012
+	 * #367).
 	 */
 	--color-accent-warm: #f3c95f;
 	--color-text-primary: #16211d;

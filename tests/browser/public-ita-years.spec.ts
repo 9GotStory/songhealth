@@ -954,7 +954,7 @@ test("a MOIT's row is white with the card shadow and radius 22, 12 px inside and
 	);
 	const seen: Record<string, unknown> = {};
 	const expected: Record<string, unknown> = {};
-	for (const width of [320, 639, 640, 1440]) {
+	for (const width of [320, 639, 640, 1023, 1024, 1440]) {
 		await page.setViewportSize({ width, height: 900 });
 		const phone = width < 640;
 		seen[width] = await readMoitRow(row);
@@ -990,11 +990,7 @@ test("a MOIT's row is white with the card shadow and radius 22, 12 px inside and
 	await page.setViewportSize(DESKTOP_VIEWPORT);
 	const link = row.getByRole("link");
 	// The tile stays as it is under the pointer and under focus (spec #417 decision 3).
-	seen.tile = await rowTileStates(
-		row.getByText("MOIT", { exact: true }).locator("xpath=.."),
-		factsLine(row),
-		link,
-	);
+	seen.tile = await rowTileStates(row.getByText("MOIT", { exact: true }).locator("xpath=.."), link);
 	expected.tile = await lightRowTileStates(page, [
 		{ line: "MOIT", token: "brand-dark", size: 13, weight: "600" },
 		{ line: "3", token: "brand-primary", size: 34, weight: "600" },

@@ -70,6 +70,7 @@ import {
 	cardOverFieldEdgeAsSpecified,
 	deepField,
 	detailOf,
+	documentRowParts,
 	entersAfter,
 	expect,
 	expectBreadcrumb,
@@ -1213,12 +1214,10 @@ test.describe("a Service's page on the field", () => {
 		await page.goto(pathOf(full));
 		const main = page.getByRole("main");
 		const tiles = {
-			file: main
-				.getByRole("region", { name: RELATED.title })
-				.getByRole("article")
-				.first()
-				.locator("svg.lucide-file-text")
-				.locator("xpath=.."),
+			file: documentRowParts(
+				main.getByRole("region", { name: RELATED.title }).getByRole("article").first(),
+				3,
+			).tile,
 			hospital: main
 				.getByRole("region", { name: OFFERING.title })
 				.getByRole("article")

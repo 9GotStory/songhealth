@@ -125,6 +125,8 @@ import {
 	readHeaderOnField,
 	rowShadow,
 	rowTileLook,
+	rowTileShape,
+	rowTileShapeAt,
 	rowTileStates,
 	shownLines,
 	shownWhole,
@@ -904,7 +906,7 @@ test("each /health/reports row: the light tile, surface-soft with file-chart-col
 		await tokenColor(page, "text-primary"),
 	];
 	const seen: Record<string, unknown> = {
-		tile: await rowTileStates(parts.tile, row, row.getByRole("link")),
+		tile: await rowTileStates(parts.tile, row.getByRole("link")),
 		bareTile: await rowTileLook(reportRowParts(bareRow).tile),
 		factsParts: await factsParts(facts),
 		factsStyle: await textStyle(facts),
@@ -957,10 +959,7 @@ test("each /health/reports row: the light tile, surface-soft with file-chart-col
 		];
 		const tile = (await parts.tile.count()) > 0 ? await boxOf(parts.tile, "the tile") : undefined;
 		seen[width] = {
-			tile: tile && [Math.round(tile.width), Math.round(tile.height)],
-			tileRadius:
-				tile &&
-				(await parts.tile.evaluate((element) => getComputedStyle(element).borderTopLeftRadius)),
+			tile: await rowTileShape(parts.tile),
 			yearUnderIcon:
 				tile &&
 				(await parts.tile.evaluate((element) => {
@@ -988,8 +987,7 @@ test("each /health/reports row: the light tile, surface-soft with file-chart-col
 			gap: Math.round(lower.y - (upper.y + upper.height)),
 		};
 		expected[width] = {
-			tile: wide ? [92, 92] : [68, 68],
-			tileRadius: wide ? "18px" : "14px",
+			tile: rowTileShapeAt(width),
 			yearUnderIcon: true,
 			// The Announcement row's.
 			padding: wide ? ["18px", "22px", "18px", "18px"] : ["12px", "12px", "12px", "12px"],

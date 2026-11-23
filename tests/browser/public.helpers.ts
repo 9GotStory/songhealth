@@ -787,12 +787,15 @@ export const HOSPITAL_TILE_LINES = [
 ] as const satisfies Parameters<typeof lightRowTile>[1];
 
 /**
- * A row's tile at rest, with `pointer` under the pointer and with `link` focused (the pointer
- * away), each as rowTileLook reads it: the tile stays as it is under both (spec #417 decision 3).
+ * A row's tile at rest, with the pointer on the tile's middle (so on its row too) and with `link`
+ * focused (the pointer away), each as rowTileLook reads it: the tile stays as it is under both
+ * (spec #417 decision 3). The pointer moves to the tile's place rather than hovering it, since on a
+ * Health Report row the row's link lies over the tile.
  */
-export async function rowTileStates(tile: Locator, pointer: Locator, link: Locator) {
+export async function rowTileStates(tile: Locator, link: Locator) {
 	const rest = await rowTileLook(tile);
-	await pointer.hover();
+	const box = await boxOf(tile, "the tile");
+	await tile.page().mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 	const pointed = await rowTileLook(tile);
 	await tile.page().mouse.move(0, 0);
 	await link.focus();
@@ -3740,8 +3743,7 @@ export async function fileBlockAt(block: FileBlock, lines: Locator[], width: num
 			Math.round(Math.min(tileBox.y, textTop) - cardBox.y - 20),
 		],
 		tileCentred: Math.abs(tileBox.y + tileBox.height / 2 - (textTop + textEnd) / 2) <= 1,
-		tile: [Math.round(tileBox.width), Math.round(tileBox.height)],
-		tileRadius: await block.tile.evaluate((tile) => getComputedStyle(tile).borderTopLeftRadius),
+		tile: await rowTileShape(block.tile),
 		headingBesideTile: Math.round(text[0]!.x - tileBox.x - tileBox.width),
 		linesUnderHeading: text
 			.slice(1)
@@ -3788,8 +3790,7 @@ export function fileBlockAsSpecified(
 	return {
 		tileFirst: [0, 0],
 		tileCentred: true,
-		tile: wide ? [92, 92] : [68, 68],
-		tileRadius: wide ? "18px" : "14px",
+		tile: rowTileShapeAt(width),
 		headingBesideTile: 16,
 		linesUnderHeading: Array.from({ length: lines }, () => 0),
 		download: wide
