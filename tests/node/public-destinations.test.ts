@@ -87,7 +87,7 @@ describe("/about's destinations", () => {
 	});
 
 	it("give โครงสร้างองค์กร no summary while its page is not published or gives none", () => {
-		for (const summary of [undefined, null, "", "   "]) {
+		for (const summary of [undefined, "", "   "]) {
 			assert.deepEqual(
 				shown(aboutDestinations(summary)),
 				[organization(undefined), ...LISTS],

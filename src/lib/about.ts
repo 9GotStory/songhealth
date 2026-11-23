@@ -73,7 +73,7 @@ export const ABOUT_DOCUMENT_LISTS = {
  * โครงสร้างองค์กร with `network`, its page having no heading icon, and the published `organization`
  * Basic Page's summary, none while that page is not published or gives none.
  */
-export function aboutDestinations(organizationSummary?: string | null): Destination[] {
+export function aboutDestinations(organizationSummary?: string): Destination[] {
 	const summary = organizationSummary?.trim() ? organizationSummary : undefined;
 	return [
 		{ href: ORGANIZATION_PATH, title: "โครงสร้างองค์กร", icon: "network", summary },
