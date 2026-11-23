@@ -16,6 +16,11 @@
 // over the surface-soft circle, where text-secondary falls below SC 1.4.3 (decision 20;
 // docs/design/DESIGN.md §8.4).
 //
+// /health and /about show their destinations as the catalog's cards (Feature 014 #420; spec #417
+// "The cards", decisions 4 to 8 and 14), `kind="list"` with a `destination` in place of a Service:
+// its address, its name, its page's heading icon (DestinationIcon) and its page's lead as the
+// summary, none where it gives none (src/lib/destinations.ts).
+//
 // A native link named by the name covers the whole card; the summary stays readable outside the
 // link's name (WCAG 2.2 SC 2.5.3; #193; #190 comment 6707205912). Below `sm` the cards go one to a
 // row: the card is smaller, with its parts centred on one line, and shows no summary.
@@ -40,21 +45,27 @@
 // It is brand-primary on the white card, and accent-warm while the card is brand-primary under the
 // pointer (Product Owner, 2026-11-11: #242 comment 6797113372, item 2).
 import ArrowRight from "@lucide/astro/icons/arrow-right";
+import type { Destination } from "../lib/destinations";
 import { servicePath } from "../lib/service-catalog";
 import type { ServiceEntry } from "../lib/services";
+import DestinationIcon from "./DestinationIcon.astro";
 import ServiceIcon from "./ServiceIcon.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
-interface Props {
-	service: ServiceEntry;
+type Props = {
 	/**
-	 * Where the card shows: the Homepage's Frequently Used Services, the Service catalog, or a
-	 * page's section, such as a Health Service's "บริการที่ให้".
+	 * Where the card shows: the Homepage's Frequently Used Services, the Service catalog or a
+	 * section page's destinations, or a page's section, such as a Health Service's "บริการที่ให้".
 	 */
 	kind?: "home" | "list" | "section";
-}
+} & (
+	{ service: ServiceEntry; destination?: never } | { destination: Destination; service?: never }
+);
 
-const { service, kind = "home" } = Astro.props;
+const { service, destination, kind = "home" } = Astro.props;
+const { href, title, summary } = service
+	? { href: servicePath(service.id), title: service.data.title, summary: service.data.summary }
+	: destination;
 const Heading = kind === "list" ? "h2" : "h3";
 const titleId = `service-card-${crypto.randomUUID()}`;
 ---
@@ -75,15 +86,19 @@ const titleId = `service-card-${crypto.randomUUID()}`;
 			aria-hidden="true"
 			class="relative flex size-12 shrink-0 items-center justify-center rounded-14 bg-surface-soft text-brand-primary group-hover:bg-accent-warm group-hover:text-brand-dark motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:scale-106 motion-safe:group-hover:-rotate-8 sm:size-14 sm:rounded-18"
 		>
-			<ServiceIcon choice={service.data.icon} />
+			{service ? (
+				<ServiceIcon choice={service.data.icon} />
+			) : (
+				<DestinationIcon name={destination.icon} />
+			)}
 		</span>
 		<div class="relative min-w-0 flex-1">
 			<Heading id={titleId} class="text-body-large font-semibold wrap-anywhere">
-				<ThaiTitle text={service.data.title} />
+				<ThaiTitle text={title} />
 			</Heading>
-			{service.data.summary && (
+			{summary && (
 				<p class="mt-1 line-clamp-3 text-label font-normal text-text-secondary-on-soft group-hover:text-surface-base max-sm:hidden">
-					{service.data.summary}
+					{summary}
 				</p>
 			)}
 		</div>
@@ -92,7 +107,7 @@ const titleId = `service-card-${crypto.randomUUID()}`;
 			size={20}
 		/>
 		<a
-			href={servicePath(service.id)}
+			href={href}
 			aria-labelledby={titleId}
 			class="absolute inset-0 rounded-22 -outline-offset-4 group-hover:focus-ring-on-dark after:absolute after:inset-x-0 after:top-full after:hidden after:h-2 motion-safe:group-hover:after:block"
 		></a>

@@ -114,4 +114,17 @@ describe("public pages", () => {
 			.map(({ at, tag }) => `${at} ${tag}`);
 		assert.deepEqual(off, []);
 	});
+
+	it("draw network, new with /about's cards (#420), at 24 px wherever it is imported", async () => {
+		const importers = (await publicSources())
+			.filter(({ source }) => /["']@lucide\/astro\/icons\/network["']/.test(source))
+			.map(({ file }) => file);
+		assert.ok(importers.length > 0, "network is imported");
+		const tags = (await iconTags()).filter(({ at }) =>
+			importers.includes(at.slice(0, at.lastIndexOf(":"))),
+		);
+		assert.ok(tags.length > 0, "network's file draws its icons");
+		const off = tags.filter(({ tag }) => !/\bsize=\{24\}/.test(tag));
+		assert.deepEqual(off, [], "network's file draws every icon at 24 px");
+	});
 });

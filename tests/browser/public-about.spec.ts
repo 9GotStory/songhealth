@@ -53,6 +53,7 @@ import {
 import {
 	BorrowedEntries,
 	DESKTOP_VIEWPORT,
+	type DestinationCard,
 	HEADER_WIDEST,
 	HOME_CRUMB,
 	LeadingEntries,
@@ -73,18 +74,19 @@ import {
 	expectAccessibleAtEachWidth,
 	expectAttentionLabelsOnOwnLine,
 	expectBreadcrumb,
-	expectNoHorizontalScroll,
+	expectDestinationCardsUnderPointer,
 	expectSecondLinkPlaces,
 	expectSiteNotFound,
 	fieldEdge,
 	FIELD_EDGE,
 	fieldParts,
 	gutterAt,
-	itemsPerRow,
+	keyboardHrefsFrom,
 	listedItem,
 	listedTitles,
 	ownTitles,
 	readHeaderMotion,
+	readDestinationCards,
 	readHeaderOnField,
 	readListField,
 	readWholeAtTwoWidths,
@@ -97,18 +99,7 @@ import {
 	testListOnField,
 	thaiDate,
 	tokenColor,
-	tokenShadow,
 } from "./public.helpers";
-
-/** The About sub-pages /about links to, in `01` §3 order. */
-const ABOUT_SUBPAGES = [
-	["โครงสร้างองค์กร", "/about/organization"],
-	["ผู้บริหาร", "/about/leadership"],
-	["บุคลากร", "/about/personnel"],
-	["นโยบาย", "/about/policies"],
-	["แผนงาน", "/about/plans"],
-	["ผลการดำเนินงาน", "/about/results"],
-] as const;
 
 /**
  * The About Document pages, each with the Document Type it lists (spec #51), its lead and the icon
@@ -137,6 +128,42 @@ const ABOUT_DOCUMENT_PAGES = [
 		icon: "chart-column",
 	},
 ] as const;
+
+/**
+ * The About sub-pages /about shows as cards, in `01` §3 order, each with its page's heading icon
+ * and its page's lead (Feature 014 #420; spec #417 decisions 4 and 5): first โครงสร้างองค์กร, with
+ * `network` and the published `organization` page's summary, `organization`, none while that page
+ * is not published. No summary takes more than three lines from 640 px (spec #417 "The cards").
+ */
+const aboutCards = (organization: string | undefined): DestinationCard[] => [
+	{
+		title: "โครงสร้างองค์กร",
+		href: "/about/organization",
+		icon: "network",
+		summary: organization,
+	},
+	{
+		title: "ผู้บริหาร",
+		href: "/about/leadership",
+		icon: "user-round",
+		summary: "ผู้บริหารของสำนักงานสาธารณสุขอำเภอสอง",
+	},
+	{
+		title: "บุคลากร",
+		href: "/about/personnel",
+		icon: "users-round",
+		summary: "บุคลากรของสำนักงานสาธารณสุขอำเภอสอง แยกตามหน่วยงาน",
+	},
+	...ABOUT_DOCUMENT_PAGES.map(({ path, title, lead, icon }) => ({
+		title,
+		href: path,
+		icon,
+		summary: lead,
+	})),
+];
+
+/** The About sub-pages /about links to, in `01` §3 order, by their names. */
+const ABOUT_SUBPAGES = aboutCards(undefined).map(({ title }) => title);
 
 /** A title longer than two lines at every width, as /documents' longest row title. */
 const LONG_TITLE =
@@ -535,22 +562,23 @@ test("/pages/about and /pages/organization redirect permanently to /about and /a
 });
 
 // /about opens on the list's deep field with a Basic Page's header, its six sub-pages as the
-// Homepage's Quick Access tiles over the field's lower edge, then its body and related Documents
-// (Feature 012 #371; spec #365 decisions 2, 3, 8 and 10, "`/about`", "Motion"). The runtime's own
-// `about` Basic Page, the demo dataset's, takes the reserved slug, which is unique, so the tests
-// that need the page published read it as it is, and a runtime without one gets a synthetic page.
+// Service catalog's cards over the field's lower edge (Feature 014 #420), then its body and related
+// Documents (Feature 012 #371; spec #365 decisions 2, 3, 8 and 10, "`/about`", "Motion"). The
+// runtime's own `about` Basic Page, the demo dataset's, takes the reserved slug, which is unique,
+// so the tests that need the page published read it as it is, and a runtime without one gets a
+// synthetic page.
 test.describe("/about on the field", () => {
 	/** The description /about's head gives while the `about` Basic Page gives none. */
 	const ABOUT_DESCRIPTION =
 		"ข้อมูลสำนักงานสาธารณสุขอำเภอสอง โครงสร้างองค์กร ผู้บริหาร บุคลากร นโยบาย แผนงาน และผลการดำเนินงาน";
 	const RELATED_TITLE = "เอกสารที่เกี่ยวข้อง";
 
-	/** The list that holds /about's tiles. */
-	const aboutTiles = (page: Page) =>
+	/** The list that holds /about's cards. */
+	const aboutCardList = (page: Page) =>
 		page
 			.getByRole("main")
 			.getByRole("list")
-			.filter({ has: page.getByRole("link", { name: ABOUT_SUBPAGES[0][0], exact: true }) });
+			.filter({ has: page.getByRole("link", { name: ABOUT_SUBPAGES[0], exact: true }) });
 
 	/**
 	 * The body's first and last blocks, found by the text `publishedAbout` gives for them, and the
@@ -613,141 +641,121 @@ test.describe("/about on the field", () => {
 		};
 	}
 
-	test("/about shows its six sub-pages as the Homepage's Quick Access tiles over the field's lower edge, in `01` §3 order to their addresses, each one link named by its H2: two to a row below 1,024 px and three from 1,024 px, 12 px apart below 640 px and 20 px from 640 px, compact below 640 px, white with the card shadow and no border; the field a list's, the header ending 96 px above its edge below 640 px and 128 px from 640 px, the tiles starting 64 and 88 px above it; each focus ring banded where it meets the field; ข้อมูลเกี่ยวกับสำนักงาน is gone", async ({
+	test("/about shows its six sub-pages as the Service catalog's cards over the field's lower edge, in `01` §3 order to their addresses, each one link named by its H2 with its page's heading icon, network for โครงสร้างองค์กร, in a decorative tile, and from 640 px its page's lead, โครงสร้างองค์กร's the published organization page's summary and none while that page is not published: one to a row at 320, 375 and 639 px, two at 640 and 1,023 px and three at 1,024 and 1,440 px, 12 px apart below 640 px and 20 px from 640 px, each card white, radius 22, 144 px high or more from 640 px, below 640 px a short row; the field a list's, the header ending 96 px above its edge below 640 px and 128 px from 640 px, the cards starting 64 and 88 px above it, each focus ring on its card; the keyboard reaches them in order after the breadcrumb; ข้อมูลเกี่ยวกับสำนักงาน is gone", async ({
 		page,
 	}) => {
+		test.setTimeout(90_000);
+		const perRowAt = (width: number) => (width < 640 ? 1 : width < 1024 ? 2 : 3);
+		const { fixture: organization } = await reservedPage(
+			"organization",
+			pageContent("organization"),
+		);
 		const response = await page.goto("/about");
 		expect(response?.status(), "GET /about").toBe(200);
 		await expect(navigationLink(page, "เกี่ยวกับเรา")).toHaveAttribute("aria-current", "page");
 		await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${origin}/about`);
 		const main = page.getByRole("main");
 		const parts = fieldParts(page);
-		const tiles = aboutTiles(page);
-		const items = tiles.getByRole("listitem");
-		const onField = (await parts.field.count()) === 1;
+		const cards = aboutCardList(page);
+		const items = cards.getByRole("listitem");
+		// The organization page in draft: its card shows no summary, on both sides of 640 px.
+		const without = await readDestinationCards(
+			page,
+			items,
+			aboutCards(undefined),
+			perRowAt,
+			[320, 639, 640, 1440],
+		);
 		const seen: Record<string, unknown> = {
 			oldRegion: await main.getByRole("region", { name: "ข้อมูลเกี่ยวกับสำนักงาน" }).count(),
-			tiles: [],
+			withoutOrganization: without.seen,
 		};
 		const expected: Record<string, unknown> = {
 			oldRegion: 0,
-			tiles: ABOUT_SUBPAGES.map(([label, href]) => ({ links: 1, named: 1, href, h2: label })),
+			withoutOrganization: without.expected,
 		};
-		for (const [index, [label]] of ABOUT_SUBPAGES.entries()) {
-			const item = items.nth(index);
-			const links = item.getByRole("link");
-			const h2 = links.getByRole("heading", { level: 2 });
-			(seen.tiles as unknown[]).push({
-				links: await links.count(),
-				named: await item.getByRole("link", { name: label, exact: true }).count(),
-				href: (await links.count()) === 1 ? await links.getAttribute("href") : "not one link",
-				h2: (await h2.count()) === 1 ? (await h2.textContent())?.trim() : "no H2",
-			});
-		}
+
+		await publish("pages", organization);
+		const summary = String(
+			(
+				nativeItemOf(await readEntry(admin, "pages", organization.id))?.data as {
+					summary?: string;
+				}
+			)?.summary,
+		);
+		await page.setViewportSize(DESKTOP_VIEWPORT);
+		await page.goto("/about");
+		const published = await readDestinationCards(
+			page,
+			items,
+			aboutCards(summary),
+			perRowAt,
+			[320, 375, 639, 640, 768, 1023, 1024, 1440],
+		);
+		seen.withOrganization = published.seen;
+		expected.withOrganization = published.expected;
 
 		seen.look = await readListField(page);
 		expected.look = LIST_FIELD_LOOK;
+		const onField = (await parts.field.count()) === 1;
 		const surfaceBase = await tokenColor(page, "surface-base");
-		const cardShadow = await tokenShadow(page, "card");
-		for (const width of [320, 375, 639, 640, 1023, 1024, 1440]) {
+		for (const width of [375, 639, 640, 1440]) {
 			await page.setViewportSize({ width, height: 900 });
-			await expectNoHorizontalScroll(page, `/about at ${width} px`);
-			const boxes = [];
-			for (const item of await items.all()) boxes.push(await boxOf(item, `at ${width} px: a tile`));
-			const perRow = await itemsPerRow(items);
-			const across = boxes[1]!.x - boxes[0]!.x - boxes[0]!.width;
-			const below = boxes[perRow[0]!]!;
-			const tile = items.first().getByRole("link");
-			const read: Record<string, unknown> = {
-				perRow,
-				gaps: {
-					across: Math.round(across),
-					down: Math.round(below.y - boxes[0]!.y - boxes[0]!.height),
-				},
-				// The label across and the arrow on a row of its own under it, or the arrow beside it.
-				forms: await items.getByRole("link").evaluateAll((links) =>
-					links.map((link) => {
-						const label = link.querySelector(":scope > :not(svg)")!.getBoundingClientRect();
-						const arrow = link.querySelector("svg")!.getBoundingClientRect();
-						if (arrow.top >= label.bottom + 7.5) return "arrow under the label";
-						if (arrow.left >= label.right) return "arrow beside the label";
-						return "neither";
-					}),
-				),
-				tile: await tile.evaluate((link) => {
-					const style = getComputedStyle(link);
-					return {
-						fill: style.backgroundColor,
-						border: style.borderTopWidth,
-						radius: style.borderTopLeftRadius,
-						shadow: style.boxShadow,
-					};
-				}),
+			const reach = width < 640 ? FIELD_EDGE.phone : FIELD_EDGE.fromSm;
+			const edge = onField ? await fieldEdge(parts.field, `at ${width} px`) : Number.NaN;
+			const header = await boxOf(
+				parts.header.or(main.locator("header")).first(),
+				`at ${width} px: the header`,
+			);
+			seen[width] = {
+				headerEndsAbove: Math.round(edge - header.y - header.height),
+				cardsStartAbove: Math.round(edge - (await boxOf(cards, `at ${width} px: the cards`)).y),
+				unbanded: onField
+					? await ringsOverFieldUnbanded(cards, parts.field, surfaceBase)
+					: "no field",
 			};
-			const expectedAt: Record<string, unknown> = {
-				perRow: width < 1024 ? [2, 2, 2] : [3, 3],
-				gaps: width < 640 ? { across: 12, down: 12 } : { across: 20, down: 20 },
-				forms: ABOUT_SUBPAGES.map(() =>
-					width < 640 ? "arrow under the label" : "arrow beside the label",
-				),
-				tile: {
-					fill: surfaceBase,
-					border: "0px",
-					radius: width < 640 ? "18px" : "22px",
-					shadow: cardShadow,
-				},
+			expected[width] = {
+				headerEndsAbove: reach.room,
+				cardsStartAbove: reach.overlap,
+				unbanded: [],
 			};
-			if ([375, 639, 640, 1440].includes(width)) {
-				const reach = width < 640 ? FIELD_EDGE.phone : FIELD_EDGE.fromSm;
-				const edge = onField ? await fieldEdge(parts.field, `at ${width} px`) : Number.NaN;
-				const header = await boxOf(
-					parts.header.or(main.locator("header")).first(),
-					`at ${width} px: the header`,
-				);
-				read.overField = {
-					headerEndsAbove: Math.round(edge - header.y - header.height),
-					tilesStartAbove: Math.round(edge - (await boxOf(tiles, `at ${width} px: the tiles`)).y),
-					unbanded: onField
-						? await ringsOverFieldUnbanded(tiles, parts.field, surfaceBase)
-						: "no field",
-				};
-				expectedAt.overField = {
-					headerEndsAbove: reach.room,
-					tilesStartAbove: reach.overlap,
-					unbanded: [],
-				};
-			}
-			seen[width] = read;
-			expected[width] = expectedAt;
 		}
 
-		// The keyboard goes from the breadcrumb's หน้าแรก to the six tiles, in order.
-		const crumb = parts.breadcrumb.getByRole("link");
-		const order: unknown[] = [];
-		if ((await crumb.count()) === 1) {
-			await crumb.focus();
-			for (const _ of ABOUT_SUBPAGES) {
-				await page.keyboard.press("Tab");
-				order.push(
-					await page.evaluate(() =>
-						document.activeElement?.querySelector("h2")?.textContent?.trim(),
-					),
-				);
-			}
-		}
-		seen.keyboard = order;
-		expected.keyboard = ABOUT_SUBPAGES.map(([label]) => label);
-		expect(seen, "/about's tiles over the field's edge").toEqual(expected);
+		seen.keyboard = await keyboardHrefsFrom(
+			page,
+			parts.breadcrumb.getByRole("link"),
+			ABOUT_SUBPAGES.length,
+		);
+		expected.keyboard = aboutCards(undefined).map(({ href }) => href);
+		expect(seen, "/about's cards over the field's edge").toEqual(expected);
 	});
 
-	test("/about opens on the deep field with the Basic Page's header, 48 rem wide at most: without its Basic Page the H1 เกี่ยวกับเรา and no lead, then the six tiles and the page's own 64 px, 80 px from 1,024 px; its draft's signed preview link opens it at /about on the field with noindex; once published its title as the H1 and its summary at body-large in white; the breadcrumb ends at เกี่ยวกับเรา either way, and the head's title and description stay", async ({
+	test("on /about under the pointer each card turns brand-primary with the deep shadow as a catalog card and stays in place with reduced motion, its focus ring inside its edge, brand-primary and accent-warm under the pointer, and opens its page by Enter; with motion allowed it rises 8 px and a press on the strip it left opens its page", async ({
+		page,
+	}) => {
+		test.setTimeout(90_000);
+		// The organization page published, so its card's press opens a page that answers.
+		const { fixture: organization } = await reservedPage(
+			"organization",
+			pageContent("organization"),
+		);
+		await publish("pages", organization);
+		await expectDestinationCardsUnderPointer(
+			page,
+			"/about",
+			aboutCardList(page),
+			aboutCards(undefined),
+		);
+	});
+
+	test("/about opens on the deep field with the Basic Page's header, 48 rem wide at most: without its Basic Page the H1 เกี่ยวกับเรา and no lead, then the six cards and the page's own 64 px, 80 px from 1,024 px; its draft's signed preview link opens it at /about on the field with noindex; once published its title as the H1 and its summary at body-large in white; the breadcrumb ends at เกี่ยวกับเรา either way, and the head's title and description stay", async ({
 		page,
 	}) => {
 		const { siteTitle, separator } = await siteTitleParts(admin);
 		const { fixture: about, content } = await reservedPage("about", pageContent("about"));
 		const main = page.getByRole("main");
 		const parts = fieldParts(page);
-		const tiles = aboutTiles(page);
+		const cards = aboutCardList(page);
 		const titleOnField = async () =>
 			(await parts.field.count()) === 1 && (await parts.title.count()) === 1
 				? (await parts.title.textContent())?.trim()
@@ -769,21 +777,21 @@ test.describe("/about on the field", () => {
 		for (const width of [375, 1023, 1024, 1440]) {
 			await page.setViewportSize({ width, height: 900 });
 			const end = await pageEnd(page);
-			const box = await boxOf(tiles, `at ${width} px: the tiles`);
+			const box = await boxOf(cards, `at ${width} px: the cards`);
 			after[width] = Math.round(end - box.y - box.height);
 		}
 		seen.noPage = {
 			title: await titleOnField(),
 			lead:
 				(await parts.field.count()) === 1 ? await parts.header.locator("p").count() : "no field",
-			tiles: await tiles.getByRole("listitem").count(),
+			cards: await cards.getByRole("listitem").count(),
 			related: await main.getByRole("region", { name: RELATED_TITLE }).count(),
 			after,
 		};
 		expected.noPage = {
 			title: "เกี่ยวกับเรา",
 			lead: 0,
-			tiles: ABOUT_SUBPAGES.length,
+			cards: ABOUT_SUBPAGES.length,
 			related: 0,
 			after: { 375: 64, 1023: 64, 1024: 80, 1440: 80 },
 		};
@@ -842,13 +850,13 @@ test.describe("/about on the field", () => {
 		expect(seen, "/about's header on the field, with and without its Basic Page").toEqual(expected);
 	});
 
-	test("on /about the body follows 48 px under the tiles in the 48 rem column, a body that opens with a heading 32 px lower (#380), then 48 px under it เอกสารที่เกี่ยวข้อง with each row's download, in the same column, then the page's own 64 px, 80 px from 1,024 px, at 320, 639, 640, 1,023, 1,024 and 1,440 px", async ({
+	test("on /about the body follows 48 px under the cards in the 48 rem column, a body that opens with a heading 32 px lower (#380), then 48 px under it เอกสารที่เกี่ยวข้อง with each row's download, in the same column, then the page's own 64 px, 80 px from 1,024 px, at 320, 639, 640, 1,023, 1,024 and 1,440 px", async ({
 		page,
 	}) => {
 		const published = await publishedAbout();
 		const { opensWithHeading } = published;
 		await page.goto("/about");
-		const tiles = aboutTiles(page);
+		const cards = aboutCardList(page);
 		const text = aboutText(page, published);
 		const rows = text.related.getByRole("article");
 		const shown = (await text.first.count()) === 1 && (await text.related.count()) === 1;
@@ -869,14 +877,14 @@ test.describe("/about on the field", () => {
 			await page.setViewportSize({ width, height: 900 });
 			const at = `at ${width} px`;
 			if (!shown) {
-				seen[width] = "no body or no เอกสารที่เกี่ยวข้อง after the tiles";
+				seen[width] = "no body or no เอกสารที่เกี่ยวข้อง after the cards";
 			} else {
-				const tilesBox = await boxOf(tiles, `${at}: the tiles`);
+				const cardsBox = await boxOf(cards, `${at}: the cards`);
 				const first = await boxOf(text.first, `${at}: the body's first block`);
 				const last = await boxOf(text.last, `${at}: the body's last block`);
 				const related = await boxOf(text.related, `${at}: เอกสารที่เกี่ยวข้อง`);
 				seen[width] = {
-					bodyUnderTiles: Math.round(first.y - tilesBox.y - tilesBox.height),
+					bodyUnderCards: Math.round(first.y - cardsBox.y - cardsBox.height),
 					bodyWidth: Math.round(first.width),
 					relatedUnderBody: Math.round(related.y - last.y - last.height),
 					relatedWidth: Math.round(related.width),
@@ -886,24 +894,24 @@ test.describe("/about on the field", () => {
 			const column = Math.min(HEADER_WIDEST, width - 2 * gutterAt(width));
 			expected[width] = {
 				// A body that opens with a heading starts 32 px lower, its heading's margin (#380).
-				bodyUnderTiles: opensWithHeading ? 80 : 48,
+				bodyUnderCards: opensWithHeading ? 80 : 48,
 				bodyWidth: column,
 				relatedUnderBody: 48,
 				relatedWidth: column,
 				roomAfter: width < 1024 ? 64 : 80,
 			};
 		}
-		expect(seen, "/about's body and เอกสารที่เกี่ยวข้อง after the tiles").toEqual(expected);
+		expect(seen, "/about's body and เอกสารที่เกี่ยวข้อง after the cards").toEqual(expected);
 	});
 
-	test("/about moves only when motion is allowed: the header's title and summary rise in as the page opens while the breadcrumb, the body and the related Documents show at once, each tile reveals as it comes into the window and shows whole while it holds the keyboard's focus, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
+	test("/about moves only when motion is allowed: the header's title and summary rise in as the page opens while the breadcrumb, the body and the related Documents show at once, each card reveals as it comes into the window and shows whole while it holds the keyboard's focus, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
 		page,
 	}) => {
 		test.setTimeout(90_000);
 		const published = await publishedAbout();
 		const { summary } = published;
 		const parts = fieldParts(page);
-		const items = aboutTiles(page).getByRole("listitem");
+		const items = aboutCardList(page).getByRole("listitem");
 		const text = aboutText(page, published);
 		const lead = parts.field.getByText(summary.split("\n")[0]!);
 		const atOnce: Array<[string, Locator]> = [
@@ -914,7 +922,7 @@ test.describe("/about on the field", () => {
 		const placed: Array<[string, Locator]> = [
 			["the field", parts.field],
 			["the title", parts.title],
-			["the tiles", aboutTiles(page)],
+			["the cards", aboutCardList(page)],
 			...atOnce,
 		];
 		const { seen, expected } = await readHeaderMotion(
@@ -936,32 +944,32 @@ test.describe("/about on the field", () => {
 		seen.selfRunning = Math.max(0, ...(await selfRunningEnds(page.locator("html")))) <= 5_000;
 		expected.selfRunning = true;
 
-		// A window shorter than the field puts every tile below it as the page opens, well below:
-		// just under a 300 px window Chromium gives a tile's view timeline no progress (#339).
+		// A window shorter than the field puts every card below it as the page opens, well below:
+		// just under a 300 px window Chromium gives a card's view timeline no progress (#339).
 		const short = { width: 1440, height: 200 };
 		await page.setViewportSize(short);
 		await page.goto("/about");
 		const waiting = [];
-		for (const tile of await items.all()) {
+		for (const card of await items.all()) {
 			waiting.push({
-				below: (await boxOf(tile, "a tile")).y > short.height,
-				opacity: await shownOpacity(tile),
+				below: (await boxOf(card, "a card")).y > short.height,
+				opacity: await shownOpacity(card),
 			});
 		}
 		seen.waiting = waiting;
 		expected.waiting = ABOUT_SUBPAGES.map(() => ({ below: true, opacity: 0 }));
 		const revealed = [];
-		for (const tile of await items.all()) {
-			await tile.scrollIntoViewIfNeeded();
+		for (const card of await items.all()) {
+			await card.scrollIntoViewIfNeeded();
 			await expect
-				.poll(() => shownOpacity(tile), { message: "a tile in the window shows", timeout: 3_000 })
+				.poll(() => shownOpacity(card), { message: "a card in the window shows", timeout: 3_000 })
 				.toBe(1)
 				.catch(() => undefined);
-			revealed.push(await shownOpacity(tile));
+			revealed.push(await shownOpacity(card));
 		}
 		seen.revealed = revealed;
 		expected.revealed = ABOUT_SUBPAGES.map(() => 1);
-		// Focused where it lies, below the window, as a tile reached by the keyboard is until the
+		// Focused where it lies, below the window, as a card reached by the keyboard is until the
 		// page scrolls: only its focus shows it there.
 		await page.goto("/about");
 		await items
@@ -973,7 +981,7 @@ test.describe("/about on the field", () => {
 			.toBe(1)
 			.catch(() => undefined);
 		seen.focused = {
-			below: (await boxOf(items.last(), "the focused tile")).y > short.height,
+			below: (await boxOf(items.last(), "the focused card")).y > short.height,
 			opacity: await shownOpacity(items.last()),
 		};
 		expected.focused = { below: true, opacity: 1 };
@@ -984,22 +992,22 @@ test.describe("/about on the field", () => {
 	test.describe("without JavaScript", () => {
 		test.use({ javaScriptEnabled: false });
 
-		test("/about shows its header on the field, its six tiles, its body and its related Documents with their downloads whole, at 375 and 1440 px", async ({
+		test("/about shows its header on the field, its six cards, its body and its related Documents with their downloads whole, at 375 and 1440 px", async ({
 			page,
 		}) => {
 			const published = await publishedAbout();
 			const { summary } = published;
 			await page.goto("/about");
 			const parts = fieldParts(page);
-			const tiles = aboutTiles(page);
+			const cards = aboutCardList(page);
 			const text = aboutText(page, published);
 			const { seen, expected } = await readWholeAtTwoWidths(page, [
 				["the breadcrumb", parts.breadcrumb],
 				["the title on the field", parts.field.getByRole("heading", { level: 1 })],
 				["the summary on the field", parts.field.getByText(summary.split("\n")[0]!)],
 				...ABOUT_SUBPAGES.map(
-					([label]) =>
-						[`the tile ${label}`, tiles.getByRole("link", { name: label, exact: true })] as [
+					(label) =>
+						[`the card ${label}`, cards.getByRole("link", { name: label, exact: true })] as [
 							string,
 							Locator,
 						],
