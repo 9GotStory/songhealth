@@ -11,7 +11,8 @@
 // Announcements never show, and attached Documents that are not published are left out. The list
 // opens on the deep field under the label แจ้งให้ทราบ, with its rows over the field's lower edge
 // (Feature 010 #312; public.helpers.ts testListOnField). Each row is the Homepage's Announcement
-// row, a closed one's date tile and status label in status-closed (Feature 010 #314).
+// row, a closed one's status label in status-closed (Feature 010 #314) and its date tile white
+// with a border-default edge beside a current one's light tile (Feature 014 #419).
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -53,6 +54,8 @@ import {
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
+	announcementDateTile,
+	announcementDateTileOf,
 	documentRowParts,
 	fileTileLines,
 	isoDay,
@@ -82,8 +85,11 @@ import {
 	pillStyle,
 	pointAtRowEdge,
 	rowTileLook,
+	rowTileShape,
 	rowTileShapeAcross,
 	rowTileShapeAcrossAsSpecified,
+	rowTileShapeAt,
+	rowTileStates,
 	shownLines,
 	siteTitleParts,
 	test,
@@ -365,8 +371,7 @@ async function gotoListing(page: Page, title: string): Promise<Locator> {
 /**
  * What a citizen sees of an Announcement row as it is laid out now, read in one pass, so a part
  * the row lacks reads as missing rather than stopping the read: whether its one link covers it,
- * and its date tile's day, the day's place and size against the month and year under it, and the
- * colours of the tile and of both.
+ * and its date tile's day, and the day's place and size against the month and year under it.
  */
 function readRow(row: Locator) {
 	return row.evaluate((article) => {
@@ -378,9 +383,7 @@ function readRow(row: Locator) {
 			size: parseFloat(getComputedStyle(part).fontSize),
 			top: part.getBoundingClientRect().top,
 			bottom: part.getBoundingClientRect().bottom,
-			color: getComputedStyle(part).color,
 		}));
-		const tile = getComputedStyle(date?.parentElement ?? article);
 		return {
 			linkCoversRow:
 				!!link &&
@@ -390,12 +393,6 @@ function readRow(row: Locator) {
 			day: day?.text,
 			dayLarge: !!day && !!month && day.size > month.size,
 			monthUnderDay: !!day && !!month && month.top >= day.bottom - 1,
-			tile: {
-				gradient: tile.backgroundImage.includes("linear-gradient"),
-				fill: tile.backgroundColor,
-				day: day?.color,
-				monthAndYear: month?.color,
-			},
 		};
 	});
 }
@@ -411,7 +408,7 @@ async function coloursOf(row: Locator, text: string) {
 	}));
 }
 
-test("each /announcements row is the Homepage's row: the date tile with the day large and the month and year under it, the type's badge in its colour, the title as an H2 in two lines at most, the status after a dot when it has an open or close date, and from 640 px the round arrow; one link named by the title covers the row, and the rows are 14 px apart", async ({
+test("each /announcements row is the Homepage's row: the light date tile with the day large in brand-primary and the month and year under it in brand-dark, whatever its status, the type's badge in its colour, the title as an H2 in two lines at most, the status after a dot when it has an open or close date, and from 640 px the round arrow; one link named by the title covers the row, and the rows are 14 px apart", async ({
 	page,
 }) => {
 	const long =
@@ -478,6 +475,7 @@ test("each /announcements row is the Homepage's row: the date tile with the day 
 		badges: {} as Record<string, unknown>,
 		dots: {} as Record<string, unknown>,
 		widths: {} as Record<number, unknown>,
+		tiles: {} as Record<number, unknown[]>,
 		arrows: {} as Record<number, boolean[]>,
 	});
 	const [seen, expected] = [record(), record()];
@@ -532,6 +530,21 @@ test("each /announcements row is the Homepage's row: the date tile with the day 
 			})),
 		};
 	}
+	// The tile (spec #417 decisions 1 and 12; #419): the light one for an open, a not-yet-open and
+	// two undated Announcements, at the tile's edge (639, 640) and at 320 and 1,440 px.
+	for (const width of [1440, 640, 639, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		seen.tiles[width] = [];
+		expected.tiles[width] = [];
+		for (const [index, announcement] of fixtures.entries()) {
+			const tile = announcementDateTileOf(listedItem(page, announcement.title));
+			seen.tiles[width].push({ look: await rowTileLook(tile), shape: await rowTileShape(tile) });
+			expected.tiles[width].push({
+				look: await announcementDateTile(page, thaiDate(in2031(1, 4 - index)), width),
+				shape: rowTileShapeAt(width),
+			});
+		}
+	}
 	for (const [width, shown] of [
 		[640, true],
 		[639, false],
@@ -547,7 +560,7 @@ test("each /announcements row is the Homepage's row: the date tile with the day 
 	expect(seen, "the Homepage's row").toEqual(expected);
 });
 
-test("a closed Announcement's row has its date tile and its ปิดแล้ว label in status-closed with text-primary, where a current one's tile keeps the gradient with the month and year in accent-warm", async ({
+test("a closed Announcement's row has a white date tile with a border-default edge and its day and month and year in text-secondary, and its ปิดแล้ว label in status-closed with text-primary, where a current one's tile is the light tile; neither tile changes under the pointer or under focus", async ({
 	page,
 }) => {
 	const closes = closeDates();
@@ -562,28 +575,28 @@ test("a closed Announcement's row has its date tile and its ปิดแล้�
 	const colour = (name: string) => tokenColor(page, name);
 
 	await page.goto("/announcements");
-	await expect(listedItem(page, current.title)).toContainText("เปิดอยู่");
-	const currentTile = (await readRow(listedItem(page, current.title))).tile;
+	const currentRow = listedItem(page, current.title);
+	await expect(currentRow).toContainText("เปิดอยู่");
+	const currentTile = await rowTileStates(
+		announcementDateTileOf(currentRow),
+		currentRow.getByRole("link"),
+	);
 	const row = await gotoListing(page, closed.title);
 	await expect(row).toContainText("ปิดแล้ว");
-	const closedTile = (await readRow(row)).tile;
+	const closedTile = announcementDateTileOf(row);
+	const closedStates = await rowTileStates(closedTile, row.getByRole("link"));
+	const label = await coloursOf(row, "ปิดแล้ว");
+	const closedShape = await rowTileShapeAcross(closedTile);
+	/** A tile that stays as it is at rest, under the pointer and under focus. */
+	const still = (look: unknown) => ({ rest: look, pointer: look, focus: look });
 	expect(
-		{ currentTile, closedTile, label: await coloursOf(row, "ปิดแล้ว") },
-		"a closed row greyed against a current one",
+		{ currentTile, closedTile: closedStates, closedShape, label },
+		"a closed row's tile white against a current one's light tile",
 	).toEqual({
-		currentTile: {
-			gradient: true,
-			// The gradient is the tile's image, over no fill.
-			fill: "rgba(0, 0, 0, 0)",
-			day: await colour("surface-base"),
-			monthAndYear: await colour("accent-warm"),
-		},
-		closedTile: {
-			gradient: false,
-			fill: await colour("status-closed"),
-			day: await colour("text-primary"),
-			monthAndYear: await colour("text-primary"),
-		},
+		currentTile: still(await announcementDateTile(page, thaiDate(in2031(2, 1)), 1440)),
+		closedTile: still(await announcementDateTile(page, thaiDate(in2031(2, 2)), 1440, true)),
+		// The edge lies inside the tile's size (spec #417 "A closed Announcement's tile").
+		closedShape: rowTileShapeAcrossAsSpecified(),
 		label: { fill: await colour("status-closed"), words: await colour("text-primary"), dot: true },
 	});
 });
@@ -669,7 +682,7 @@ test("/announcements pages through its Announcements, current ones before closed
 		.click();
 	await expect(page).toHaveURL(/\/announcements\?page=2$/);
 	expect(ownTitles(await listedTitles(page), all), "the second page").toEqual([closed.title]);
-	const closedTile = (await readRow(listedItem(page, closed.title))).tile.fill;
+	const closedTile = await rowTileLook(announcementDateTileOf(listedItem(page, closed.title)));
 	await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
 		"href",
 		`${origin}/announcements?page=2`,
@@ -682,8 +695,8 @@ test("/announcements pages through its Announcements, current ones before closed
 	await expect(
 		page.getByRole("main").getByRole("link", { name: "กลับไปหน้าแรกของรายการ" }),
 	).toHaveAttribute("href", "/announcements");
-	expect(closedTile, "the closed one's grey tile on the second page").toBe(
-		await tokenColor(page, "status-closed"),
+	expect(closedTile, "the closed one's white tile on the second page").toEqual(
+		await announcementDateTile(page, thaiDate("2030-12-31T03:00:00.000Z"), 1440, true),
 	);
 });
 

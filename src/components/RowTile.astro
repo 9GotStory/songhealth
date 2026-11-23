@@ -1,27 +1,39 @@
 ---
 // The light row tile (Feature 014 #418; spec #417 "The light row tile", decision 12, prototype
-// P1 A), which the Document, MOIT, Health Report and Health Service rows share; the Announcement
-// row's date tile keeps its gradient until #419. Flat `surface-soft`, 68 px with radius 14 below
-// `sm` and 92 px with radius 18 from `sm`, its lines centred one under another. The tile gives its
-// lines `brand-primary`, the icon's and a MOIT's number's colour; the file's type, "MOIT" (over
-// the number) and a report's fiscal year set `brand-dark` themselves. Each line keeps its own size
-// and weight. The Document row's file tile (FileTile), a MOIT's row (ItaMoitRow), a Health
-// Report's row (HealthReportRow) and a Health Service's row (HealthServiceMapRow) show it. It is
-// decorative, since the words beside it say what it says: hidden from assistive technology. It
-// stays as it is under the pointer and under focus (spec #417 decision 3).
+// P1 A), which every row with a tile shares. Flat `surface-soft`, 68 px with radius 14 below `sm`
+// and 92 px with radius 18 from `sm`, its lines centred one under another. The tile gives its
+// lines `brand-primary`, the icon's, a MOIT's number's and an Announcement's day's colour; the
+// file's type, "MOIT" (over the number), a report's fiscal year and an Announcement's month and
+// year set `brand-dark` themselves. Each line keeps its own size and weight. The Document row's
+// file tile (FileTile), a MOIT's row (ItaMoitRow), a Health Report's row (HealthReportRow), a
+// Health Service's row (HealthServiceMapRow) and an Announcement's row (AnnouncementRow, its date)
+// show it. It stays as it is under the pointer and under focus (spec #417 decision 3).
+//
+// It is decorative where the words beside it say what it says: hidden from assistive technology.
+// An Announcement's date is said nowhere else on its row, so its tile stays read (`read`; Product
+// Owner, 2026-11-23: #419 comment 7100237929). A closed Announcement's tile (`closed`, which only
+// the Announcements list shows) is `surface-base` with a 1 px `border-default` edge inside its
+// size, its lines in `text-secondary` (spec #417 "A closed Announcement's tile", decision 13).
 
 interface Props {
 	/** The gap between its lines, such as `gap-1`; none where its lines touch. */
 	class?: string;
+	/** Read by assistive technology, for a tile whose words show nowhere else on its row. */
+	read?: boolean;
+	/** A closed Announcement's tile: white with an edge, its lines in `text-secondary`. */
+	closed?: boolean;
 }
 
-const { class: className } = Astro.props;
+const { class: className, read = false, closed = false } = Astro.props;
 ---
 
 <p
-	aria-hidden="true"
+	aria-hidden={read ? undefined : "true"}
 	class:list={[
-		"flex size-17 shrink-0 flex-col items-center justify-center rounded-14 bg-surface-soft text-brand-primary sm:size-23 sm:rounded-18",
+		"flex size-17 shrink-0 flex-col items-center justify-center rounded-14 sm:size-23 sm:rounded-18",
+		closed
+			? "border border-border-default bg-surface-base text-text-secondary"
+			: "bg-surface-soft text-brand-primary",
 		className,
 	]}
 >

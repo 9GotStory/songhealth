@@ -705,13 +705,25 @@ interface RowTileLine {
 
 /**
  * How a row's tile looks (src/components/RowTile.astro): hidden from assistive technology, its
- * ground's colour and image, and each of its lines in order, "no tile" without one.
+ * ground's colour and image, its edge ("none", or the width, style and colour its four sides
+ * share), and each of its lines in order, "no tile" without one. An Announcement's date tile holds
+ * its lines in a `time`, so they are read there.
  */
 export async function rowTileLook(tile: Locator) {
 	if ((await tile.count()) !== 1) return "no tile";
 	return tile.evaluate((element) => {
 		const style = getComputedStyle(element);
-		const lines = [...element.children].map((child): RowTileLine => {
+		// A side of no width shows nothing, whatever style the preflight gives it.
+		const sides = ["top", "right", "bottom", "left"].map((side) => {
+			const [width, kind, colour] = ["width", "style", "color"].map((part) =>
+				style.getPropertyValue(`border-${side}-${part}`),
+			);
+			return kind === "none" || Number.parseFloat(width ?? "0") === 0
+				? "none"
+				: `${width} ${kind} ${colour}`;
+		});
+		const time = element.children.length === 1 ? element.querySelector(":scope > time") : null;
+		const lines = [...(time ?? element).children].map((child): RowTileLine => {
 			const read = getComputedStyle(child);
 			if (child.tagName.toLowerCase() === "svg") {
 				const name = [...child.classList].find((word) => /^lucide-(?!icon$)/.test(word));
@@ -731,35 +743,89 @@ export async function rowTileLook(tile: Locator) {
 		return {
 			decorative: element.closest('[aria-hidden="true"]') !== null,
 			ground: [style.backgroundColor, style.backgroundImage],
+			edge: new Set(sides).size === 1 ? sides[0] : sides.join(" / "),
 			lines,
 		};
 	});
 }
 
+/** A line of a tile as a test expects it: its words or icon, size, weight and colour's token. */
+interface ExpectedTileLine {
+	line: string;
+	token: "brand-primary" | "brand-dark" | "text-secondary";
+	size: number;
+	weight?: string;
+}
+
+/** `lines` as rowTileLook reads them, each in its token's colour. */
+const tileLinesIn = (page: Page, lines: readonly ExpectedTileLine[]) =>
+	Promise.all(
+		lines.map(async ({ token, ...line }) => ({ ...line, colour: await tokenColor(page, token) })),
+	);
+
 /**
  * The light row tile as spec #417 sets it ("The light row tile", P1 A): hidden from assistive
- * technology, on flat `surface-soft`, with `lines` in order, each in its token: the icon or a
- * MOIT's number `brand-primary`, the file's type, "MOIT" or a report's fiscal year `brand-dark`.
+ * technology, on flat `surface-soft` without an edge, with `lines` in order, each in its token: the
+ * icon or a MOIT's number `brand-primary`, the file's type, "MOIT" or a report's fiscal year
+ * `brand-dark`.
  */
-export async function lightRowTile(
-	page: Page,
-	lines: { line: string; token: "brand-primary" | "brand-dark"; size: number; weight?: string }[],
-) {
+export async function lightRowTile(page: Page, lines: readonly ExpectedTileLine[]) {
 	return {
 		decorative: true,
 		ground: [await tokenColor(page, "surface-soft"), "none"],
-		lines: await Promise.all(
-			lines.map(async ({ token, ...line }) => ({ ...line, colour: await tokenColor(page, token) })),
-		),
+		edge: "none",
+		lines: await tileLinesIn(page, lines),
 	};
 }
+
+/**
+ * An Announcement's date tile as spec #417 sets it (#419), for the date `shown` ("4 ม.ค. 2574",
+ * as thaiDate gives it) at the window's `width`: read by assistive technology, as before the
+ * feature (Product Owner, 2026-11-23: #419 comment 7100237929); the day bold at H3 size below `sm`
+ * and H2 size from `sm`, over the month and year regular at small size. A current Announcement's
+ * is the light tile, its day `brand-primary` and its month and year `brand-dark` (decision 12); a
+ * closed one's is `surface-base` with a 1 px `border-default` edge, both lines `text-secondary`
+ * (decision 13).
+ */
+export async function announcementDateTile(
+	page: Page,
+	shown: string,
+	width: number,
+	closed = false,
+) {
+	const [day = "", ...monthAndYear] = shown.split(" ");
+	const lines: ExpectedTileLine[] = [
+		{
+			line: day,
+			token: closed ? "text-secondary" : "brand-primary",
+			size: width >= 640 ? 34 : 24,
+			weight: "700",
+		},
+		{
+			line: monthAndYear.join(" "),
+			token: closed ? "text-secondary" : "brand-dark",
+			size: 13,
+			weight: "400",
+		},
+	];
+	return {
+		decorative: false,
+		ground: [await tokenColor(page, closed ? "surface-base" : "surface-soft"), "none"],
+		edge: closed ? `1px solid ${await tokenColor(page, "border-default")}` : "none",
+		lines: await tileLinesIn(page, lines),
+	};
+}
+
+/** An Announcement row's date tile: the parent of its first `time`. */
+export const announcementDateTileOf = (row: Locator) =>
+	row.locator("time").first().locator("xpath=..");
 
 /** The file tile's lines (FileTile.astro): file-text over the file's type, or "ไฟล์". */
 export const fileTileLines = (type: string) =>
 	[
 		{ line: "file-text", token: "brand-primary", size: 24 },
 		{ line: type, token: "brand-dark", size: 13, weight: "600" },
-	] as const satisfies Parameters<typeof lightRowTile>[1];
+	] as const satisfies readonly ExpectedTileLine[];
 
 /** A row's tile's width, height and corner radius at the window's width, "no tile" without one. */
 export async function rowTileShape(tile: Locator) {
@@ -807,7 +873,7 @@ export const rowTileShapeAcrossAsSpecified = () =>
 /** The hospital tile's line (HealthServiceMapRow.astro): the hospital alone. */
 export const HOSPITAL_TILE_LINES = [
 	{ line: "hospital", token: "brand-primary", size: 24 },
-] as const satisfies Parameters<typeof lightRowTile>[1];
+] as const satisfies readonly ExpectedTileLine[];
 
 /**
  * A row's tile at rest, with the pointer on the tile's middle (so on its row too) and with `link`
@@ -828,7 +894,7 @@ export async function rowTileStates(tile: Locator, link: Locator) {
 }
 
 /** What rowTileStates reads of a light tile with `lines` (lightRowTile). */
-export async function lightRowTileStates(page: Page, lines: Parameters<typeof lightRowTile>[1]) {
+export async function lightRowTileStates(page: Page, lines: readonly ExpectedTileLine[]) {
 	const tile = await lightRowTile(page, lines);
 	return { rest: tile, pointer: tile, focus: tile };
 }

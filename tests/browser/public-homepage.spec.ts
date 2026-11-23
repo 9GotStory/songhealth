@@ -78,6 +78,8 @@ import {
 	PHONE_VIEWPORT,
 	pressInside,
 	VIEWPORTS,
+	announcementDateTile,
+	announcementDateTileOf,
 	boxOf,
 	detailOf,
 	entersAfter,
@@ -98,6 +100,10 @@ import {
 	listedTitles,
 	ownTitles,
 	ringedCircle,
+	rowTileLook,
+	rowTileShape,
+	rowTileShapeAt,
+	rowTileStates,
 	selfRunningEnds,
 	shownLines,
 	shownOpacity,
@@ -902,7 +908,7 @@ test("under the pointer a small News card rises 6 px, and a press just above its
 	await expect(page).toHaveURL(`/news/${small.slug}`);
 });
 
-test("four current Announcements show as rows from 640 px and three below, newest first by announcement date, each with its date, the day large, its title as the row's one link and the status the list states after a dot, and never a fifth, a closed one or a draft", async ({
+test("four current Announcements show as rows from 640 px and three below, newest first by announcement date, each with its date on the light tile, the day large in brand-primary over the month and year in brand-dark whatever its status, its title as the row's one link and the status the list states after a dot, and never a fifth, a closed one or a draft", async ({
 	page,
 }) => {
 	const at = (day: number) => `2032-01-${String(day).padStart(2, "0")}T03:00:00.000Z`;
@@ -998,6 +1004,36 @@ test("four current Announcements show as rows from 640 px and three below, newes
 		announcements.getByRole("article", { includeHidden: true }).nth(3),
 		"the fourth Announcement below 640 px",
 	).toBeHidden();
+
+	// The date tile (spec #417 decisions 1, 3 and 12; #419): the light one for the undated (first
+	// and fourth), the not-yet-open (second) and the open (third) Announcement, at the tile's edge
+	// (639, 640 px) and at 320 and 1,440 px, the fourth row shown from 640 px; the open one's stays
+	// as it is under the pointer and under focus.
+	const [seen, expected] = [
+		{ tiles: {} as Record<number, unknown[]>, states: {} },
+		{ tiles: {} as Record<number, unknown[]>, states: {} },
+	];
+	for (const width of [1440, 640, 639, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		seen.tiles[width] = [];
+		expected.tiles[width] = [];
+		for (let index = 0; index < (width >= 640 ? 4 : 3); index += 1) {
+			const tile = announcementDateTileOf(rows.nth(index));
+			seen.tiles[width].push({ look: await rowTileLook(tile), shape: await rowTileShape(tile) });
+			expected.tiles[width].push({
+				look: await announcementDateTile(page, thaiDate(at(5 - index)), width),
+				shape: rowTileShapeAt(width),
+			});
+		}
+	}
+	await page.setViewportSize(DESKTOP_VIEWPORT);
+	seen.states = await rowTileStates(
+		announcementDateTileOf(rows.nth(2)),
+		rows.nth(2).getByRole("link"),
+	);
+	const open = await announcementDateTile(page, thaiDate(at(3)), DESKTOP_VIEWPORT.width);
+	expected.states = { rest: open, pointer: open, focus: open };
+	expect(seen, "the rows' date tiles").toEqual(expected);
 });
 
 test("an Announcement's row shows its category as a badge: procurement in blue on topic-blue, recruitment in brand-dark on accent-warm, any other in brand-primary on surface-soft, and none without a category; a long title keeps to two lines", async ({
