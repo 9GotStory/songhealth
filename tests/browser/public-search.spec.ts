@@ -1564,7 +1564,7 @@ test.describe("a result's row", () => {
 		/** How far the status of the row without a snippet lies under its title. */
 		const statusUnderTitle = () =>
 			resultRowParts(bare).title.evaluate((title) => {
-				const status = title.parentElement?.querySelector(":scope > p");
+				const status = title.nextElementSibling;
 				return status
 					? Math.round(status.getBoundingClientRect().top - title.getBoundingClientRect().bottom)
 					: "no status";
