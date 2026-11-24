@@ -15,8 +15,8 @@
 > was accepted on #365 (Product Owner, 2026-11-21: #365 comment 7060805067). Feature 013's
 > redesign of the ITA pages follows spec #392, implemented by #393–#397, and was accepted on #392
 > (Product Owner, 2026-11-23: #392 comment 7092932555). Feature 014's light row tile and
-> `/health`'s and `/about`'s cards follow spec #417, implemented by #418–#421; its acceptance is
-> due on #417.
+> `/health`'s and `/about`'s cards follow spec #417, implemented by #418–#421, and were accepted
+> on #417 (Product Owner, 2026-11-24: #417 comment 7120317286).
 > **Updated:** 2026-11-24 (#421); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
@@ -2952,7 +2952,7 @@ reference (`docs/prototypes/light-tile-cards.md` there). Each ticket's decisions
 #420 and in §13. The evidence round of #421
 (`docs/evidence/421-light-tile-cards-evidence-round.md`) measures the pages and names what the
 evidence does not cover, which the Product Owner accepted after the walkthrough, answering "Pass"
-(#421 comment 7118897822). The feature's acceptance is due on #417.
+(#421 comment 7118897822). The Product Owner accepted the feature on #417 (comment 7120317286).
 
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
