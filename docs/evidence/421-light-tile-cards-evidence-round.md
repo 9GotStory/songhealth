@@ -35,8 +35,8 @@ head.
 
 The 14 skipped tests are T021's `cms-public-reads.spec.ts`, which skips outside its coordinator;
 the coordinator ran those 14 at 00:07Z. No test of the full run failed. Another project's
-browser tests ran on the same host through the run, which is longer than #420's 32.6 minutes. Its
-near-timeout report named two tests at 60 % or more of their time, both passed and neither of a
+browser tests were running on the host when the suite started (load average 14.55); #420's full
+suite at `facf46e` took 32.6 minutes (#420's evidence log). The run's near-timeout report named two tests at 60 % or more of their time, both passed and neither of a
 Feature 014 page's tiles or cards: `public-homepage.spec.ts`' case on the space each Homepage
 section takes, 57.6 s of its 60 s, and `public-demo-dataset.spec.ts`' axe and focus case on the
 dataset's list pages at the desktop width, 22.8 s of 30 s.
@@ -156,24 +156,29 @@ px at every width is shorter than the window):
 375 and 320 px and shorter than the window, 900 px, at 1,440 and 1,024 px before and after; and
 `/health` is 85 px taller at 320 px alone, where its two cards stand one to a row. Spec #417
 "Measured in the prototype" gave `/about` these heights at the five widths and `/health` 985 px at
-320 px.
+320 px; its `/health` at 375 px, 800 px then 859 px, is the document's own height, under the 900 px
+window that every capture takes at the least.
 
 **Which pairs differ, and where** (the `pairs:` lines of `scripts/evidence-branch.sh`): 15 of the
 145 pairs are identical, the three cases with no row tile or card in view
 (`health-report-document-unpublished`, `page-no-summary`, `page-title-only`) at the five widths.
-Every other pair differs in the tiles' bands, 92 px high from 640 px and 68 px below it, one per
-tile in view, and on `/about` and `/health` from the cards down; the fixture pages differ also in
-narrower bands, their synthetic dates (next paragraph), and `document-file-gone` and
-`health-report-file-gone`, whose card holds no file tile, in those alone. The Homepage's demo Announcements
+Every other pair but the cards' pages differs in the tiles' bands, 92 px high from 640 px and 68
+px below it, one per tile in view; the fixture pages differ also in narrower bands, their synthetic
+dates (next paragraph), and `document-file-gone` and `health-report-file-gone`, whose card holds no
+file tile, in those alone. On the cards' pages the pairs read: `/about` and `about-no-organization`
+"rows 0–403 the same" at 1,440 px, 0–60 at 1,024, 0–333 at 768, 0–335 at 375 and 0–353 at 320, each
+then taller; `about-no-page` differs in rows 274–579 at 1,440 px and 274–587 at 1,024 px and is
+taller below; `/health` differs in one band, rows 382–523 at 1,440 and 1,024 px, 376–521 at 768 and
+338–533 at 375, and at 320 px is taller after "rows 0–355 the same". The Homepage's demo Announcements
 kept their states between the before and the after images: `home` differs in its four tiles'
 bands at 1,440, 1,024 and 768 px and in three at 375 and 320 px, at the same height.
 
 **Against the tickets' own after images** (`.tmp/421/cmp-tickets.sh`, each after image against
 the newest earlier ticket's of the same name, #420 retro): every demo dataset page is byte for byte
 its ticket's after image at the five widths, the Homepage, `/about` and `/health` #420's,
-`/announcements` #419's, and the rest #418's; so is `home-announcements` (#419's) and the
-fixture pages without a row whose date moves (`health-report-document-unpublished`,
-`page-no-summary`, `page-title-only`, #418's). The other fixture pages differ from their tickets'
+`/announcements` #419's, and the rest #418's; so are `home-announcements` (#419's),
+`about-no-organization` (#420's) and the fixture pages without a row whose date moves
+(`health-report-document-unpublished`, `page-no-summary`, `page-title-only`, #418's). The other fixture pages differ from their tickets'
 after images only in bands 10 to 26 px high, their synthetic dates: the fixtures date their
 content from the day they run, and the round ran a day after #418 and #419 ("วันที่เอกสาร 19 พ.ย.
 2569" then "20 พ.ย. 2569" on `document-file-gone`, "วันที่รายงาน 18 พ.ย. 2569" then "19 พ.ย. 2569" on
@@ -227,24 +232,28 @@ px (§9.9). Every other text reads 4.97:1 or more.
 output>`, one run per file):
 
 - #418's twelve outputs, read at `2d2b027`: every one of the ticket's folded lines is the same in
-  the round, and every per-width reading at the same width and ratio but two: on
-  `documents-file-gone` the synthetic Document's date, "19 พ.ย. 2569" at 4.97:1, is not in the round,
-  which reads its next day's date (the fixtures date their content from the day they run); on a
-  Service with Health Services "แจ้งปัญหาสุขภาพ" reads 10.14:1 at 768 px for 10.13:1. `/about`'s
+  the round, and every per-width reading at the same width and ratio but six, of two texts: on
+  `documents-file-gone` the synthetic Document's date, "19 พ.ย. 2569" at 4.97:1, is not in the
+  round at any of the five widths (164 of 169), which reads its next day's date (the fixtures date
+  their content from the day they run); on a Service with Health Services "แจ้งปัญหาสุขภาพ" reads
+  10.14:1 at 768 px for 10.13:1 (169 of 170). `/about`'s
   six lines new to the round are the cards' summaries #420 added.
 - #419's five outputs, read at `404bffc`: `/announcements`' 20 folded lines and 170 readings the
   same; the 21 Announcements' 25 and 14 folded lines the same, their per-width readings moved by
   the fixtures' dates a day later (which day sits on a current tile and which on a closed one moved
-  with them, the readings themselves 5.78:1 and 4.97:1 as before); the Homepage's 92 folded lines
-  the same but "พื้นที่" 6.53:1 at 1,440 px for 6.52:1, and at 768 px "แจ้งเรื่องที่ไม่ได้รับความสะดว…"
-  5.20:1 for 5.14:1; with each status, 96 of 97 the same and "ของประชาชนในอำเภอสอง จังหวัดแพ…"
-  7.02:1 at 1,024 px for 7.01:1.
+  with them, the readings themselves 5.78:1 and 4.97:1 as before); the Homepage's folded lines 91
+  of 92 the same, "พื้นที่" 6.53:1 at 1,440 px for 6.52:1, and among its per-width readings also
+  "แจ้งเรื่องที่ไม่ได้รับความสะดว…" 5.20:1 at 768 px for 5.14:1, whose folded 5.07:1 is the same
+  (553 of 555); with each status, 96 of 97 folded lines the same, "ของประชาชนในอำเภอสอง จังหวัดแพ…"
+  7.01:1 at 768 px alone where the ticket also read 7.01:1 at 1,024 px, now 7.02:1 there (553 of
+  554).
 - #420's three outputs, read at `2b70970`: `/health`'s 9 and `/about`'s 35 folded lines the same,
   each reading at the same width and ratio; without the `organization` page 33 of 34 the same,
   the H1 on the field 5.86:1 at 320 px for 5.93:1, the reading §9.9 records for that H1 since #371.
 
-The five texts whose reading moved by a few hundredths lie on four pages whose after images are
-byte for byte their tickets' (a Service with Health Services, the Homepage with and without the
+So three of the tickets' folded lines differ, each by 0.07:1 at most, and five per-width
+readings besides the fixtures' dates. All of them lie on four pages whose after images
+are byte for byte their tickets' (a Service with Health Services, the Homepage with and without the
 fixture, `/about` without its `organization` page; "Screenshots"), so they show the script's own
 variance from one run to the next, not a change of the page; none is a row tile's or a card's on
 `/health` or `/about`.
@@ -987,15 +996,15 @@ Spec #417 lists fifteen decisions, the last four the prototype's picks and the s
 Product Owner made before it (#417 comment 7094711736: the grill's questions each answered
 "ตามที่แนะนำ", the picks and the seams through the session's question tool, each the
 "(Recommended)" option); `docs/design/DESIGN.md` §10 lists them. Every decision made while the
-tickets were built has a recorded answer on its ticket, and §10 and §13 cite each one that decides
-what a page shows:
+tickets were built has a recorded answer on its ticket; §10 cites each one, and §13 the one that
+changed what a page shows (#419 comment 7100237929):
 
 | Ticket | Decision | Answer |
 | --- | --- | --- |
 | #418 | The light tile's edge on a white row; `tabular-nums` on its numbers | 1 A, no hairline; 2 A, left as it is (comment 7096650557) |
 | #419 | An Announcement's date tile, which the rows' tile hides from assistive technology elsewhere | read by assistive technology, as before, the "(Recommended)" option before the build (comment 7100237929) |
 | #419 | No assertion pins a closed Announcement's tile on the list's first page | A, as the suite reads it through `gotoListing`, "ตามที่แนะนำ" (comment 7102628698) |
-| #420 | The gate's `touch-action: manipulation` and the room under `/health`'s two cards at 1,440 px | "ไม่ทำใน #420 (แนะนำ)", option A, both outside Feature 014 (comment 7106846593) |
+| #420 | The gate's `touch-action: manipulation` and the room under `/health`'s two cards at 1,440 px | "ไม่ทำใน #420 (แนะนำ)", option A, both left out of #420 and listed in its pull request (comment 7106846593); the note from #420 on #421 keeps them outside Feature 014 |
 
 Still open, each outside Feature 014:
 
@@ -1016,7 +1025,7 @@ Each ticket's gate (CLAUDE.md "Frontend Design & Quality") is self-review, recor
 request; this round ran none again, as #421 changes no page:
 
 - #418 (PR #422): critique 15/20 with no provable defect in scope and no conflict with
-  `DESIGN.md`; audit 19/20; the guidelines with no defect; `impeccable detect` `[]` on the five
+  `DESIGN.md`; audit 19/20; the guidelines, applied from memory, with no defect; `impeccable detect` `[]` on the five
   components; the overlay's one finding per page `radial-halo` on the deep field, which
   `.impeccable/critique/ignore.md` drops; Playwright MCP with no overflow at 320 px, the tile's
   colours the same at rest, under the pointer and under focus, and the focus ring visible.
@@ -1113,8 +1122,9 @@ Owner accepted it (#421 comment 7118897822):
   #418's, taken at `9a29f44` on `main` before the feature's first promotion (the note from #418);
   #419's three fixture cases have their own before images, taken at `be1c832`, where an
   Announcement's tile was still the gradient one (the note from #419). Both sets were taken on
-  2026-11-23, and the demo dataset's dates count from its load, so a row's state can move between
-  the before and the after images (see "Screenshots").
+  2026-11-23, a day before the round, and the fixtures date their content from the day they run, so
+  the synthetic pages' dates are a day later in the after images; the demo dataset's dates count
+  from its load, and its Announcements kept their states (see "Screenshots").
 - Under 4.5:1 on the Homepage, outside the rows and in large text, unchanged by the feature: the
   hero's "ด้านสุขภาพ" at 768 px and the Health Service Discovery counts at 1,024 px (the note from
   #419); large text needs 3:1.
@@ -1135,6 +1145,11 @@ Each on the Product Owner's answer or a decision of spec #417, with no follow-up
   (decision 5); and a summary's last line that can hold one word alone, the card's H2 without
   `text-balance` (decision 7, the catalog's card whole; `DESIGN.md` §4.1 keeps titles only), each
   named as settled by its decision in #420 comment 7105447692.
+
+#420's §13 entry, "v1.8 `/health`'s and `/about`'s cards", stays its own beside #421's, as
+`CODING_STANDARDS.md` "Documents" asks (a ticket's decisions in §13, one entry per ticket with its
+authority) and as v1.7 kept #393's to #396's entries beside #397's. The note from #420 on #421
+(comment 7116512155) had this ticket fold it into the feature's entry; that note is not followed.
 
 ## The prototype
 

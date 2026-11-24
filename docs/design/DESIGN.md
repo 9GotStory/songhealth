@@ -125,16 +125,15 @@
 > **Feature 014 decision (Product Owner, 2026-11-23; spec #417, #417 comment 7094711736):** every
 > row tile of 68 px (92 px from `sm`) turns light and the rows share one tile (`RowTile`): flat
 > `surface-soft`, its icon, a MOIT's number or an Announcement's day `brand-primary`, its second
-> line `brand-dark` (§3.2, §7.3). A closed Announcement's tile is white with a `border-default`
-> edge and its lines `text-secondary` (§8.7). `/health`'s and `/about`'s destinations are the
-> Service catalog's cards, each with its page's heading icon and from `sm` a summary,
-> in place of the Quick Access tile's list form (§7.3, §7.8, §8.4, §9.9). #418 builds the tile on the
-> file, MOIT, Health Report and Health Service rows, #419 on an Announcement's date tile with the
-> closed one, and #420 the cards, each with its own decisions in §13's change history, and #421
-> the documents, the measures and the limits. Nothing a page reads, orders or links to changes, and
-> no colour, type size, radius or shadow joins the tokens. The section heading's tile, the ITA year
-> card's tile, the 48 px tile of a card without a picture and the Homepage's Quick Access keep
-> their look.
+> line `brand-dark` (§3.2, §7.3). A closed Announcement's tile is white with a `border-default` edge
+> and its lines `text-secondary` (§8.7). `/health`'s and `/about`'s destinations are the Service
+> catalog's cards, each with its page's heading icon and from `sm` a summary, in place of the Quick
+> Access tile's list form (§7.3, §7.8, §8.4, §9.9). #418 builds the tile on the file, MOIT, Health
+> Report and Health Service rows, #419 on an Announcement's date tile with the closed one, #420 the
+> cards and #421 the documents, the measures and the limits, each with its own decisions in §13's
+> change history. Nothing a page reads, orders or links to changes, and no colour, type size, radius
+> or shadow joins the tokens. The section heading's tile, the ITA year card's tile, the 48 px tile
+> of a card without a picture and the Homepage's Quick Access keep their look.
 
 ## 1. Scope, authority and status
 
@@ -2911,8 +2910,8 @@ session's question tool, each the "(Recommended)" option, on 2026-11-23 (spec #4
 Product Owner made", whose numbers these are; #417 comment 7094711736):
 
 - every row tile of 68 px (92 px from `sm`) light, one tile for all of them: the Document row's
-  file tile wherever it shows, a MOIT's row, a Health Report's row, an Announcement's date tile on
-  the Homepage and on `/announcements`, and a Health Service's hospital tile; the section
+  file tile wherever it shows, a MOIT's row, a Health Report's row, a current Announcement's date
+  tile on the Homepage and on `/announcements`, and a Health Service's hospital tile; the section
   heading's tile, the ITA year card's tile and the 48 px tile of a card without a picture keep
   their gradient (1); the tile still under the pointer (3);
 - each card's icon its destination's heading icon, and `network`, new to the site, for
@@ -2945,7 +2944,8 @@ Product Owner made", whose numbers these are; #417 comment 7094711736):
   assertion on the page it lands on, its look on the first page shown by the demo dataset's
   `/announcements` (#419 comment 7102628698);
 - `touch-action: manipulation`, set nowhere on the site, and the room under `/health`'s two cards
-  at 1,440 px left outside Feature 014 (#420 comment 7106846593).
+  at 1,440 px left out of #420 and listed in its pull request, since neither is the cards' own
+  (#420 comment 7106846593).
 
 The prototype's variants, on the branch `prototype/light-tile-cards` at `46daee8`, are the visual
 reference (`docs/prototypes/light-tile-cards.md` there). Each ticket's decisions are on #418 to
@@ -3752,18 +3752,20 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   each summary 5.07:1 at its lowest, every other text as before (`/about`'s summary over its ring
   4.85:1, unchanged); the rings with `measure-focus-contrast.ts` as §9.9 and §10 record them.
   Authority: spec #417 "The cards" and decisions 4 to 8 and 14, and #417 comment 7094711736.
-- **v1.8 documents, measures and limits (2026-11-24, Feature 014 #421):** the feature keeps the
-  one version step #418 took. Feature 014's banner names what each of #418, #419 and #420 built,
-  in place of #418's tile with the rest still to come, and the Status line, as #418 wrote it, names the
-  acceptance due on #417. §10 lists what the Product Owner picked for Feature 014 and decided on #418, #419 and
-  #420, with each decision's source; its kept limits are the ones #420 left (#408's gone, #383's
-  naming the Homepage's Quick Access and `/contact`). The readings Feature 014's tickets took were
-  read again at the integration head `96b84c4` with each ticket's own script: the light tile's
-  10.94:1 and 5.78:1, a closed Announcement's tile's 4.97:1 and the cards' 16.54:1 and 5.07:1 that
-  §3.2, §7.3, §8.3, §8.7 and §9.9 record are the same, each ticket's closing lines the same but the
-  fixtures' dates a day later and a few hundredths on five texts of four pages whose after images
-  are byte for byte the tickets', and the cards' focus rings the same line for line; every page where only a tile
-  changed keeps its height at the five widths
+- **v1.8 documents, measures and limits (2026-11-24, Feature 014 #421):** the feature keeps the one
+  version step #418 took. Feature 014's banner, in place of #418's tile with the rest still to come,
+  names the closed Announcement's tile and the cards with their sections, what each of #418 to #421
+  built, that no token joins, and the tiles that keep their look; the Status line, as #418 wrote it,
+  names the acceptance due on #417. #420's entry stays its own, one entry per ticket. §10 lists what
+  the Product Owner picked for Feature 014 and decided on #418, #419 and #420, with each decision's
+  source; its kept limits are the ones #420 left (#408's gone, #383's naming the Homepage's Quick
+  Access and `/contact`). The readings Feature 014's tickets took were read again at the integration
+  head `96b84c4` with each ticket's own script: the light tile's 10.94:1 and 5.78:1, a closed
+  Announcement's tile's 4.97:1 and the cards' 16.54:1 and 5.07:1 that §3.2, §7.3, §8.3, §8.7 and
+  §9.9 record are the same; each ticket's closing lines are the same but three texts', by 0.07:1 at
+  most, on pages whose after images are byte for byte the tickets' (the fixtures' dates, a day
+  later, move per-width readings alone); the cards' focus rings are the same line for line; and
+  every page where only a tile changed keeps its height at the five widths
   (`docs/evidence/421-light-tile-cards-evidence-round.md`). Authority: spec #417 "Documents" and
-  "Decisions the Product Owner made", the decisions on #418, #419 and #420, the notes on #421,
-  and #421 comment 7118897822 (the walkthrough). No page changed.
+  "Decisions the Product Owner made", the decisions on #418, #419 and #420, the notes on #421, and
+  #421 comment 7118897822 (the walkthrough). No page changed.
