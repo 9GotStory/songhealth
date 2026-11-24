@@ -13,7 +13,11 @@
 // the list of all its options, since a screenshot leaves out the pop-up an open select draws
 // (#176). A target that ends in `!text` is captured after a click on the element whose whole text
 // is `text`, such as a control that opens part of the page (#148). The origin is
-// PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are read anonymously, with no credential.
+// PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are read anonymously, with no credential,
+// and each request carries the suites' synthetic referrer (playwright.config.ts), so a capture of a
+// missing page, such as the 404 page's, counts as the tests' miss in EmDash's 404 log
+// (scripts/dev-runtime-residue.sh; Feature 015 #433: it sent none, and the miss stayed for the
+// Product Owner to clear).
 // It prints each file with its size in pixels, so a pull request can quote a page's height from it
 // (#146 retro). A close-up also prints its element's layout size, the one to quote: its PNG covers
 // every pixel the element touches, so it can come out a pixel larger (#194 retro). It records each
@@ -49,6 +53,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { chromium } from "@playwright/test";
+import { SYNTHETIC_REFERRER } from "../playwright.config.ts";
 import { clashes, planShots } from "./capture-plan.ts";
 
 let args = process.argv.slice(2);
@@ -131,7 +136,11 @@ async function pngSize(file) {
 async function openPage(path, viewport, click) {
 	// With reduced motion preferred a page stands still and whole: the Homepage's reveal holds back
 	// what lies below the window, where a full-page screenshot never scrolls (#249).
-	const page = await browser.newPage({ viewport, reducedMotion: "reduce" });
+	const page = await browser.newPage({
+		viewport,
+		reducedMotion: "reduce",
+		extraHTTPHeaders: { referer: SYNTHETIC_REFERRER },
+	});
 	await page.goto(new URL(path, origin).href);
 	// A full-page screenshot does not scroll, so lazy pictures below the fold would never load.
 	// Load and decode every picture first, as a reader scrolling down would see it, including those

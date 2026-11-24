@@ -1,6 +1,6 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.8, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.9, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
@@ -16,8 +16,9 @@
 > redesign of the ITA pages follows spec #392, implemented by #393–#397, and was accepted on #392
 > (Product Owner, 2026-11-23: #392 comment 7092932555). Feature 014's light row tile and
 > `/health`'s and `/about`'s cards follow spec #417, implemented by #418–#421, and were accepted
-> on #417 (Product Owner, 2026-11-24: #417 comment 7120317286).
-> **Updated:** 2026-11-24 (#421); first drafted 2026-10-30
+> on #417 (Product Owner, 2026-11-24: #417 comment 7120317286). Feature 015's redesign of Search
+> and the 404 page follows spec #432, implemented by #433–#436.
+> **Updated:** 2026-11-24 (#433); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -135,6 +136,18 @@
 > or shadow joins the tokens. The section heading's tile, the ITA year card's tile, the 48 px tile
 > of a card without a picture and the Homepage's Quick Access keep their look.
 
+> **Feature 015 decision (Product Owner, 2026-11-24; spec #432, #432 comment 7121642793):** Search
+> (`/search`) and the site's 404 page, the last two public pages in the earlier look, are
+> redesigned after the Homepage and Features 009 to 014's pages as they are built, in the look the
+> Product Owner picked from a prototype. `/search` is headed on the deep field as the lists are
+> (§7.8), under the label "ค้นหา" over the H1 "ค้นหาข้อมูล", and carries the Homepage hero's white
+> search pill on the field (§8.1); with results the groups and the count lie on a white card over
+> the field's edge, and with nothing to show the state's empty state does. The 404 page opens on
+> the same field with the same pill. Nothing a search reads, matches, ranks, groups, counts, pages
+> or links to changes, and no colour, type size, radius or shadow joins the tokens. #433 builds
+> `/search` on the field, #434 a result's row, #435 the 404 page and #436 the documents, the
+> measures and the limits, each with its own decisions in §13's change history.
+
 ## 1. Scope, authority and status
 
 This document records the public presentation of Songhealth: its tokens, its components, the
@@ -223,7 +236,11 @@ health-service network.
   its number on the Document row's tile, light since Feature 014 (§8.3). A MOIT's page opens on the field with the
   Post page's header, its fiscal year in the outlined pill and "MOIT n" opening its H1, no larger
   than H2 size (§8.3, §9.11; #395), and its table of contents' panel and Requirement cards lie
-  over the field's edge (§8.3, §9.11; #396).
+  over the field's edge (§8.3, §9.11; #396). Feature 015 brings the list's heading to Search
+  (spec #432; §7.8; #433), under the label "ค้นหา" over the H1 "ค้นหาข้อมูล", with the Homepage
+  hero's search pill on the field (§8.1), nothing over the field's edge before a search, and after
+  one the groups and the count on a white card over the edge, then the results and the pager, or
+  the state's empty state over the edge.
   Every page outside these features keeps its design under the new shell until its own
   feature.
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
@@ -462,11 +479,11 @@ own module.
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
   2026-11-11: #241 comment 6791096480, item 1), and so does the link of a list's heading on the
-  deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link and in the links under `/services`' lead, 20 px in the search's
-  submit button, on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The hero's search field opens with a 20 px `search`
+  deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link and in the links under `/services`' lead, 20 px in the search
+  pill's submit button (§8.1, on the Homepage and `/search`), on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The search pill's field opens with a 20 px `search`
   icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's cards, small and large, `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3; in a
-  list heading's tile `heart` on `/activities`, `file-text` on `/announcements` and `folder-open` on
-  `/documents`, §7.8), and so does a row's light tile, its icon in `brand-primary` (§7.3; Feature
+  list heading's tile `heart` on `/activities`, `file-text` on `/announcements`, `folder-open` on
+  `/documents` and `search` on `/search`, §7.8), and so does a row's light tile, its icon in `brand-primary` (§7.3; Feature
   014 #418): a Document row's file tile on `/documents`, with `file-text`, a Health Service row's
   tile on `/health-services`, with `hospital`, whose
   "เปิดแผนที่" opens with a 20 px `map-pin` and ends in the 16 px `arrow-up-right` (§7.3; Feature
@@ -562,9 +579,9 @@ this document names:
 | Area | Components |
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
-| Headings | `PageHeading` (`/search` alone since Feature 013 #394), `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (and a MOIT's header, §9.11), or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10), `ThaiTitle` |
+| Headings | `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (and a MOIT's header, §9.11), or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10; `/search` before a search, §7.8), its lead left out on `/search` after a search and the search pill in its slot (§7.8, Feature 015 #433), `ThaiTitle`; every public page is headed this way since the earlier page heading and `/search`'s bordered search form went (#433, §13 v1.9) |
 | Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog, and with a destination in place of a Service, `/health`'s and `/about`'s cards with `DestinationIcon`, Feature 014 #420; and `kind="section"`, a Health Service's "บริการที่ให้", §7.3, §8.4, §9.8), `HomeQuickLink` (the Homepage's Quick Access, §8.11), `ItaYearCard` (a fiscal year's card on the ITA landing, §8.3), `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3), `SoftTile` (the 40 px `surface-soft` tile that heads a unit's panel and a MOIT's Requirement card, §7.3, §9.11), `OfficeContactDetails` (Office Contact's card on `/contact`, a row per detail with its icon, §9.10); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
-| Homepage | `HomeHero`; `SearchForm` on `/search` |
+| Homepage | `HomeHero`; `SearchPill`, the site's white search pill, the hero's and `/search`'s, each with its own placeholder, the Homepage's alone with its submit state (§7.8, §8.1, §8.9; Feature 015 #433) |
 | Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5), a Health Report's (§9.6), a Service's (§9.7), a Health Service's (§9.8), a Basic Page's (§9.9), and `/about`'s, a list's field under a Basic Page's header (§9.9), and a MOIT's page, its body over the field's edge in `ListBody` (§9.11) |
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9), and a MOIT's page, on its own `DeepField` with `ListBody` after it, with "MOIT n" opening its H1 and the H1 no larger than H2 size (§9.11) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
@@ -1012,7 +1029,8 @@ About Document pages (`/about/policies`, `/about/plans` and `/about/results`), a
 #365 decisions 4 and 12) the Personnel page (`/about/personnel`), and since #369 (spec #365
 decisions 4, 9 and 13) the Contact page (`/contact`), and since Feature 013 #393 (spec #392
 decisions 2, 7 and 11) the ITA landing (`/ita`), and since #394 (spec #392 decisions 2 and 12) a
-fiscal year's page (`/ita/{fiscal-year}`).
+fiscal year's page (`/ita/{fiscal-year}`), and since Feature 015 #433 (spec #432 decisions 2, 4, 8
+and 9) Search (`/search`).
 
 - **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
   `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
@@ -1083,6 +1101,27 @@ fiscal year's page (`/ita/{fiscal-year}`).
   link or links under the lead, and keeps its lead, its title in the head and its breadcrumb (spec
   #392 decision 2; Feature 013 #394). Its MOIT rows lie over the field's edge; a year's page
   always holds a MOIT, so it has no empty state (§8.3).
+- **`/search`** is labelled "ค้นหา" over its H1 "ค้นหาข้อมูล", with `search`, its breadcrumb
+  หน้าแรก › ค้นหา; its title in the head and its breadcrumb still read "ค้นหา" (spec #432 decision
+  2; Feature 015 #433). It has no pill link or links under the lead, and shows its lead in the
+  start state alone, an address without `q`, so a phone's first result starts higher (decision 4:
+  at 375 px no lower than its 706 px before). Under the heading block, or the lead, 24 px below
+  `sm` and 32 px from `sm`, lies the site's search pill (§8.1), holding the address's query, with
+  the placeholder "ค้นหาบริการ ข่าวสาร หน่วยบริการ หรือเอกสาร…" and no submit state (decision 9;
+  spec #432 "The search pill"). Before a search nothing lies over the field's edge: the field ends
+  40 px under the pill below `sm` and 48 px from `sm`, and the page's own 64 px, 80 px from `lg`,
+  follow before the footer. After one the block over the edge is the state's empty state, today's
+  white card with today's words and links (a query too short or empty, nothing found, a failed
+  search), or with results the groups' card: white, the `card` shadow, radius 24 and 20 px inside,
+  holding the eight group links as before (44 px pills at label size, 8 px apart and wrapping
+  inside it, the current one `brand-primary` with `surface-base` words, the others `surface-soft`
+  with `brand-dark` words and `border-default` under the pointer, a group at 0 still a link with
+  its count) and 16 px under them "พบ n รายการ" at label size in `text-secondary`. The results, a
+  search result's card (§7.3), follow it, then the pager, 32 px apart; a group at 0 or a page past
+  the last shows its empty state under the card in their place (spec #432 "`/search`: each state
+  over the field's edge"). With motion allowed the heading block, then the lead, then the pill
+  rise in, the pill as the hero's search does; the breadcrumb, the groups' card, an empty state
+  and the pager show at once.
 - **The links under the lead.** `/services` has two, "ค้นหาหน่วยบริการสุขภาพที่เกี่ยวข้อง" to the
   directory and "คู่มือและแบบฟอร์ม" to `/documents`, its related pages that are not Services (spec
   #338 "The Service catalog", decision 15): 16 px under the lead, `surface-base` words, semibold,
@@ -1117,7 +1156,9 @@ fiscal year's page (`/ita/{fiscal-year}`).
   (§7.3; Feature 012 #367), the featured first leader across the row and the others' cards 32 px
   under it, or the empty state; it has no pager, and no card holds a link, so no focus ring meets
   the field. On `/about/personnel` the block is the units' panels (§7.3; Feature 012 #370), 24 px
-  apart, or the empty state; it has no pager, and no row holds a link. The cards are the
+  apart, or the empty state; it has no pager, and no row holds a link. On `/search` the block is
+  the state's empty state, or the groups' card with the results and the pager after it (Feature
+  015 #433), whose rings lie on their white cards. The cards are the
   Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
@@ -1312,7 +1353,10 @@ corners are radius 32 (24 below `sm`):
   window. It is a paragraph that names the hero; the page's H1 is the site title, out of sight.
 - **The search** is a white pill, 68 px high (60 px below `sm`) and at most 540 px wide, with a
   round `accent-warm` submit button of 52 px (44 px below `sm`). Its field and its form are
-  labelled "ค้นหาในเว็บไซต์", and it submits to `/search`.
+  labelled "ค้นหาในเว็บไซต์", and it submits to `/search`. It is the site's search pill
+  (`SearchPill`), which `/search` shows too under its heading on the field, holding the query, with
+  its own placeholder, up to 640 px from `lg` and without the submit state (§7.8; Feature 015
+  #433); here the placeholder is "คุณกำลังมองหาอะไร?".
 - **The Featured card** is one link to the item, at most 400 px wide (340 px below `sm`): a white
   card tilted 2° over an `accent-warm` sheet, which straightens on hover and on focus. It holds
   the picture's frame, 360 px high (260 px below `sm`), then "เรื่องเด่น" with the date the item's
@@ -1740,7 +1784,8 @@ page changes (item 3). The mark is taken off when the page is shown again from h
 the browser's back button, and after ten seconds, so a result that never opens in the window (a
 stopped load, one opened in another tab) does not leave the form shut. The spinner turns only under `prefers-reduced-motion: no-preference`.
 This is the site's one script, inline at the end of the Homepage; without JavaScript both forms
-submit as plain forms. Forms on other pages are unchanged.
+submit as plain forms. Forms on other pages are unchanged: `/search`'s search pill, the hero's
+pill, has no submit state and the page no script (spec #432 "The search pill"; Feature 015 #433).
 
 ### 8.10 Activities
 
@@ -2852,7 +2897,7 @@ on 2026-11-22 (spec #392 "Decisions the Product Owner made", whose numbers these
   `#requirement-n` addresses, the Requirement cards open at first and closing without JavaScript,
   the neighbour links within one fiscal year, the empty state's words and how Evidence and
   unavailable files are counted as they are; no new field, address or section; the model and the
-  Admin as they are; `QuickLinkCard` gone and `PageHeading` on `/search` alone (1);
+  Admin as they are; `QuickLinkCard` gone and the earlier page heading on `/search` alone (1);
 - the landing and a fiscal year's page headed as the lists, under the label "ITA", with
   `shield-check` and `calendar-check`, and no pill link or links under the lead (2);
 - a MOIT's page with the Post page's header on the field (3), as decision 13 changes it;
@@ -3769,3 +3814,19 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (`docs/evidence/421-light-tile-cards-evidence-round.md`). Authority: spec #417 "Documents" and
   "Decisions the Product Owner made", the decisions on #418, #419 and #420, the notes on #421, and
   #421 comment 7118897822 (the walkthrough). No page changed.
+- **v1.9 Search on the field (2026-11-24, Feature 015 #433):** `/search` opens on a list's deep
+  field (§7.8): its breadcrumb หน้าแรก › ค้นหา, the label "ค้นหา", the H1 "ค้นหาข้อมูล", which was
+  "ค้นหา", with `search` in the heading's tile, and the lead in the start state alone; the title in
+  the head, the description, the canonical address, `noindex` and the empty states' words stay.
+  The Homepage hero's search pill becomes the site's one (`SearchPill`, §8.1): `/search` shows it
+  under the heading block, holding the query, with the placeholder "ค้นหาบริการ ข่าวสาร หน่วยบริการ
+  หรือเอกสาร…", up to 640 px from `lg` and without the hero's submit state, so the page has no
+  script; the hero's search is the same pill as before. In the start state nothing lies over the
+  field's edge; otherwise the state's empty state does, or with results the eight group links and
+  the count on a white card, then the results, as before, and the pager, 32 px apart, and a group
+  at 0 or a page past the last its empty state under the card. With motion allowed the heading
+  block, the lead and the pill rise in. `PageHeading`, which no page uses now, and `/search`'s
+  bordered `SearchForm` go. The Status line and a Feature 015 banner name the feature, and §2, §5,
+  §7.1, §7.8, §8.1 and §8.9 name the page. Authority: spec #432 "The search pill", "`/search`: on
+  the field", "`/search`: each state over the field's edge", "Motion" and decisions 2, 4, 8 and 9,
+  and #432 comment 7121642793.

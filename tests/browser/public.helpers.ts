@@ -2466,8 +2466,12 @@ export function testHeadingOnField(list: HeadingOnField): void {
 				href,
 			);
 		}
-		// Lucide's class is the one thing that tells two icons apart (expectServiceIcon).
-		const icon = await boxOf(heading.field.locator(`svg.lucide-${list.icon}`), "the tile's icon");
+		// Lucide's class is the one thing that tells two icons apart (expectServiceIcon). The tile's
+		// icon is its span's child: /search's search pill shows the same icon on the field (#433).
+		const icon = await boxOf(
+			heading.field.locator(`span > svg.lucide-${list.icon}`),
+			"the tile's icon",
+		);
 		expect([icon.width, icon.height], "the tile's icon is 24 px").toEqual([24, 24]);
 		expect(icon.x + icon.width, "the tile is left of the H1").toBeLessThanOrEqual(
 			(await boxOf(heading.title, "the H1")).x,

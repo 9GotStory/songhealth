@@ -9,8 +9,9 @@
 // The field's content ends 96 px above the field's lower edge below `sm` and 128 px from `sm`:
 // the room ListBody.astro lies over. That block, what follows the heading, starts 64 px and 88 px
 // above the edge. A page with nothing over the edge, /contact with no Office Contact set (Feature
-// 012 #369; spec #365 decision 9), passes `overEdge={false}`: the field then ends 40 px under the
-// lead below `sm` and 48 px from `sm`, as a header's field without a card does (CardOverField).
+// 012 #369; spec #365 decision 9), and /search in its start state (#433), pass `overEdge={false}`:
+// the field then ends 40 px under its last part, the lead or /search's pill, below `sm` and 48 px
+// from `sm`, as a header's field without a card does (CardOverField).
 //
 // The link is a white pill with brand-primary words (DESIGN.md §3.2) and a 16 px arrow-right, the
 // Homepage's arrow for a heading's link (CODING_STANDARDS "Public pages"); an outlined pill's words
@@ -25,9 +26,14 @@
 // pointer they keep their colour, as the breadcrumb's links on the field do: accent-warm small text
 // reads below 4.5:1 there (CODING_STANDARDS "Public pages"; #339 comment 6941979791).
 //
+// /search (Feature 015 #433; spec #432 "`/search`: on the field") shows its lead in the start
+// state alone, and lays the site's search pill on the field under the heading block through the
+// default slot, 24 px under it below `sm` and 32 px from `sm`, as the breadcrumb is above it.
+//
 // With motion allowed the heading block and then the lead rise in as the page opens, as the
-// hero's text does (`hero-enter`, src/styles/global.css; spec #280 "Motion"). The breadcrumb, the
-// link and the links under the lead show at once, so nothing the keyboard reaches is held back.
+// hero's text does (`hero-enter`, src/styles/global.css; spec #280 "Motion"), and /search's pill
+// after them, as the hero's search does (SearchPill.astro). The breadcrumb, the link and the links
+// under the lead show at once, so nothing the keyboard reaches is held back.
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import { breadcrumbTrail, type Crumb, type NavigationSection } from "../lib/navigation";
 import Breadcrumb from "./Breadcrumb.astro";
@@ -45,7 +51,8 @@ interface Props {
 	/** The small label above the H1. */
 	label: string;
 	title: string;
-	lead: string;
+	/** The sentence under the H1, which /search shows in its start state alone. */
+	lead?: string;
 	/** A related list the heading links to, such as Health News from /news. */
 	link?: { href: string; label: string };
 	/** Related pages linked under the lead, in order. */
@@ -70,7 +77,9 @@ const { section, crumbs, label, title, lead, link, leadLinks = [], overEdge = tr
 				<SectionHeading level={1} surface="field" label={label} title={title} class="hero-enter">
 					<slot name="icon" slot="icon" />
 				</SectionHeading>
-				<p class="hero-enter max-w-prose text-body-large [--hero-enter-delay:0.1s]">{lead}</p>
+				{lead && (
+					<p class="hero-enter max-w-prose text-body-large [--hero-enter-delay:0.1s]">{lead}</p>
+				)}
 				{leadLinks.length > 0 && (
 					<ul class="flex flex-wrap gap-x-6 gap-y-1">
 						{leadLinks.map((related) => (
@@ -97,5 +106,6 @@ const { section, crumbs, label, title, lead, link, leadLinks = [], overEdge = tr
 				</a>
 			)}
 		</div>
+		<slot />
 	</div>
 </DeepField>
