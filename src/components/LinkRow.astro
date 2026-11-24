@@ -10,9 +10,11 @@
 // none.
 //
 // A native link named by the row's title, the element `titleId` names, covers the whole row; the
-// rest of the row stays readable outside the link's name (WCAG 2.2 SC 2.5.3). A row that may lie
-// over the deep field's lower edge, a list's, has a white band on both sides of its focus ring
-// (`focus-ring-banded`; Product Owner, 2026-11-13: #283 comment 6854670042).
+// rest of the row stays readable outside the link's name (WCAG 2.2 SC 2.5.3). A list's row, which
+// may lie over the deep field's lower edge, has a white band on both sides of its focus ring
+// (`focus-ring-banded`; Product Owner, 2026-11-13: #283 comment 6854670042), and a search result's
+// row has the lists' ring (spec #432 "A result's row"); the Homepage's Announcement rows, on their
+// band, have the global ring alone.
 //
 // Under the pointer the arrow's circle turns accent-warm with a brand-dark arrow, and the row moves
 // 10 px to the right with the `deep` shadow, the movement and the shadow only under
@@ -29,7 +31,7 @@ interface Props {
 	titleId: string;
 	/** The test id of the row's moving surface, by which the suites read it. */
 	surface: string;
-	/** A row that may lie over the deep field's edge: the focus ring's white band. */
+	/** The lists' focus ring, with its white band (a list's row and a search result's). */
 	banded?: boolean;
 }
 
