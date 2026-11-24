@@ -17,7 +17,7 @@
 > (Product Owner, 2026-11-23: #392 comment 7092932555). Feature 014's light row tile and
 > `/health`'s and `/about`'s cards follow spec #417, implemented by #418–#421; its acceptance is
 > due on #417.
-> **Updated:** 2026-11-23 (#420); first drafted 2026-10-30
+> **Updated:** 2026-11-24 (#421); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -125,10 +125,15 @@
 > **Feature 014 decision (Product Owner, 2026-11-23; spec #417, #417 comment 7094711736):** every
 > row tile of 68 px (92 px from `sm`) turns light and the rows share one tile (`RowTile`): flat
 > `surface-soft`, its icon, a MOIT's number or an Announcement's day `brand-primary`, its second
-> line `brand-dark` (§3.2, §7.3). #418 builds it on the file, MOIT, Health Report and Health
-> Service rows; the other tickets add the Announcement's date tile and `/health`'s and `/about`'s
-> cards, each with its own decisions in §13's change history. Nothing a page reads, orders or
-> links to changes.
+> line `brand-dark` (§3.2, §7.3). A closed Announcement's tile is white with a `border-default` edge
+> and its lines `text-secondary` (§8.7). `/health`'s and `/about`'s destinations are the Service
+> catalog's cards, each with its page's heading icon and from `sm` a summary, in place of the Quick
+> Access tile's list form (§7.3, §7.8, §8.4, §9.9). #418 builds the tile on the file, MOIT, Health
+> Report and Health Service rows, #419 on an Announcement's date tile with the closed one, #420 the
+> cards and #421 the documents, the measures and the limits, each with its own decisions in §13's
+> change history. Nothing a page reads, orders or links to changes, and no colour, type size, radius
+> or shadow joins the tokens. The section heading's tile, the ITA year card's tile, the 48 px tile
+> of a card without a picture and the Homepage's Quick Access keep their look.
 
 ## 1. Scope, authority and status
 
@@ -2898,6 +2903,57 @@ Each ticket's decisions are on #393 to #396 and in §13. The evidence round of #
 does not cover, which the Product Owner accepted after the walkthrough (#397 comment 7091473095).
 The Product Owner accepted the feature on #392 (comment 7092932555).
 
+**What the Product Owner picked for the light row tile and the cards** on the Feature 014
+prototype, after the pages of Features 009 to 013 as they are built, the grill's eleven questions
+each answered "ตามที่แนะนำ" and the prototype's three picks and the seams made through the
+session's question tool, each the "(Recommended)" option, on 2026-11-23 (spec #417 "Decisions the
+Product Owner made", whose numbers these are; #417 comment 7094711736):
+
+- every row tile of 68 px (92 px from `sm`) light, one tile for all of them: the Document row's
+  file tile wherever it shows, a MOIT's row, a Health Report's row, a current Announcement's date
+  tile on the Homepage and on `/announcements`, and a Health Service's hospital tile; the section
+  heading's tile, the ITA year card's tile and the 48 px tile of a card without a picture keep
+  their gradient (1); the tile still under the pointer (3);
+- each card's icon its destination's heading icon, and `network`, new to the site, for
+  โครงสร้างองค์กร (4); a card's summary its destination's lead, for โครงสร้างองค์กร the published
+  `organization` page's summary and none without it (5);
+- `/about` in the Service catalog's grid, one, two and three to a row, and `/health` one to a row
+  below `sm` and two from `sm` (6); the cards the catalog's card whole: `brand-primary` under the
+  pointer, the lift, the circle, the tile `accent-warm`, the ring inside the card and the reveal
+  (7);
+- the Homepage's Quick Access as it is, the Quick Access tile's list form gone and #408 with it,
+  and the #393 retro's hover check in `tests/node/public-hover.test.ts` (8);
+- one prototype at the five widths, the tile's size and radii as they are (10); the answers and
+  picks on the spec issue, and the spec closing #412 and #408 (11); the seams under spec #417
+  "Testing Decisions", each one the site already had (15);
+- the tile flat `surface-soft`, its icon, number or day `brand-primary` and its second line
+  `brand-dark` (12, P1 A, over B's light gradient and C's second line on an `accent-warm` pill;
+  decision 2 named the variants);
+- a closed Announcement's tile white with a `border-default` edge and its lines `text-secondary`
+  (13, P2, over the tile in `status-closed`; decision 9 named the two);
+- the cards with the summary from `sm` (14, P3), five of `/about`'s six summaries ending
+  "ของสำนักงานสาธารณสุขอำเภอสอง", as the Product Owner saw them.
+
+**What the Product Owner decided while the tickets were built,** each on its ticket:
+
+- the light tile on a white row without a hairline at its edge, and its numbers without
+  `tabular-nums` (#418 comment 7096650557, items 1 and 2);
+- an Announcement's date tile read by assistive technology, as before, the one row tile that is,
+  since the row gives its date nowhere else (#419 comment 7100237929); and a closed
+  Announcement's tile on the list's first page read by the suite through `gotoListing`, with no
+  assertion on the page it lands on, its look on the first page shown by the demo dataset's
+  `/announcements` (#419 comment 7102628698);
+- `touch-action: manipulation`, set nowhere on the site, and the room under `/health`'s two cards
+  at 1,440 px left out of #420 and listed in its pull request, since neither is the cards' own
+  (#420 comment 7106846593).
+
+The prototype's variants, on the branch `prototype/light-tile-cards` at `46daee8`, are the visual
+reference (`docs/prototypes/light-tile-cards.md` there). Each ticket's decisions are on #418 to
+#420 and in §13. The evidence round of #421
+(`docs/evidence/421-light-tile-cards-evidence-round.md`) measures the pages and names what the
+evidence does not cover, which the Product Owner accepted after the walkthrough, answering "Pass"
+(#421 comment 7118897822). The feature's acceptance is due on #417.
+
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
 Feature 008's picks above take the place of the smaller Featured title and the shorter phone page:
@@ -3696,3 +3752,20 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   each summary 5.07:1 at its lowest, every other text as before (`/about`'s summary over its ring
   4.85:1, unchanged); the rings with `measure-focus-contrast.ts` as §9.9 and §10 record them.
   Authority: spec #417 "The cards" and decisions 4 to 8 and 14, and #417 comment 7094711736.
+- **v1.8 documents, measures and limits (2026-11-24, Feature 014 #421):** the feature keeps the one
+  version step #418 took. Feature 014's banner, in place of #418's tile with the rest still to come,
+  names the closed Announcement's tile and the cards with their sections, what each of #418 to #421
+  built, that no token joins, and the tiles that keep their look; the Status line, as #418 wrote it,
+  names the acceptance due on #417. #420's entry stays its own, one entry per ticket. §10 lists what
+  the Product Owner picked for Feature 014 and decided on #418, #419 and #420, with each decision's
+  source; its kept limits are the ones #420 left (#408's gone, #383's naming the Homepage's Quick
+  Access and `/contact`). The readings Feature 014's tickets took were read again at the integration
+  head `96b84c4` with each ticket's own script: the light tile's 10.94:1 and 5.78:1, a closed
+  Announcement's tile's 4.97:1 and the cards' 16.54:1 and 5.07:1 that §3.2, §7.3, §8.3, §8.7 and
+  §9.9 record are the same; each ticket's closing lines are the same but three texts', by 0.07:1 at
+  most, on pages whose after images are byte for byte the tickets' (the fixtures' dates, a day
+  later, move per-width readings alone); the cards' focus rings are the same line for line; and
+  every page where only a tile changed keeps its height at the five widths
+  (`docs/evidence/421-light-tile-cards-evidence-round.md`). Authority: spec #417 "Documents" and
+  "Decisions the Product Owner made", the decisions on #418, #419 and #420, the notes on #421, and
+  #421 comment 7118897822 (the walkthrough). No page changed.
