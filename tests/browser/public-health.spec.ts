@@ -143,6 +143,7 @@ import {
 	tokenColor,
 	unavailableNoticeIn,
 	whileNonePublished,
+	linkCoversRow,
 } from "./public.helpers";
 
 /** The fixed number of Health Content items a list page shows. */
@@ -842,17 +843,6 @@ const reportFacts = (row: Locator, fact: string) =>
 /** The row that follows `row` in its list, or none. */
 const rowAfter = (row: Locator) =>
 	row.locator("xpath=ancestor::li[1]/following-sibling::li[1]").getByRole("article");
-
-/** Whether the row's one link covers the whole row. */
-const linkCoversRow = (row: Locator) =>
-	row.evaluate((article) => {
-		const link = article.querySelector("a")?.getBoundingClientRect();
-		const box = article.getBoundingClientRect();
-		return (
-			!!link &&
-			(["x", "y", "width", "height"] as const).every((side) => Math.abs(link[side] - box[side]) < 1)
-		);
-	});
 
 test("each /health/reports row: the light tile, surface-soft with file-chart-column in brand-primary, 68 px with radius 14 below 640 px and 92 px with radius 18 from 640 px, with the fiscal year under the icon in brand-dark, or the icon alone without one, unchanged under the pointer and under focus; the facts line with the Report Type, the date the list orders by and the fiscal year, each only when set; the title as an H2 in two lines at most; from 640 px the summary in two lines at most; the reporting period; from 640 px the round arrow; one link named by the title covers the row, and the rows are 14 px apart", async ({
 	page,

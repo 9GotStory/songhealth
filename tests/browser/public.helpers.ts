@@ -685,6 +685,26 @@ export async function pointAtRowEdge(page: Page, row: Locator) {
 	return { x: Math.round(place.x), edge };
 }
 
+/**
+ * Whether a row's one link covers the whole row (`LinkRow`: an Announcement's, a Health Report's
+ * and a search result's row), as the page is laid out now.
+ */
+export const linkCoversRow = (row: Locator) =>
+	row.evaluate((article) => {
+		const link = article.querySelector("a")?.getBoundingClientRect();
+		const box = article.getBoundingClientRect();
+		return (
+			!!link &&
+			(["x", "y", "width", "height"] as const).every((side) => Math.abs(link[side] - box[side]) < 1)
+		);
+	});
+
+/**
+ * The longest title the office has published, in characters: a MOIT's (spec #392 "Measured in the
+ * prototype"), the length a suite's long-title fixture takes.
+ */
+export const PUBLISHED_TITLE_LENGTH = 175;
+
 /** A row's shadow as the page is now: the `deep` one under the pointer, else the `card` one. */
 export function rowShadow(row: Locator) {
 	return row.evaluate((article) => {

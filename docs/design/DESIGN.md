@@ -396,7 +396,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `brand-primary` (the day) and `brand-dark` (the month and year) on a current Announcement's date tile, the light tile (`RowTile`, flat `surface-soft`), on the Homepage and the Announcements list, whatever its status (§8.7; spec #417 decisions 1 and 12, #419); `text-secondary` (the day, the month and year) on a closed Announcement's tile, `surface-base` with a `border-default` edge, on the Announcements list (spec #417 decision 13) | measured with `scripts/measure-text-contrast.ts --all-text --fold` at the five widths at `404bffc` (#419) on the Homepage (the demo dataset and `homepage-announcements`) and `/announcements` (the demo dataset and `lists-by-count` with 21, pages 1 and 2): the day 5.78:1, the month and year 10.94:1, a closed tile's day and month and year 4.97:1, as the token values and the prototype give them |
-| `brand-primary` (the icon, a MOIT's number) and `brand-dark` (the file's type or "ไฟล์", "MOIT", a report's fiscal year) on a row's light tile (`RowTile`, flat `surface-soft`): the file tile of a Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents, and in the card on a Document's and a Health Report's page (§9.4 to §9.9), a MOIT's row (§8.3), a Health Report's row and a Health Service's (§7.3; spec #417 decision 12, prototype P1 A), and a search result's row, its icon alone (§7.3; Feature 015 #434) | measured with `scripts/measure-text-contrast.ts --all-text --fold` at the five widths at `2d2b027` (#418): a MOIT's number 5.78:1; "PDF", "ไฟล์", "MOIT" and a report's fiscal year 10.94:1, as the token values and the prototype give them |
+| `brand-primary` (the icon, a MOIT's number) and `brand-dark` (the file's type or "ไฟล์", "MOIT", a report's fiscal year) on a row's light tile (`RowTile`, flat `surface-soft`): the file tile of a Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents, and in the card on a Document's and a Health Report's page (§9.4 to §9.9), a MOIT's row (§8.3), a Health Report's row and a Health Service's (§7.3; spec #417 decision 12, prototype P1 A), and a search result's row, its icon alone (§7.3; Feature 015 #434), the same `brand-primary` on `surface-soft` as a MOIT's number by the token values | measured with `scripts/measure-text-contrast.ts --all-text --fold` at the five widths at `2d2b027` (#418): a MOIT's number 5.78:1; "PDF", "ไฟล์", "MOIT" and a report's fiscal year 10.94:1, as the token values and the prototype give them |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label, §8.7, and the label on its page, §9.4) | 13.85:1 |
@@ -1188,7 +1188,8 @@ and 9) Search (`/search`).
   the field. On `/about/personnel` the block is the units' panels (§7.3; Feature 012 #370), 24 px
   apart, or the empty state; it has no pager, and no row holds a link. On `/search` the block is
   the state's empty state, or the groups' card with the results and the pager after it (Feature
-  015 #433), whose rings lie on their white cards. The cards are the
+  015 #433), its links' rings on that white card; a result's row, 32 px under it, never meets the
+  field and has the lists' banded ring all the same (§7.3; #434). The cards are the
   Homepage's News
   cards: the small one, and on a first page that no Health Topic narrows the large one first
   (§7.3). On `/news` the first row lies over the field, where the global `brand-primary`
@@ -1957,7 +1958,9 @@ stays the submit state (§8.9).
   #393, as `/health`'s tiles did,
   with its empty state at once, `public-ita-years.spec.ts` "/ita moves only when motion is allowed:
   …", and a fiscal year's MOIT rows since #394, "a fiscal year's page moves only when motion is
-  allowed: …"). On `/contact` nothing reveals: its breadcrumb, details card,
+  allowed: …"; `/search`'s result rows since Feature 015 #434, as `/health/reports`' rows,
+  `public-search.spec.ts` "with motion allowed each row reveals as it comes into the window, …").
+  On `/contact` nothing reveals: its breadcrumb, details card,
   channels and two routes show at once (§9.10; #369; `public-contact.spec.ts` "/contact moves only
   when motion is allowed: …").
 - **A Post page's motion.** On a News, Activity or Health Content post the header's text rises in
@@ -3870,6 +3873,6 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   `sm`, and the status label. The Announcement's, the Health Report's and a result's rows now share
   one row (`LinkRow`, §7.1), each looking as before; under the pointer a result's row behaves as
   the Health Report row, the `deep` shadow coming with the move only where motion is allowed.
-  §3.1, §3.2, §5, §7.1, §7.3 and §7.8 name it, and §7.3 no longer says search results keep their
-  own. Authority: spec #432 "A result's row", "Motion" and decisions 3 and 10, and #434 comment
-  7124814084 (the shadow under reduced motion and the shared row).
+  §3.1, §3.2, §5, §7.1, §7.3, §7.8 and §8.12 name it, and §7.3 no longer says search results keep
+  their own. Authority: spec #432 "A result's row", "Motion" and decisions 3 and 10, and #434
+  comment 7124814084 (the shadow under reduced motion and the shared row).

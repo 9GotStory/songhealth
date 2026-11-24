@@ -30,17 +30,17 @@ interface Props {
 	/** The id of the row's title, which names its link. */
 	titleId: string;
 	/** The test id of the row's moving surface, by which the suites read it. */
-	surface: string;
+	surfaceTestId: string;
 	/** The lists' focus ring, with its white band (a list's row and a search result's). */
 	banded?: boolean;
 }
 
-const { href, titleId, surface, banded = true } = Astro.props;
+const { href, titleId, surfaceTestId, banded = true } = Astro.props;
 ---
 
 <article class="group">
 	<div
-		data-testid={surface}
+		data-testid={surfaceTestId}
 		class="relative flex items-center gap-3.5 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:translate-x-2.5 motion-safe:group-hover:shadow-deep sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5"
 	>
 		<slot />

@@ -5,8 +5,9 @@
 //   `message-square`, an Activity `heart`, an Announcement `file-text`, a Service `users`, a Health
 //   Service `hospital`, Health Content `heart-pulse`, a Health Report `file-chart-column`, a
 //   Document `folder-open` and a MOIT `shield-check`.
-// - A Basic Page has no list, so its row shows `info`, and so does a reserved Basic Page's, whose
-//   result leads to its /about address: the icon goes by the kind alone, never by the address.
+// - A Basic Page has no list, so its row shows `info`. A reserved Basic Page's result, which leads
+//   to its /about address, shows it too: the table goes by the kind alone, and the browser suite
+//   reads that row (`public-search.spec.ts`, the reserved Basic Page's case).
 // - Every kind the search finds has its icon, and no other kind is named (the table's type holds
 //   each kind of KIND_LABELS).
 
@@ -16,7 +17,7 @@ import { describe, it } from "node:test";
 import { KIND_ICONS } from "../../src/lib/search-matcher.ts";
 
 describe("a search result's icon", () => {
-	it("is its kind's list heading icon, and a Basic Page's, a reserved one's under /about too, is info", () => {
+	it("is its kind's list heading icon, and a Basic Page's is info", () => {
 		assert.deepEqual(KIND_ICONS, {
 			news: "message-square",
 			activity: "heart",

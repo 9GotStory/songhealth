@@ -97,6 +97,7 @@ import {
 	thaiDate,
 	unchangedTileStates,
 	tokenColor,
+	linkCoversRow,
 } from "./public.helpers";
 
 /** The fixed number of Announcements a list page shows. */
@@ -369,14 +370,12 @@ async function gotoListing(page: Page, title: string): Promise<Locator> {
 }
 
 /**
- * What a citizen sees of an Announcement row as it is laid out now, read in one pass, so a part
- * the row lacks reads as missing rather than stopping the read: whether its one link covers it,
- * and its date tile's day, and the day's place and size against the month and year under it.
+ * What a citizen sees of an Announcement row's date tile as it is laid out now, read in one pass,
+ * so a part the row lacks reads as missing rather than stopping the read: its day, and the day's
+ * place and size against the month and year under it.
  */
 function readRow(row: Locator) {
 	return row.evaluate((article) => {
-		const link = article.querySelector("a")?.getBoundingClientRect();
-		const box = article.getBoundingClientRect();
 		const date = article.querySelector("time");
 		const [day, month] = [...(date?.children ?? [])].map((part) => ({
 			text: part.textContent?.trim(),
@@ -385,11 +384,6 @@ function readRow(row: Locator) {
 			bottom: part.getBoundingClientRect().bottom,
 		}));
 		return {
-			linkCoversRow:
-				!!link &&
-				(["x", "y", "width", "height"] as const).every(
-					(side) => Math.abs(link[side] - box[side]) < 1,
-				),
 			day: day?.text,
 			dayLarge: !!day && !!month && day.size > month.size,
 			monthUnderDay: !!day && !!month && month.top >= day.bottom - 1,
@@ -509,10 +503,9 @@ test("each /announcements row is the Homepage's row: the light date tile with th
 		];
 		const tiles = [];
 		for (const announcement of fixtures) {
-			const { linkCoversRow, day, dayLarge, monthUnderDay } = await readRow(
-				listedItem(page, announcement.title),
-			);
-			tiles.push({ linkCoversRow, day, dayLarge, monthUnderDay });
+			const item = listedItem(page, announcement.title);
+			const { day, dayLarge, monthUnderDay } = await readRow(item);
+			tiles.push({ linkCoversRow: await linkCoversRow(item), day, dayLarge, monthUnderDay });
 		}
 		seen.widths[width] = {
 			title: await shownLines(longTitle),

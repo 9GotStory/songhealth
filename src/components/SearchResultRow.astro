@@ -6,8 +6,8 @@
 //
 // The light row tile (RowTile) holds the 24 px icon of the result's kind alone, its kind's list
 // heading icon, or `info` for a Basic Page (src/lib/search-matcher.ts KIND_ICONS); it is
-// decorative, since the facts line says the kind in words. Beside it, 4 px apart: the facts line,
-// as before (MetaLine: the kind in Thai, or a MOIT's number and fiscal year, then the date its
+// decorative, since the facts line says the kind in words. Beside it, 4 px apart: the facts line
+// (MetaLine: the kind in Thai, or a MOIT's number and fiscal year, then the date its
 // kind's list shows, none for a kind listed undated); the title, an H2 at body size, semibold,
 // body-large from `sm`, in text-primary, shown whole on as many lines as it needs; the snippet,
 // when the result has one, regular at label size and body size from `sm`, in text-secondary; and
@@ -69,7 +69,7 @@ const Icon = ICONS[KIND_ICONS[entry.kind]];
 const titleId = `result-${crypto.randomUUID()}`;
 ---
 
-<LinkRow href={entry.href} titleId={titleId} surface="result-surface">
+<LinkRow href={entry.href} titleId={titleId} surfaceTestId="result-surface">
 	<RowTile>
 		<Icon class="shrink-0" size={24} />
 	</RowTile>

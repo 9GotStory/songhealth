@@ -43,7 +43,7 @@ const date = healthReportDate(data);
 const titleId = `report-${crypto.randomUUID()}`;
 ---
 
-<LinkRow href={healthReportPath(report.id)} titleId={titleId} surface="report-surface">
+<LinkRow href={healthReportPath(report.id)} titleId={titleId} surfaceTestId="report-surface">
 	<RowTile class="gap-1">
 		<FileChartColumn class="shrink-0" size={24} />
 		{data.fiscal_year ? (
