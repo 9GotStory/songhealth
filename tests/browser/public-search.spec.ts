@@ -81,6 +81,7 @@ import {
 	readHeaderMotion,
 	readListField,
 	readWholeAtTwoWidths,
+	searchPath,
 	test,
 	testHeadingOnField,
 	textStyle,
@@ -540,10 +541,6 @@ test("the start page, a too-short or empty query and a query that finds nothing 
 	expect((await main.innerText()).replace(nothing, "")).not.toMatch(INTERNAL_DETAIL);
 	expect(await page.title()).not.toBe("x");
 });
-
-/** `/search` with `params`, as an address. */
-const searchPath = (params: Record<string, string>) =>
-	Object.keys(params).length === 0 ? "/search" : `/search?${new URLSearchParams(params)}`;
 
 /** `part`'s box, or undefined where the page does not show it once. */
 async function shownBox(part: Locator) {
@@ -1063,8 +1060,9 @@ test.describe("on the deep field", () => {
 				placed: {
 					heights: [44],
 					across: [8],
-					// The eight links need some 911 px: they wrap below 1,024 px and keep one row at 1440.
-					down: width < 1024 ? [8] : [],
+					// The eight links wrap where the card ends (spec #432 "The groups' card"): on more
+					// than one row in the narrower cards, on one in the card at 1440.
+					down: width === 1440 ? [] : [8],
 					inside: true,
 					countUnder: 16,
 				},

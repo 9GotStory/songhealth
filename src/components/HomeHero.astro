@@ -14,11 +14,8 @@
 // (Product Owner, 2026-11-11: #241 comment 6791096480, item 2, in place of spec #239's "under it
 // below `lg`").
 //
-// The search is the site's search pill (SearchPill), a plain GET form to /search, so it works
-// without JavaScript; /search shows the same pill (Feature 015 #433). Its field and round submit
-// button are 44 px or more. Here alone, after submit the button shows a spinner in its arrow's
-// place and a further submit is ignored (SubmitStateIcon; Product Owner, 2026-11-12: #246 comment
-// 6816725778, item 3).
+// The search is the site's search pill (SearchPill.astro), which /search shows too (Feature 015
+// #433); here alone it takes the submit state.
 //
 // The Featured card is one link to the item's canonical address. Its name is all it shows, so it
 // holds the text in sight (WCAG 2.2 SC 2.5.3), and the card's region is named by the item's title,

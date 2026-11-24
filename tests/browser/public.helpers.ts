@@ -418,6 +418,10 @@ export async function expectBreadcrumb(
 /** The breadcrumb's root crumb, the Homepage. */
 export const HOME_CRUMB = ["หน้าแรก", "/"] as const;
 
+/** `/search` with `params` in its address, or without a query string when there are none. */
+export const searchPath = (params: Record<string, string>) =>
+	Object.keys(params).length === 0 ? "/search" : `/search?${new URLSearchParams(params)}`;
+
 /**
  * Each main-navigation section's crumb, which follows หน้าแรก on every page inside the section but
  * its landing page, where the breadcrumb ends at the section itself.

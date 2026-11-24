@@ -579,7 +579,7 @@ this document names:
 | Area | Components |
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
-| Headings | `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (and a MOIT's header, §9.11), or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10; `/search` before a search, §7.8), its lead left out on `/search` after a search and the search pill in its slot (§7.8, Feature 015 #433), `ThaiTitle`; every public page is headed this way since the earlier page heading and `/search`'s bordered search form went (#433, §13 v1.9) |
+| Headings | `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (and a MOIT's header, §9.11), or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10; `/search` before a search, §7.8), its lead left out on `/search` after a search and the search pill in its slot (§7.8, Feature 015 #433), `ThaiTitle` |
 | Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog, and with a destination in place of a Service, `/health`'s and `/about`'s cards with `DestinationIcon`, Feature 014 #420; and `kind="section"`, a Health Service's "บริการที่ให้", §7.3, §8.4, §9.8), `HomeQuickLink` (the Homepage's Quick Access, §8.11), `ItaYearCard` (a fiscal year's card on the ITA landing, §8.3), `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3), `SoftTile` (the 40 px `surface-soft` tile that heads a unit's panel and a MOIT's Requirement card, §7.3, §9.11), `OfficeContactDetails` (Office Contact's card on `/contact`, a row per detail with its icon, §9.10); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
 | Homepage | `HomeHero`; `SearchPill`, the site's white search pill, the hero's and `/search`'s, each with its own placeholder, the Homepage's alone with its submit state (§7.8, §8.1, §8.9; Feature 015 #433) |
 | Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5), a Health Report's (§9.6), a Service's (§9.7), a Health Service's (§9.8), a Basic Page's (§9.9), and `/about`'s, a list's field under a Basic Page's header (§9.9), and a MOIT's page, its body over the field's edge in `ListBody` (§9.11) |
@@ -1102,18 +1102,18 @@ and 9) Search (`/search`).
   #392 decision 2; Feature 013 #394). Its MOIT rows lie over the field's edge; a year's page
   always holds a MOIT, so it has no empty state (§8.3).
 - **`/search`** is labelled "ค้นหา" over its H1 "ค้นหาข้อมูล", with `search`, its breadcrumb
-  หน้าแรก › ค้นหา; its title in the head and its breadcrumb still read "ค้นหา" (spec #432 decision
+  หน้าแรก › ค้นหา; its title in the head and its breadcrumb read "ค้นหา" (spec #432 decision
   2; Feature 015 #433). It has no pill link or links under the lead, and shows its lead in the
   start state alone, an address without `q`, so a phone's first result starts higher (decision 4:
-  at 375 px no lower than its 706 px before). Under the heading block, or the lead, 24 px below
+  at 375 px no lower than 706 px). Under the heading block, or the lead, 24 px below
   `sm` and 32 px from `sm`, lies the site's search pill (§8.1), holding the address's query, with
   the placeholder "ค้นหาบริการ ข่าวสาร หน่วยบริการ หรือเอกสาร…" and no submit state (decision 9;
   spec #432 "The search pill"). Before a search nothing lies over the field's edge: the field ends
   40 px under the pill below `sm` and 48 px from `sm`, and the page's own 64 px, 80 px from `lg`,
-  follow before the footer. After one the block over the edge is the state's empty state, today's
-  white card with today's words and links (a query too short or empty, nothing found, a failed
+  follow before the footer. After one the block over the edge is the state's empty state, the
+  white `EmptyState` card with the state's words and links (a query too short or empty, nothing found, a failed
   search), or with results the groups' card: white, the `card` shadow, radius 24 and 20 px inside,
-  holding the eight group links as before (44 px pills at label size, 8 px apart and wrapping
+  holding the eight group links (44 px pills at label size, 8 px apart and wrapping
   inside it, the current one `brand-primary` with `surface-base` words, the others `surface-soft`
   with `brand-dark` words and `border-default` under the pointer, a group at 0 still a link with
   its count) and 16 px under them "พบ n รายการ" at label size in `text-secondary`. The results, a

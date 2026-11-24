@@ -16,8 +16,7 @@
 // PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324. Pages are read anonymously, with no credential,
 // and each request carries the suites' synthetic referrer (playwright.config.ts), so a capture of a
 // missing page, such as the 404 page's, counts as the tests' miss in EmDash's 404 log
-// (scripts/dev-runtime-residue.sh; Feature 015 #433: it sent none, and the miss stayed for the
-// Product Owner to clear).
+// (scripts/dev-runtime-residue.sh; Feature 015 #433).
 // It prints each file with its size in pixels, so a pull request can quote a page's height from it
 // (#146 retro). A close-up also prints its element's layout size, the one to quote: its PNG covers
 // every pixel the element touches, so it can come out a pixel larger (#194 retro). It records each
