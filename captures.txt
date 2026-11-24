@@ -1,0 +1,5 @@
+after-not-found-1024.png	/no-such-page@1024
+after-not-found-1440.png	/no-such-page@1440
+after-not-found-320.png	/no-such-page@320
+after-not-found-375.png	/no-such-page@375
+after-not-found-768.png	/no-such-page@768
