@@ -6,11 +6,14 @@
 //
 // A pair is before-<name>.png with after-<name>.png. A pair byte for byte the same is identical;
 // the others are decoded (8 bits a channel, not interlaced, as Chromium's screenshots are) and
-// compared pixel by pixel. The first form gives a line per pair; with --cases, one line for the
-// cases alike at every width and a line per other case, a block for a record to quote whole (#421
-// retro item 1). scripts/evidence-branch.sh prints both after the heights. --against holds each
-// after-<name>.png against the same file on the first of the branches, newest first, that has it,
-// such as the feature's earlier tickets' (#420 retro). Read-only.
+// compared pixel by pixel: each band of differing rows with its largest difference of one channel,
+// and for two heights the rows from the top within one level as well as the rows the same (#434
+// retro item 4: a header's shadow one level off). The first form gives a line per pair; with
+// --cases, one line for the cases alike at every width and a line per other case, a block for a
+// record to quote whole (#421 retro item 1). scripts/evidence-branch.sh prints both after the
+// heights. --against holds each after-<name>.png against the same file on the first of the
+// branches, newest first, that has it, such as the feature's earlier tickets' (#420 retro).
+// Read-only.
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
