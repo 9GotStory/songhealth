@@ -89,6 +89,7 @@ import {
 	itemsPerRow,
 	occurrencesOf,
 	pressInside,
+	searchPillRings,
 	siteTitleParts,
 	test,
 	thaiDate,
@@ -560,7 +561,7 @@ test("the skip link shows over the hero's deep field when it takes focus", async
 	await expect(skipLink).toHaveCSS("background-color", await tokenColor(page, "accent-warm"));
 });
 
-test("the hero's search has an accessible name and a 44 px submit button at each width, and submits its query to the site search", async ({
+test("the hero's search has an accessible name and a 44 px submit button at each width, submits its query to the site search, and under the keyboard's focus shows the whole pill's accent-warm ring for its field and the button's own ring for the button", async ({
 	page,
 }) => {
 	await page.goto("/");
@@ -579,6 +580,19 @@ test("the hero's search has an accessible name and a 44 px submit button at each
 	await submit.click();
 	await expect(page).toHaveURL(`/search?q=${encodeURIComponent("วัคซีน")}`);
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText("ค้นหาข้อมูล");
+
+	// With the keyboard on the field, the whole pill takes the accent-warm ring and the field
+	// none; the button keeps its own brand-primary ring (Product Owner, 2026-11-24, #436's
+	// walkthrough).
+	await page.goto("/");
+	const [warm, brand] = await Promise.all([
+		tokenColor(page, "accent-warm"),
+		tokenColor(page, "brand-primary"),
+	]);
+	expect(await searchPillRings(page), "the hero's pill under the keyboard's focus").toEqual({
+		field: { field: "none", pill: { colour: warm, width: "3px", offset: "2px" } },
+		button: { button: { colour: brand, width: "3px", offset: "2px" }, pill: "none" },
+	});
 });
 
 test("the hero shows no telephone number and no hours, with or without a Featured card", async ({
