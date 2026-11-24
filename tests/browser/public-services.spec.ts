@@ -69,6 +69,7 @@ import {
 	cardOverFieldEdge,
 	cardOverFieldEdgeAsSpecified,
 	deepField,
+	expectFieldLinks,
 	detailOf,
 	documentRowParts,
 	entersAfter,
@@ -217,48 +218,22 @@ test("/services' two related links lie under its lead on the field, 16 px under 
 	await page.goto("/services");
 	const lead = deepField(page).getByText(SERVICES_LEAD, { exact: true });
 	const links = leadLinksOf(page, { leadLinks: SERVICES_LEAD_LINKS });
-	const white = await tokenColor(page, "surface-base");
-	for (const [label, link] of links) {
-		await expect(link, label).toHaveCSS("color", white);
-		await expect(link, label).toHaveCSS("font-weight", "600");
-		await expect(link, label).toHaveCSS("font-size", "14px");
-		await expect(link, label).toHaveCSS("text-decoration-line", "underline");
-		const box = await boxOf(link, label);
-		expect(box.height, `${label} is 44 px high`).toBeCloseTo(44, 0);
-		const arrow = link.locator("svg.lucide-arrow-right");
-		const arrowBox = await boxOf(arrow, `${label}'s arrow`);
-		expect([arrowBox.width, arrowBox.height], `${label}'s arrow is 16 px`).toEqual([16, 16]);
-		const words = await link.evaluate((element) => {
-			const range = document.createRange();
-			range.selectNodeContents(element.firstChild!);
-			return range.getBoundingClientRect().right;
-		});
-		expect(arrowBox.x, `${label}'s arrow follows its words`).toBeGreaterThanOrEqual(words);
-		await link.hover();
-		await expect(link, `${label} under the pointer`).toHaveCSS("color", white);
-	}
-
-	const [first, second] = links.map(([, link]) => link) as [typeof lead, typeof lead];
-	for (const [viewport, row] of [
+	await expectFieldLinks(page, links, [
 		[DESKTOP_VIEWPORT, "one row"],
 		[MOBILE_VIEWPORT, "two rows"],
-	] as const) {
+	]);
+
+	const [, first] = links[0]!;
+	for (const viewport of [DESKTOP_VIEWPORT, MOBILE_VIEWPORT]) {
 		await page.setViewportSize(viewport);
 		const at = `at ${viewport.width} px`;
 		const leadBox = await boxOf(lead, "the lead");
-		const [one, two] = [await boxOf(first, "the first link"), await boxOf(second, "the second")];
+		const one = await boxOf(first, "the first link");
 		expect(
 			one.y - (leadBox.y + leadBox.height),
 			`the links 16 px under the lead ${at}`,
 		).toBeCloseTo(16, 0);
 		expect(one.x, `the first link starts with the lead ${at}`).toBeCloseTo(leadBox.x, 0);
-		if (row === "one row") {
-			expect(two.y, `the links on one row ${at}`).toBeCloseTo(one.y, 0);
-			expect(two.x - (one.x + one.width), `24 px apart across ${at}`).toBeCloseTo(24, 0);
-		} else {
-			expect(two.x, `the second link under the first ${at}`).toBeCloseTo(one.x, 0);
-			expect(two.y - (one.y + one.height), `4 px apart down ${at}`).toBeCloseTo(4, 0);
-		}
 	}
 });
 

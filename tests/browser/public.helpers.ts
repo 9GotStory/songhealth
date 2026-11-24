@@ -362,6 +362,33 @@ export function testAccessibilityAndReflow(pages: string, paths: () => readonly 
 /** The heading of the site-designed 404 page. */
 export const NOT_FOUND_HEADING = "ไม่พบหน้าที่คุณต้องการ";
 
+/** The 404 page's sentence under its H1, unchanged since Feature 003 (#52). */
+export const NOT_FOUND_SENTENCE = "ที่อยู่นี้อาจพิมพ์ไม่ถูกต้อง หรือหน้านี้อาจถูกย้ายหรือนำออกแล้ว";
+
+/**
+ * Everything the 404 page's main content gives assistive technology, in order (Feature 015 #435;
+ * spec #432 "The 404 page", decisions 5, 6 and 11): the label "ขออภัย", whose slashes the label's
+ * CSS adds (#433 comment 7123324643), the H1, the sentence, the site's search pill named
+ * "ค้นหาในเว็บไซต์" with its button "ค้นหา", and the links to the Homepage and to /contact. It
+ * names neither the address nor why it is not available, so every 404 reads the same: an unknown
+ * address and a draft, unpublished or trashed entry's (`03` §17).
+ */
+export const NOT_FOUND_CONTENT = `- main:
+  - paragraph: /ขออภัย/
+  - heading "${NOT_FOUND_HEADING}" [level=1]
+  - paragraph: ${NOT_FOUND_SENTENCE}
+  - search "ค้นหาในเว็บไซต์":
+    - text: ค้นหาในเว็บไซต์
+    - searchbox "ค้นหาในเว็บไซต์"
+    - button "ค้นหา"
+  - list:
+    - listitem:
+      - link "กลับไปหน้าแรก":
+        - /url: /
+    - listitem:
+      - link "ติดต่อเรา":
+        - /url: /contact`;
+
 /** The site title shown while the native site settings name none (src/lib/site-identity.ts). */
 export const DEFAULT_SITE_TITLE = "สำนักงานสาธารณสุขอำเภอสอง";
 
@@ -387,14 +414,124 @@ export function thaiDate(iso: string): string {
 }
 
 /**
- * Fail unless `path` answers the site 404 page with status 404. The request carries the
- * songhealth-unknown- referrer every test request does (playwright.config.ts), so the miss counts
- * as the tests' even where `path` cannot carry the mark.
+ * Fail unless `path` answers the site 404 page with status 404, its main content the same for every
+ * missing page (`NOT_FOUND_CONTENT`), so nothing on it tells an unknown address from a draft, an
+ * unpublished or a trashed entry's. The request carries the songhealth-unknown- referrer every test
+ * request does (playwright.config.ts), so the miss counts as the tests' even where `path` cannot
+ * carry the mark.
  */
 export async function expectSiteNotFound(page: Page, path: string, label: string): Promise<void> {
 	const response = await page.goto(path);
 	expect(response?.status(), `${label} must answer 404`).toBe(404);
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText(NOT_FOUND_HEADING);
+	expect(
+		await page.getByRole("main").ariaSnapshot(),
+		`${label}: the 404 page's words, the same for every missing page`,
+	).toBe(NOT_FOUND_CONTENT);
+}
+
+/** The name of the site's search pill and of its field (spec #432 "The search pill"). */
+const SEARCH_NAME = "ค้นหาในเว็บไซต์";
+
+/**
+ * The site's search pill in the page's main content (SearchPill: /search, the 404 page): its
+ * search landmark, field, button and icons.
+ */
+export function searchPill(page: Page) {
+	const form = page.getByRole("main").getByRole("search", { name: SEARCH_NAME });
+	const button = form.getByRole("button", { name: "ค้นหา", exact: true });
+	return {
+		form,
+		field: form.getByRole("searchbox", { name: SEARCH_NAME }),
+		button,
+		icon: form.locator(":scope > svg.lucide-search"),
+		arrow: button.locator("svg.lucide-arrow-right"),
+	};
+}
+
+/** `part`'s box, or undefined where the page does not show it once. */
+export async function shownBox(part: Locator) {
+	return (await part.count()) === 1 && (await part.isVisible())
+		? ((await part.boundingBox()) ?? undefined)
+		: undefined;
+}
+
+/** The address the page shows now, its path and query. */
+export const shownAddress = (page: Page) => {
+	const url = new URL(page.url());
+	return `${url.pathname}${url.search}`;
+};
+
+/**
+ * What lies over `field`'s lower edge in the page's main content and outside the field, each part
+ * named by its tag and its first words: nothing on a page whose field has nothing over its edge
+ * (/search before a search, the 404 page). "no field" where the page has none.
+ */
+export async function partsOverFieldEdge(page: Page, field: Locator) {
+	return (await field.count()) === 1
+		? page.getByRole("main").evaluate(
+				(main, fieldElement) => {
+					const edge = fieldElement!.getBoundingClientRect().bottom;
+					return [...main.querySelectorAll("*")]
+						.filter((part) => !fieldElement!.contains(part))
+						.filter((part) => {
+							const box = part.getBoundingClientRect();
+							return box.width * box.height > 0 && box.top < edge - 0.5;
+						})
+						.map((part) => `<${part.localName}> ${part.textContent?.trim().slice(0, 30)}`);
+				},
+				await field.elementHandle(),
+			)
+		: "no field";
+}
+
+/**
+ * Fail unless `links`, links on the deep field, are `surface-base` words, semibold, at label size
+ * and underlined, each with a 16 px `arrow-right` after its words and 44 px high, keeping their
+ * colour under the pointer; and the first two sit 24 px apart on one row or, where they wrap, 4 px
+ * apart one under the other, as `rows` states at each viewport. These are the links under
+ * /services' lead (Feature 011 #339; spec #338 "The Service catalog") and the 404 page's (Feature
+ * 015 #435; spec #432 "The 404 page"). The viewport ends at the last of `rows`.
+ */
+export async function expectFieldLinks(
+	page: Page,
+	links: Array<[label: string, link: Locator]>,
+	rows: Array<[viewport: { width: number; height: number }, row: "one row" | "two rows"]>,
+): Promise<void> {
+	const white = await tokenColor(page, "surface-base");
+	for (const [label, link] of links) {
+		await expect(link, label).toHaveCSS("color", white);
+		await expect(link, label).toHaveCSS("font-weight", "600");
+		await expect(link, label).toHaveCSS("font-size", "14px");
+		await expect(link, label).toHaveCSS("text-decoration-line", "underline");
+		const box = await boxOf(link, label);
+		expect(box.height, `${label} is 44 px high`).toBeCloseTo(44, 0);
+		const arrow = link.locator("svg.lucide-arrow-right");
+		const arrowBox = await boxOf(arrow, `${label}'s arrow`);
+		expect([arrowBox.width, arrowBox.height], `${label}'s arrow is 16 px`).toEqual([16, 16]);
+		const words = await link.evaluate((element) => {
+			const range = document.createRange();
+			range.selectNodeContents(element.firstChild!);
+			return range.getBoundingClientRect().right;
+		});
+		expect(arrowBox.x, `${label}'s arrow follows its words`).toBeGreaterThanOrEqual(words);
+		await link.hover();
+		await expect(link, `${label} under the pointer`).toHaveCSS("color", white);
+	}
+
+	const [[, first], [, second]] = links as [[string, Locator], [string, Locator]];
+	for (const [viewport, row] of rows) {
+		await page.setViewportSize(viewport);
+		const at = `at ${viewport.width} px`;
+		const [one, two] = [await boxOf(first, "the first link"), await boxOf(second, "the second")];
+		if (row === "one row") {
+			expect(two.y, `the links on one row ${at}`).toBeCloseTo(one.y, 0);
+			expect(two.x - (one.x + one.width), `24 px apart across ${at}`).toBeCloseTo(24, 0);
+		} else {
+			expect(two.x, `the second link under the first ${at}`).toBeCloseTo(one.x, 0);
+			expect(two.y - (one.y + one.height), `4 px apart down ${at}`).toBeCloseTo(4, 0);
+		}
+	}
 }
 
 /**

@@ -385,8 +385,9 @@
  * The entrance of a part of the hero as the page opens: it rises 28 px into its place while it
  * fades in, after --hero-enter-delay. The Featured card and the sheet behind it turn into their
  * tilt instead, the card after the hero's text and the sheet after the card. A list's heading and
- * its lead enter the same way (src/components/ListHeading.astro; spec #280 "Motion"), /search's
- * search pill after them as the hero's search does (SearchPill.astro; spec #432 "Motion"), and so
+ * its lead enter the same way (src/components/ListHeading.astro; spec #280 "Motion"), the search
+ * pill of /search and of the 404 page after them as the hero's search does (SearchPill.astro; spec
+ * #432 "Motion"), and so
  * do a Post page's header and then its frame (src/components/PostHeader.astro, PostColumns.astro),
  * and an Announcement's or a Document's header and then its card (CardOverField.astro; spec #311
  * "Motion").
