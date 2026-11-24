@@ -25,10 +25,13 @@ while [[ ${1-} == --* ]]; do
   case $1 in
     --before-from)
       (($# >= 2)) || { echo "$usage" >&2; exit 2; }
-      source_branch=$2
+      source_branch=${2#origin/}
       shift 2
+      # A branch only fetched, named with or without origin/, has no local head: make one from
+      # origin's (#419 retro).
       git rev-parse --verify -q "refs/heads/$source_branch" >/dev/null ||
-        { echo "evidence-branch: no local branch $source_branch" >&2; exit 2; }
+        git branch -q --track "$source_branch" "origin/$source_branch" 2>/dev/null ||
+        { echo "evidence-branch: no branch $source_branch here or at origin" >&2; exit 2; }
       ;;
     --after) after_only=1; shift ;;
     *) echo "$usage" >&2; exit 2 ;;

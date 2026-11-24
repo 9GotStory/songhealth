@@ -102,7 +102,18 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   tickets #393–#397). `docs/design/DESIGN.md` v1.7 records it with the code, and
   `docs/evidence/397-ita-pages-evidence-round.md` its evidence and what that does not cover. The
   Product Owner accepted it on 2026-11-23 (#392 comment 7092932555), and it was merged into
-  `main`. Every other page keeps its design until its own feature.
+  `main`.
+- **Feature 014 `light-tile-cards`:** complete: the light row tile and `/health`'s and `/about`'s
+  cards, in the look the Product Owner picked from a prototype. Every row tile turns light and the
+  rows share one tile, flat `surface-soft` with its icon, a MOIT's number or an Announcement's day
+  in `brand-primary`: a Document's file tile, a MOIT's, a Health Report's, a current
+  Announcement's date tile and a Health Service's. A closed Announcement's tile is white with a
+  thin edge and grey lines, and `/health` and `/about` show their destinations as the Service
+  catalog's cards. Every address, read and order stays (spec #417, tickets #418–#421).
+  `docs/design/DESIGN.md` v1.8 records it with the code, and
+  `docs/evidence/421-light-tile-cards-evidence-round.md` its evidence and what that does not
+  cover. The Product Owner accepted it on 2026-11-24 (#417 comment 7120317286), and it was merged
+  into `main`. Every other page keeps its design until its own feature.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,
@@ -246,6 +257,9 @@ scripts/dev-runtime-env.sh npm run test:browser:homepage
 # the suites that name a page the change touches, or a page importing a changed component, with
 # the command that runs them (#339 retro)
 node scripts/suites-for-change.ts <base>
+# the cases a change edits, as file:line, with the `--repeat-each 3` command the evidence round
+# runs before the full suite (#418 retro)
+node scripts/changed-tests.ts <base>
 # after a red run saved to a file: each field a failed toEqual already passes on the old runtime,
 # kept behaviour or a read that cannot fail (#394 retro)
 node scripts/red-run-unchanged.ts <run output>

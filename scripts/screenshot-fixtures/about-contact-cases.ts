@@ -15,6 +15,9 @@
 //   Documents, the second of them superseded; and the demo dataset's `about` returned to draft, so
 //   /about shows its sub-pages without its Basic Page. Captured as page-no-summary-<width>,
 //   page-title-only-<width>, page-related-<width> and about-no-page-<width>.
+// - no-organization (Feature 014 #418): the demo dataset's `organization` Basic Page returned to
+//   draft, so /about shows โครงสร้างองค์กร without its page's summary. Captured as
+//   about-no-organization-<width>.
 // - contact-empty: Office Contact with nothing set and no official channel. Captured as
 //   contact-empty-<width>.
 // - contact-no-channels: every detail of Office Contact and no official channel. Captured as
@@ -31,6 +34,7 @@ const CASES = [
 	"people",
 	"leadership-one",
 	"pages",
+	"no-organization",
 	"contact-empty",
 	"contact-no-channels",
 ] as const;
@@ -258,6 +262,11 @@ async function pages(kit: FixtureKit): Promise<Capture[]> {
 	];
 }
 
+async function noOrganization(kit: FixtureKit): Promise<Capture[]> {
+	await kit.borrow("pages", ["organization"]);
+	return atWidths("about-no-organization", "/about");
+}
+
 async function contactEmpty(kit: FixtureKit): Promise<Capture[]> {
 	await kit.officeContact({}, {});
 	return atWidths("contact-empty", "/contact");
@@ -283,6 +292,7 @@ const RUNS: Record<Case, (kit: FixtureKit) => Promise<Capture[]>> = {
 	people,
 	"leadership-one": leadershipOne,
 	pages,
+	"no-organization": noOrganization,
 	"contact-empty": contactEmpty,
 	"contact-no-channels": contactNoChannels,
 };

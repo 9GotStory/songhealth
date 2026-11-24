@@ -60,6 +60,7 @@ import {
 	DESKTOP_VIEWPORT,
 	HEADER_WIDEST,
 	HOME_CRUMB,
+	HOSPITAL_TILE_LINES,
 	LIST_END,
 	MOBILE_VIEWPORT,
 	SECTION_CRUMBS,
@@ -69,6 +70,7 @@ import {
 	cardOverFieldEdgeAsSpecified,
 	deepField,
 	detailOf,
+	documentRowParts,
 	entersAfter,
 	expect,
 	expectBreadcrumb,
@@ -80,15 +82,22 @@ import {
 	expectSiteNotFound,
 	fieldEdge,
 	fieldParts,
+	fileTileLines,
 	heldBack,
 	itemsPerRow,
 	leadLinksOf,
+	lightRowTile,
 	listedItem,
 	listedTitles,
 	offeredLabels,
 	ownTitles,
 	placesAtTwoWidths,
 	readHeaderOnField,
+	rowTileLook,
+	rowTileShape,
+	rowTileShapeAt,
+	serviceCardParts,
+	serviceCardPartsAsSpecified,
 	shownWhole,
 	siteTitleParts,
 	test,
@@ -193,82 +202,11 @@ test("the catalog's card is the Homepage's: white, radius 22, 144 px high or mor
 		await card.scrollIntoViewIfNeeded();
 		await page.mouse.move(0, 0);
 		const phone = width < 640;
-		// Read in the page, so a part today's card lacks reads as missing rather than stopping here.
-		seen[width] = await card.evaluate((article, phone) => {
-			const style = (element: Element) => getComputedStyle(element);
-			const centre = (element: Element | null) => {
-				if (!element) return undefined;
-				const box = element.getBoundingClientRect();
-				return box.y + box.height / 2;
-			};
-			const heading = article.querySelector("h2, h3");
-			const summary = [...article.querySelectorAll("p")].find((p) =>
-				p.textContent?.includes("สรุปบริการที่ยาว"),
-			);
-			const arrow = article.querySelector("svg.lucide-arrow-right");
-			const icon = article.querySelector('[data-testid="service-icon"]');
-			const surface = article.querySelector('[data-testid="service-surface"]');
-			const box = (surface ?? article).getBoundingClientRect();
-			// 16 px in from the corner, inside the card's 22 px rounding and the circle.
-			const corner = document
-				.elementsFromPoint(box.right - 16, box.bottom - 16)
-				.find(
-					(element) =>
-						article.contains(element) &&
-						!/^rgba\(.*,\s*0\)$|^transparent$/.test(style(element).backgroundColor),
-				);
-			const shown = summary !== undefined && summary.getClientRects().length > 0;
-			return {
-				heading: heading && {
-					level: heading.tagName,
-					type: [style(heading).fontSize, style(heading).lineHeight, style(heading).fontWeight],
-				},
-				surface: surface && {
-					fill: style(surface).backgroundColor,
-					radius: style(surface).borderTopLeftRadius,
-					tall: phone ? undefined : box.height >= 144,
-				},
-				summary: shown
-					? {
-							colour: style(summary).color,
-							type: [style(summary).fontSize, style(summary).lineHeight],
-							lines: Math.round(
-								summary.getBoundingClientRect().height /
-									Number.parseFloat(style(summary).lineHeight),
-							),
-							clamped: summary.scrollHeight > summary.clientHeight,
-						}
-					: "hidden",
-				arrow: arrow && [arrow.getBoundingClientRect().width, arrow.getBoundingClientRect().height],
-				corner: corner && style(corner).backgroundColor,
-				oneLine:
-					phone && icon && heading && arrow
-						? [centre(heading)! - centre(icon)!, centre(arrow)! - centre(icon)!].map((gap) =>
-								Math.round(Math.abs(gap)),
-							)
-						: undefined,
-			};
-		}, phone);
-		expected[width] = {
-			heading: { level: "H2", type: ["18px", "30px", "600"] },
-			surface: {
-				fill: await tokenColor(page, "surface-base"),
-				radius: "22px",
-				tall: phone ? undefined : true,
-			},
-			summary: phone
-				? "hidden"
-				: {
-						colour: await tokenColor(page, "text-secondary-on-soft"),
-						type: ["14px", "22px"],
-						lines: 3,
-						clamped: true,
-					},
-			arrow: [20, 20],
-			corner: await tokenColor(page, "surface-soft"),
-			// From 640 px the parts sit at the card's top, which this does not read.
-			oneLine: phone ? [0, 0] : undefined,
-		};
+		seen[width] = await serviceCardParts(card, phone);
+		expected[width] = await serviceCardPartsAsSpecified(page, phone, {
+			words: LONG_SUMMARY.trim(),
+			cut: "three lines",
+		});
 	}
 	expect(seen).toEqual(expected);
 });
@@ -1199,6 +1137,42 @@ test.describe("a Service's page on the field", () => {
 			};
 		}
 		expect(seen, "the guidance and the two sections under the card").toEqual(expected);
+	});
+
+	test("each row's tile under เอกสารที่เกี่ยวข้อง and หน่วยบริการสุขภาพที่ให้บริการนี้ is the light tile, surface-soft with file-text in brand-primary over the file's type in brand-dark, or the hospital alone in brand-primary; 68 px with radius 14 below 640 px and 92 px with radius 18 from 640 px", async ({
+		page,
+	}) => {
+		await page.goto(pathOf(full));
+		const main = page.getByRole("main");
+		const tiles = {
+			file: documentRowParts(
+				main.getByRole("region", { name: RELATED.title }).getByRole("article").first(),
+				3,
+			).tile,
+			hospital: main
+				.getByRole("region", { name: OFFERING.title })
+				.getByRole("article")
+				.first()
+				.locator("svg.lucide-hospital")
+				.locator("xpath=.."),
+		};
+		const seen: Record<string, unknown> = {
+			file: await rowTileLook(tiles.file),
+			hospital: await rowTileLook(tiles.hospital),
+		};
+		const expected: Record<string, unknown> = {
+			// Spec #417 decision 12 (P1 A).
+			file: await lightRowTile(page, fileTileLines("PDF")),
+			hospital: await lightRowTile(page, HOSPITAL_TILE_LINES),
+		};
+		for (const width of [320, 639, 640, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			for (const [name, tile] of Object.entries(tiles)) {
+				seen[`${name} at ${width}`] = await rowTileShape(tile);
+				expected[`${name} at ${width}`] = rowTileShapeAt(width);
+			}
+		}
+		expect(seen, "the rows' light tiles").toEqual(expected);
 	});
 
 	test("a row under หน่วยบริการสุขภาพที่ให้บริการนี้ is the directory's, its name an H3: its เปิดแผนที่, named with the Health Service, sits at the row's right from 1,024 px in the text column, under the text from 640 px and across the row below 640 px", async ({

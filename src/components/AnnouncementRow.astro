@@ -8,16 +8,20 @@
 // edge, so its focus ring has a white band on both sides (`focus-ring-banded`; Product Owner,
 // 2026-11-13: #283 comment 6854670042), as the list cards' does.
 //
-// The date is the one the list orders by (src/lib/announcements.ts announcementDate): the day
-// large, the month and the year under it in accent-warm, the measured exception where it sits on
-// the tile's gradient (its readings in docs/design/DESIGN.md §3.2 and §8.7; Product Owner,
-// 2026-11-12: #245 comment 6812837231). A closed Announcement, which only the list shows, has its
-// tile in status-closed with its day and month in text-primary (spec #311 "Decisions", 13). The
-// category is the first `announcement_type` term, in the colour src/lib/announcement-category.ts
-// gives it: procurement in procurement-text on topic-blue with a procurement-border edge,
-// recruitment in brand-dark on accent-warm, any other in brand-primary on surface-soft
-// (docs/design/DESIGN.md §3.2 has each ratio). The status line is AnnouncementStatusLine, its label
-// after a dot.
+// The date is the one the list orders by (src/lib/announcements.ts announcementDate), on the rows'
+// light tile (RowTile; Feature 014 #419, spec #417 decisions 1 and 12): the day large in
+// brand-primary, the month and the year under it in brand-dark, whatever the Announcement's status.
+// The tile stays read by assistive technology, since the row says the date nowhere else (Product
+// Owner, 2026-11-23: #419 comment 7100237929). A closed Announcement, which only the list shows,
+// has the tile white with a border-default edge and its day and month in text-secondary (spec #417
+// decision 13); its status label stays status-closed with text-primary. The readings are in
+// docs/design/DESIGN.md §3.2 and §8.7.
+//
+// The category is the first `announcement_type` term, in the colour
+// src/lib/announcement-category.ts gives it: procurement in procurement-text on topic-blue with a
+// procurement-border edge, recruitment in brand-dark on accent-warm, any other in brand-primary on
+// surface-soft (docs/design/DESIGN.md §3.2 has each ratio). The status line is
+// AnnouncementStatusLine, its label after a dot.
 //
 // A native link named by the title covers the whole row; the date, the category and the status
 // stay readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190 comment 6707205912). The
@@ -40,6 +44,7 @@ import {
 import { termsOf } from "../lib/terms";
 import { thaiDateParts } from "../lib/thai-date";
 import AnnouncementStatusLine from "./AnnouncementStatusLine.astro";
+import RowTile from "./RowTile.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
@@ -72,21 +77,14 @@ const badge = {
 		class="relative flex items-center gap-3.5 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:translate-x-2.5 motion-safe:group-hover:shadow-deep sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5"
 	>
 		{dateParts && (
-			<p
-				class:list={[
-					"flex size-17 shrink-0 flex-col items-center justify-center rounded-14 sm:size-23 sm:rounded-18",
-					closed
-						? "bg-status-closed text-text-primary"
-						: "bg-linear-140 from-brand-primary to-brand-dark text-surface-base",
-				]}
-			>
+			<RowTile read closed={closed}>
 				<time datetime={date?.toISOString()} class="flex flex-col items-center">
 					<span class="text-h3/7 font-bold sm:text-h2/9.5">{dateParts.day}</span>{" "}
-					<span class:list={["text-small", closed ? "text-text-primary" : "text-accent-warm"]}>
+					<span class:list={["text-small", !closed && "text-brand-dark"]}>
 						{dateParts.monthAndYear}
 					</span>
 				</time>
-			</p>
+			</RowTile>
 		)}
 		<div class="min-w-0 flex-1">
 			{category && (

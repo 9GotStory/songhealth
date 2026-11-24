@@ -61,7 +61,8 @@ describe("suitesFor", () => {
 		);
 	});
 
-	it("brings in public-homepage-curation.spec.ts for #339's change to HomeQuickLink", () => {
+	// #339 changed HomeQuickLink while /health showed it too; since #420 only the Homepage does.
+	it("brings in public-homepage-curation.spec.ts for a change to HomeQuickLink (#339)", () => {
 		const under = (dir: string, keep: (name: string) => boolean) =>
 			readdirSync(dir, { recursive: true, encoding: "utf8" })
 				.filter(keep)
@@ -73,6 +74,6 @@ describe("suitesFor", () => {
 			under("tests/browser", (name) => name.endsWith(".spec.ts")),
 		);
 		const curation = found.find((suite) => suite.path.endsWith("public-homepage-curation.spec.ts"));
-		assert.deepEqual(curation?.because, ["/", "/health"]);
+		assert.deepEqual(curation?.because, ["/"]);
 	});
 });

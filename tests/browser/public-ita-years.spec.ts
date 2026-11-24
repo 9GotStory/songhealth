@@ -61,12 +61,14 @@ import {
 	fieldEdge,
 	homepageSection,
 	itemsPerRow,
+	lightRowTileStates,
 	listHeading,
 	listedItem,
 	listedTitles,
 	pressInside,
 	readListField,
 	ringsOverFieldUnbanded,
+	rowTileStates,
 	shownWhole,
 	siteTitleParts,
 	test,
@@ -316,10 +318,10 @@ const moitRow = (page: Page, moit: MoitFixture) => listedItem(page, moit.title);
  * fiscal year's page"): its surface, its links, its tile with "MOIT" over the number, its title
  * and facts line, its arrow ("none" where the row shows none), whether its parts lie in one line
  * and the gaps between them, and whether "MOIT n" inside the link is there for assistive
- * technology alone. `gradient` is the tile's two colours. Measures in px.
+ * technology alone. The tile's ground is its colour and image. Measures in px.
  */
-function readMoitRow(row: Locator, gradient: [from: string, to: string]) {
-	return row.evaluate((article, [from, to]) => {
+function readMoitRow(row: Locator) {
+	return row.evaluate((article) => {
 		const box = (element: Element) => element.getBoundingClientRect();
 		const style = getComputedStyle(article);
 		const leaf = (pattern: RegExp, within: Element) =>
@@ -348,7 +350,6 @@ function readMoitRow(row: Locator, gradient: [from: string, to: string]) {
 		const arrow = icon && box(icon).width > 0 ? icon : undefined;
 		const parts = [tile, column, arrow].filter((part) => part) as Element[];
 		const inLink = link ? leaf(/^MOIT \d+$/, link) : undefined;
-		const background = tile ? getComputedStyle(tile).backgroundImage : "";
 		return {
 			row: {
 				fill: style.backgroundColor,
@@ -363,10 +364,9 @@ function readMoitRow(row: Locator, gradient: [from: string, to: string]) {
 							hidden: tile.getAttribute("aria-hidden"),
 							size: [Math.round(box(tile).width), Math.round(box(tile).height)],
 							radius: getComputedStyle(tile).borderTopLeftRadius,
-							gradient: [
-								background.startsWith("linear-gradient"),
-								background.includes(from),
-								background.includes(to),
+							ground: [
+								getComputedStyle(tile).backgroundColor,
+								getComputedStyle(tile).backgroundImage,
 							],
 							moit: font(word),
 							number: { text: number.textContent?.trim(), ...font(number) },
@@ -423,7 +423,7 @@ function readMoitRow(row: Locator, gradient: [from: string, to: string]) {
 				? Math.max(box(inLink).width, box(inLink).height) <= 1
 				: "no MOIT n in the link",
 		};
-	}, gradient);
+	});
 }
 
 /**
@@ -933,12 +933,12 @@ test("a fiscal year's page lists its MOITs over the field's lower edge in an ord
 	expect(seen, "the rows over the field's edge").toEqual(expected);
 });
 
-test("a MOIT's row is white with the card shadow and radius 22, 12 px inside and from 640 px 18 px above, below and at the left and 22 px at the right; in one line, 14 px apart and 22 px from 640 px: the gradient tile, 68 px with radius 14 and 92 px with radius 18 from 640 px, MOIT small and semibold in accent-warm over the number at H3 size, H2 from 640 px, in surface-base, hidden from assistive technology; the title an H2 at body size, body-large from 640 px, semibold, in text-primary, and 4 px under it the facts line small in text-secondary; from 640 px a 20 px arrow-right in brand-primary at the row's end, none at 639 px; one link, the title, carrying MOIT n for assistive technology alone; under the pointer the deep shadow and the title underlined in brand-primary, and with focus the lists' white band, kept under the pointer", async ({
+test("a MOIT's row is white with the card shadow and radius 22, 12 px inside and from 640 px 18 px above, below and at the left and 22 px at the right; in one line, 14 px apart and 22 px from 640 px: the light tile, surface-soft, 68 px with radius 14 and 92 px with radius 18 from 640 px, MOIT small and semibold in brand-dark over the number at H3 size, H2 from 640 px, in brand-primary, hidden from assistive technology and unchanged under the pointer and under focus; the title an H2 at body size, body-large from 640 px, semibold, in text-primary, and 4 px under it the facts line small in text-secondary; from 640 px a 20 px arrow-right in brand-primary at the row's end, none at 639 px; one link, the title, carrying MOIT n for assistive technology alone; under the pointer the deep shadow and the title underlined in brand-primary, and with focus the lists' white band, kept under the pointer", async ({
 	page,
 }) => {
 	await page.goto(`/ita/${NEWER}`);
 	const row = moitRow(page, third);
-	const [surfaceBase, textPrimary, textSecondary, brandPrimary, brandDark, accentWarm] =
+	const [surfaceBase, textPrimary, textSecondary, brandPrimary, brandDark, surfaceSoft] =
 		await Promise.all(
 			[
 				"surface-base",
@@ -946,7 +946,7 @@ test("a MOIT's row is white with the card shadow and radius 22, 12 px inside and
 				"text-secondary",
 				"brand-primary",
 				"brand-dark",
-				"accent-warm",
+				"surface-soft",
 			].map((name) => tokenColor(page, name)),
 		);
 	const [cardShadow, deepShadow] = await Promise.all(
@@ -954,10 +954,10 @@ test("a MOIT's row is white with the card shadow and radius 22, 12 px inside and
 	);
 	const seen: Record<string, unknown> = {};
 	const expected: Record<string, unknown> = {};
-	for (const width of [320, 639, 640, 1440]) {
+	for (const width of [320, 639, 640, 1023, 1024, 1440]) {
 		await page.setViewportSize({ width, height: 900 });
 		const phone = width < 640;
-		seen[width] = await readMoitRow(row, [brandPrimary, brandDark]);
+		seen[width] = await readMoitRow(row);
 		expected[width] = {
 			row: {
 				fill: surfaceBase,
@@ -970,9 +970,10 @@ test("a MOIT's row is white with the card shadow and radius 22, 12 px inside and
 				hidden: "true",
 				size: phone ? [68, 68] : [92, 92],
 				radius: phone ? "14px" : "18px",
-				gradient: [true, true, true],
-				moit: { size: 13, weight: "600", colour: accentWarm },
-				number: { text: "3", size: phone ? 24 : 34, weight: "600", colour: surfaceBase },
+				// The light tile (spec #417 decision 12, P1 A).
+				ground: [surfaceSoft, "none"],
+				moit: { size: 13, weight: "600", colour: brandDark },
+				number: { text: "3", size: phone ? 24 : 34, weight: "600", colour: brandPrimary },
 				moitOverNumber: true,
 			},
 			title: { size: phone ? 16 : 18, weight: "600", colour: textPrimary },
@@ -988,6 +989,12 @@ test("a MOIT's row is white with the card shadow and radius 22, 12 px inside and
 
 	await page.setViewportSize(DESKTOP_VIEWPORT);
 	const link = row.getByRole("link");
+	// The tile stays as it is under the pointer and under focus (spec #417 decision 3).
+	seen.tile = await rowTileStates(row.getByText("MOIT", { exact: true }).locator("xpath=.."), link);
+	expected.tile = await lightRowTileStates(page, [
+		{ line: "MOIT", token: "brand-dark", size: 13, weight: "600" },
+		{ line: "3", token: "brand-primary", size: 34, weight: "600" },
+	]);
 	// The pointer on the row's facts line, away from its one link.
 	await factsLine(row).hover();
 	const shadowOf = (part: Locator) =>
@@ -1020,14 +1027,10 @@ test("a MOIT's row with a title of 175 characters shows its title whole at 320 p
 	expect(longTitle.title, "the fixture's title").toHaveLength(LONG_TITLE_LENGTH);
 	await page.setViewportSize(MOBILE_VIEWPORT);
 	await page.goto(`/ita/${LONG_TITLE}`);
-	const brand: [string, string] = [
-		await tokenColor(page, "brand-primary"),
-		await tokenColor(page, "brand-dark"),
-	];
 	await expectNoHorizontalScroll(page, `/ita/${LONG_TITLE} at 320 px`);
 	const row = moitRow(page, longTitle);
 	const title = row.getByRole("heading", { level: 2 });
-	const long = await readMoitRow(row, brand);
+	const long = await readMoitRow(row);
 	const seen = {
 		facts: (await factsLine(row).innerText()).trim(),
 		whole: await shownWhole(title),

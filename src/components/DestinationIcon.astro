@@ -1,0 +1,36 @@
+---
+// The icon in a destination's card on /health or /about (Feature 014 #420; spec #417 decision 4):
+// the icon its destination's page shows in its heading, or `network` for โครงสร้างองค์กร, whose page
+// has none (src/lib/destinations.ts), at 24 px in the card's icon tile's colour, as ServiceIcon
+// draws a Service's. It is decorative: the destination's name names the card's link, and Lucide
+// hides an icon that is given no accessibility prop (docs/agents/lucide-astro-1.59.0.md).
+import ChartColumn from "@lucide/astro/icons/chart-column";
+import ClipboardList from "@lucide/astro/icons/clipboard-list";
+import FileChartColumn from "@lucide/astro/icons/file-chart-column";
+import HeartPulse from "@lucide/astro/icons/heart-pulse";
+import Network from "@lucide/astro/icons/network";
+import ScrollText from "@lucide/astro/icons/scroll-text";
+import UserRound from "@lucide/astro/icons/user-round";
+import UsersRound from "@lucide/astro/icons/users-round";
+import type { DestinationIconName } from "../lib/destinations";
+
+interface Props {
+	name: DestinationIconName;
+}
+
+/** Each destination's icon, by its Lucide name. */
+const ICONS: Record<DestinationIconName, typeof Network> = {
+	"chart-column": ChartColumn,
+	"clipboard-list": ClipboardList,
+	"file-chart-column": FileChartColumn,
+	"heart-pulse": HeartPulse,
+	network: Network,
+	"scroll-text": ScrollText,
+	"user-round": UserRound,
+	"users-round": UsersRound,
+};
+
+const Icon = ICONS[Astro.props.name];
+---
+
+<Icon class="shrink-0" size={24} />

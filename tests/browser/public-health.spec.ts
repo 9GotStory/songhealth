@@ -17,14 +17,15 @@
 // follows a list's heading"): its breadcrumb, the label สุขภาพ, the H1 ความรู้สุขภาพ and its lead, with
 // its filter form first over the field's lower edge (public.helpers.ts testFilteredListOnField).
 // /health and /health/reports open on it too (Feature 011 #339; spec #338 "Decisions", 5 and 13):
-// /health under the label สุขภาพ with its two destinations as the Homepage's Quick Access tiles over
-// the field's lower edge, and /health/reports under the same label with its rows and pager there
-// (testListOnField), each report a white row with the report's tile and one link over the whole
-// row (#342; spec #338 "The Health Reports list"). A Health Report's page opens on the field with
-// the Post page's header and one white card over the field's edge, its report Document's file
-// first, then a rule and its details (#343; spec #338 "The three pages: the header", "The card over
-// the field's edge", decision 9); a report whose Document is unpublished or whose file cannot be
-// served shows the report's unavailable notice there instead.
+// /health under the label สุขภาพ with its two destinations over the field's lower edge, as the
+// Service catalog's cards since Feature 014 (#420; spec #417 "The cards"), and /health/reports
+// under the same label with its rows and pager there (testListOnField), each report a white row
+// with the report's tile and one link over the whole row (#342; spec #338 "The Health Reports
+// list"). A Health Report's page opens on the field with the Post page's header and one white card
+// over the field's edge, its report Document's file first, then a rule and its details (#343; spec
+// #338 "The three pages: the header", "The card over the field's edge", decision 9); a report whose
+// Document is unpublished or whose file cannot be served shows the report's unavailable notice
+// there instead.
 //
 // The suite drives the single development runtime over public HTTP through the public-page
 // harness (third-party request guard, axe with the WCAG 2.2 AA tag set, desktop and 320 px
@@ -79,6 +80,7 @@ import {
 } from "./cms.helpers";
 import {
 	DESKTOP_VIEWPORT,
+	type DestinationCard,
 	HOME_CRUMB,
 	LIST_END,
 	LeadingEntries,
@@ -90,19 +92,17 @@ import {
 	detailOf,
 	entersAfter,
 	expect,
-	expectArrowBesideLabel,
 	expectBlocksOverFieldEdge,
 	expectBreadcrumb,
 	expectEmptyStateUnderForm,
 	expectFilteredEmpty,
 	expectFocusRingWhole,
 	expectImageLoaded,
-	expectLabelAboveArrow,
 	expectGridRevealsBelowShortWindow,
 	expectListMovesOnlyWhenAllowed,
-	expectNoHorizontalScroll,
 	expectPostTitleSizes,
 	expectPreviewRenders,
+	expectDestinationCardsUnderPointer,
 	expectSiteNotFound,
 	fieldParts,
 	fileBlockAsSpecified,
@@ -111,7 +111,9 @@ import {
 	fileBlockLookAsSpecified,
 	fileBlockOf,
 	isoDay,
-	itemsPerRow,
+	keyboardHrefsFrom,
+	lightRowTile,
+	lightRowTileStates,
 	listedItem,
 	listedTitles,
 	listHeading,
@@ -120,8 +122,13 @@ import {
 	ownTitles,
 	pointAtRowEdge,
 	pressInside,
+	readDestinationCards,
 	readHeaderOnField,
 	rowShadow,
+	rowTileLook,
+	rowTileShape,
+	rowTileShapeAt,
+	rowTileStates,
 	shownLines,
 	shownWhole,
 	siteTitleParts,
@@ -153,15 +160,31 @@ const HEALTH_HEADING = {
 	lead: "ความรู้สุขภาพสำหรับประชาชน และรายงานสุขภาพของสำนักงานสาธารณสุขอำเภอสองและเครือข่าย",
 };
 
-/** /health's two tiles, in order, each the link to its area. */
-const HEALTH_TILES = [
-	["ความรู้สุขภาพ", "/health/content"],
-	["รายงานสุขภาพ", "/health/reports"],
-] as const;
-
 /** The lead of /health/reports, under its heading. */
 const REPORTS_LEAD =
 	"รายงานด้านสุขภาพของสำนักงานสาธารณสุขอำเภอสองและเครือข่าย พร้อมเอกสารรายงานฉบับเต็ม";
+
+/**
+ * /health's two cards, in order, each the link to its area with its list's heading icon and its
+ * list's lead as its summary (spec #417 decisions 4 and 5). Both summaries take more than three
+ * lines at 640 px (spec #417 "The cards": cut from 640 to 680 px, Health Reports' to 750 px).
+ */
+const HEALTH_CARDS = [
+	{
+		title: "ความรู้สุขภาพ",
+		href: "/health/content",
+		icon: "heart-pulse",
+		summary: CONTENT_LEAD,
+		cutAt: [640],
+	},
+	{
+		title: "รายงานสุขภาพ",
+		href: "/health/reports",
+		icon: "file-chart-column",
+		summary: REPORTS_LEAD,
+		cutAt: [640],
+	},
+] as const satisfies readonly DestinationCard[];
 
 /** The name of the filter form of /health/content. */
 const CONTENT_FILTER_FORM = "กรองความรู้สุขภาพ";
@@ -203,12 +226,12 @@ const publishContent = (content: DraftFixture, publishedAt?: string) =>
 const publishReport = (report: DraftFixture, publishedAt?: string) =>
 	publishEntryAt(admin, "health_reports", report.id, publishedAt);
 
-/** The list that holds /health's tiles. */
-const healthTiles = (page: Page) =>
+/** The list that holds /health's cards. */
+const healthCards = (page: Page) =>
 	page
 		.getByRole("main")
 		.getByRole("list")
-		.filter({ has: page.getByRole("link", { name: HEALTH_TILES[0][0], exact: true }) });
+		.filter({ has: page.getByRole("link", { name: HEALTH_CARDS[0].title, exact: true }) });
 
 /** The main navigation's ข้อมูลสุขภาพ item. */
 const healthNavItem = (page: Page) =>
@@ -272,102 +295,73 @@ testHeadingOnField({
 	icon: "heart-pulse",
 });
 
-test("/health shows its two destinations as the Homepage's Quick Access tiles over the field's lower edge, ความรู้สุขภาพ then รายงานสุขภาพ, each one link named by its H2: side by side at every width from 320 to 1,440 px, 12 px apart below 640 px and 20 px from 640 px, compact below 640 px, and each focus ring with its white band where it meets the field", async ({
+test("/health shows its two destinations as the Service catalog's cards over the field's lower edge, ความรู้สุขภาพ then รายงานสุขภาพ, each one link named by its H2 with its list's heading icon in a decorative tile and from 640 px its list's lead, cut at three lines at 640 px: one to a row at 320, 375 and 639 px and two at 640, 768, 1,023, 1,024 and 1,440 px, 12 px apart below 640 px and 20 px from 640 px, each card white, radius 22, 144 px high or more from 640 px, below 640 px a short row; the cards start over the field's edge and the keyboard reaches them in order after the breadcrumb", async ({
 	page,
 }) => {
 	await page.goto("/health");
-	const tiles = healthTiles(page);
-	const items = tiles.getByRole("listitem");
-	await expect(items).toHaveCount(HEALTH_TILES.length);
-	for (const [index, [label, href]] of HEALTH_TILES.entries()) {
-		const link = items.nth(index).getByRole("link");
-		await expect(link, `tile ${index + 1}: one link`).toHaveCount(1);
-		await expect(link, `tile ${index + 1}`).toHaveAccessibleName(label);
-		await expect(link, label).toHaveAttribute("href", href);
-		await expect(link.getByRole("heading", { level: 2 }), `${label}: an H2`).toHaveText(label);
-	}
-
-	for (const width of [320, 375, 639, 640, 768, 1024, 1440]) {
-		await page.setViewportSize({ width, height: 900 });
-		const at = `at ${width} px`;
-		await expectNoHorizontalScroll(page, `/health ${at}`);
-		expect(await itemsPerRow(items), `the two tiles side by side ${at}`).toEqual([2]);
-		const [first, second] = [
-			await boxOf(items.nth(0), "tile 1"),
-			await boxOf(items.nth(1), "tile 2"),
-		];
-		expect(second.x - (first.x + first.width), `the tiles' gap ${at}`).toBeCloseTo(
-			width < 640 ? 12 : 20,
-			0,
-		);
-		for (const [index, [label]] of HEALTH_TILES.entries()) {
-			const link = items.nth(index).getByRole("link");
-			if (width < 640) await expectLabelAboveArrow(link, `${label} ${at}`);
-			else await expectArrowBesideLabel(link, `${label} ${at}`);
-		}
-	}
-
+	const grid = healthCards(page);
+	const { seen, expected } = await readDestinationCards(
+		page,
+		grid.getByRole("listitem"),
+		HEALTH_CARDS,
+		(width) => (width < 640 ? 1 : 2),
+		[320, 375, 639, 640, 768, 1023, 1024, 1440],
+	);
 	const heading = listHeading(page, HEALTH_HEADING);
-	await expectBlocksOverFieldEdge(page, heading.field, [heading.lead], [["the tiles", tiles]]);
+	await expectBlocksOverFieldEdge(page, heading.field, [heading.lead], [["the cards", grid]]);
+	seen.keyboard = await keyboardHrefsFrom(
+		page,
+		heading.breadcrumb.getByRole("link"),
+		HEALTH_CARDS.length,
+	);
+	expected.keyboard = HEALTH_CARDS.map(({ href }) => href);
+	expect(seen, "/health's cards").toEqual(expected);
 });
 
-test("on /health the keyboard goes from the breadcrumb, on the field with its accent-warm focus ring drawn whole, to the two tiles, and each tile opens its page from its arrow and by Enter", async ({
+test("on /health under the pointer each card turns brand-primary with the deep shadow as a catalog card and stays in place with reduced motion, its focus ring inside its edge, brand-primary and accent-warm under the pointer; with motion allowed it rises 8 px and a press on the strip it left opens its page; the breadcrumb's focus ring on the field is accent-warm and whole, and each card opens its page by Enter", async ({
 	page,
 }) => {
 	await page.goto("/health");
 	const crumb = listHeading(page, HEALTH_HEADING).breadcrumb.getByRole("link");
-	const links = healthTiles(page).getByRole("link");
 	await crumb.focus();
-	await page.keyboard.press("Tab");
-	for (const [index, [label]] of HEALTH_TILES.entries()) {
-		await expect(links.nth(index), `the tile ${label}`).toBeFocused();
-		await page.keyboard.press("Tab");
-	}
 	await expectFocusRingWhole(crumb, "the หน้าแรก crumb");
 	await expect(crumb, "the หน้าแรก crumb: the field's focus ring").toHaveCSS(
 		"outline-color",
 		await tokenColor(page, "accent-warm"),
 	);
-
-	for (const [index, [label, href]] of HEALTH_TILES.entries()) {
-		for (const [how, open] of [
-			["its arrow", () => links.nth(index).locator("svg").click()],
-			["Enter", () => links.nth(index).press("Enter")],
-		] as const) {
-			await page.goto("/health");
-			await open();
-			await expect(page, `${label} by ${how}`).toHaveURL(href);
-		}
-	}
+	await expectDestinationCardsUnderPointer(page, "/health", healthCards(page), HEALTH_CARDS);
 });
 
-test("/health moves only when motion is allowed: the heading and then the lead rise in as the page opens while the breadcrumb shows at once, each tile reveals as it comes into the window and shows whole while it holds the keyboard's focus, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
+test("/health moves only when motion is allowed: the heading and then the lead rise in as the page opens while the breadcrumb shows at once, each card reveals as it comes into the window and shows whole while it holds the keyboard's focus, and nothing moves by itself for more than five seconds; with reduced motion preferred, and on paper, nothing moves, and the page's height and each part's place are the same either way", async ({
 	page,
 }) => {
 	test.setTimeout(90_000);
 	await expectListMovesOnlyWhenAllowed(page, "/health", listHeading(page, HEALTH_HEADING), [], {
-		grid: healthTiles(page),
+		grid: healthCards(page),
 	});
 
-	await expectGridRevealsBelowShortWindow(page, "/health", healthTiles(page), "a tile");
+	await expectGridRevealsBelowShortWindow(page, "/health", healthCards(page), "a card");
 });
 
 test.describe("/health without JavaScript", () => {
 	test.use({ javaScriptEnabled: false });
 
-	test("/health shows its heading with its label and its lead, and its two tiles", async ({
+	test("/health shows its heading with its label and its lead, and its two cards whole with their summaries", async ({
 		page,
 	}) => {
 		await page.goto("/health");
 		await expect(page.getByRole("heading", { level: 1 })).toHaveText(HEALTH_HEADING.title);
 		await expect(listHeading(page, HEALTH_HEADING).label, "the label above the H1").toBeVisible();
 		await expect(listHeading(page, HEALTH_HEADING).lead).toBeVisible();
-		for (const [label] of HEALTH_TILES) {
-			await expect(
-				healthTiles(page).getByRole("link", { name: label, exact: true }),
-				label,
-			).toBeVisible();
+		const seen: Record<string, boolean> = {};
+		for (const { title, summary } of HEALTH_CARDS) {
+			const card = healthCards(page).getByRole("listitem").filter({ hasText: title });
+			seen[title] = await shownWhole(card.getByRole("link", { name: title, exact: true }));
+			seen[summary] = await shownWhole(card.getByText(summary, { exact: true }));
 		}
+		expect(seen, "/health's cards without JavaScript").toEqual(
+			Object.fromEntries(Object.keys(seen).map((name) => [name, true])),
+		);
 	});
 
 	test("a Health Report's page shows its header on the field, then its card with the report Document's file and download, the rule and the details", async ({
@@ -860,7 +854,7 @@ const linkCoversRow = (row: Locator) =>
 		);
 	});
 
-test("each /health/reports row: the file-chart-column tile, 68 px below 640 px and 92 px from 640 px, with the fiscal year under the icon in accent-warm, or the icon alone without one; the facts line with the Report Type, the date the list orders by and the fiscal year, each only when set; the title as an H2 in two lines at most; from 640 px the summary in two lines at most; the reporting period; from 640 px the round arrow; one link named by the title covers the row, and the rows are 14 px apart", async ({
+test("each /health/reports row: the light tile, surface-soft with file-chart-column in brand-primary, 68 px with radius 14 below 640 px and 92 px with radius 18 from 640 px, with the fiscal year under the icon in brand-dark, or the icon alone without one, unchanged under the pointer and under focus; the facts line with the Report Type, the date the list orders by and the fiscal year, each only when set; the title as an H2 in two lines at most; from 640 px the summary in two lines at most; the reporting period; from 640 px the round arrow; one link named by the title covers the row, and the rows are 14 px apart", async ({
 	page,
 }) => {
 	const type = await createTerm("report_type", "รายงานสถานการณ์โรค");
@@ -893,25 +887,6 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 	await expect(row.getByRole("link")).toHaveAccessibleName(full.title);
 	await expect(row.getByRole("link")).toHaveAttribute("href", `/health/reports/${full.slug}`);
 
-	/** The tile as it shows now: decorative, its gradient, its icon, and the words under it. */
-	const tileOf = async (tile: Locator) => {
-		if ((await tile.count()) === 0) return undefined;
-		return tile.evaluate((element) => {
-			const icon = element.querySelector("svg");
-			const year = element.querySelector("span");
-			return {
-				decorative: element.closest('[aria-hidden="true"]') !== null,
-				gradient: getComputedStyle(element).backgroundImage.includes("linear-gradient"),
-				icon: [icon?.getBoundingClientRect().width, getComputedStyle(icon ?? element).color],
-				year: year && {
-					text: year.textContent?.trim(),
-					colour: getComputedStyle(year).color,
-					size: parseFloat(getComputedStyle(year).fontSize),
-					weight: getComputedStyle(year).fontWeight,
-				},
-			};
-		});
-	};
 	const factsParts = (line: Locator) =>
 		line.evaluate((element) => [...element.children].map((part) => part.textContent?.trim()));
 	const [secondary, primary] = [
@@ -919,8 +894,8 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 		await tokenColor(page, "text-primary"),
 	];
 	const seen: Record<string, unknown> = {
-		tile: await tileOf(parts.tile),
-		bareTile: await tileOf(reportRowParts(bareRow).tile),
+		tile: await rowTileStates(parts.tile, row.getByRole("link")),
+		bareTile: await rowTileLook(reportRowParts(bareRow).tile),
 		factsParts: await factsParts(facts),
 		factsStyle: await textStyle(facts),
 		bareFacts: await factsParts(bareFacts),
@@ -943,23 +918,14 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 				: undefined,
 	};
 	const expected: Record<string, unknown> = {
-		tile: {
-			decorative: true,
-			gradient: true,
-			icon: [24, await tokenColor(page, "surface-base")],
-			year: {
-				text: "2569",
-				colour: await tokenColor(page, "accent-warm"),
-				size: 13,
-				weight: "600",
-			},
-		},
-		bareTile: {
-			decorative: true,
-			gradient: true,
-			icon: [24, await tokenColor(page, "surface-base")],
-			year: null,
-		},
+		// The light tile (spec #417 decision 12, P1 A), the same under the pointer and under focus.
+		tile: await lightRowTileStates(page, [
+			{ line: "file-chart-column", token: "brand-primary", size: 24 },
+			{ line: "2569", token: "brand-dark", size: 13, weight: "600" },
+		]),
+		bareTile: await lightRowTile(page, [
+			{ line: "file-chart-column", token: "brand-primary", size: 24 },
+		]),
 		factsParts: [type.label, "•", thaiDate(in2032(1, 2)), "•", "ปีงบประมาณ 2569"],
 		factsStyle: { size: 13, weight: "400", colour: secondary, underline: false },
 		bareFacts: [thaiDate(bareAt)],
@@ -981,7 +947,7 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 		];
 		const tile = (await parts.tile.count()) > 0 ? await boxOf(parts.tile, "the tile") : undefined;
 		seen[width] = {
-			tile: tile && [Math.round(tile.width), Math.round(tile.height)],
+			tile: await rowTileShape(parts.tile),
 			yearUnderIcon:
 				tile &&
 				(await parts.tile.evaluate((element) => {
@@ -1009,7 +975,7 @@ test("each /health/reports row: the file-chart-column tile, 68 px below 640 px a
 			gap: Math.round(lower.y - (upper.y + upper.height)),
 		};
 		expected[width] = {
-			tile: wide ? [92, 92] : [68, 68],
+			tile: rowTileShapeAt(width),
 			yearUnderIcon: true,
 			// The Announcement row's.
 			padding: wide ? ["18px", "22px", "18px", "18px"] : ["12px", "12px", "12px", "12px"],
@@ -1429,7 +1395,7 @@ test.describe("a Health Report's page on the field", () => {
 		expect(seen, "the card over the field's edge").toEqual(expected);
 	});
 
-	test("the card holds first the report Document: the tile with file-text and the type in accent-warm, 68 px below 640 px and 92 px from 640 px, beside it the H2 เอกสารรายงาน, the Document's title as a semibold brand-primary underlined link to its page and the type and size under it, and the download ดาวน์โหลดเอกสาร with the type and size, at the card's right and 52 px high from 640 px, across the card under them below 640 px; then a 1 px border-default rule and the details, 20 px apart", async ({
+	test("the card holds first the report Document: the light tile with file-text in brand-primary and the type in brand-dark, 68 px with radius 14 below 640 px and 92 px with radius 18 from 640 px, beside it the H2 เอกสารรายงาน, the Document's title as a semibold brand-primary underlined link to its page and the type and size under it, and the download ดาวน์โหลดเอกสาร with the type and size, at the card's right and 52 px high from 640 px, across the card under them below 640 px; then a 1 px border-default rule and the details, 20 px apart", async ({
 		page,
 	}) => {
 		await page.goto(pathOf(full));

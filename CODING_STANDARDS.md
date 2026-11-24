@@ -98,7 +98,10 @@ and why, and `.jscpd-baseline.json` records them.
   `brand-primary` ring passed every suite at 1.89:1 on the field (#281 retro; Product Owner,
   2026-11-13: #281 comment 6848893055). Such a card takes `focus-ring-banded`, a white band on
   both sides of the ring (#283 comment 6854670042). `expectBlocksOverFieldEdge` (`tests/browser/public.helpers.ts`) fails a part over the
-  field's edge whose ring meets the field past its own card without that band (#312 retro).
+  field's edge whose ring meets the field past its own card without that band (#312 retro). The
+  band is a `box-shadow`, so the element that carries it takes no `hover:shadow-*` unless
+  `not-focus-visible` guards it, or the hover shadow drops the band while the element has focus
+  (`tests/node/public-hover.test.ts`; #393 retro, #408).
 - A link held to its lines carries the clamp itself (`line-clamp-2 w-fit` on the `a`), not its
   heading: the clamp's hidden overflow cuts the link's focus ring, which lies outside the link's
   box (#315 retro: axe's focus check failed the Document row's title).
@@ -109,19 +112,11 @@ and why, and `.jscpd-baseline.json` records them.
   header"; spec #338 "The three pages: the header"; spec #392 decision 8), it is 4.10:1 or less,
   so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product Owner, 2026-11-11:
   #242 comment 6797113372, item 1). "MOIT n" opening a MOIT's H1 there is large text, measured at
-  3:1 or more (§3.1, §9.11; spec #392 decision 8). Two
-  measured exceptions, on the same gradient tile: the month and year on a current Announcement's
-  date tile (its readings in `docs/design/DESIGN.md` §3.2 and §8.7; Product Owner, 2026-11-12:
-  #245 comment 6812837231), and the file's type on the file tile (`FileTile`) of a Document row on
-  `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic
-  Page's related Documents, and in the card on a Document's and a Health Report's page (§3.2, §7.3,
-  §9.5, §9.6 and §9.9; spec #311 "The Document repository", "The card over the field's edge"; spec
-  #338 "The card over the field's edge", decision 3; spec #365 "The About Document pages", "A Basic
-  Page"), the fiscal year on a Health Report row's tile on `/health/reports`, a tile of the file
-  tile's size and gradient (§3.2, §7.3; spec #338 "The Health Reports list"), and "MOIT" over the
-  number on a MOIT's row on a fiscal year's page, on the file tile's gradient box (`RowTile`; §3.2,
-  §8.3; spec #392 "A fiscal year's page"). A change to any of these tiles' size or gradient needs a
-  new measure.
+  3:1 or more (§3.1, §9.11; spec #392 decision 8). Every
+  row's tile is the light one (`RowTile`: `surface-soft`, its icon, a MOIT's number or an
+  Announcement's day `brand-primary`, its type, "MOIT", a report's year or an Announcement's month
+  and year `brand-dark`; a closed Announcement's white with a `border-default` edge and
+  `text-secondary` lines; §3.2; spec #417 decisions 12 and 13), which holds no `accent-warm`.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
   state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`
@@ -180,7 +175,10 @@ and why, and `.jscpd-baseline.json` records them.
 - A card whose whole surface is one link joins the Homepage or list table of
   `tests/browser/public-cards.spec.ts`: one link named by its title, a press on the part a citizen
   points at (its picture, or the tile of the visual in its place), a press on its lower corner, and
-  Enter (#244 retro: a tile lay in front of the large News card's link, and no test pressed it).
+  Enter (#244 retro: a tile lay in front of the large News card's link, and no test pressed it). A
+  card on a page with no entry behind it, such as `/health`'s and `/about`'s destinations, takes
+  the same three in its page's suite instead, each press through `pressInside`
+  (`expectDestinationCardsUnderPointer`; #420 retro: the cards reached review without them).
 - Every page of a suite prefers reduced motion (`playwright.config.ts`), so a test reads a page
   that stands still. A test of something that moves only where motion is allowed, such as a card
   that rises under the pointer, allows it for its page with

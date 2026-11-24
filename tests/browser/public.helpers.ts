@@ -693,6 +693,256 @@ export function rowShadow(row: Locator) {
 	});
 }
 
+/** A line of a row's tile: an icon by its Lucide name ("file-text"), or the words it shows. */
+interface RowTileLine {
+	line: string;
+	colour: string;
+	/** An icon's width, or the words' font size, in px. */
+	size: number;
+	/** The words' weight; none for an icon. */
+	weight?: string;
+}
+
+/**
+ * How a row's tile looks (src/components/RowTile.astro): hidden from assistive technology, its
+ * ground's colour and image, its edge ("none", or the width, style and colour its four sides
+ * share), and each of its lines in order, "no tile" without one. An Announcement's date tile holds
+ * its lines in a `time`, so they are read there.
+ */
+export async function rowTileLook(tile: Locator) {
+	if ((await tile.count()) !== 1) return "no tile";
+	return tile.evaluate((element) => {
+		const style = getComputedStyle(element);
+		// A side of no width shows nothing, whatever style the preflight gives it.
+		const sides = ["top", "right", "bottom", "left"].map((side) => {
+			const [width, kind, colour] = ["width", "style", "color"].map((part) =>
+				style.getPropertyValue(`border-${side}-${part}`),
+			);
+			return kind === "none" || Number.parseFloat(width ?? "0") === 0
+				? "none"
+				: `${width} ${kind} ${colour}`;
+		});
+		const time = element.children.length === 1 ? element.querySelector(":scope > time") : null;
+		const lines = [...(time ?? element).children].map((child): RowTileLine => {
+			const read = getComputedStyle(child);
+			if (child.tagName.toLowerCase() === "svg") {
+				const name = [...child.classList].find((word) => /^lucide-(?!icon$)/.test(word));
+				return {
+					line: name?.slice("lucide-".length) ?? "an icon",
+					colour: read.color,
+					size: Math.round(child.getBoundingClientRect().width),
+				};
+			}
+			return {
+				line: child.textContent?.trim() ?? "",
+				colour: read.color,
+				size: Number.parseFloat(read.fontSize),
+				weight: read.fontWeight,
+			};
+		});
+		return {
+			decorative: element.closest('[aria-hidden="true"]') !== null,
+			ground: [style.backgroundColor, style.backgroundImage],
+			edge: new Set(sides).size === 1 ? sides[0] : sides.join(" / "),
+			lines,
+		};
+	});
+}
+
+/** A line of a tile as a test expects it: its words or icon, size, weight and colour's token. */
+interface ExpectedTileLine {
+	line: string;
+	token: "brand-primary" | "brand-dark" | "text-secondary";
+	size: number;
+	weight?: string;
+}
+
+/** `lines` as rowTileLook reads them, each in its token's colour. */
+const tileLinesIn = (page: Page, lines: readonly ExpectedTileLine[]) =>
+	Promise.all(
+		lines.map(async ({ token, ...line }) => ({ ...line, colour: await tokenColor(page, token) })),
+	);
+
+/**
+ * The light row tile as spec #417 sets it ("The light row tile", P1 A): hidden from assistive
+ * technology, on flat `surface-soft` without an edge, with `lines` in order, each in its token: the
+ * icon or a MOIT's number `brand-primary`, the file's type, "MOIT" or a report's fiscal year
+ * `brand-dark`.
+ */
+export async function lightRowTile(page: Page, lines: readonly ExpectedTileLine[]) {
+	return {
+		decorative: true,
+		ground: [await tokenColor(page, "surface-soft"), "none"],
+		edge: "none",
+		lines: await tileLinesIn(page, lines),
+	};
+}
+
+/**
+ * An Announcement's date tile as spec #417 sets it (#419), for the date `shown` ("4 ม.ค. 2574",
+ * as thaiDate gives it) at the window's `width`: read by assistive technology (Product Owner,
+ * 2026-11-23: #419 comment 7100237929); the day bold at H3 size below `sm` and H2 size from `sm`,
+ * over the month and year regular at small size. A current Announcement's is the light tile, its
+ * day `brand-primary` and its month and year `brand-dark` (decision 12); a closed one's is
+ * `surface-base` with a 1 px `border-default` edge, both lines `text-secondary` (decision 13).
+ */
+export async function announcementDateTile(
+	page: Page,
+	shown: string,
+	width: number,
+	closed = false,
+) {
+	const [day = "", ...monthAndYear] = shown.split(" ");
+	const lines: ExpectedTileLine[] = [
+		{
+			line: day,
+			token: closed ? "text-secondary" : "brand-primary",
+			size: width >= 640 ? 34 : 24,
+			weight: "700",
+		},
+		{
+			line: monthAndYear.join(" "),
+			token: closed ? "text-secondary" : "brand-dark",
+			size: 13,
+			weight: "400",
+		},
+	];
+	return {
+		decorative: false,
+		ground: [await tokenColor(page, closed ? "surface-base" : "surface-soft"), "none"],
+		edge: closed ? `1px solid ${await tokenColor(page, "border-default")}` : "none",
+		lines: await tileLinesIn(page, lines),
+	};
+}
+
+/** An Announcement row's date tile: the parent of its first `time`. */
+export const announcementDateTileOf = (row: Locator) =>
+	row.locator("time").first().locator("xpath=..");
+
+/**
+ * An Announcement row's date tile, the date it shows (as thaiDate gives it) and whether it closed.
+ */
+interface DateTileRow {
+	row: Locator;
+	shown: string;
+	closed?: boolean;
+}
+
+/**
+ * The date tiles of `rows` at each side of `sm` (639, 640 px), at 320 and at 1,440 px, the window's
+ * height 900, then the window back at its size: what rowTileLook and rowTileShape read (`seen`)
+ * beside what announcementDateTile and rowTileShapeAt give (`expected`), by width. `shownAt` gives
+ * how many of the rows a width shows (the Homepage shows three below `sm`).
+ */
+export async function announcementDateTilesAcross(
+	page: Page,
+	rows: DateTileRow[],
+	shownAt = (_width: number) => rows.length,
+) {
+	const size = page.viewportSize();
+	const [seen, expected] = [{} as Record<number, unknown[]>, {} as Record<number, unknown[]>];
+	for (const width of [1440, 640, 639, 320]) {
+		await page.setViewportSize({ width, height: 900 });
+		seen[width] = [];
+		expected[width] = [];
+		for (const { row, shown, closed } of rows.slice(0, shownAt(width))) {
+			const tile = announcementDateTileOf(row);
+			seen[width].push({ look: await rowTileLook(tile), shape: await rowTileShape(tile) });
+			expected[width].push({
+				look: await announcementDateTile(page, shown, width, closed),
+				shape: rowTileShapeAt(width),
+			});
+		}
+	}
+	if (size) await page.setViewportSize(size);
+	return { seen, expected };
+}
+
+/** The file tile's lines (FileTile.astro): file-text over the file's type, or "ไฟล์". */
+export const fileTileLines = (type: string) =>
+	[
+		{ line: "file-text", token: "brand-primary", size: 24 },
+		{ line: type, token: "brand-dark", size: 13, weight: "600" },
+	] as const satisfies readonly ExpectedTileLine[];
+
+/** A row's tile's width, height and corner radius at the window's width, "no tile" without one. */
+export async function rowTileShape(tile: Locator) {
+	if ((await tile.count()) !== 1) return "no tile";
+	return tile.evaluate((element) => {
+		const box = element.getBoundingClientRect();
+		return [
+			Math.round(box.width),
+			Math.round(box.height),
+			getComputedStyle(element).borderTopLeftRadius,
+		];
+	});
+}
+
+/**
+ * A row's tile's shape at `width` (RowTile.astro): 68 px with radius 14 below `sm`, 92 px with
+ * radius 18 from `sm`.
+ */
+export const rowTileShapeAt = (width: number) =>
+	width >= 640 ? [92, 92, "18px"] : [68, 68, "14px"];
+
+/** The widths spec #417's acceptance reads a row's tile at: each side of `sm` and `lg`, wide. */
+const ROW_TILE_WIDTHS = [320, 639, 640, 1023, 1024, 1440];
+
+/**
+ * A row's tile's shape (rowTileShape) at each of ROW_TILE_WIDTHS, the window's height 900, then
+ * the window back at its size, for a test that reads the rest of its row at one width.
+ */
+export async function rowTileShapeAcross(tile: Locator) {
+	const page = tile.page();
+	const size = page.viewportSize();
+	const seen: Record<number, unknown> = {};
+	for (const width of ROW_TILE_WIDTHS) {
+		await page.setViewportSize({ width, height: 900 });
+		seen[width] = await rowTileShape(tile);
+	}
+	if (size) await page.setViewportSize(size);
+	return seen;
+}
+
+/** rowTileShapeAcross as RowTile.astro specifies it (rowTileShapeAt at each width). */
+export const rowTileShapeAcrossAsSpecified = () =>
+	Object.fromEntries(ROW_TILE_WIDTHS.map((width) => [width, rowTileShapeAt(width)]));
+
+/** The hospital tile's line (HealthServiceMapRow.astro): the hospital alone. */
+export const HOSPITAL_TILE_LINES = [
+	{ line: "hospital", token: "brand-primary", size: 24 },
+] as const satisfies readonly ExpectedTileLine[];
+
+/**
+ * A row's tile at rest, with the pointer on the tile's middle (so on its row too) and with `link`
+ * focused (the pointer away), each as rowTileLook reads it: the tile stays as it is under both
+ * (spec #417 decision 3). The pointer moves to the tile's place rather than hovering it, since on a
+ * Health Report row the row's link lies over the tile.
+ */
+export async function rowTileStates(tile: Locator, link: Locator) {
+	const rest = await rowTileLook(tile);
+	const box = await boxOf(tile, "the tile");
+	await tile.page().mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	const pointed = await rowTileLook(tile);
+	await tile.page().mouse.move(0, 0);
+	await link.focus();
+	const focused = await rowTileLook(tile);
+	await link.blur();
+	return { rest, pointer: pointed, focus: focused };
+}
+
+/** What rowTileStates reads of a tile that looks as `look` at rest, under the pointer and focus. */
+export const unchangedTileStates = <Look>(look: Look) => ({
+	rest: look,
+	pointer: look,
+	focus: look,
+});
+
+/** What rowTileStates reads of a light tile with `lines` (lightRowTile). */
+export async function lightRowTileStates(page: Page, lines: readonly ExpectedTileLine[]) {
+	return unchangedTileStates(await lightRowTile(page, lines));
+}
+
 /**
  * The parts of a Document row a citizen meets, found by what they say and do: on /documents and
  * the About Document pages, titled H2 (Feature 010 #315; Feature 012 #366), and under a page's
@@ -3129,6 +3379,336 @@ export async function expectServiceIcon(card: Locator, icon: string, title: stri
 	);
 }
 
+/**
+ * What a Service catalog's card shows at the window's width (Feature 011 #340; spec #338 "The
+ * Service catalog"), the card /health and /about share since #420 (spec #417 "The cards"): its
+ * name's level and type, its surface's fill and radius and from 640 px whether it is 144 px high or
+ * more, its icon tile's size, radius and fill and its icon's size and colour, its summary, its
+ * arrow's size and colour, the colour 16 px in from its lower right corner (the circle), and below
+ * 640 px how far the name's and the arrow's centres lie from the icon's. The
+ * summary reads "none" where the card has none, "hidden" where it is not shown, or else its colour,
+ * type and words, whether it is cut ("three lines" where its words take more, else "whole") and
+ * whether it shows `min(3, its lines)` lines, clamped exactly when it takes more. Read in the page,
+ * so a part the card lacks reads as missing rather than stopping the read.
+ */
+export function serviceCardParts(card: Locator, phone: boolean) {
+	return card.evaluate((article, phone) => {
+		const style = (element: Element) => getComputedStyle(element);
+		const centre = (element: Element | null) => {
+			if (!element) return undefined;
+			const box = element.getBoundingClientRect();
+			return box.y + box.height / 2;
+		};
+		const heading = article.querySelector("h2, h3");
+		const summary = article.querySelector("p");
+		const arrow = article.querySelector("svg.lucide-arrow-right");
+		const icon = article.querySelector('[data-testid="service-icon"]');
+		const surface = article.querySelector('[data-testid="service-surface"]');
+		const box = (surface ?? article).getBoundingClientRect();
+		// 16 px in from the corner, inside the card's 22 px rounding and the circle.
+		const corner = document
+			.elementsFromPoint(box.right - 16, box.bottom - 16)
+			.find(
+				(element) =>
+					article.contains(element) &&
+					!/^rgba\(.*,\s*0\)$|^transparent$/.test(style(element).backgroundColor),
+			);
+		const readSummary = (summary: HTMLElement) => {
+			const line = Number.parseFloat(style(summary).lineHeight);
+			const shown = Math.round(summary.getBoundingClientRect().height / line);
+			const lines = Math.round(summary.scrollHeight / line);
+			const clamped = summary.scrollHeight > summary.clientHeight;
+			return {
+				colour: style(summary).color,
+				type: [style(summary).fontSize, style(summary).lineHeight],
+				words: summary.textContent?.trim(),
+				cut: lines > 3 ? "three lines" : "whole",
+				asCut: shown === Math.min(3, lines) && clamped === lines > 3,
+			};
+		};
+		return {
+			heading: heading && {
+				level: heading.tagName,
+				type: [style(heading).fontSize, style(heading).lineHeight, style(heading).fontWeight],
+			},
+			surface: surface && {
+				fill: style(surface).backgroundColor,
+				radius: style(surface).borderTopLeftRadius,
+				tall: phone ? undefined : box.height >= 144,
+			},
+			summary: !summary
+				? "none"
+				: summary.getClientRects().length === 0
+					? "hidden"
+					: readSummary(summary),
+			tile: icon && {
+				size: [icon.getBoundingClientRect().width, icon.getBoundingClientRect().height],
+				radius: style(icon).borderTopLeftRadius,
+				fill: style(icon).backgroundColor,
+				icon: icon.querySelector("svg") && {
+					size: [
+						icon.querySelector("svg")!.getBoundingClientRect().width,
+						icon.querySelector("svg")!.getBoundingClientRect().height,
+					],
+					colour: style(icon.querySelector("svg")!).color,
+				},
+			},
+			arrow: arrow && {
+				size: [arrow.getBoundingClientRect().width, arrow.getBoundingClientRect().height],
+				colour: style(arrow).color,
+			},
+			corner: corner && style(corner).backgroundColor,
+			oneLine:
+				phone && icon && heading && arrow
+					? [centre(heading)! - centre(icon)!, centre(arrow)! - centre(icon)!].map((gap) =>
+							Math.round(Math.abs(gap)),
+						)
+					: undefined,
+		};
+	}, phone);
+}
+
+/**
+ * What `serviceCardParts` reads of a Service catalog's card as spec #338 and #417 set it: the name
+ * an H2 at 18 / 30 semibold; white, radius 22, from 640 px 144 px high or more; the summary at
+ * 14 / 22 in `text-secondary-on-soft` from 640 px, `summary`'s words cut as `summary.cut` says,
+ * hidden below 640 px, and "none" for a card with no summary; the `surface-soft` icon tile of 48 px
+ * with radius 14 below 640 px and 56 px with radius 18 from 640 px, its icon 24 px in
+ * `brand-primary`; the 20 px arrow in `brand-primary`; the `surface-soft` circle in the corner;
+ * below 640 px the icon, the name and the arrow centred on one line.
+ */
+export async function serviceCardPartsAsSpecified(
+	page: Page,
+	phone: boolean,
+	summary: { words: string; cut: "three lines" | "whole" } | "none",
+) {
+	return {
+		heading: { level: "H2", type: ["18px", "30px", "600"] },
+		surface: {
+			fill: await tokenColor(page, "surface-base"),
+			radius: "22px",
+			tall: phone ? undefined : true,
+		},
+		summary:
+			summary === "none"
+				? "none"
+				: phone
+					? "hidden"
+					: {
+							colour: await tokenColor(page, "text-secondary-on-soft"),
+							type: ["14px", "22px"],
+							...summary,
+							asCut: true,
+						},
+		tile: {
+			size: phone ? [48, 48] : [56, 56],
+			radius: phone ? "14px" : "18px",
+			fill: await tokenColor(page, "surface-soft"),
+			icon: { size: [24, 24], colour: await tokenColor(page, "brand-primary") },
+		},
+		arrow: { size: [20, 20], colour: await tokenColor(page, "brand-primary") },
+		corner: await tokenColor(page, "surface-soft"),
+		// From 640 px the parts sit at the card's top, which this does not read.
+		oneLine: phone ? [0, 0] : undefined,
+	};
+}
+
+/** A destination /health or /about shows as a Service catalog's card (spec #417 "The cards"). */
+export interface DestinationCard {
+	title: string;
+	href: string;
+	/** The Lucide name of its icon: its page's heading icon, or `network`. */
+	icon: string;
+	/** Its summary's words, or none. */
+	summary?: string;
+	/** The widths from 640 px at which the summary takes more than three lines and is cut. */
+	cutAt?: readonly number[];
+}
+
+/**
+ * The destination cards in `items`, the list items of /health's or /about's grid, read against
+ * `cards`, in order: each one link to its address named by its H2 alone, with its icon in a
+ * decorative tile; and at each of `widths` no horizontal scroll, `perRowAt(width)` cards to a row,
+ * 12 px apart both ways below 640 px and 20 px from 640 px, each card's parts as the Service
+ * catalog's (`serviceCardParts`) with its summary from 640 px, and each name on one line. The test
+ * compares `seen` with `expected`; the viewport ends at the last width.
+ */
+export async function readDestinationCards(
+	page: Page,
+	items: Locator,
+	cards: readonly DestinationCard[],
+	perRowAt: (width: number) => number,
+	widths: readonly number[],
+) {
+	const seen: Record<string, unknown> = {};
+	const expected: Record<string, unknown> = {};
+	const each = [];
+	for (const [index, { title }] of cards.entries()) {
+		const item = items.nth(index);
+		const links = item.getByRole("link");
+		const one = (await links.count()) === 1;
+		const h2 = item.getByRole("heading", { level: 2 });
+		each.push({
+			links: await links.count(),
+			named: await item.getByRole("link", { name: title, exact: true }).count(),
+			href: one ? await links.getAttribute("href") : "not one link",
+			h2: (await h2.count()) === 1 ? (await h2.textContent())?.trim() : "no H2",
+			icon: await item.evaluate((cell) => {
+				const tile = cell.querySelector('[data-testid="service-icon"]');
+				const svg = tile?.querySelector("svg");
+				return tile && svg
+					? {
+							hidden: tile.getAttribute("aria-hidden"),
+							names: [...svg.classList].filter((name) => name.startsWith("lucide-")),
+						}
+					: "no icon tile";
+			}),
+		});
+	}
+	seen.cards = each;
+	expected.cards = cards.map(({ title, href, icon }) => ({
+		links: 1,
+		named: 1,
+		href,
+		h2: title,
+		// Lucide adds an older name's class to some icons, such as `lucide-user-2` to `user-round`.
+		icon: { hidden: "true", names: expect.arrayContaining([`lucide-${icon}`]) },
+	}));
+	for (const width of widths) {
+		await page.setViewportSize({ width, height: 900 });
+		await page.mouse.move(0, 0);
+		const phone = width < 640;
+		const boxes = [];
+		for (const item of await items.all()) boxes.push(await boxOf(item, `a card at ${width} px`));
+		const rows = await itemsPerRow(items);
+		const below = boxes[rows[0]!];
+		const parts = [];
+		for (const item of await items.all()) parts.push(await serviceCardParts(item, phone));
+		const nameLines = [];
+		for (const item of await items.all()) {
+			nameLines.push((await shownLines(item.getByRole("heading", { level: 2 }))).lines);
+		}
+		seen[width] = {
+			scrolls: await page.evaluate(
+				() => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+			),
+			rows,
+			across: rows[0]! > 1 ? Math.round(boxes[1]!.x - boxes[0]!.x - boxes[0]!.width) : undefined,
+			down: below ? Math.round(below.y - boxes[0]!.y - boxes[0]!.height) : undefined,
+			parts,
+			nameLines,
+		};
+		const perRow = perRowAt(width);
+		const rowsExpected: number[] = [];
+		for (let left = cards.length; left > 0; left -= perRow) {
+			rowsExpected.push(Math.min(perRow, left));
+		}
+		const gap = phone ? 12 : 20;
+		const partsExpected = [];
+		for (const { summary, cutAt = [] } of cards) {
+			partsExpected.push(
+				await serviceCardPartsAsSpecified(
+					page,
+					phone,
+					summary === undefined
+						? "none"
+						: { words: summary, cut: cutAt.includes(width) ? "three lines" : "whole" },
+				),
+			);
+		}
+		expected[width] = {
+			scrolls: false,
+			rows: rowsExpected,
+			across: rowsExpected[0]! > 1 ? gap : undefined,
+			down: rowsExpected.length > 1 ? gap : undefined,
+			parts: partsExpected,
+			// Every name takes one line from 320 to 1,440 px (spec #417 "Measured in the prototype").
+			nameLines: cards.map(() => 1),
+		};
+	}
+	return { seen, expected };
+}
+
+/**
+ * The addresses the keyboard reaches, in order, in `count` presses of Tab from `start`: each
+ * focused link's `href`.
+ */
+export async function keyboardHrefsFrom(page: Page, start: Locator, count: number) {
+	const order: Array<string | null | undefined> = [];
+	if ((await start.count()) !== 1) return order;
+	await start.focus();
+	for (let press = 0; press < count; press++) {
+		await page.keyboard.press("Tab");
+		order.push(await page.evaluate(() => document.activeElement?.getAttribute("href")));
+	}
+	return order;
+}
+
+/**
+ * Fail unless each of `cards` on the page at `path`, found in `list`, behaves under the pointer and
+ * under focus as a Service catalog's card (`expectServiceCardInteraction`), with its name, summary
+ * and arrow `surface-base` and its icon tile `accent-warm` with a `brand-dark` icon under the
+ * pointer, opens its page by Enter, and with motion allowed rises 8 px under the pointer, a press
+ * on the strip it left still opening its page (spec #417 "The cards"). Reduced motion is preferred
+ * again at the end.
+ */
+export async function expectDestinationCardsUnderPointer(
+	page: Page,
+	path: string,
+	list: Locator,
+	cards: readonly DestinationCard[],
+): Promise<void> {
+	for (const { title, href, summary } of cards) {
+		const card = list.getByRole("article").filter({ hasText: title });
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await page.goto(path);
+		await expectServiceCardInteraction(page, card, title);
+		await card.getByRole("link").hover();
+		const pointed = await card.evaluate((article) => {
+			const colour = (selector: string) => {
+				const part = article.querySelector(selector);
+				return part && getComputedStyle(part).color;
+			};
+			const tile = article.querySelector('[data-testid="service-icon"]');
+			return {
+				name: colour("h2"),
+				summary: colour("p"),
+				arrow: colour("svg.lucide-arrow-right"),
+				tile: tile && getComputedStyle(tile).backgroundColor,
+				icon: colour('[data-testid="service-icon"] svg'),
+			};
+		});
+		const white = await tokenColor(page, "surface-base");
+		expect(pointed, `${title} under the pointer`).toEqual({
+			name: white,
+			summary: summary === undefined ? null : white,
+			arrow: white,
+			tile: await tokenColor(page, "accent-warm"),
+			icon: await tokenColor(page, "brand-dark"),
+		});
+		await card.getByRole("link").press("Enter");
+		await expect(page, `${title} by Enter`).toHaveURL(href);
+		// A press on the tile a citizen points at, and on the card's lower corner, opens the page
+		// (CODING_STANDARDS "Tests": a card whose whole surface is one link).
+		for (const where of ["its tile", "its lower corner"]) {
+			await page.goto(path);
+			await card.scrollIntoViewIfNeeded();
+			const tile = await boxOf(card.getByTestId("service-icon"), `${title}: the tile`);
+			const whole = await boxOf(card, `${title}: the card`);
+			const point =
+				where === "its tile"
+					? { x: tile.x + tile.width / 2, y: tile.y + tile.height / 2 }
+					: { x: whole.x + whole.width - 8, y: whole.y + whole.height - 8 };
+			await pressInside(page, card.getByRole("link"), point, `${title}, ${where}`);
+			await expect(page, `${title} from ${where}`).toHaveURL(href);
+		}
+		await page.goto(path);
+		await expectRisesUnderPointer(page, card, card.getByTestId("service-surface"), 8);
+		await expect(page, `${title} from the strip the lift left`).toHaveURL(href);
+	}
+	await page.emulateMedia({ reducedMotion: "reduce" });
+}
+
 /** The widest header on the field (a Post's, an Announcement's, a Document's page), 48 rem. */
 export const HEADER_WIDEST = 768;
 
@@ -3545,12 +4125,7 @@ type FileBlock = ReturnType<typeof fileBlockOf>;
 export async function fileBlockLook(block: FileBlock) {
 	if ((await block.download.count()) !== 1 || (await block.rule.count()) !== 1) return false;
 	return {
-		tile: await block.tile.evaluate((element) => ({
-			decorative: element.closest('[aria-hidden="true"]') !== null,
-			gradient: getComputedStyle(element).backgroundImage.includes("linear-gradient"),
-			type: element.textContent?.trim(),
-			typeColour: getComputedStyle(element.querySelector("span") ?? element).color,
-		})),
+		tile: await rowTileLook(block.tile),
 		heading: await typeOf(block.heading),
 		typeAndSize: await typeOf(block.typeAndSize),
 		download: {
@@ -3573,11 +4148,10 @@ export async function fileBlockLook(block: FileBlock) {
 
 /**
  * A file block's look as spec #311 sets it and spec #338 takes it (docs/design/DESIGN.md §9.5,
- * §9.6): the tile decorative, on
- * the gradient, with the type in accent-warm; the H2 at body-large, semibold, brand-dark; the type
- * and size at small size in text-secondary; the brand-primary download with its words semibold,
- * the type and size regular and the 20 px icon, linking to `file` at EmDash's media URL under its
- * name; a 1 px border-default rule.
+ * §9.6): the light file tile (spec #417 "The light row tile"); the H2 at body-large, semibold,
+ * brand-dark; the type and size at small size in text-secondary; the brand-primary download with
+ * its words semibold, the type and size regular and the 20 px icon, linking to `file` at EmDash's
+ * media URL under its name; a 1 px border-default rule.
  */
 export async function fileBlockLookAsSpecified(
 	page: Page,
@@ -3585,12 +4159,7 @@ export async function fileBlockLookAsSpecified(
 	file: { storageKey: string; filename: string },
 ) {
 	return {
-		tile: {
-			decorative: true,
-			gradient: true,
-			type,
-			typeColour: await tokenColor(page, "accent-warm"),
-		},
+		tile: await lightRowTile(page, fileTileLines(type)),
 		heading: [18, "600", await tokenColor(page, "brand-dark")],
 		typeAndSize: [13, "400", await tokenColor(page, "text-secondary")],
 		download: {
@@ -3637,7 +4206,7 @@ export async function fileBlockAt(block: FileBlock, lines: Locator[], width: num
 			Math.round(Math.min(tileBox.y, textTop) - cardBox.y - 20),
 		],
 		tileCentred: Math.abs(tileBox.y + tileBox.height / 2 - (textTop + textEnd) / 2) <= 1,
-		tile: [Math.round(tileBox.width), Math.round(tileBox.height)],
+		tile: await rowTileShape(block.tile),
 		headingBesideTile: Math.round(text[0]!.x - tileBox.x - tileBox.width),
 		linesUnderHeading: text
 			.slice(1)
@@ -3669,12 +4238,12 @@ export async function fileBlockAt(block: FileBlock, lines: Locator[], width: num
 /**
  * A file block's places at `width` as spec #311 sets them and spec #338 takes them
  * (docs/design/DESIGN.md §9.5, §9.6): the block
- * 20 px inside the card's corner, the tile centred on the text, 68 px below `sm` and 92 px from
- * `sm`, the H2 16 px beside it and each of `lines` lines straight under it; from `sm` the download
- * at the card's right, 52 px high and 16 px or more beside the text, below `sm` across the card
- * 16 px under the tile and the text, 44 px high or more; the rule 20 px under the block across the
- * card and the details 20 px under it. The download's words take `wordLines` lines, centred, the
- * type and size kept on one, 8 px inside its edges.
+ * 20 px inside the card's corner, the tile centred on the text, 68 px with radius 14 below `sm`
+ * and 92 px with radius 18 from `sm`, the H2 16 px beside it and each of `lines` lines straight
+ * under it; from `sm` the download at the card's right, 52 px high and 16 px or more beside the
+ * text, below `sm` across the card 16 px under the tile and the text, 44 px high or more; the rule
+ * 20 px under the block across the card and the details 20 px under it. The download's words take
+ * `wordLines` lines, centred, the type and size kept on one, 8 px inside its edges.
  */
 export function fileBlockAsSpecified(
 	width: number,
@@ -3684,7 +4253,7 @@ export function fileBlockAsSpecified(
 	return {
 		tileFirst: [0, 0],
 		tileCentred: true,
-		tile: wide ? [92, 92] : [68, 68],
+		tile: rowTileShapeAt(width),
 		headingBesideTile: 16,
 		linesUnderHeading: Array.from({ length: lines }, () => 0),
 		download: wide
