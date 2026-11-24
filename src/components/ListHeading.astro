@@ -31,9 +31,10 @@
 // default slot, 24 px under it below `sm` and 32 px from `sm`, as the breadcrumb is above it.
 //
 // With motion allowed the heading block and then the lead rise in as the page opens, as the
-// hero's text does (`hero-enter`, src/styles/global.css; spec #280 "Motion"), and /search's pill
-// after them, as the hero's search does (SearchPill.astro). The breadcrumb, the link and the links
-// under the lead show at once, so nothing the keyboard reaches is held back.
+// hero's text does (`hero-enter`, src/styles/global.css; spec #280 "Motion"). The breadcrumb, the
+// link and the links under the lead show at once, so the keyboard's first stops are never held
+// back. /search's pill rises in after the lead, held back for its 0.22 s as the hero's search is
+// (SearchPill.astro; spec #432 "Motion").
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import { breadcrumbTrail, type Crumb, type NavigationSection } from "../lib/navigation";
 import Breadcrumb from "./Breadcrumb.astro";
