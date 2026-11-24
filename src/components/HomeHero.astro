@@ -14,10 +14,8 @@
 // (Product Owner, 2026-11-11: #241 comment 6791096480, item 2, in place of spec #239's "under it
 // below `lg`").
 //
-// The search is a plain GET form to /search, as src/components/SearchForm.astro is, so it works
-// without JavaScript. Its field and round submit button are 44 px or more. After submit the
-// button shows a spinner in its arrow's place and a further submit is ignored (SubmitStateIcon;
-// Product Owner, 2026-11-12: #246 comment 6816725778, item 3).
+// The search is the site's search pill (SearchPill.astro), which /search shows too (Feature 015
+// #433); here alone it takes the submit state.
 //
 // The Featured card is one link to the item's canonical address. Its name is all it shows, so it
 // holds the text in sight (WCAG 2.2 SC 2.5.3), and the card's region is named by the item's title,
@@ -43,15 +41,13 @@
 // search rise into place one after another, then the card turns into its tilt and the sheet
 // behind it into its own.
 import ArrowRight from "@lucide/astro/icons/arrow-right";
-import Search from "@lucide/astro/icons/search";
 import Star from "@lucide/astro/icons/star";
 import { Image } from "emdash/ui";
 import type { FeaturedView } from "../lib/homepage-curation";
 import { availableMedia } from "../lib/media";
 import { OFFICE_SUMMARY, OFFICE_SUMMARY_LINES } from "../lib/office-summary";
-import { MAX_QUERY_LENGTH, QUERY_PARAM } from "../lib/search-matcher";
 import DateText from "./DateText.astro";
-import SubmitStateIcon from "./SubmitStateIcon.astro";
+import SearchPill from "./SearchPill.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
@@ -113,39 +109,7 @@ const image = featured && (await availableMedia(featured.image, Astro.locals.emd
 					</span>
 				))}
 			</p>
-			<form
-				role="search"
-				method="get"
-				action="/search"
-				aria-label="ค้นหาในเว็บไซต์"
-				data-submit-state
-				class:list={[
-					"hero-enter group/submit focus-ring-on-light flex h-15 [--hero-enter-delay:0.22s] max-w-135 items-center gap-3 rounded-pill bg-surface-base pr-2 pl-5 text-text-secondary shadow-deep sm:h-17 sm:pl-6",
-					!featured && "lg:max-w-160",
-				]}
-			>
-				<Search class="shrink-0" size={20} />
-				<label class="sr-only" for="home-search">
-					ค้นหาในเว็บไซต์
-				</label>
-				<input
-					id="home-search"
-					name={QUERY_PARAM}
-					type="search"
-					maxlength={MAX_QUERY_LENGTH}
-					placeholder="คุณกำลังมองหาอะไร?"
-					class="min-h-11 w-full min-w-0 flex-1 rounded-pill bg-transparent text-body text-text-primary placeholder:text-text-secondary sm:text-body-large"
-				/>
-				<button
-					type="submit"
-					class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-pill bg-accent-warm text-brand-dark motion-safe:transition-transform motion-safe:hover:scale-108 sm:size-13"
-				>
-					<span class="sr-only">ค้นหา</span>
-					<SubmitStateIcon>
-						<ArrowRight class="shrink-0" size={20} />
-					</SubmitStateIcon>
-				</button>
-			</form>
+			<SearchPill id="home-search" placeholder="คุณกำลังมองหาอะไร?" wide={!featured} submitState />
 		</div>
 		{featured && (
 			<section

@@ -12,11 +12,23 @@
 // engines and its canonical address is /search. It belongs to no main-navigation section; ค้นหา
 // is a utility link. The Product Owner decided its text and these choices on 2026-10-30 (#63
 // comment 6518347225).
+//
+// Since Feature 015 #433 (spec #432 decisions 2, 4, 8 and 9; "The search pill", "`/search`: on
+// the field", "`/search`: each state over the field's edge") the page opens on a list's deep
+// field (ListHeading): its breadcrumb หน้าแรก › ค้นหา, the label "ค้นหา", the H1 "ค้นหาข้อมูล" with
+// the search icon's tile, the lead in the start state alone, so a phone's first result starts
+// higher, and the site's search pill holding the query. The head's title and the breadcrumb still
+// read "ค้นหา". In the start state nothing lies over the field's edge. Otherwise the state's empty
+// state lies over it, or, with results, the eight groups and the count on one white card, then the
+// results and the pager, 32 px apart (ListBody); a group at 0 or a page past the last shows its
+// empty state under the card.
+import Search from "@lucide/astro/icons/search";
 import ActionLink from "../components/ActionLink.astro";
 import EmptyState from "../components/EmptyState.astro";
-import PageHeading from "../components/PageHeading.astro";
+import ListBody from "../components/ListBody.astro";
+import ListHeading from "../components/ListHeading.astro";
 import Pagination from "../components/Pagination.astro";
-import SearchForm from "../components/SearchForm.astro";
+import SearchPill from "../components/SearchPill.astro";
 import SearchResultRow from "../components/SearchResultRow.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { documentsPath } from "../lib/documents";
@@ -65,95 +77,108 @@ const browse = [
 const pill = "inline-flex min-h-11 items-center gap-2 rounded-pill px-4 text-label";
 ---
 
-<SiteLayout
-	title={title}
-	description={lead}
-	canonical="/search"
-	noindex
-	crumbs={[{ label: title }]}
->
-	<div class="page-container flex flex-col gap-8 pt-6 pb-16 lg:pb-20">
-		<PageHeading title={title} lead={lead} />
-		<SearchForm value={queryText} />
-		{outcome.state === "too-short" ? (
-			<EmptyState message="คำค้นหาสั้นเกินไป">
-				<p class="text-text-secondary">กรุณาพิมพ์คำค้นหาอย่างน้อย 2 ตัวอักษร</p>
-			</EmptyState>
-		) : outcome.state === "nothing" || outcome.state === "failed" ? (
-			<EmptyState
-				message={
-					outcome.state === "failed"
-						? "ขออภัย ระบบค้นหาขัดข้องชั่วคราว"
-						: `ไม่พบข้อมูลที่ตรงกับ “${queryText}”`
-				}
-			>
-				<p class="max-w-prose text-text-secondary">
-					{outcome.state === "failed"
-						? "กรุณาลองใหม่อีกครั้งในภายหลัง หรือเลือกดูข้อมูลจากหมวดต่อไปนี้"
-						: "ตรวจสอบตัวสะกด ลองใช้คำที่สั้นลงหรือคำอื่นที่มีความหมายใกล้เคียง หรือเลือกดูข้อมูลจากหมวดต่อไปนี้"}
-				</p>
-				<ul class="flex flex-wrap justify-center gap-3">
-					{browse.map((link) => (
-						<li>
-							<ActionLink href={link.href}>{link.label}</ActionLink>
-						</li>
-					))}
-				</ul>
-			</EmptyState>
-		) : (
-			outcome.state === "found" && (
-				<div class="flex flex-col gap-6">
-					<nav aria-label="กลุ่มผลการค้นหา">
-						<ul class="flex flex-wrap gap-2">
-							{SEARCH_GROUPS.map((each) => (
-								<li>
-									<a
-										class:list={[
-											pill,
-											each.id === group.id
-												? "bg-brand-primary text-surface-base"
-												: "bg-surface-soft text-brand-dark hover:bg-border-default",
-										]}
-										href={groupHref(each)}
-										aria-current={each.id === group.id ? "true" : undefined}
-									>
-										{each.label}
-										<span class="font-normal">
-											{outcome.found.counts[each.id]}
-											<span class="sr-only"> รายการ</span>
-										</span>
-									</a>
-								</li>
-							))}
-						</ul>
-					</nav>
-					<p class="text-label text-text-secondary">
-						{`พบ ${outcome.found.counts[group.id]} รายการ${groupSuffix}`}
+<SiteLayout title={title} description={lead} canonical="/search" noindex>
+	<ListHeading
+		crumbs={[{ label: title }]}
+		label="ค้นหา"
+		title="ค้นหาข้อมูล"
+		lead={outcome.state === "start" ? lead : undefined}
+		overEdge={outcome.state !== "start"}
+	>
+		<Search slot="icon" class="shrink-0" size={24} />
+		<SearchPill
+			id="search-query"
+			value={queryText}
+			placeholder="ค้นหาบริการ ข่าวสาร หน่วยบริการ หรือเอกสาร…"
+			wide
+		/>
+	</ListHeading>
+	{outcome.state === "start" ? (
+		<div class="pb-16 lg:pb-20" />
+	) : (
+		<ListBody>
+			{outcome.state === "too-short" ? (
+				<EmptyState message="คำค้นหาสั้นเกินไป">
+					<p class="text-text-secondary">กรุณาพิมพ์คำค้นหาอย่างน้อย 2 ตัวอักษร</p>
+				</EmptyState>
+			) : outcome.state === "nothing" || outcome.state === "failed" ? (
+				<EmptyState
+					message={
+						outcome.state === "failed"
+							? "ขออภัย ระบบค้นหาขัดข้องชั่วคราว"
+							: `ไม่พบข้อมูลที่ตรงกับ “${queryText}”`
+					}
+				>
+					<p class="max-w-prose text-text-secondary">
+						{outcome.state === "failed"
+							? "กรุณาลองใหม่อีกครั้งในภายหลัง หรือเลือกดูข้อมูลจากหมวดต่อไปนี้"
+							: "ตรวจสอบตัวสะกด ลองใช้คำที่สั้นลงหรือคำอื่นที่มีความหมายใกล้เคียง หรือเลือกดูข้อมูลจากหมวดต่อไปนี้"}
 					</p>
-					{outcome.found.results.length > 0 ? (
-						<ul class="flex flex-col gap-4">
-							{outcome.found.results.map(({ entry, snippet }) => (
-								<li>
-									<SearchResultRow entry={entry} snippet={snippet} />
-								</li>
-							))}
-						</ul>
-					) : outcome.found.counts[group.id] > 0 ? (
-						<EmptyState
-							message="ไม่พบผลการค้นหาในหน้านี้"
-							action={{ href: pageHref(Astro.url, 1), label: "กลับไปหน้าแรกของผลการค้นหา" }}
-						/>
-					) : (
-						<EmptyState
-							message={`ไม่พบผลการค้นหา${inGroup(group)}`}
-							action={{ href: groupHref(SEARCH_GROUPS[0]), label: "ดูผลการค้นหาทุกประเภท" }}
-						/>
-					)}
-					{outcome.found.results.length > 0 && (
-						<Pagination page={page} hasMore={outcome.found.hasMore} />
-					)}
-				</div>
-			)
-		)}
-	</div>
+					<ul class="flex flex-wrap justify-center gap-3">
+						{browse.map((link) => (
+							<li>
+								<ActionLink href={link.href}>{link.label}</ActionLink>
+							</li>
+						))}
+					</ul>
+				</EmptyState>
+			) : (
+				outcome.state === "found" && (
+					<>
+						<div class="flex flex-col gap-4 rounded-24 bg-surface-base p-5 shadow-card">
+							<nav aria-label="กลุ่มผลการค้นหา">
+								<ul class="flex flex-wrap gap-2">
+									{SEARCH_GROUPS.map((each) => (
+										<li>
+											<a
+												class:list={[
+													pill,
+													each.id === group.id
+														? "bg-brand-primary text-surface-base"
+														: "bg-surface-soft text-brand-dark hover:bg-border-default",
+												]}
+												href={groupHref(each)}
+												aria-current={each.id === group.id ? "true" : undefined}
+											>
+												{each.label}
+												<span class="font-normal">
+													{outcome.found.counts[each.id]}
+													<span class="sr-only"> รายการ</span>
+												</span>
+											</a>
+										</li>
+									))}
+								</ul>
+							</nav>
+							<p class="text-label text-text-secondary">
+								{`พบ ${outcome.found.counts[group.id]} รายการ${groupSuffix}`}
+							</p>
+						</div>
+						{outcome.found.results.length > 0 ? (
+							<ul class="flex flex-col gap-4">
+								{outcome.found.results.map(({ entry, snippet }) => (
+									<li>
+										<SearchResultRow entry={entry} snippet={snippet} />
+									</li>
+								))}
+							</ul>
+						) : outcome.found.counts[group.id] > 0 ? (
+							<EmptyState
+								message="ไม่พบผลการค้นหาในหน้านี้"
+								action={{ href: pageHref(Astro.url, 1), label: "กลับไปหน้าแรกของผลการค้นหา" }}
+							/>
+						) : (
+							<EmptyState
+								message={`ไม่พบผลการค้นหา${inGroup(group)}`}
+								action={{ href: groupHref(SEARCH_GROUPS[0]), label: "ดูผลการค้นหาทุกประเภท" }}
+							/>
+						)}
+						{outcome.found.results.length > 0 && (
+							<Pagination page={page} hasMore={outcome.found.hasMore} />
+						)}
+					</>
+				)
+			)}
+		</ListBody>
+	)}
 </SiteLayout>

@@ -578,7 +578,7 @@ test("the hero's search has an accessible name and a 44 px submit button at each
 	await field.fill("วัคซีน");
 	await submit.click();
 	await expect(page).toHaveURL(`/search?q=${encodeURIComponent("วัคซีน")}`);
-	await expect(page.getByRole("heading", { level: 1 })).toHaveText("ค้นหา");
+	await expect(page.getByRole("heading", { level: 1 })).toHaveText("ค้นหาข้อมูล");
 });
 
 test("the hero shows no telephone number and no hours, with or without a Featured card", async ({
