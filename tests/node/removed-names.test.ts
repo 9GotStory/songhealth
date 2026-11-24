@@ -62,5 +62,11 @@ it("a component the staged commit removes is no longer named outside DESIGN.md's
 			cited.push(hit);
 		}
 	}
-	assert.deepEqual(cited, [], "a removed component still named");
+	// The message says where the name may go, so a ticket that asks for "X is gone" in a section is
+	// met in §13's entry, never with a new claim in that section (#433 retro).
+	assert.deepEqual(
+		cited,
+		[],
+		"a removed component still named: name it only in DESIGN.md §13's entry, and state what holds now elsewhere",
+	);
 });
