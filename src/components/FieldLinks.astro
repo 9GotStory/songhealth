@@ -1,0 +1,33 @@
+---
+// Links on the deep field to pages that are not the page's own items (Feature 011 #339; spec #338
+// "The Service catalog", decision 15): surface-base words, semibold, at label size and underlined,
+// each with a 16 px arrow-right, 44 px high, 24 px apart across and 4 px down where they wrap.
+// Under the pointer they keep their colour, as the breadcrumb's links on the field do: accent-warm
+// small text reads below 4.5:1 there (CODING_STANDARDS "Public pages"; #339 comment 6941979791).
+// They show at once as the page opens, so the keyboard's stops are never held back.
+//
+// /services lays them under its lead (ListHeading's `leadLinks`), and the 404 page under its
+// search pill, to the Homepage and to /contact (Feature 015 #435; spec #432 "The 404 page").
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+
+interface Props {
+	/** The links, in order. */
+	links: ReadonlyArray<{ href: string; label: string }>;
+}
+
+const { links } = Astro.props;
+---
+
+<ul class="flex flex-wrap gap-x-6 gap-y-1">
+	{links.map((link) => (
+		<li>
+			<a
+				href={link.href}
+				class="inline-flex min-h-11 items-center gap-1.5 text-label font-semibold text-surface-base underline underline-offset-4"
+			>
+				{link.label}
+				<ArrowRight class="shrink-0" size={16} />
+			</a>
+		</li>
+	))}
+</ul>

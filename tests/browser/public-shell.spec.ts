@@ -13,7 +13,7 @@
 // HTTP status and focus. It never asserts Tailwind classes or markup for its
 // own sake.
 
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import {
 	cleanupOwnedFixtures,
@@ -36,9 +36,23 @@ import {
 	expect,
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
+	expectFieldLinks,
 	expectVisibleFocusOnEveryStop,
+	LIST_FIELD_LOOK,
+	listHeading,
+	NOT_FOUND_CONTENT,
+	NOT_FOUND_SENTENCE,
+	partsOverFieldEdge,
+	readHeaderMotion,
+	readListField,
+	readWholeAtTwoWidths,
+	searchPath,
+	searchPill,
+	shownAddress,
+	shownBox,
 	siteIdentityLink,
 	test,
+	thaiWord,
 	tokenColor,
 } from "./public.helpers";
 
@@ -170,7 +184,7 @@ for (const width of [375, 1440]) {
 	});
 }
 
-test("an unknown address answers 404 with the site-designed page inside the shell", async ({
+test("an unknown address answers 404 with the site-designed page inside the shell: its title and H1 as before, no section marked, no breadcrumb, and in its main content the label ขออภัย, the H1, the sentence, the search pill and the links to the Homepage and to /contact, with no ค้นหาข้อมูล link", async ({
 	page,
 }) => {
 	// A nested path inside a section: the 404 page still marks no section.
@@ -181,8 +195,7 @@ test("an unknown address answers 404 with the site-designed page inside the shel
 
 	const main = page.getByRole("main");
 	await expect(main.getByRole("heading", { level: 1 })).toHaveText(NOT_FOUND_HEADING);
-	await expect(main.getByRole("link", { name: "กลับไปหน้าแรก" })).toHaveAttribute("href", "/");
-	await expect(main.getByRole("link", { name: "ค้นหาข้อมูล" })).toHaveAttribute("href", "/search");
+	await expect(main.getByText(NOT_FOUND_SENTENCE, { exact: true })).toBeVisible();
 
 	const navigation = page.getByRole("navigation", { name: "เมนูหลัก" });
 	await expect(navigation.getByRole("link")).toHaveCount(MAIN_NAVIGATION.length);
@@ -194,6 +207,367 @@ test("an unknown address answers 404 with the site-designed page inside the shel
 		"the 404 page has no breadcrumb",
 	).toHaveCount(0);
 	await expect(page.getByRole("contentinfo")).toBeVisible();
+	// Spec #432 decision 5: the site search stands where the link to /search was.
+	expect(
+		{
+			searchLink: await main.getByRole("link", { name: "ค้นหาข้อมูล" }).count(),
+			content: await main.ariaSnapshot(),
+		},
+		"the 404 page's main content",
+	).toEqual({ searchLink: 0, content: NOT_FOUND_CONTENT });
+});
+
+/** The 404 page's label above its H1 (spec #432 decision 11). */
+const NOT_FOUND_LABEL = "ขออภัย";
+
+/** The Homepage hero's placeholder, which the 404 page's search pill shows (spec #432). */
+const HERO_PLACEHOLDER = "คุณกำลังมองหาอะไร?";
+
+/** The parts of the 404 page on its deep field (spec #432 "The 404 page"). */
+function notFoundParts(page: Page) {
+	const heading = listHeading(page, { label: NOT_FOUND_LABEL, lead: NOT_FOUND_SENTENCE });
+	return {
+		...heading,
+		tile: heading.field.locator("span:has(> svg.lucide-search-x)"),
+		icon: heading.field.locator("span > svg.lucide-search-x"),
+		pill: searchPill(page),
+		home: heading.field.getByRole("link", { name: "กลับไปหน้าแรก", exact: true }),
+		contact: heading.field.getByRole("link", { name: "ติดต่อเรา", exact: true }),
+	};
+}
+
+/** How far, in px, `lower` starts below where `upper` ends, or "missing". */
+async function gapBetween(upper: Locator[], lower: Locator): Promise<number | "missing"> {
+	const boxes = await Promise.all([lower, ...upper].map(shownBox));
+	if (!boxes.every(Boolean)) return "missing";
+	const [low, ...ups] = boxes;
+	return Math.round(low!.y - Math.max(...ups.map((box) => box!.y + box!.height)));
+}
+
+test.describe("the 404 page", () => {
+	test("it opens on a list's deep field without a breadcrumb: the label ขออภัย, the H1 beside search-x in the accent-warm tile, the sentence at body-large 16 px under the heading, then the search pill and the links to the Homepage and to /contact, one under another 24 px apart below 640 px and 32 px from 640 px, every text in surface-base; no ค้นหาข้อมูล link, no button but the pill's and no 404 numeral", async ({
+		page,
+	}) => {
+		await page.goto(unknownPath());
+		const parts = notFoundParts(page);
+		const [white, warm, dark] = await Promise.all(
+			["surface-base", "accent-warm", "brand-dark"].map((name) => tokenColor(page, name)),
+		);
+		const colourOf = async (part: Locator) =>
+			(await part.count()) === 1
+				? part.evaluate((element) => getComputedStyle(element).color)
+				: "missing";
+		const seen: Record<string, unknown> = {
+			tile:
+				(await parts.tile.count()) === 1
+					? {
+							fill: await parts.tile.evaluate(
+								(element) => getComputedStyle(element).backgroundColor,
+							),
+							icon: await colourOf(parts.icon),
+							size: await parts.icon.evaluate((element) => {
+								const box = element.getBoundingClientRect();
+								return [Math.round(box.width), Math.round(box.height)];
+							}),
+						}
+					: "missing",
+			colours: {
+				label: await colourOf(parts.label),
+				title: await colourOf(parts.title),
+				sentence: await colourOf(parts.lead),
+				home: await colourOf(parts.home),
+				contact: await colourOf(parts.contact),
+			},
+			sentenceSize:
+				(await parts.lead.count()) === 1
+					? await parts.lead.evaluate((element) => getComputedStyle(element).fontSize)
+					: "missing",
+			fieldLinks: await parts.field
+				.getByRole("link")
+				.evaluateAll((links) =>
+					links.map((link) => [link.textContent?.trim(), link.getAttribute("href")]),
+				),
+			fieldButtons: await parts.field.getByRole("button").allTextContents(),
+			// Today's buttons were pills; the links on the field have no fill and no edge.
+			linkFills: await parts.field
+				.getByRole("link")
+				.evaluateAll((links) =>
+					links.map((link) => [
+						getComputedStyle(link).backgroundColor,
+						getComputedStyle(link).borderTopWidth,
+					]),
+				),
+			numeral: (await page.getByRole("main").innerText()).includes("404"),
+		};
+		const expected: Record<string, unknown> = {
+			tile: { fill: warm, icon: dark, size: [24, 24] },
+			colours: { label: white, title: white, sentence: white, home: white, contact: white },
+			// body-large, src/styles/global.css --text-body-large: 1.125rem.
+			sentenceSize: "18px",
+			fieldLinks: [
+				["กลับไปหน้าแรก", "/"],
+				["ติดต่อเรา", "/contact"],
+			],
+			fieldButtons: [expect.stringMatching(/^\s*ค้นหา\s*$/)],
+			linkFills: [
+				["rgba(0, 0, 0, 0)", "0px"],
+				["rgba(0, 0, 0, 0)", "0px"],
+			],
+			numeral: false,
+		};
+		// The heading block ends where the lower of its tile and its H1 does.
+		const heading = [parts.tile, parts.title];
+		for (const width of [320, 639, 640, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			const apart = width >= 640 ? 32 : 24;
+			const [tileBox, titleBox] = await Promise.all([parts.tile, parts.title].map(shownBox));
+			seen[width] = {
+				tileBeforeTitle: tileBox && titleBox ? tileBox.x + tileBox.width <= titleBox.x : "missing",
+				labelAboveTitle: await gapBetween([parts.label], parts.title).then((gap) =>
+					gap === "missing" ? gap : gap >= 0,
+				),
+				sentenceUnderHeading: await gapBetween(heading, parts.lead),
+				pillUnderSentence: await gapBetween([parts.lead], parts.pill.form),
+				linksUnderPill: await gapBetween([parts.pill.form], parts.home),
+			};
+			expected[width] = {
+				tileBeforeTitle: true,
+				labelAboveTitle: true,
+				sentenceUnderHeading: 16,
+				pillUnderSentence: apart,
+				linksUnderPill: apart,
+			};
+		}
+		expect(seen, "the 404 page's parts on its field").toEqual(expected);
+	});
+
+	test("its field is a list's: the glow and the large ring from 1,024 px alone, lower corners of 24 px and 32 px from 640 px; its content starts 40 px under the header below 640 px, 56 px from 640 px and 72 px from 1,024 px, the field ends 48, 64 and 80 px under the links, nothing lies over its edge and the footer follows 64 px under it, 80 px from 1,024 px; the H1 is 26, 36 and 42 px; nothing is past the window at 320, 375, 639, 640, 1023, 1024 and 1440 px", async ({
+		page,
+	}) => {
+		await page.goto(unknownPath());
+		const parts = notFoundParts(page);
+		const seen: Record<string, unknown> = { field: await readListField(page) };
+		const expected: Record<string, unknown> = { field: LIST_FIELD_LOOK };
+		for (const width of [320, 375, 639, 640, 1023, 1024, 1440]) {
+			// A short window, so the page is taller than it and the footer follows the content.
+			await page.setViewportSize({ width, height: 300 });
+			await expectNoHorizontalScroll(page, `the 404 page at ${width} px`);
+			const [header, field, tile, label, home, contact, footer] = await Promise.all(
+				[
+					page.getByRole("banner"),
+					parts.field,
+					parts.tile,
+					parts.label,
+					parts.home,
+					parts.contact,
+					page.getByRole("contentinfo"),
+				].map(shownBox),
+			);
+			seen[width] =
+				header && field && tile && label && home && contact && footer
+					? {
+							contentUnderHeader: Math.round(
+								Math.min(tile.y, label.y) - (header.y + header.height),
+							),
+							fieldUnderLinks: Math.round(
+								field.y + field.height - Math.max(home.y + home.height, contact.y + contact.height),
+							),
+							footerUnderField: Math.round(footer.y - (field.y + field.height)),
+							over: await partsOverFieldEdge(page, parts.field),
+							corners: await parts.field.evaluate((element) => [
+								getComputedStyle(element).borderBottomLeftRadius,
+								getComputedStyle(element).borderBottomRightRadius,
+							]),
+							titleSize: await parts.title.evaluate(
+								(element) => getComputedStyle(element).fontSize,
+							),
+						}
+					: "missing";
+			const corner = width >= 640 ? "32px" : "24px";
+			expected[width] = {
+				contentUnderHeader: width >= 1024 ? 72 : width >= 640 ? 56 : 40,
+				fieldUnderLinks: width >= 1024 ? 80 : width >= 640 ? 64 : 48,
+				footerUnderField: width >= 1024 ? 80 : 64,
+				over: [],
+				corners: [corner, corner],
+				titleSize: width >= 1024 ? "42px" : width >= 640 ? "36px" : "26px",
+			};
+		}
+		expect(seen, "the 404 page's field at each width").toEqual(expected);
+	});
+
+	test("its search pill is the site's: the page's one search landmark, named ค้นหาในเว็บไซต์ as its field is, for assistive technology alone, its button ค้นหา; empty with the hero's placeholder คุณกำลังมองหาอะไร?, as wide as the column up to 540 px and from 1,024 px up to 640 px; a typed query, by Enter or by the button, opens /search with that query alone, and the pill shows no spinner after the submit", async ({
+		page,
+	}) => {
+		const path = unknownPath();
+		const pill = searchPill(page);
+		const seen: Record<string, unknown> = {};
+		const expected: Record<string, unknown> = {};
+		await page.goto(path);
+		seen.landmarks = await page.getByRole("search").count();
+		expected.landmarks = 1;
+		seen.named = {
+			form: await pill.form.count(),
+			field: await pill.field.count(),
+			button: await pill.button.count(),
+		};
+		expected.named = { form: 1, field: 1, button: 1 };
+		seen.field =
+			(await pill.field.count()) === 1
+				? {
+						value: await pill.field.inputValue(),
+						placeholder: await pill.field.getAttribute("placeholder"),
+						shown: await pill.field.evaluate((element) => element.matches(":placeholder-shown")),
+					}
+				: "missing";
+		expected.field = { value: "", placeholder: HERO_PLACEHOLDER, shown: true };
+		// The field's name and the button's word take no room in sight.
+		seen.inSight =
+			(await pill.form.count()) === 1
+				? await pill.form.evaluate((form) =>
+						[...form.querySelectorAll("label, button span")]
+							.filter((element) => {
+								const box = element.getBoundingClientRect();
+								return Math.max(box.width, box.height) > 1;
+							})
+							.map((element) => element.textContent?.trim()),
+					)
+				: "missing";
+		expected.inSight = [];
+		for (const width of [320, 1023, 1024, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			seen[width] =
+				(await pill.form.count()) === 1
+					? await pill.form.evaluate((element) => {
+							const column = element.parentElement!;
+							const style = getComputedStyle(column);
+							return {
+								width: Math.round(element.getBoundingClientRect().width),
+								column: Math.round(
+									column.clientWidth -
+										parseFloat(style.paddingLeft) -
+										parseFloat(style.paddingRight),
+								),
+							};
+						})
+					: "missing";
+			const column = (seen[width] as { column?: number }).column ?? "no column";
+			expected[width] = {
+				width: typeof column === "number" ? Math.min(column, width >= 1024 ? 640 : 540) : column,
+				column,
+			};
+		}
+
+		const query = thaiWord();
+		for (const how of ["Enter", "the button"]) {
+			await page.goto(path);
+			if ((await pill.field.count()) === 1) {
+				await pill.field.fill(query);
+				if (how === "Enter") await pill.field.press("Enter");
+				else await pill.button.click();
+				await page.waitForURL(searchPath({ q: query }), { timeout: 5_000 }).catch(() => undefined);
+			}
+			seen[`sent by ${how}`] = shownAddress(page);
+			expected[`sent by ${how}`] = searchPath({ q: query });
+		}
+		// The result answers 204 No Content, so the page stays in sight after the submit.
+		await page.goto(path);
+		const result = (url: URL) => url.pathname === "/search";
+		await page.route(result, (route) => route.fulfill({ status: 204 }));
+		if ((await pill.field.count()) === 1) {
+			await pill.field.fill(query);
+			await pill.field.press("Enter");
+			await page.waitForTimeout(500);
+		}
+		seen.spinner = await page.getByTestId("submit-spinner").count();
+		expected.spinner = 0;
+		await page.unroute(result);
+		seen.pillShown = (await shownBox(pill.form)) ? "shown" : "missing";
+		expected.pillShown = "shown";
+		expect(seen, "what the 404 page's search pill is named, holds and sends").toEqual(expected);
+	});
+
+	test("its links to the Homepage and to /contact are /services' links under its lead: surface-base words, semibold, at label size and underlined, each with a 16 px arrow-right and 44 px high, 24 px apart on one row at 1,440 and at 320 px, keeping their colour under the pointer; with focus each shows the field's accent-warm ring", async ({
+		page,
+	}) => {
+		await page.goto(unknownPath());
+		const { home, contact } = notFoundParts(page);
+		await expectFieldLinks(
+			page,
+			[
+				["กลับไปหน้าแรก", home],
+				["ติดต่อเรา", contact],
+			],
+			[
+				[DESKTOP_VIEWPORT, "one row"],
+				[MOBILE_VIEWPORT, "one row"],
+			],
+		);
+		const warm = await tokenColor(page, "accent-warm");
+		for (const link of [home, contact]) {
+			await link.focus();
+			await expect(link).toHaveCSS("outline-style", "solid");
+			await expect(link).toHaveCSS("outline-color", warm);
+		}
+	});
+
+	test("it moves only when motion is allowed: the heading block, then the sentence, then the search pill rise in as the page opens, while the two links show at once; with reduced motion preferred, and on paper, nothing moves, and each part's place is the same either way", async ({
+		page,
+	}) => {
+		const parts = notFoundParts(page);
+		const { seen, expected } = await readHeaderMotion(
+			page,
+			unknownPath(),
+			[
+				["the H1", parts.title],
+				["the sentence", parts.lead, 0.1],
+				["the search pill", parts.pill.form, 0.22],
+			],
+			[
+				["กลับไปหน้าแรก", parts.home],
+				["ติดต่อเรา", parts.contact],
+			],
+			[
+				["the field", parts.field],
+				["the H1", parts.title],
+				["the sentence", parts.lead],
+				["the search pill", parts.pill.form],
+				["กลับไปหน้าแรก", parts.home],
+				["ติดต่อเรา", parts.contact],
+			],
+			false,
+		);
+		expect(seen, "the 404 page's motion, and nothing moving without it").toEqual(expected);
+	});
+
+	test.describe("without JavaScript", () => {
+		test.use({ javaScriptEnabled: false });
+
+		test("it shows its label, H1, sentence, search pill and links whole at 375 and 1440 px, and the pill sends its query alone to /search", async ({
+			page,
+		}) => {
+			await page.goto(unknownPath());
+			const parts = notFoundParts(page);
+			const whole = await readWholeAtTwoWidths(page, [
+				["the label", parts.label],
+				["the H1", parts.title],
+				["the sentence", parts.lead],
+				["the search pill", parts.pill.form],
+				["กลับไปหน้าแรก", parts.home],
+				["ติดต่อเรา", parts.contact],
+			]);
+			const query = thaiWord();
+			if ((await parts.pill.field.count()) === 1) {
+				await parts.pill.field.fill(query);
+				await parts.pill.field.press("Enter");
+				await page.waitForURL(searchPath({ q: query }), { timeout: 5_000 }).catch(() => undefined);
+			}
+			expect(
+				{ whole: whole.seen, sent: shownAddress(page) },
+				"the 404 page whole without JavaScript, and what the pill sends",
+			).toEqual({ whole: whole.expected, sent: searchPath({ q: query }) });
+		});
+	});
 });
 
 test("below 1024 px one 48 px icon-only menu button opens the same items as full-width rows", async ({

@@ -81,6 +81,7 @@ import {
 	listHeading,
 	movingSurface,
 	ownTitles,
+	partsOverFieldEdge,
 	pillStyle,
 	pointAtRowEdge,
 	pressInside,
@@ -91,6 +92,9 @@ import {
 	rowTileLook,
 	rowTileShapeAt,
 	searchPath,
+	searchPill,
+	shownAddress,
+	shownBox,
 	shownLines,
 	test,
 	testHeadingOnField,
@@ -148,27 +152,11 @@ const HEADING = {
 	lead: "ค้นหาข่าวสาร บริการประชาชน ข้อมูลสุขภาพ หน่วยบริการ เอกสาร และข้อมูลของสำนักงานสาธารณสุขอำเภอสองได้จากที่เดียว",
 };
 
-/** The name of the search pill's form and of its field (spec #432 "The search pill"). */
-const SEARCH_NAME = "ค้นหาในเว็บไซต์";
-
 /** The search pill's placeholder on /search, the earlier search form's own. */
 const PLACEHOLDER = "ค้นหาบริการ ข่าวสาร หน่วยบริการ หรือเอกสาร…";
 
 /** The query's longest length (src/lib/search-matcher.ts MAX_QUERY_LENGTH). */
 const MAX_QUERY_LENGTH = 100;
-
-/** The search pill in the page's main content: its search landmark, field, button and icons. */
-function searchPill(page: Page) {
-	const form = page.getByRole("main").getByRole("search", { name: SEARCH_NAME });
-	const button = form.getByRole("button", { name: "ค้นหา", exact: true });
-	return {
-		form,
-		field: form.getByRole("searchbox", { name: SEARCH_NAME }),
-		button,
-		icon: form.locator(":scope > svg.lucide-search"),
-		arrow: button.locator("svg.lucide-arrow-right"),
-	};
-}
 
 /** The search box of the page's search pill. */
 const searchBox = (page: Page) => searchPill(page).field;
@@ -563,19 +551,6 @@ test("the start page, a too-short or empty query and a query that finds nothing 
 	expect(await page.title()).not.toBe("x");
 });
 
-/** `part`'s box, or undefined where the page does not show it once. */
-async function shownBox(part: Locator) {
-	return (await part.count()) === 1 && (await part.isVisible())
-		? ((await part.boundingBox()) ?? undefined)
-		: undefined;
-}
-
-/** The address the page shows now, its path and query. */
-const shownAddress = (page: Page) => {
-	const url = new URL(page.url());
-	return `${url.pathname}${url.search}`;
-};
-
 /** Fail unless the page keeps out of search engines and names /search its canonical address. */
 async function expectSearchHead(page: Page): Promise<void> {
 	await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
@@ -895,22 +870,7 @@ test.describe("on the deep field", () => {
 			const [fieldBox, pillBox, footerBox] = await Promise.all(
 				[field, searchPill(page).form, page.getByRole("contentinfo")].map(shownBox),
 			);
-			const over =
-				(await field.count()) === 1
-					? await page.getByRole("main").evaluate(
-							(main, fieldElement) => {
-								const edge = fieldElement!.getBoundingClientRect().bottom;
-								return [...main.querySelectorAll("*")]
-									.filter((part) => !fieldElement!.contains(part))
-									.filter((part) => {
-										const box = part.getBoundingClientRect();
-										return box.width * box.height > 0 && box.top < edge - 0.5;
-									})
-									.map((part) => `<${part.localName}> ${part.textContent?.trim().slice(0, 30)}`);
-							},
-							await field.elementHandle(),
-						)
-					: "no field";
+			const over = await partsOverFieldEdge(page, field);
 			edges[width] =
 				fieldBox && pillBox && footerBox
 					? {

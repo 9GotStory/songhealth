@@ -6,33 +6,39 @@
 // with the same page. It tells the visitor only that the page is not
 // available, never why, so nothing unpublished is revealed. It belongs to no
 // main-navigation section.
-import ActionLink from "../components/ActionLink.astro";
-import ThaiTitle from "../components/ThaiTitle.astro";
+//
+// Since Feature 015 #435 (spec #432 "The 404 page", decisions 5, 6 and 11; prototype P3 A) it opens
+// on a list's deep field without a breadcrumb (ListHeading): the label "ขออภัย" over the H1 with
+// the search-x icon's tile, the sentence, then the site's search pill (SearchPill), empty with the
+// Homepage hero's placeholder and up to 640 px from `lg`, which takes the place of the link to
+// /search, and the links to the Homepage and to /contact as /services' links under its lead
+// (FieldLinks), in place of the three buttons. Nothing lies over the field's edge, and the page's
+// own 64 px, 80 px from `lg`, follow before the footer. The pill has no submit state, so the page
+// has no script.
+import SearchX from "@lucide/astro/icons/search-x";
+import FieldLinks from "../components/FieldLinks.astro";
+import ListHeading from "../components/ListHeading.astro";
+import SearchPill from "../components/SearchPill.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 
 const heading = "ไม่พบหน้าที่คุณต้องการ";
 ---
 
 <SiteLayout title={heading}>
-	<div class="page-container py-16 lg:py-20">
-		<h1 class="text-h3 text-brand-dark sm:text-h2 lg:text-h1">
-			<ThaiTitle text={heading} />
-		</h1>
-		<p class="mt-4 max-w-prose text-body-large text-text-secondary">
-			ที่อยู่นี้อาจพิมพ์ไม่ถูกต้อง หรือหน้านี้อาจถูกย้ายหรือนำออกแล้ว
-		</p>
-		<ul class="mt-8 flex flex-wrap gap-3">
-			<li>
-				<ActionLink variant="primary" href="/">
-					กลับไปหน้าแรก
-				</ActionLink>
-			</li>
-			<li>
-				<ActionLink href="/search">ค้นหาข้อมูล</ActionLink>
-			</li>
-			<li>
-				<ActionLink href="/contact">ติดต่อเรา</ActionLink>
-			</li>
-		</ul>
-	</div>
+	<ListHeading
+		label="ขออภัย"
+		title={heading}
+		lead="ที่อยู่นี้อาจพิมพ์ไม่ถูกต้อง หรือหน้านี้อาจถูกย้ายหรือนำออกแล้ว"
+		overEdge={false}
+	>
+		<SearchX slot="icon" class="shrink-0" size={24} />
+		<SearchPill id="not-found-query" placeholder="คุณกำลังมองหาอะไร?" wide />
+		<FieldLinks
+			links={[
+				{ href: "/", label: "กลับไปหน้าแรก" },
+				{ href: "/contact", label: "ติดต่อเรา" },
+			]}
+		/>
+	</ListHeading>
+	<div class="pb-16 lg:pb-20"></div>
 </SiteLayout>

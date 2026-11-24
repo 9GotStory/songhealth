@@ -21,24 +21,28 @@
 //
 // Links under the lead, `leadLinks`, are a list's related pages that are not its own items, such
 // as /services' Health Service Directory and guides and forms (Feature 011 #339; spec #338 "The
-// Service catalog", decision 15): surface-base words, semibold, at label size and underlined, each
-// with a 16 px arrow-right, 44 px high, 24 px apart across and 4 px down where they wrap. Under the
-// pointer they keep their colour, as the breadcrumb's links on the field do: accent-warm small text
-// reads below 4.5:1 there (CODING_STANDARDS "Public pages"; #339 comment 6941979791).
+// Service catalog", decision 15), in FieldLinks' look.
 //
 // /search (Feature 015 #433; spec #432 "`/search`: on the field") shows its lead in the start
 // state alone, and lays the site's search pill on the field under the heading block through the
 // default slot, 24 px under it below `sm` and 32 px from `sm`, as the breadcrumb is above it.
 //
+// The 404 page (Feature 015 #435; spec #432 "The 404 page", decisions 6 and 11) is this heading
+// without a breadcrumb: it passes no `crumbs`. Its heading block starts 40 px under the header
+// below `sm`, 56 px from `sm` and 72 px from `lg`, and with nothing over the field's edge the field
+// ends 48 px, 64 px and 80 px under its last part, the links it lays under the search pill in the
+// default slot (FieldLinks).
+//
 // With motion allowed the heading block and then the lead rise in as the page opens, as the
 // hero's text does (`hero-enter`, src/styles/global.css; spec #280 "Motion"). The breadcrumb, the
 // link and the links under the lead show at once, so the keyboard's first stops are never held
-// back. /search's pill rises in after the lead, held back for its 0.22 s as the hero's search is
-// (SearchPill.astro; spec #432 "Motion").
+// back. /search's pill and the 404 page's rise in after the lead, held back for their 0.22 s as the
+// hero's search is (SearchPill.astro; spec #432 "Motion"); the 404 page's links show at once.
 import ArrowRight from "@lucide/astro/icons/arrow-right";
 import { breadcrumbTrail, type Crumb, type NavigationSection } from "../lib/navigation";
 import Breadcrumb from "./Breadcrumb.astro";
 import DeepField from "./DeepField.astro";
+import FieldLinks from "./FieldLinks.astro";
 import SectionHeading from "./SectionHeading.astro";
 
 interface Props {
@@ -47,12 +51,15 @@ interface Props {
 	 * a page in no section, such as /contact.
 	 */
 	section?: NavigationSection;
-	/** The page's own crumbs, as the shell takes them (src/layouts/SiteLayout.astro). */
-	crumbs: Crumb[];
+	/**
+	 * The page's own crumbs, as the shell takes them (src/layouts/SiteLayout.astro); none for the
+	 * 404 page, which has no breadcrumb.
+	 */
+	crumbs?: Crumb[];
 	/** The small label above the H1. */
 	label: string;
 	title: string;
-	/** The sentence under the H1, which /search shows in its start state alone. */
+	/** The sentence under the H1: /search shows it in its start state alone. */
 	lead?: string;
 	/** A related list the heading links to, such as Health News from /news. */
 	link?: { href: string; label: string };
@@ -68,11 +75,12 @@ const { section, crumbs, label, title, lead, link, leadLinks = [], overEdge = tr
 <DeepField kind="list">
 	<div
 		class:list={[
-			"page-container relative flex flex-col gap-6 pt-6 sm:gap-8",
-			overEdge ? "pb-24 sm:pb-32" : "pb-10 sm:pb-12",
+			"page-container relative flex flex-col gap-6 sm:gap-8",
+			crumbs ? "pt-6" : "pt-10 sm:pt-14 lg:pt-18",
+			overEdge ? "pb-24 sm:pb-32" : crumbs ? "pb-10 sm:pb-12" : "pb-12 sm:pb-16 lg:pb-20",
 		]}
 	>
-		<Breadcrumb onField items={breadcrumbTrail(section, crumbs)} />
+		{crumbs && <Breadcrumb onField items={breadcrumbTrail(section, crumbs)} />}
 		<div class="flex flex-col gap-5 sm:flex-row sm:justify-between sm:gap-6">
 			<div class="flex min-w-0 flex-col gap-4">
 				<SectionHeading level={1} surface="field" label={label} title={title} class="hero-enter">
@@ -81,21 +89,7 @@ const { section, crumbs, label, title, lead, link, leadLinks = [], overEdge = tr
 				{lead && (
 					<p class="hero-enter max-w-prose text-body-large [--hero-enter-delay:0.1s]">{lead}</p>
 				)}
-				{leadLinks.length > 0 && (
-					<ul class="flex flex-wrap gap-x-6 gap-y-1">
-						{leadLinks.map((related) => (
-							<li>
-								<a
-									href={related.href}
-									class="inline-flex min-h-11 items-center gap-1.5 text-label font-semibold text-surface-base underline underline-offset-4"
-								>
-									{related.label}
-									<ArrowRight class="shrink-0" size={16} />
-								</a>
-							</li>
-						))}
-					</ul>
-				)}
+				{leadLinks.length > 0 && <FieldLinks links={leadLinks} />}
 			</div>
 			{link && (
 				<a
