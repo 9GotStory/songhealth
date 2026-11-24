@@ -28,7 +28,7 @@
 // default slot, 24 px under it below `sm` and 32 px from `sm`, as the breadcrumb is above it.
 //
 // The 404 page (Feature 015 #435; spec #432 "The 404 page", decisions 6 and 11) is this heading
-// without a breadcrumb: it passes no `crumbs`. Its heading block starts 40 px under the header
+// without a breadcrumb: it passes `crumbs={null}`. Its heading block starts 40 px under the header
 // below `sm`, 56 px from `sm` and 72 px from `lg`, and with nothing over the field's edge the field
 // ends 48 px, 64 px and 80 px under its last part, the links it lays under the search pill in the
 // default slot (FieldLinks).
@@ -52,10 +52,11 @@ interface Props {
 	 */
 	section?: NavigationSection;
 	/**
-	 * The page's own crumbs, as the shell takes them (src/layouts/SiteLayout.astro); none for the
-	 * 404 page, which has no breadcrumb.
+	 * The page's own crumbs, as the shell takes them (src/layouts/SiteLayout.astro); null for the
+	 * 404 page, which has no breadcrumb. A list page always gives its own, so one left out does not
+	 * type-check, and only the null chooses the 404 page's room.
 	 */
-	crumbs?: Crumb[];
+	crumbs: Crumb[] | null;
 	/** The small label above the H1. */
 	label: string;
 	title: string;

@@ -288,7 +288,7 @@ test.describe("the 404 page", () => {
 					links.map((link) => [link.textContent?.trim(), link.getAttribute("href")]),
 				),
 			fieldButtons: await parts.field.getByRole("button").allTextContents(),
-			// Today's buttons were pills; the links on the field have no fill and no edge.
+			// The links on the field are words alone, with no fill and no edge (spec #432 decision 11).
 			linkFills: await parts.field
 				.getByRole("link")
 				.evaluateAll((links) =>

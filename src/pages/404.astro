@@ -7,12 +7,11 @@
 // available, never why, so nothing unpublished is revealed. It belongs to no
 // main-navigation section.
 //
-// Since Feature 015 #435 (spec #432 "The 404 page", decisions 5, 6 and 11; prototype P3 A) it opens
-// on a list's deep field without a breadcrumb (ListHeading): the label "ขออภัย" over the H1 with
-// the search-x icon's tile, the sentence, then the site's search pill (SearchPill), empty with the
-// Homepage hero's placeholder and up to 640 px from `lg`, which takes the place of the link to
-// /search, and the links to the Homepage and to /contact as /services' links under its lead
-// (FieldLinks), in place of the three buttons. Nothing lies over the field's edge, and the page's
+// It opens on a list's deep field without a breadcrumb (ListHeading; Feature 015 #435, spec #432
+// "The 404 page", decisions 5, 6 and 11): the label "ขออภัย" over the H1 with the search-x icon's
+// tile, the sentence, then the site's search pill (SearchPill), empty with the Homepage hero's
+// placeholder and up to 640 px from `lg`, and the links to the Homepage and to /contact as
+// /services' links under its lead (FieldLinks). Nothing lies over the field's edge, and the page's
 // own 64 px, 80 px from `lg`, follow before the footer. The pill has no submit state, so the page
 // has no script.
 import SearchX from "@lucide/astro/icons/search-x";
@@ -26,6 +25,7 @@ const heading = "ไม่พบหน้าที่คุณต้องกา
 
 <SiteLayout title={heading}>
 	<ListHeading
+		crumbs={null}
 		label="ขออภัย"
 		title={heading}
 		lead="ที่อยู่นี้อาจพิมพ์ไม่ถูกต้อง หรือหน้านี้อาจถูกย้ายหรือนำออกแล้ว"

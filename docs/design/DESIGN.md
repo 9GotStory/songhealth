@@ -1156,14 +1156,13 @@ without a breadcrumb.
   rise in, the pill as the hero's search does; each result's row reveals as it comes into the
   window (#434); the breadcrumb, the groups' card, an empty state and the pager show at once.
 - **The 404 page** is labelled "ขออภัย" over its H1 "ไม่พบหน้าที่คุณต้องการ", with `search-x`, and
-  has no breadcrumb (spec #432 decisions 6 and 11; Feature 015 #435; `ListHeading` without
-  `crumbs`). Its heading block starts 40 px under the header below `sm`, 56 px from `sm` and 72 px
+  has no breadcrumb (spec #432 decisions 6 and 11; Feature 015 #435; `ListHeading` with
+  `crumbs={null}`). Its heading block starts 40 px under the header below `sm`, 56 px from `sm` and 72 px
   from `lg`. Under the heading block, 16 px, its sentence "ที่อยู่นี้อาจพิมพ์ไม่ถูกต้อง
   หรือหน้านี้อาจถูกย้ายหรือนำออกแล้ว" at body-large; then the site's search pill (§8.1), empty, with the
-  hero's placeholder "คุณกำลังมองหาอะไร?", up to 640 px from `lg` and with no submit state, in place
-  of the link to `/search` (decision 5); then "กลับไปหน้าแรก" to `/` and "ติดต่อเรา" to `/contact`
-  as `/services`' links under its lead (`FieldLinks`, below), in place of the three buttons, with
-  no "404" numeral. The heading block with its sentence, the pill and the links are 24 px apart
+  hero's placeholder "คุณกำลังมองหาอะไร?", up to 640 px from `lg` and with no submit state (decision
+  5); then "กลับไปหน้าแรก" to `/` and "ติดต่อเรา" to `/contact` as `/services`' links under its
+  lead (`FieldLinks`, below), with no button but the pill's and no "404" numeral. The heading block with its sentence, the pill and the links are 24 px apart
   below `sm` and 32 px from `sm`. Nothing lies over the field's edge: the field ends 48 px under
   the links below `sm`, 64 px from `sm` and 80 px from `lg`, and the page's own 64 px, 80 px from
   `lg`, follow before the footer. Its status, its title in the head, the main navigation marking
