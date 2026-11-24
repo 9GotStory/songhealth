@@ -6,8 +6,8 @@
 //
 // A pair is before-<name>.png with after-<name>.png. A pair byte for byte the same is identical;
 // the others are decoded (8 bits a channel, not interlaced, as Chromium's screenshots are) and
-// compared pixel by pixel. The first form gives a line per pair; with --cases, the cases alike at
-// every width on a line each and a line per other case, a block for a record to quote whole (#421
+// compared pixel by pixel. The first form gives a line per pair; with --cases, one line for the
+// cases alike at every width and a line per other case, a block for a record to quote whole (#421
 // retro item 1). scripts/evidence-branch.sh prints both after the heights. --against holds each
 // after-<name>.png against the same file on the first of the branches, newest first, that has it,
 // such as the feature's earlier tickets' (#420 retro). Read-only.
@@ -91,14 +91,14 @@ if (mode === "--against") {
 		if (!file.startsWith("after-") || !file.endsWith(".png")) continue;
 		const name = file.slice("after-".length, -".png".length);
 		const after = readFileSync(join(dir!, file));
-		const held = args
-			.map((ref) => ({ ref, bytes: onBranch(ref, file) }))
-			.find(({ bytes }) => bytes !== undefined);
-		entries.push(
-			held === undefined
-				? { name }
-				: { name, ref: held.ref, result: compared(held.bytes!, after, file) },
-		);
+		let entry: (typeof entries)[number] = { name };
+		for (const ref of args) {
+			const earlier = onBranch(ref, file);
+			if (earlier === undefined) continue;
+			entry = { name, ref, result: compared(earlier, after, file) };
+			break;
+		}
+		entries.push(entry);
 	}
 	for (const line of againstReport(entries)) console.log(line);
 } else {
