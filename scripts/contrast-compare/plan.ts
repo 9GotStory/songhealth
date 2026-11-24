@@ -24,30 +24,37 @@ function linesOf(text: string, pattern: RegExp): Map<string, string> {
 	return lines;
 }
 
-/**
- * A ticket's output against the round's of the same page: each folded line that differs, is
- * missing from the round or is the round's alone, then how many are the same; each per-width
- * reading of the ticket's the round lacks at that width and ratio, then how many it holds.
- */
-export function compareOutputs(ticket: string, round: string): string[] {
-	const lines: string[] = [];
+/** A ticket's output against the round's: the lines that differ, and what each count holds. */
+interface Comparison {
+	/** Each folded line that differs, is missing from the round or is the round's alone. */
+	folded: string[];
+	foldedSame: number;
+	foldedTotal: number;
+	/** Each per-width reading of the ticket's the round lacks at that width and ratio. */
+	perWidth: string[];
+	held: number;
+	readingsTotal: number;
+}
+
+function compare(ticket: string, round: string): Comparison {
+	const folded: string[] = [];
 	const ticketFolded = linesOf(ticket, FOLDED);
 	const roundFolded = linesOf(round, FOLDED);
-	let same = 0;
+	let foldedSame = 0;
 	for (const [text, value] of ticketFolded) {
 		const now = roundFolded.get(text);
-		if (now === value) same++;
-		else if (now === undefined) lines.push(`not in the round: ${text}  ${value}`);
-		else lines.push(`differs: ${text}  ticket ${value}  |  round ${now}`);
+		if (now === value) foldedSame++;
+		else if (now === undefined) folded.push(`not in the round: ${text}  ${value}`);
+		else folded.push(`differs: ${text}  ticket ${value}  |  round ${now}`);
 	}
 	for (const [text, value] of roundFolded) {
-		if (!ticketFolded.has(text)) lines.push(`round only: ${text}  ${value}`);
+		if (!ticketFolded.has(text)) folded.push(`round only: ${text}  ${value}`);
 	}
-	lines.push(`${same} of ${ticketFolded.size} of the ticket's folded lines the same`);
 
 	// A per-width line's "(n)" counts the texts of the same words within the container a run read,
 	// so a ticket that read one card numbers them otherwise than a round that reads all of `main`:
 	// a ticket's reading is held when the round reads the same words at the same width and ratio.
+	const perWidth: string[] = [];
 	const ticketReadings = linesOf(ticket, PER_WIDTH);
 	const roundRatios = new Map<string, Set<string>>();
 	for (const [reading, ratio] of linesOf(round, PER_WIDTH)) {
@@ -59,14 +66,33 @@ export function compareOutputs(ticket: string, round: string): string[] {
 		const ratios = roundRatios.get(unnumbered(reading));
 		if (ratios?.has(ratio)) held++;
 		else
-			lines.push(
+			perWidth.push(
 				`per-width: ${reading}  ticket ${ratio}  |  ${ratios === undefined ? "not in the round" : `round ${[...ratios].join(", ")}`}`,
 			);
 	}
-	lines.push(
-		`${held} of ${ticketReadings.size} of the ticket's per-width readings in the round at the same width and ratio`,
-	);
-	return lines;
+	return {
+		folded,
+		foldedSame,
+		foldedTotal: ticketFolded.size,
+		perWidth,
+		held,
+		readingsTotal: ticketReadings.size,
+	};
+}
+
+/**
+ * A ticket's output against the round's of the same page: each folded line that differs, is
+ * missing from the round or is the round's alone, then how many are the same; each per-width
+ * reading of the ticket's the round lacks at that width and ratio, then how many it holds.
+ */
+export function compareOutputs(ticket: string, round: string): string[] {
+	const result = compare(ticket, round);
+	return [
+		...result.folded,
+		`${result.foldedSame} of ${result.foldedTotal} of the ticket's folded lines the same`,
+		...result.perWidth,
+		`${result.held} of ${result.readingsTotal} of the ticket's per-width readings in the round at the same width and ratio`,
+	];
 }
 
 /** An output's file name and its text. */
@@ -95,4 +121,79 @@ export function lowestFolded(outputs: readonly Output[], count: number): string[
 	}
 	readings.sort((one, other) => one.ratio - other.ratio);
 	return [...unread, ...readings.slice(0, count).map(({ line }) => line)];
+}
+
+/** The first line, counted from 1, where two texts differ. */
+function firstDifferingLine(one: string, other: string): number {
+	const a = one.split("\n");
+	const b = other.split("\n");
+	let line = 0;
+	while (line < a.length && a[line] === b[line]) line++;
+	return line + 1;
+}
+
+const outputs = (count: number) => `${count} output${count === 1 ? "" : "s"}`;
+
+/**
+ * The outputs of a ticket's folders against the round's of the same names (#421 retro item 1), a
+ * block a hand-off's record quotes whole: a line per output with its counts, under it each folded
+ * line that differs, then the totals, naming apart the outputs whose ticket's lines differ and
+ * those that hold lines of the round's alone. An output without readings, such as a focus run's, is
+ * read line for line; one only a side holds is named.
+ */
+export function compareFolders(ticket: readonly Output[], round: readonly Output[]): string[] {
+	const ticketTexts = new Map(ticket.map(({ name, text }) => [name, text]));
+	const roundTexts = new Map(round.map(({ name, text }) => [name, text]));
+	const names = [...new Set([...ticketTexts.keys(), ...roundTexts.keys()])].sort();
+	const lines: string[] = [];
+	const totals = { same: 0, folded: 0, held: 0, readings: 0, read: 0 };
+	const differing: string[] = [];
+	const added: string[] = [];
+	let byLine = 0;
+	let byLineSame = 0;
+	for (const name of names) {
+		const one = ticketTexts.get(name);
+		const other = roundTexts.get(name);
+		if (other === undefined) {
+			lines.push(`${name}  the ticket's alone`);
+			continue;
+		}
+		if (one === undefined) {
+			lines.push(`${name}  the round's alone`);
+			continue;
+		}
+		const result = compare(one, other);
+		if (result.foldedTotal === 0 && result.readingsTotal === 0) {
+			byLine++;
+			if (one === other) {
+				byLineSame++;
+				lines.push(`${name}  line for line the same`);
+			} else
+				lines.push(`${name}  line for line: differs from line ${firstDifferingLine(one, other)}`);
+			continue;
+		}
+		totals.read++;
+		totals.same += result.foldedSame;
+		totals.folded += result.foldedTotal;
+		totals.held += result.held;
+		totals.readings += result.readingsTotal;
+		const roundOnly = (line: string) => line.startsWith("round only: ");
+		if (result.folded.some((line) => !roundOnly(line))) differing.push(name);
+		if (result.folded.some(roundOnly)) added.push(name);
+		lines.push(
+			`${name}  folded ${result.foldedSame} of ${result.foldedTotal} the same; per-width ${result.held} of ${result.readingsTotal}`,
+			...result.folded.map((line) => `  ${line}`),
+		);
+	}
+	if (totals.read > 0) {
+		const among = (title: string, names: string[]) =>
+			names.length > 0 ? `; ${title} in ${names.length}: ${names.join(", ")}` : "";
+		const where = among("differing", differing) + among("the round's alone", added);
+		lines.push(
+			`folded lines: ${totals.same} of ${totals.folded} the same in ${outputs(totals.read)}${where}`,
+			`per-width readings: ${totals.held} of ${totals.readings} in the round at the same width and ratio`,
+		);
+	}
+	if (byLine > 0) lines.push(`line for line: ${byLineSame} of ${outputs(byLine)} the same`);
+	return lines;
 }
