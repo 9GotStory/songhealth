@@ -18,7 +18,7 @@
 > `/health`'s and `/about`'s cards follow spec #417, implemented by #418–#421, and were accepted
 > on #417 (Product Owner, 2026-11-24: #417 comment 7120317286). Feature 015's redesign of Search
 > and the 404 page follows spec #432, implemented by #433–#436.
-> **Updated:** 2026-11-24 (#434); first drafted 2026-10-30
+> **Updated:** 2026-11-24 (#435); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -240,9 +240,11 @@ health-service network.
   (spec #432; §7.8; #433), under the label "ค้นหา" over the H1 "ค้นหาข้อมูล", with the Homepage
   hero's search pill on the field (§8.1), nothing over the field's edge before a search, and after
   one the groups and the count on a white card over the edge, then the results and the pager, or
-  the state's empty state over the edge.
-  Every page outside these features keeps its design under the new shell until its own
-  feature.
+  the state's empty state over the edge. The site's 404 page opens on the same field without a
+  breadcrumb (§7.8; #435), under the label "ขออภัย" over its H1 "ไม่พบหน้าที่คุณต้องการ" with
+  `search-x`, its sentence, the same search pill, empty with the hero's placeholder, and its links
+  to the Homepage and to `/contact` as `/services`' links under its lead, with nothing over the
+  field's edge. With it every public page has the new design (spec #432).
 - **Its sources:** variant H, "bold modern", of the Homepage prototype, which the Product Owner
   picked on 2026-11-11, "แบบนี้สิ ดูดีขึ้นมาเยอะเลย", after turning down a flat, hairline variant,
   "มันยังดูธรรมดา เรียบง่ายเกินไป ไม่ได้ดูทันสมัย หรือ สมัยใหม่เลย", and naming two sites as the look
@@ -479,11 +481,11 @@ own module.
   `arrow-up-right` (Product Owner, #51 comments 6536026977, 6536052180). On the Homepage, a round
   button, a section heading's link and a card take `arrow-right` instead (Product Owner,
   2026-11-11: #241 comment 6791096480, item 1), and so does the link of a list's heading on the
-  deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link and in the links under `/services`' lead, 20 px in the search
-  pill's submit button (§8.1, on the Homepage and `/search`), on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The search pill's field opens with a 20 px `search`
+  deep field, at 16 px (§7.8; spec #280 "List heading"): 16 px in the heading's link and in the links on the field (`FieldLinks`) under `/services`' lead and under the 404 page's search pill, 20 px in the search
+  pill's submit button (§8.1, on the Homepage, `/search` and the 404 page), on the Featured card, on a Homepage Service card and in the circle at the end of a Current Announcement's row (§8.7), and 16 px after a Health Content card's "อ่านต่อ" (§8.8). The Health Service Discovery form's button opens with a 20 px `search` icon (§8.9). On the contact card a detail opens with a 20 px icon that stands for its name (`map-pin`, `clock`), the telephone number with a 24 px `phone`, and its button ends in a 20 px `arrow-right`; a Quick Access card keeps a 24 px arrow, `arrow-right` (§8.11). The search pill's field opens with a 20 px `search`
   icon, and a section heading's tile and a visual's tile hold a 24 px icon: the plain visual's, and the deep visual's on the large News card (`heart` on both in Latest News, `heart-pulse` on a Health Content card's; on a list's cards, small and large, `message-square` on `/news` and `heart-pulse` on Health News and Health Content, §7.3; in a
   list heading's tile `heart` on `/activities`, `file-text` on `/announcements`, `folder-open` on
-  `/documents` and `search` on `/search`, §7.8), and so does a row's light tile, its icon in `brand-primary` (§7.3; Feature
+  `/documents`, `search` on `/search` and `search-x` on the 404 page, §7.8), and so does a row's light tile, its icon in `brand-primary` (§7.3; Feature
   014 #418): a Document row's file tile on `/documents`, with `file-text`, a Health Service row's
   tile on `/health-services`, with `hospital`, whose
   "เปิดแผนที่" opens with a 20 px `map-pin` and ends in the 16 px `arrow-up-right` (§7.3; Feature
@@ -584,13 +586,13 @@ this document names:
 | Area | Components |
 | --- | --- |
 | Shell | `src/layouts/SiteLayout.astro`: the sticky header with the identity (`SiteLogo`), the main navigation, the search link and the mobile menu; the footer |
-| Headings | `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (and a MOIT's header, §9.11), or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10; `/search` before a search, §7.8), its lead left out on `/search` after a search and the search pill in its slot (§7.8, Feature 015 #433), `ThaiTitle` |
+| Headings | `SectionHeading`, `ListHeading` on its `DeepField` with `ListBody` after it (and a MOIT's header, §9.11), or with `overEdge={false}` and nothing over the field's edge (`/contact` without Office Contact, §7.8, §9.10; `/search` before a search, §7.8), its lead left out on `/search` after a search and the search pill in its slot (§7.8, Feature 015 #433), and without a breadcrumb on the 404 page, the search pill and `FieldLinks` in its slot (§7.8, #435), `ThaiTitle` |
 | Cards | `ContentCard` (the Homepage's Latest News; the News, Health News, Health Content and Activities lists, in `ListCardGrid` through `ContentCardGrid` and `ActivityCardGrid`, §7.3), `HomeServiceCard` (the Homepage's Frequently Used Services; `kind="list"`, the Service catalog, and with a destination in place of a Service, `/health`'s and `/about`'s cards with `DestinationIcon`, Feature 014 #420; and `kind="section"`, a Health Service's "บริการที่ให้", §7.3, §8.4, §9.8), `HomeQuickLink` (the Homepage's Quick Access, §8.11), `ItaYearCard` (a fiscal year's card on the ITA landing, §8.3), `LeaderCard` (`/about/leadership`, §7.3), `UnitPanel` (an organizational unit's panel with its people's rows, `/about/personnel`, §7.3), `SoftTile` (the 40 px `surface-soft` tile that heads a unit's panel and a MOIT's Requirement card, §7.3, §9.11), `OfficeContactDetails` (Office Contact's card on `/contact`, a row per detail with its icon, §9.10); a person's picture in its ring, `PersonPicture`, which `LeaderCard`, `UnitPanel` and the Homepage's Leadership strip share (§8.5), and a person's public contact, `PublicContact`, which `LeaderCard` and `UnitPanel` share |
-| Homepage | `HomeHero`; `SearchPill`, the site's white search pill, the hero's and `/search`'s, each with its own placeholder, the Homepage's alone with its submit state (§7.8, §8.1, §8.9; Feature 015 #433) |
+| Homepage | `HomeHero`; `SearchPill`, the site's white search pill, the hero's, `/search`'s and the 404 page's, each with its own placeholder, the Homepage's alone with its submit state (§7.8, §8.1, §8.9; Feature 015 #433, #435) |
 | Fields | `DeepField`: the deep green field under the Homepage's hero and Services (§8.1, §8.4), a list's heading (§7.8), a Post page's header (§9.1), an Announcement's (§9.4), a Document's (§9.5), a Health Report's (§9.6), a Service's (§9.7), a Health Service's (§9.8), a Basic Page's (§9.9), and `/about`'s, a list's field under a Basic Page's header (§9.9), and a MOIT's page, its body over the field's edge in `ListBody` (§9.11) |
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9), and a MOIT's page, on its own `DeepField` with `ListBody` after it, with "MOIT n" opening its H1 and the H1 no larger than H2 size (§9.11) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
-| Links | `ActionLink` (buttons; with `arrow`, semibold with a 16 px `arrow-right`, `/contact`'s routes, §9.10), `ArrowLink` (onward links), `Pagination`, `Breadcrumb`; `ContentLink`'s `compact` form, the footer's official channels and `/contact`'s pills (§9.10) |
+| Links | `ActionLink` (buttons; with `arrow`, semibold with a 16 px `arrow-right`, `/contact`'s routes, §9.10), `ArrowLink` (onward links), `Pagination`, `Breadcrumb`; `FieldLinks`, the underlined links on the deep field under `/services`' lead and under the 404 page's search pill (§7.8; Feature 015 #435); `ContentLink`'s `compact` form, the footer's official channels and `/contact`'s pills (§9.10) |
 | Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `SearchResultRow`, a search result's row on `/search`, the Health Report row's with a result's content (§7.3, §7.8; Feature 015 #434); `LinkRow`, the row that is one link with its round arrow, which `AnnouncementRow`, `HealthReportRow` and `SearchResultRow` share, each with its own tile and text (§7.3, §8.7; #434); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RequirementCard`, a MOIT's Requirement card, and `MoitNeighbours`, the links to the MOITs before and after it, on a MOIT's page (§8.3, §9.11); `RowTile`, the light row tile of 68 px and 92 px from `sm` on flat `surface-soft`, which `FileTile`, `ItaMoitRow`, `HealthReportRow`, `HealthServiceMapRow`, `AnnouncementRow` and `SearchResultRow` share, each with its own lines (Feature 014 #418, #419; Feature 015 #434), read aloud on an Announcement's row and white with an edge on a closed one's (§8.7); `RelatedDocuments` |
 
 ### 7.2 Component rules
@@ -1059,7 +1061,8 @@ About Document pages (`/about/policies`, `/about/plans` and `/about/results`), a
 decisions 4, 9 and 13) the Contact page (`/contact`), and since Feature 013 #393 (spec #392
 decisions 2, 7 and 11) the ITA landing (`/ita`), and since #394 (spec #392 decisions 2 and 12) a
 fiscal year's page (`/ita/{fiscal-year}`), and since Feature 015 #433 (spec #432 decisions 2, 4, 8
-and 9) Search (`/search`).
+and 9) Search (`/search`), and since #435 (spec #432 decisions 5, 6 and 11) the site's 404 page,
+without a breadcrumb.
 
 - **The field** is the Homepage's deep green field (`DeepField` with `kind="list"`, the
   `deep-field` utility; §8.1): lower corners of radius 32 (24 below `sm`), `surface-base` text and
@@ -1152,13 +1155,30 @@ and 9) Search (`/search`).
   over the field's edge"). With motion allowed the heading block, then the lead, then the pill
   rise in, the pill as the hero's search does; each result's row reveals as it comes into the
   window (#434); the breadcrumb, the groups' card, an empty state and the pager show at once.
+- **The 404 page** is labelled "ขออภัย" over its H1 "ไม่พบหน้าที่คุณต้องการ", with `search-x`, and
+  has no breadcrumb (spec #432 decisions 6 and 11; Feature 015 #435; `ListHeading` without
+  `crumbs`). Its heading block starts 40 px under the header below `sm`, 56 px from `sm` and 72 px
+  from `lg`. Under the heading block, 16 px, its sentence "ที่อยู่นี้อาจพิมพ์ไม่ถูกต้อง
+  หรือหน้านี้อาจถูกย้ายหรือนำออกแล้ว" at body-large; then the site's search pill (§8.1), empty, with the
+  hero's placeholder "คุณกำลังมองหาอะไร?", up to 640 px from `lg` and with no submit state, in place
+  of the link to `/search` (decision 5); then "กลับไปหน้าแรก" to `/` and "ติดต่อเรา" to `/contact`
+  as `/services`' links under its lead (`FieldLinks`, below), in place of the three buttons, with
+  no "404" numeral. The heading block with its sentence, the pill and the links are 24 px apart
+  below `sm` and 32 px from `sm`. Nothing lies over the field's edge: the field ends 48 px under
+  the links below `sm`, 64 px from `sm` and 80 px from `lg`, and the page's own 64 px, 80 px from
+  `lg`, follow before the footer. Its status, its title in the head, the main navigation marking
+  no section, and its words, which never say why the address is not available, stay, and every
+  page that answers the site's 404 shows it: an unknown address and a draft, unpublished or
+  trashed entry's (`03` §17). With motion allowed the heading block, then the sentence, then the
+  pill rise in; the links show at once.
 - **The links under the lead.** `/services` has two, "ค้นหาหน่วยบริการสุขภาพที่เกี่ยวข้อง" to the
   directory and "คู่มือและแบบฟอร์ม" to `/documents`, its related pages that are not Services (spec
-  #338 "The Service catalog", decision 15): 16 px under the lead, `surface-base` words, semibold,
+  #338 "The Service catalog", decision 15), 16 px under the lead: `surface-base` words, semibold,
   at label size and underlined, each with a 16 px `arrow-right`, 44 px high, 24 px apart across
   and 4 px down where they wrap. Under the pointer they keep their colour, as the breadcrumb's
   links on the field: `accent-warm` small text is below 4.5:1 there (§3.2; #339 comment
-  6941979791).
+  6941979791). The 404 page lays the same links, to the Homepage and to `/contact`, under its
+  search pill (`FieldLinks`; Feature 015 #435), where they share a row down to 320 px.
 - **What follows the heading** lies over the field's lower edge: the field's content ends 128 px
   above the edge from `sm` and 96 px below, and the block that follows (`ListBody`) starts 88 px
   above it from `sm` and 64 px below. On `/news` that block is the cards (§7.3) or the empty state,
@@ -1202,8 +1222,8 @@ and 9) Search (`/search`).
   #366), on `/health` each tile (§7.3), on `/about/leadership` each leader's card, the
   featured one too (§7.3; Feature 012 #367), and on `/about/personnel` each unit's panel (§7.3;
   #370). The
-  breadcrumb, the link, the links under the lead, the filter form, the empty state and the pager
-  show at once; `/services`' cards reveal as the other lists' cards do (#340), `/health-services`'
+  breadcrumb, the link, the links under the lead and the 404 page's links, the filter form, the
+  empty state and the pager show at once; `/services`' cards reveal as the other lists' cards do (#340), `/health-services`'
   rows as the Documents' (#341), `/health/reports`' rows as the Announcements' (#342), and
   `/search`'s result rows as the Health Reports' (Feature 015 #434).
 - **Measured** on the development runtime at `fb11b3e`, the head of `009-news-post-redesign`,
@@ -1329,6 +1349,13 @@ and 9) Search (`/search`).
   `testHeadingOnField` for `/about/personnel` too, with its own cases for the field's glow and
   ring, the panels over the edge, the panels and their rows by count and width, a panel's and a
   row's look, their reveal, the empty state over the edge and the page without JavaScript.
+  Since Feature 015 #435 `public-shell.spec.ts` reads the 404 page: its parts on the field in
+  order, their gaps and colours at both sides of 640 px, the field's glow and ring
+  (`readListField`), its room above and below and the footer under it at both sides of 640 and
+  1,024 px with nothing over the edge, the search pill's names, placeholder, width and submit, the
+  links (`expectFieldLinks`, which `/services`' case shares), the motion and the page without
+  JavaScript; `expectSiteNotFound` reads its whole main content in every suite's case of a missing,
+  draft, unpublished or trashed entry, so no case reads differently.
 
 ## 8. Homepage
 
@@ -1388,7 +1415,8 @@ corners are radius 32 (24 below `sm`):
   labelled "ค้นหาในเว็บไซต์", and it submits to `/search`. It is the site's search pill
   (`SearchPill`), which `/search` shows too under its heading on the field, holding the query, with
   its own placeholder, up to 640 px from `lg` and without the submit state (§7.8; Feature 015
-  #433); here the placeholder is "คุณกำลังมองหาอะไร?".
+  #433), and the 404 page under its sentence, empty, with the hero's placeholder, up to 640 px from
+  `lg` and without the submit state (§7.8; #435); here the placeholder is "คุณกำลังมองหาอะไร?".
 - **The Featured card** is one link to the item, at most 400 px wide (340 px below `sm`): a white
   card tilted 2° over an `accent-warm` sheet, which straightens on hover and on focus. It holds
   the picture's frame, 360 px high (260 px below `sm`), then "เรื่องเด่น" with the date the item's
@@ -3876,3 +3904,13 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   §3.1, §3.2, §5, §7.1, §7.3, §7.8 and §8.12 name it, and §7.3 no longer says search results keep
   their own. Authority: spec #432 "A result's row", "Motion" and decisions 3 and 10, and #434
   comment 7124814084 (the shadow under reduced motion and the shared row).
+- **v1.9 The 404 page on the field (2026-11-24, Feature 015 #435):** the site's 404 page opens on a
+  list's deep field without a breadcrumb (§7.8), under the label "ขออภัย" over its H1, unchanged,
+  with `search-x` in the heading's tile, and its sentence, unchanged; the search pill (`SearchPill`,
+  §8.1), empty with the hero's placeholder, takes the place of the link to `/search`, and
+  "กลับไปหน้าแรก" and "ติดต่อเรา" become `/services`' links under its lead, now shared as
+  `FieldLinks`, in place of the three buttons. Nothing lies over the field's edge. Its status, its
+  title in the head, its unmarked navigation and its words stay, the same on every page that
+  answers the site's 404. With it every public page has the new design. §2, §5, §7.1, §7.8 and
+  §8.1 name it. Authority: spec #432 "The 404 page", "The search pill", "Motion" and decisions 5,
+  6 and 11, and #432 comment 7121642793.
