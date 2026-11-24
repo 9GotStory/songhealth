@@ -145,7 +145,7 @@ export async function expectVisibleFocusOnEveryStop(page: Page, label: string): 
 			const rect = element.getClientRects()[0] ?? element.getBoundingClientRect();
 			const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
 			// The search pill's field shows no ring of its own: the whole pill around it takes the
-			// ring (Product Owner, 2026-11-24, #436's walkthrough), so an ancestor's ring counts.
+			// ring (Product Owner, 2026-11-24: #436 comment 7135305142), so an ancestor's ring counts.
 			let around: Element | null = element.parentElement;
 			while (around !== null && !ringed(around)) around = around.parentElement;
 			return {
@@ -457,7 +457,7 @@ export function searchPill(page: Page) {
 
 /**
  * The focus rings of the site's search pill in the page's main content (Product Owner,
- * 2026-11-24, #436's walkthrough, option A): with the keyboard on its field, the field's own ring
+ * 2026-11-24: #436 comment 7135305142, option A): with focus on its field, the field's own ring
  * and the pill's; then, one Tab on, the button's own ring and the pill's. A ring is its colour,
  * width and offset as the browser computes them, or "none".
  */

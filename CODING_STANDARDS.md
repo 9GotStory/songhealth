@@ -108,8 +108,8 @@ and why, and `.jscpd-baseline.json` records them.
 - A part whose ring a larger piece draws around it gives up its own ring only where that ring is
   drawn: the search pill takes its field's ring through `:has()`, so the field's reset is
   `supports-[selector(:has(a))]:focus-visible:outline-none`, and a browser without `:has()` keeps
-  the field's own ring (`src/components/SearchPill.astro`; Product Owner, 2026-11-24, #436's
-  walkthrough; #436's frontend gate found the reset applied everywhere).
+  the field's own ring (`src/components/SearchPill.astro`; Product Owner, 2026-11-24: #436 comment 7135305142;
+  #436's frontend gate found the reset applied everywhere).
 - `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
   the Homepage's and the one under a list's heading, `/search`'s and the 404 page's among them,
   or a Post page's, an Announcement's, a

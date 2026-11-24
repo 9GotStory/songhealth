@@ -211,9 +211,9 @@ per-width readings: 2242 of 2245 in the round at the same width and ratio
 line for line: 1 of 1 output the same
 ```
 
-The three per-width lines are the same H1's, the other way round: 1,440 px 9.22:1 then 9.21:1 on
-"สุขภาพ" page 1, 375 px 8.03:1 then 7.92:1 on page 2 and every kind, on pages whose after images
-are byte for byte the first round's.
+The three per-width lines are the H1 "ค้นหาข้อมูล" on the field, the first round's reading then the
+second's: 1,440 px 9.22:1 then 9.21:1 on "สุขภาพ" page 1, 375 px 8.03:1 then 7.92:1 on page 2 and
+every kind, on pages whose after images are byte for byte the first round's.
 
 **The lowest readings** of the eight text outputs at `0015f4f` (`--lowest 12`, the same lines as
 the first round's), nothing under 4.5:1:
@@ -705,10 +705,11 @@ Owner accepted it (#436 comment 7135305142):
   browser's device mode. #277 visits the redesigned pages inside #238's UAT window.
 - **Real content:** the runtime holds the demo dataset (spec #432 "Testing Decisions"). A result
   without a snippet, a 175-character title and an expired Document are seen only through
-  `scripts/screenshot-fixtures/search-cases.ts`' `content` case (`search-rows`), and the 404 page
-  on the address `/no-such-page` alone. The office's own content reaches the runtime only with the
-  migration, and with it the first result's place for "สุขภาพ", which this round measured on the
-  demo dataset.
+  `scripts/screenshot-fixtures/search-cases.ts`' `content` case (`search-rows`), and the 404 page on
+  one missing address per script: `/no-such-page` in the captures,
+  `/songhealth-unknown-436-contrast` and `/songhealth-unknown-436-focus-ring` in the measures. The
+  office's own content reaches the runtime only with the migration, and with it the first result's
+  place for "สุขภาพ", which this round measured on the demo dataset.
 - **The shared pieces on pages outside the captures:** since #434 the Announcement rows on
   `/announcements` and the Health Report rows on `/health/reports` render through the same row as
   a result's (`LinkRow`), and since #435 `/services`' links under its lead through the 404 page's
@@ -762,7 +763,9 @@ adds two:
 - **The ring on the built pages:** the Product Owner chose it from close-ups of a prototype (CSS
   added in the browser to the pages at `6c9731d`) and did not walk through it on the built pages;
   the suites read it (`public-search.spec.ts`, `public-shell.spec.ts`,
-  `public-homepage-curation.spec.ts`, through `searchPillRings`).
+  `public-homepage-curation.spec.ts`, through `searchPillRings`). They give the field focus by
+  script and the button by Tab; the ring after a click on the field was seen in the frontend gate's
+  Playwright MCP pass alone.
 - **A browser without `:has()`:** there the pill draws no ring and the field keeps its own
   (`38a25b0`). No suite runs such a browser; the fallback is read from the built stylesheet alone,
   `@supports selector(:has(a))` holding the field's reset.

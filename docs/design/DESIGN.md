@@ -151,7 +151,7 @@
 > breadcrumb, under the label "ขออภัย" over its H1 with `search-x`, its sentence, the same pill,
 > empty, in place of its link to `/search`, and its links to the Homepage and to `/contact` as
 > `/services`' links under its lead (`FieldLinks`, §7.8). Nothing a search reads, matches, ranks,
-> groups, counts, pages or links to changes, the 404 page answers and discloses what it did, and no
+> groups, counts, pages or links to changes, the 404 page answers and discloses as it did, and no
 > colour, type size, radius or shadow joins the tokens. #433 builds `/search` on the field, #434 a
 > result's row, #435 the 404 page and #436 the documents, the measures and the limits, each with
 > its own decisions in §13's change history; #436 also moves the pill's focus ring from its field
@@ -1860,9 +1860,8 @@ page changes (item 3). The mark is taken off when the page is shown again from h
 the browser's back button, and after ten seconds, so a result that never opens in the window (a
 stopped load, one opened in another tab) does not leave the form shut. The spinner turns only under `prefers-reduced-motion: no-preference`.
 This is the site's one script, inline at the end of the Homepage; without JavaScript both forms
-submit as plain forms. Forms on other pages are unchanged: the search pill on `/search` and on the
-404 page, the hero's pill, has no submit state, and neither page has a script (spec #432 "The
-search pill"; Feature 015 #433, #435).
+submit as plain forms. The search pill on `/search` and on the 404 page, the hero's pill, has no
+submit state, and neither page has a script (spec #432 "The search pill"; Feature 015 #433, #435).
 
 ### 8.10 Activities
 
@@ -3998,13 +3997,14 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   #436):** the feature keeps the one version step #433 took. Feature 015's banner, rewritten from
   #433's present tense, names what #433 to #435 built: `/search` on the field with the site's one
   search pill, a result's row with the light row tile, the 404 page on the field with the pill and
-  `/services`' links, that the 404 page answers and discloses what it did, and that no token joins; the
+  `/services`' links, that the 404 page answers and discloses as it did, and that no token joins; the
   Status line says every public page has the new design and names the acceptance due on #432. In
   #436's walkthrough the Product Owner asked that the search field show no border under focus: on
   the Homepage, `/search` and the 404 page, while the field has focus the whole pill takes the
   `accent-warm` ring 2 px outside it and the field none, the button keeping its `brand-primary`
   ring, and a browser without `:has()` keeps the field's own ring (§8.1); §3.2 records the ring's
-  contrast. §10 lists what the Product Owner picked for Feature 015 and decided on #433, #434 and
+  contrast. §7.3's result row drops an "as before" that no longer had a before, and §8.9 names the
+  404 page's pill beside `/search`'s, without a submit state or a script. §10 lists what the Product Owner picked for Feature 015 and decided on #433, #434 and
   #436, with each decision's source, and keeps the label's slashes as a known limit until the
   issue after the release. The readings Feature 015's tickets took were read again with each
   ticket's own script at `6c9731d` and at `0015f4f`: each ticket's closing lines are the same at

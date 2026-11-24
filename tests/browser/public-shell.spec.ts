@@ -397,7 +397,7 @@ test.describe("the 404 page", () => {
 		expect(seen, "the 404 page's field at each width").toEqual(expected);
 	});
 
-	test("its search pill is the site's: the page's one search landmark, named ค้นหาในเว็บไซต์ as its field is, for assistive technology alone, its button ค้นหา; empty with the hero's placeholder คุณกำลังมองหาอะไร?, as wide as the column up to 540 px and from 1,024 px up to 640 px; under the keyboard's focus the whole pill's accent-warm ring for its field, the button's own ring for the button; a typed query, by Enter or by the button, opens /search with that query alone, and the pill shows no spinner after the submit", async ({
+	test("its search pill is the site's: the page's one search landmark, named ค้นหาในเว็บไซต์ as its field is, for assistive technology alone, its button ค้นหา; empty with the hero's placeholder คุณกำลังมองหาอะไร?, as wide as the column up to 540 px and from 1,024 px up to 640 px; under focus the whole pill's accent-warm ring for its field, the button's own ring for the button; a typed query, by Enter or by the button, opens /search with that query alone, and the pill shows no spinner after the submit", async ({
 		page,
 	}) => {
 		const path = unknownPath();
@@ -459,9 +459,8 @@ test.describe("the 404 page", () => {
 			};
 		}
 
-		// With the keyboard on the field, the whole pill takes the accent-warm ring and the field
-		// none; the button keeps its own brand-primary ring (Product Owner, 2026-11-24, #436's
-		// walkthrough).
+		// With focus on the field, the whole pill takes the accent-warm ring and the field none; the
+		// button keeps its own brand-primary ring (Product Owner, 2026-11-24: #436 comment 7135305142).
 		const [warm, brand] = await Promise.all([
 			tokenColor(page, "accent-warm"),
 			tokenColor(page, "brand-primary"),

@@ -651,7 +651,7 @@ test.describe("on the deep field", () => {
 		);
 	});
 
-	test("the search pill is the Homepage hero's: a white pill with the deep shadow, 60 px high and 68 px from 640 px, as wide as the column up to 540 px and from 1,024 px up to 640 px; the 20 px search icon in text-secondary; the field at body size, body-large from 640 px, in text-primary with its placeholder in text-secondary; the round accent-warm button, 44 px and 52 px from 640 px, with the 20 px arrow-right in brand-dark, which grows under the pointer only with motion allowed; and under the keyboard's focus the whole pill's accent-warm ring for its field, the button's own brand-primary ring for the button", async ({
+	test("the search pill is the Homepage hero's: a white pill with the deep shadow, 60 px high and 68 px from 640 px, as wide as the column up to 540 px and from 1,024 px up to 640 px; the 20 px search icon in text-secondary; the field at body size, body-large from 640 px, in text-primary with its placeholder in text-secondary; the round accent-warm button, 44 px and 52 px from 640 px, with the 20 px arrow-right in brand-dark, which grows under the pointer only with motion allowed; and under focus the whole pill's accent-warm ring for its field, the button's own brand-primary ring for the button", async ({
 		page,
 	}) => {
 		await search(page, {});
@@ -753,9 +753,10 @@ test.describe("on the deep field", () => {
 		await page.emulateMedia({ reducedMotion: "reduce" });
 		expected.grows = { reduced: "none", allowed: true };
 
-		// With the keyboard on the field, the field shows no ring of its own and the whole pill takes
-		// the field's accent-warm ring, 3 px wide and 2 px outside it; the button keeps its own
-		// brand-primary ring inside the white pill (Product Owner, 2026-11-24, #436's walkthrough).
+		// With focus on the field, the field shows no ring of its own and the whole pill takes the
+		// accent-warm ring of the parts on the deep field, 3 px wide and 2 px outside it; the button
+		// keeps its own brand-primary ring inside the white pill (Product Owner, 2026-11-24: #436
+		// comment 7135305142).
 		seen.focus = await searchPillRings(page);
 		expected.focus = {
 			field: { field: "none", pill: { colour: warm, width: "3px", offset: "2px" } },
