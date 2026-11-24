@@ -795,9 +795,9 @@ first:
 - #436's gate's findings that were there before #436: the field without `autocomplete` (decision
   1, PR #437) and the placeholder without "…" (spec #432 "The search pill", PR #441); on the
   Homepage the overlay's two `straggler` and two `nested-cards`, the pill's among them, none the
-  ring's. Chromium's own cancel "×" in a filled field, in the browser's blue, shows as it did in the
-  close-ups the Product Owner chose the ring from; no decision records it, and it goes to the
-  Product Owner with the hand-off.
+  ring's. Chromium's own cancel "×" in a filled field, in the browser's blue, on the Homepage since
+  before the feature and on `/search` and the 404 page with the shared pill: the Product Owner kept
+  it as it is, "ตามที่แนะนำ" (#436 comment 7136098168).
 
 ## The prototype
 
