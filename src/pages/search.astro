@@ -22,6 +22,10 @@
 // state lies over it, or, with results, the eight groups and the count on one white card, then the
 // results and the pager, 32 px apart (ListBody); a group at 0 or a page past the last shows its
 // empty state under the card.
+//
+// Since Feature 015 #434 (spec #432 "A result's row", decisions 3 and 10) each result is a white
+// row that is one link, with the light row tile holding its kind's icon (SearchResultRow); the
+// rows are 14 px apart, and each reveals as it comes into the window (`scroll-reveal`).
 import Search from "@lucide/astro/icons/search";
 import ActionLink from "../components/ActionLink.astro";
 import EmptyState from "../components/EmptyState.astro";
@@ -155,9 +159,9 @@ const pill = "inline-flex min-h-11 items-center gap-2 rounded-pill px-4 text-lab
 							</p>
 						</div>
 						{outcome.found.results.length > 0 ? (
-							<ul class="flex flex-col gap-4">
+							<ul class="flex flex-col gap-3.5">
 								{outcome.found.results.map(({ entry, snippet }) => (
-									<li>
+									<li class="scroll-reveal">
 										<SearchResultRow entry={entry} snippet={snippet} />
 									</li>
 								))}

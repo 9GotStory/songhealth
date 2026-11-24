@@ -53,6 +53,27 @@ export const KIND_LABELS = {
 export type SearchKind = keyof typeof KIND_LABELS;
 
 /**
+ * The icon a result's row shows in its light row tile, by its Lucide name (Feature 015 #434; spec
+ * #432 decision 10, "A result's row"): its kind's list heading icon, and `info` for a Basic Page,
+ * which has no list, a reserved one under /about too. The tile is decorative: the facts line says
+ * the kind in words.
+ */
+export const KIND_ICONS = {
+	news: "message-square",
+	activity: "heart",
+	announcement: "file-text",
+	service: "users",
+	health_service: "hospital",
+	health_content: "heart-pulse",
+	health_report: "file-chart-column",
+	document: "folder-open",
+	page: "info",
+	moit: "shield-check",
+} as const satisfies Record<SearchKind, string>;
+
+export type SearchKindIcon = (typeof KIND_ICONS)[SearchKind];
+
+/**
  * The result groups (`08` §7, spec #51 "Search"), in the order the page offers them, each by its
  * `group` query value and the kinds it holds; ทุกประเภท holds every kind. A group is a filter, not a
  * kind of content.

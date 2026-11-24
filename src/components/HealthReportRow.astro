@@ -14,20 +14,20 @@
 // summary is at label size in text-secondary, two lines at most, and none below `sm`; the period at
 // small size in text-secondary.
 //
-// A native link named by the title covers the whole row; the facts and the period stay readable
-// outside the link's name (WCAG 2.2 SC 2.5.3). A report row has no download: the list does not
-// read its Document (decision 1). The row lies over the deep field's lower edge in the first place,
-// so its focus ring has a white band on both sides (`focus-ring-banded`), as the Announcements'.
+// The row is the one the Announcement's and a search result's rows share (LinkRow; Feature 015
+// #434): a native link named by the title covers the whole row; the facts and the period stay
+// readable outside the link's name (WCAG 2.2 SC 2.5.3). A report row has no download: the list
+// does not read its Document (decision 1). The row lies over the deep field's lower edge in the
+// first place, so its focus ring has a white band on both sides (`focus-ring-banded`), as the
+// Announcements'.
 //
-// Under the pointer the title turns brand-primary, the arrow's circle accent-warm, and the row
-// moves 10 px to the right with the `deep` shadow, the movement only under
-// `prefers-reduced-motion: no-preference`. The article keeps its place and its surface moves
-// inside it; while it has moved, the link reaches back over the 10 px the surface left, so a press
-// there still opens the report, as on the Announcement row.
-import ArrowRight from "@lucide/astro/icons/arrow-right";
+// Under the pointer the title turns brand-primary, the arrow's circle accent-warm, and with motion
+// allowed the row moves 10 px to the right with the `deep` shadow; a press on the 10 px it left
+// still opens the report (LinkRow).
 import FileChartColumn from "@lucide/astro/icons/file-chart-column";
 import { healthReportDate, healthReportPath, type HealthReportEntry } from "../lib/health-reports";
 import { termsOf } from "../lib/terms";
+import LinkRow from "./LinkRow.astro";
 import MetaLine from "./MetaLine.astro";
 import RowTile from "./RowTile.astro";
 import ThaiTitle from "./ThaiTitle.astro";
@@ -43,50 +43,34 @@ const date = healthReportDate(data);
 const titleId = `report-${crypto.randomUUID()}`;
 ---
 
-<article class="group">
-	<div
-		data-testid="report-surface"
-		class="relative flex items-center gap-3.5 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:translate-x-2.5 motion-safe:group-hover:shadow-deep sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5"
-	>
-		<RowTile class="gap-1">
-			<FileChartColumn class="shrink-0" size={24} />
-			{data.fiscal_year ? (
-				<span class="text-small font-semibold text-brand-dark">{data.fiscal_year}</span>
-			) : null}
-		</RowTile>
-		<div class="flex min-w-0 flex-1 flex-col gap-1">
-			<MetaLine
-				facts={[
-					type && { text: type.label },
-					date && { date },
-					data.fiscal_year && { text: `ปีงบประมาณ ${data.fiscal_year}` },
-				]}
-			/>
-			<h2
-				id={titleId}
-				class="line-clamp-2 text-body font-semibold wrap-anywhere group-hover:text-brand-primary sm:text-body-large"
-			>
-				<ThaiTitle text={data.title} />
-			</h2>
-			{data.summary && (
-				<p class="line-clamp-2 text-label text-text-secondary max-sm:hidden">{data.summary}</p>
-			)}
-			{data.reporting_period && (
-				<p class="text-small wrap-anywhere text-text-secondary">
-					ช่วงเวลาของรายงาน: {data.reporting_period}
-				</p>
-			)}
-		</div>
-		<span
-			aria-hidden="true"
-			class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-soft text-brand-primary group-hover:bg-accent-warm group-hover:text-brand-dark motion-safe:transition-colors max-sm:hidden"
+<LinkRow href={healthReportPath(report.id)} titleId={titleId} surfaceTestId="report-surface">
+	<RowTile class="gap-1">
+		<FileChartColumn class="shrink-0" size={24} />
+		{data.fiscal_year ? (
+			<span class="text-small font-semibold text-brand-dark">{data.fiscal_year}</span>
+		) : null}
+	</RowTile>
+	<div class="flex min-w-0 flex-1 flex-col gap-1">
+		<MetaLine
+			facts={[
+				type && { text: type.label },
+				date && { date },
+				data.fiscal_year && { text: `ปีงบประมาณ ${data.fiscal_year}` },
+			]}
+		/>
+		<h2
+			id={titleId}
+			class="line-clamp-2 text-body font-semibold wrap-anywhere group-hover:text-brand-primary sm:text-body-large"
 		>
-			<ArrowRight class="shrink-0" size={20} />
-		</span>
-		<a
-			href={healthReportPath(report.id)}
-			aria-labelledby={titleId}
-			class="focus-ring-banded absolute inset-0 rounded-22 after:absolute after:inset-y-0 after:right-full after:hidden after:w-2.5 motion-safe:group-hover:after:block"
-		></a>
+			<ThaiTitle text={data.title} />
+		</h2>
+		{data.summary && (
+			<p class="line-clamp-2 text-label text-text-secondary max-sm:hidden">{data.summary}</p>
+		)}
+		{data.reporting_period && (
+			<p class="text-small wrap-anywhere text-text-secondary">
+				ช่วงเวลาของรายงาน: {data.reporting_period}
+			</p>
+		)}
 	</div>
-</article>
+</LinkRow>

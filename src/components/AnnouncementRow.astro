@@ -23,17 +23,16 @@
 // surface-soft (docs/design/DESIGN.md §3.2 has each ratio). The status line is
 // AnnouncementStatusLine, its label after a dot.
 //
-// A native link named by the title covers the whole row; the date, the category and the status
-// stay readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190 comment 6707205912). The
-// arrow is arrow-right, the Homepage's arrow for a card (Product Owner, 2026-11-11: #241 comment
-// 6791096480, item 1), and decorative.
+// The row is the one a Health Report's and a search result's rows share (LinkRow; Feature 015
+// #434): a native link named by the title covers the whole row; the date, the category and the
+// status stay readable outside the link's name (WCAG 2.2 SC 2.5.3; #193; #190 comment 6707205912).
+// The arrow is arrow-right, the Homepage's arrow for a card (Product Owner, 2026-11-11: #241
+// comment 6791096480, item 1), and decorative.
 //
 // Under the pointer the arrow's circle turns accent-warm, and the row moves 10 px to the right
 // with the `deep` shadow, only under `prefers-reduced-motion: no-preference` (spec #239 "Motion
-// and loading"). The article keeps its place and its surface moves inside it; while it has moved,
-// the link reaches back over the 10 px the surface left, so a press there still opens the
-// Announcement (HomeServiceCard does the same below a card that rises).
-import ArrowRight from "@lucide/astro/icons/arrow-right";
+// and loading"); while it has moved, a press on the 10 px it left still opens the Announcement
+// (LinkRow; HomeServiceCard does the same below a card that rises).
 import { categoryTone } from "../lib/announcement-category";
 import {
 	announcementDate,
@@ -44,6 +43,7 @@ import {
 import { termsOf } from "../lib/terms";
 import { thaiDateParts } from "../lib/thai-date";
 import AnnouncementStatusLine from "./AnnouncementStatusLine.astro";
+import LinkRow from "./LinkRow.astro";
 import RowTile from "./RowTile.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
@@ -71,55 +71,41 @@ const badge = {
 };
 ---
 
-<article class="group">
-	<div
-		data-testid="announcement-surface"
-		class="relative flex items-center gap-3.5 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:translate-x-2.5 motion-safe:group-hover:shadow-deep sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5"
-	>
-		{dateParts && (
-			<RowTile read closed={closed}>
-				<time datetime={date?.toISOString()} class="flex flex-col items-center">
-					<span class="text-h3/7 font-bold sm:text-h2/9.5">{dateParts.day}</span>{" "}
-					<span class:list={["text-small", !closed && "text-brand-dark"]}>
-						{dateParts.monthAndYear}
-					</span>
-				</time>
-			</RowTile>
+<LinkRow
+	href={announcementPath(announcement.id)}
+	titleId={titleId}
+	surfaceTestId="announcement-surface"
+	banded={kind === "list"}
+>
+	{dateParts && (
+		<RowTile read closed={closed}>
+			<time datetime={date?.toISOString()} class="flex flex-col items-center">
+				<span class="text-h3/7 font-bold sm:text-h2/9.5">{dateParts.day}</span>{" "}
+				<span class:list={["text-small", !closed && "text-brand-dark"]}>
+					{dateParts.monthAndYear}
+				</span>
+			</time>
+		</RowTile>
+	)}
+	<div class="min-w-0 flex-1">
+		{category && (
+			<p class="mb-1.5 flex">
+				<span
+					class:list={[
+						"rounded-pill px-3 py-0.5 text-small font-semibold wrap-anywhere",
+						badge[categoryTone(category.slug)],
+					]}
+				>
+					{category.label}
+				</span>
+			</p>
 		)}
-		<div class="min-w-0 flex-1">
-			{category && (
-				<p class="mb-1.5 flex">
-					<span
-						class:list={[
-							"rounded-pill px-3 py-0.5 text-small font-semibold wrap-anywhere",
-							badge[categoryTone(category.slug)],
-						]}
-					>
-						{category.label}
-					</span>
-				</p>
-			)}
-			<Heading
-				id={titleId}
-				class="line-clamp-2 text-body font-semibold wrap-anywhere sm:text-body-large"
-			>
-				<ThaiTitle text={data.title} />
-			</Heading>
-			<AnnouncementStatusLine data={data} now={now} class="mt-1.5" />
-		</div>
-		<span
-			aria-hidden="true"
-			class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-soft text-brand-primary group-hover:bg-accent-warm group-hover:text-brand-dark motion-safe:transition-colors max-sm:hidden"
+		<Heading
+			id={titleId}
+			class="line-clamp-2 text-body font-semibold wrap-anywhere sm:text-body-large"
 		>
-			<ArrowRight class="shrink-0" size={20} />
-		</span>
-		<a
-			href={announcementPath(announcement.id)}
-			aria-labelledby={titleId}
-			class:list={[
-				"absolute inset-0 rounded-22 after:absolute after:inset-y-0 after:right-full after:hidden after:w-2.5 motion-safe:group-hover:after:block",
-				kind === "list" && "focus-ring-banded",
-			]}
-		></a>
+			<ThaiTitle text={data.title} />
+		</Heading>
+		<AnnouncementStatusLine data={data} now={now} class="mt-1.5" />
 	</div>
-</article>
+</LinkRow>
