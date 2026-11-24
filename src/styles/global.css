@@ -466,9 +466,10 @@
 }
 
 /*
- * Focus ring on a light surface inside a dark one, such as the white search field on the deep
- * field: brand-primary again, since accent-warm does not show on white (spec #239
- * "Accessibility").
+ * Focus ring on a light surface inside a dark one, such as the search pill's button on its white
+ * on the deep field: brand-primary again, since accent-warm does not show on white (spec #239
+ * "Accessibility"). The pill's field takes no ring there: the whole pill takes the accent-warm one
+ * around it (SearchPill; #436).
  */
 @utility focus-ring-on-light {
 	--focus-ring-color: var(--color-brand-primary);

@@ -136,15 +136,21 @@ export async function expectVisibleFocusOnEveryStop(page: Page, label: string): 
 			const element = document.activeElement;
 			if (element === null || element === document.body) return null;
 			const style = getComputedStyle(element);
+			const ringed = (part: Element) => {
+				const { outlineStyle, outlineWidth } = getComputedStyle(part);
+				return outlineStyle !== "none" && Number.parseFloat(outlineWidth) >= 2;
+			};
 			// A link that wraps has one box per line, and the middle of its bounding box can fall
 			// beside a short last line. The first line box always holds the element.
 			const rect = element.getClientRects()[0] ?? element.getBoundingClientRect();
 			const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+			// The search pill's field shows no ring of its own: the whole pill around it takes the
+			// ring (Product Owner, 2026-11-24: #436 comment 7135305142), so an ancestor's ring counts.
+			let around: Element | null = element.parentElement;
+			while (around !== null && !ringed(around)) around = around.parentElement;
 			return {
 				name: `<${element.tagName.toLowerCase()}> ${(element.textContent ?? "").replace(/\s+/g, " ").trim()}`,
-				indicator:
-					(style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) >= 2) ||
-					style.boxShadow !== "none",
+				indicator: ringed(element) || style.boxShadow !== "none" || around !== null,
 				unobscured: rect.width > 0 && rect.height > 0 && hit !== null && element.contains(hit),
 			};
 		});
@@ -449,6 +455,34 @@ export function searchPill(page: Page) {
 	};
 }
 
+/**
+ * The focus rings of the site's search pill in the page's main content (Product Owner,
+ * 2026-11-24: #436 comment 7135305142, option A): with focus on its field, the field's own ring
+ * and the pill's; then, one Tab on, the button's own ring and the pill's. A ring is its colour,
+ * width and offset as the browser computes them, or "none".
+ */
+export async function searchPillRings(page: Page) {
+	const pill = searchPill(page);
+	const ring = async (part: Locator) =>
+		(await part.count()) === 1
+			? await part.evaluate((element) => {
+					const style = getComputedStyle(element);
+					return style.outlineStyle === "none"
+						? "none"
+						: {
+								colour: style.outlineColor,
+								width: style.outlineWidth,
+								offset: style.outlineOffset,
+							};
+				})
+			: "missing";
+	await pill.field.focus();
+	const field = { field: await ring(pill.field), pill: await ring(pill.form) };
+	await page.keyboard.press("Tab");
+	const button = { button: await ring(pill.button), pill: await ring(pill.form) };
+	return { field, button };
+}
+
 /** `part`'s box, or undefined where the page does not show it once. */
 export async function shownBox(part: Locator) {
 	return (await part.count()) === 1 && (await part.isVisible())
@@ -719,11 +753,21 @@ export async function expectCrop(picture: Locator, position: string, label: stri
 }
 
 /**
- * The ancestors of `target` that cut into its focus ring: each one that clips its content where
- * the outline lies, the element's box widened by the outline's offset and width.
+ * The ancestors of `target` that cut into its focus ring, or into the ring an ancestor draws around
+ * it: each one that clips its content where the outline lies, the ringed element's box widened by
+ * the outline's offset and width.
  */
 function focusRingClippers(target: Locator): Promise<string[]> {
-	return target.evaluate((element) => {
+	return target.evaluate((focused) => {
+		// The ring that shows for the element: its own, else the nearest ancestor's that draws one
+		// around it, as the search pill does for its field.
+		let element: Element = focused;
+		for (let part: Element | null = focused; part !== null; part = part.parentElement) {
+			if (getComputedStyle(part).outlineStyle !== "none") {
+				element = part;
+				break;
+			}
+		}
 		const style = getComputedStyle(element);
 		const reach = Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth);
 		const ring = element.getBoundingClientRect();

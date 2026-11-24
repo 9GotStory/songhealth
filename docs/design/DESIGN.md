@@ -17,8 +17,9 @@
 > (Product Owner, 2026-11-23: #392 comment 7092932555). Feature 014's light row tile and
 > `/health`'s and `/about`'s cards follow spec #417, implemented by #418–#421, and were accepted
 > on #417 (Product Owner, 2026-11-24: #417 comment 7120317286). Feature 015's redesign of Search
-> and the 404 page follows spec #432, implemented by #433–#436.
-> **Updated:** 2026-11-24 (#435); first drafted 2026-10-30
+> and the 404 page, the last two public pages in the earlier look, follows spec #432, implemented
+> by #433–#436, and with it every public page has the new design; its acceptance is due on #432.
+> **Updated:** 2026-11-24 (#436); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -139,14 +140,22 @@
 > **Feature 015 decision (Product Owner, 2026-11-24; spec #432, #432 comment 7121642793):** Search
 > (`/search`) and the site's 404 page, the last two public pages in the earlier look, are
 > redesigned after the Homepage and Features 009 to 014's pages as they are built, in the look the
-> Product Owner picked from a prototype. `/search` is headed on the deep field as the lists are
-> (§7.8), under the label "ค้นหา" over the H1 "ค้นหาข้อมูล", and carries the Homepage hero's white
-> search pill on the field (§8.1); with results the groups and the count lie on a white card over
-> the field's edge, and with nothing to show the state's empty state does. The 404 page opens on
-> the same field with the same pill. Nothing a search reads, matches, ranks, groups, counts, pages
-> or links to changes, and no colour, type size, radius or shadow joins the tokens. #433 builds
-> `/search` on the field, #434 a result's row, #435 the 404 page and #436 the documents, the
-> measures and the limits, each with its own decisions in §13's change history.
+> Product Owner picked from a prototype; with them every public page has the new design. `/search`
+> is headed on the deep field as the lists are (§7.8), under the label "ค้นหา" over the H1
+> "ค้นหาข้อมูล", and carries the Homepage hero's white search pill on the field, now the site's one
+> pill (`SearchPill`, §8.1), which takes the `accent-warm` focus ring around it while its field has
+> focus; with results the groups and the count lie on a white card over the
+> field's edge, then each result is a white row that is one link, the Health Report row's, with the
+> light row tile holding its kind's list heading icon (§5, §7.3), and with nothing to show the
+> state's empty state lies over the edge. The 404 page opens on the same field without a
+> breadcrumb, under the label "ขออภัย" over its H1 with `search-x`, its sentence, the same pill,
+> empty, in place of its link to `/search`, and its links to the Homepage and to `/contact` as
+> `/services`' links under its lead (`FieldLinks`, §7.8). Nothing a search reads, matches, ranks,
+> groups, counts, pages or links to changes, the 404 page answers and discloses as it did, and no
+> colour, type size, radius or shadow joins the tokens. #433 builds `/search` on the field, #434 a
+> result's row, #435 the 404 page and #436 the documents, the measures and the limits, each with
+> its own decisions in §13's change history; #436 also moves the pill's focus ring from its field
+> to the whole pill, as the Product Owner asked in its walkthrough.
 
 ## 1. Scope, authority and status
 
@@ -409,6 +418,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` focus ring of a list's card against what lies beside it, its `surface-base` band, over the field's lower edge or the page (`focus-ring-banded`, §7.3): measured at `fb11b3e` with `scripts/measure-focus-contrast.ts` on `/news` at the five widths (#283, #287) | 5.09:1 or more; a few blended pixels at the cards' fractional edges at 1,024 and 768 px down to 2.77:1, under 0.5 % of the ring's neighbours |
 | `surface-base` text on a list's large card over a white picture, the least gradient behind it: the title, the summary and the label's words on its `brand-dark` 40 % fill, measured at `fb11b3e` with `scripts/measure-text-contrast.ts` and `scripts/screenshot-fixtures/news-list-light-picture.ts` on `/news` at the five widths (§7.3, #284, #287) | the title 6.74:1, the summary 8.98:1, the label 6.35:1 or more; on a large card without a picture, over its `deep-visual`, 11.12:1 or more |
 | `brand-primary` focus ring of a list's large card on `/news`, over the field's edge, against what lies beside it with its band: measured at `fb11b3e` with `scripts/measure-focus-contrast.ts` at the five widths (#284, #287) | 4.06:1 or more (1,024 px; 5.47:1 or more at the others), none of the ring's neighbours under 3:1; the field's edge under the ring alone reads down to 1.00:1, which the band is for |
+| `accent-warm` focus ring of the search pill around its field, on the deep field (§8.1; the Homepage, `/search` and the 404 page): measured at `0015f4f` with `scripts/measure-focus-contrast.ts` at the five widths (#436) | under the ring 4.09:1 or more; beside it 3.36:1 or more, but on the Homepage at 1,440 and 1,024 px, where the pill lies at a fractional height, a few blended pixels of its white edge down to 2.13:1, 1 % or less of the ring's neighbours; its button's `brand-primary` ring 6.45:1 under it |
 | `accent-warm` (the counts' numbers, large text) on the band's gradient, over its glow: measured (§8.9) | 3.22:1 or more |
 | `accent-warm` on `surface-base` | 1.58:1: a fill or decoration, never text |
 
@@ -840,7 +850,7 @@ this document names:
   68 px, radius 14, below `sm`; 92 px, radius 18, from `sm`; flat `surface-soft`) with the 24 px
   icon of the result's kind in `brand-primary` and nothing else, its kind's list heading icon or
   `info` for a Basic Page (§5); it is decorative, since the facts line says the kind in words.
-  Beside the tile, 4 px apart: the facts line as before (`MetaLine`: the kind in Thai, or a MOIT's
+  Beside the tile, 4 px apart: the facts line (`MetaLine`: the kind in Thai, or a MOIT's
   "MOIT n" and "ปีงบประมาณ" with the year, then the date its kind's list shows, none for a kind
   listed undated, at small size in `text-secondary`); the title, an H2, `text-primary`, semibold,
   body size below `sm` and body-large from `sm`, shown whole on as many lines as it needs; the
@@ -1416,6 +1426,12 @@ corners are radius 32 (24 below `sm`):
   its own placeholder, up to 640 px from `lg` and without the submit state (§7.8; Feature 015
   #433), and the 404 page under its sentence, empty, with the hero's placeholder, up to 640 px from
   `lg` and without the submit state (§7.8; #435); here the placeholder is "คุณกำลังมองหาอะไร?".
+  While its field has focus, from a click as from Tab, the field shows no ring of its own and the
+  whole pill takes the `accent-warm` ring of the parts on the field, 3 px wide and 2 px outside it;
+  its button keeps the page's `brand-primary` ring on the pill's white (`focus-ring-on-light`). A
+  browser without `:has()` draws no ring around the pill, and there the field keeps its own
+  `brand-primary` ring inside the pill. This holds on every page that shows the pill (Product
+  Owner, 2026-11-24: #436 comment 7135305142, option A).
 - **The Featured card** is one link to the item, at most 400 px wide (340 px below `sm`): a white
   card tilted 2° over an `accent-warm` sheet, which straightens on hover and on focus. It holds
   the picture's frame, 360 px high (260 px below `sm`), then "เรื่องเด่น" with the date the item's
@@ -1432,7 +1448,8 @@ corners are radius 32 (24 below `sm`):
 - The hero shows no summary of the Featured item, no telephone number and no hours.
 - White text on the field's lightest part, `deep-highlight`, is 4.30:1, so the field carries the
   headline, which is large text, and smaller text at its darker left. Focus rings on the field are
-  `accent-warm`, the Featured card's link among them, and `brand-primary` inside the white search.
+  `accent-warm`, the Featured card's link and the search pill around its field among them, and
+  `brand-primary` on the pill's button inside its white.
 - The card's tilt and the submit button's growth on hover move only without a reduced-motion
   preference.
 
@@ -1843,8 +1860,8 @@ page changes (item 3). The mark is taken off when the page is shown again from h
 the browser's back button, and after ten seconds, so a result that never opens in the window (a
 stopped load, one opened in another tab) does not leave the form shut. The spinner turns only under `prefers-reduced-motion: no-preference`.
 This is the site's one script, inline at the end of the Homepage; without JavaScript both forms
-submit as plain forms. Forms on other pages are unchanged: `/search`'s search pill, the hero's
-pill, has no submit state and the page no script (spec #432 "The search pill"; Feature 015 #433).
+submit as plain forms. The search pill on `/search` and on the 404 page, the hero's pill, has no
+submit state, and neither page has a script (spec #432 "The search pill"; Feature 015 #433, #435).
 
 ### 8.10 Activities
 
@@ -3060,6 +3077,65 @@ reference (`docs/prototypes/light-tile-cards.md` there). Each ticket's decisions
 evidence does not cover, which the Product Owner accepted after the walkthrough, answering "Pass"
 (#421 comment 7118897822). The Product Owner accepted the feature on #417 (comment 7120317286).
 
+**What the Product Owner picked for Search and the 404 page** on the Feature 015 prototype, after
+the Homepage and Features 009 to 014's pages as they are built, the grill's eleven questions in two
+rounds each answered "ตามที่แนะนำ" and the prototype's three picks and the seams made through the
+session's question tool, each the "(Recommended)" option, on 2026-11-24 (spec #432 "Decisions the
+Product Owner made", whose numbers these are; #432 comment 7121642793):
+
+- presentation only: the matching and ranking, the eight groups and their counts, a group at 0
+  still a link, `?q=`, `?group=` and `?page=`, 20 results to a page, `noindex` and the canonical
+  address `/search`, the 500 of a failed search, every state's words, the snippet and its marks,
+  the 404 page's status and its non-disclosure (`03` §17), the model and the Admin as they are, and
+  `PageHeading` gone (1);
+- `/search` headed on the deep field as every list, the label "ค้นหา" over the H1 "ค้นหาข้อมูล" with
+  `search`, its breadcrumb หน้าแรก › ค้นหา on the field, its title in the head and its breadcrumb
+  "ค้นหา" (2);
+- a result one link over its whole row, as an Announcement's and a Health Report's (3);
+- the start state the heading, the lead and the field alone, with no browse links; with a query no
+  lead, and at 375 px the first result no lower than its 706 px in `main` at `0c8d3b7` (4);
+- the 404 page with the site search in place of its "ค้นหาข้อมูล" link, keeping "กลับไปหน้าแรก" and
+  "ติดต่อเรา", the feature's one new behaviour (5); its H1 and sentence kept, no breadcrumb, the
+  label "ขออภัย" and `search-x` (6);
+- a site-wide 500 page out of scope, decided with the production track (7);
+- every empty state a white card over the field's edge, a tile's icon its kind's list heading icon,
+  motion, the pager and the focus rings the lists', and no `GLOSSARY.md` term and no ADR (8);
+- the search field's place: the hero's white pill on the field under the heading, with no visible
+  label; with results the groups and the count on a white card over the field's edge, with nothing
+  to show the empty state over it, and in the start state nothing over it (9, P1 B, over A's form
+  on a white card over the edge);
+- a result's row with the light row tile holding its kind's list heading icon, `info` for a Basic
+  Page (10, P2, over the row without a tile);
+- the 404 page with a list's heading on the field, the pill, and "กลับไปหน้าแรก" and "ติดต่อเรา" as
+  `/services`' links under its lead, without its three buttons (11, P3 A, over B's large "404" on
+  the field);
+- the seams under spec #432 "Testing Decisions", the public browser suites and node:test on a
+  `src/lib` module, each one the site already had.
+
+**What the Product Owner decided while the tickets were built,** each on its ticket:
+
+- the label over a heading keeping the slashes it draws in CSS, which assistive technology reads
+  ("/ค้นหา/", "/ขออภัย/"), as on every page since Feature 008: no Feature 015 ticket changes it, and
+  an issue opened after the feature's release takes it up across the site (#433 comment
+  7123324643, below);
+- a result's row under the pointer with reduced motion preferred as the Health Report row's, the
+  title and the circle changing while the `card` shadow stays and the row keeps still; and one row,
+  `LinkRow`, shared by the Announcement's, the Health Report's and a result's rows, each looking as
+  it did (#434 comment 7124814084, items 1 and 2);
+- the search pill's focus ring: in #436's walkthrough the Product Owner asked that the field show
+  no border under focus, and picked, from close-ups of three looks, the whole pill taking the
+  `accent-warm` ring of the parts on the field, its button keeping its own, fixed in #436 before
+  the hand-off (option A, over the pill's edge in `brand-primary` inside its white; #436 comment
+  7135305142).
+
+The prototype's variants, on the branch `prototype/search-404` at `15b653e`, are the visual
+reference (`docs/prototypes/search-404.md` there). Each ticket's decisions are on #433 to #436 and
+in §13. The evidence round of #436 (`docs/evidence/436-search-404-evidence-round.md`) measures the
+pages and names what the evidence does not cover, which the Product Owner accepted after the
+walkthrough, answering "ผ่าน" (pass) and "ยอมรับตามรายการ" (accept as listed) (#436 comment
+7135305142). With the feature every public page has the new design. The feature's acceptance is
+due on #432.
+
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
 Feature 008's picks above take the place of the smaller Featured title and the shorter phone page:
@@ -3158,6 +3234,10 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   MOIT's page and on `/health/reports`: the browser scrolls until the element's box meets the edge,
   and the site sets no bottom scroll padding; #411 takes it up for the whole site outside Feature
   013 (#396 comment 7081797338, item 2).
+- **The label over a heading** draws its slashes in CSS (`SectionHeading`, and the Homepage's
+  Leadership strip), and assistive technology reads them with the label, as "/ค้นหา/" on `/search`
+  and "/ขออภัย/" on the 404 page; an issue opened after Feature 015's release takes it up across the
+  site (#433 comment 7123324643).
 - **A gallery in a News body** does not fold, and EmDash's Edit mode shows it as a placeholder
   (§9.3).
 - **A focal point or alt text** set in the media library after staff picked a picture may not
@@ -3913,3 +3993,25 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   answers the site's 404. With it every public page has the new design. §2, §5, §7.1, §7.8 and
   §8.1 name it. Authority: spec #432 "The 404 page", "The search pill", "Motion" and decisions 5,
   6 and 11, and #432 comment 7121642793.
+- **v1.9 documents, measures and limits, and the search pill's focus ring (2026-11-24, Feature 015
+  #436):** the feature keeps the one version step #433 took. Feature 015's banner, rewritten from
+  #433's present tense, names what #433 to #435 built: `/search` on the field with the site's one
+  search pill, a result's row with the light row tile, the 404 page on the field with the pill and
+  `/services`' links, that the 404 page answers and discloses as it did, and that no token joins; the
+  Status line says every public page has the new design and names the acceptance due on #432. In
+  #436's walkthrough the Product Owner asked that the search field show no border under focus: on
+  the Homepage, `/search` and the 404 page, while the field has focus the whole pill takes the
+  `accent-warm` ring 2 px outside it and the field none, the button keeping its `brand-primary`
+  ring, and a browser without `:has()` keeps the field's own ring (§8.1); §3.2 records the ring's
+  contrast. §7.3's result row drops an "as before" that no longer had a before, and §8.9 names the
+  404 page's pill beside `/search`'s, without a submit state or a script. §10 lists what the Product Owner picked for Feature 015 and decided on #433, #434 and
+  #436, with each decision's source, and keeps the label's slashes as a known limit until the
+  issue after the release. The readings Feature 015's tickets took were read again with each
+  ticket's own script at `6c9731d` and at `0015f4f`: each ticket's closing lines are the same at
+  both but #433's found page's 17 result titles, the cards #434 replaced; three per-width readings
+  of the H1 on the field differ by 0.11:1 at most, on pages whose after images are byte for byte the
+  tickets'; the rows' focus rings are the same line for line; and every after image at both
+  commits is byte for byte its ticket's, the Homepage's the same as before the feature
+  (`docs/evidence/436-search-404-evidence-round.md`). Authority: spec #432 "Documents" and
+  "Decisions the Product Owner made", the decisions on #433 and #434, the notes on #436, and #436
+  comment 7135305142 (the walkthrough and the ring).

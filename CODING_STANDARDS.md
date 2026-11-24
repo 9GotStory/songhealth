@@ -105,26 +105,38 @@ and why, and `.jscpd-baseline.json` records them.
 - A link held to its lines carries the clamp itself (`line-clamp-2 w-fit` on the `a`), not its
   heading: the clamp's hidden overflow cuts the link's focus ring, which lies outside the link's
   box (#315 retro: axe's focus check failed the Document row's title).
+- A part whose ring a larger piece draws around it gives up its own ring only where that ring is
+  drawn: the search pill takes its field's ring through `:has()`, so the field's reset is
+  `supports-[selector(:has(a))]:focus-visible:outline-none`, and a browser without `:has()` keeps
+  the field's own ring (`src/components/SearchPill.astro`; Product Owner, 2026-11-24: #436 comment 7135305142;
+  #436's frontend gate found the reset applied everywhere).
 - `accent-warm` is small text only on `brand-dark`. On `brand-primary` and on the deep field,
-  the Homepage's and the one under a list's heading or a Post page's, an Announcement's, a
+  the Homepage's and the one under a list's heading, `/search`'s and the 404 page's among them,
+  or a Post page's, an Announcement's, a
   Document's, a Health Report's, a Service's, a Health Service's or a MOIT's header (spec #280
   "The field under a heading"; spec #311 "An Announcement's page and a Document's page: the
-  header"; spec #338 "The three pages: the header"; spec #392 decision 8), it is 4.10:1 or less,
+  header"; spec #338 "The three pages: the header"; spec #392 decision 8; spec #432 decisions 2
+  and 11), it is 4.10:1 or less,
   so small text there is `surface-base` (`docs/design/DESIGN.md` §3.2; Product Owner, 2026-11-11:
   #242 comment 6797113372, item 1). "MOIT n" opening a MOIT's H1 there is large text, measured at
   3:1 or more (§3.1, §9.11; spec #392 decision 8). Every
-  row's tile is the light one (`RowTile`: `surface-soft`, its icon, a MOIT's number or an
+  row's tile, a search result's on `/search` among them, is the light one (`RowTile`:
+  `surface-soft`, its icon, a MOIT's number or an
   Announcement's day `brand-primary`, its type, "MOIT", a report's year or an Announcement's month
   and year `brand-dark`; a closed Announcement's white with a `border-default` edge and
-  `text-secondary` lines; §3.2; spec #417 decisions 12 and 13), which holds no `accent-warm`.
+  `text-secondary` lines; §3.2; spec #417 decisions 12 and 13; spec #432 decision 10), which
+  holds no `accent-warm`.
 - Pages work without client JavaScript. Something that opens without JavaScript, like the
   mobile menu, opens in the flow of the page. The site's one script is the Homepage's submit
   state, which a form does not need (spec #239 "Motion and loading"; `docs/design/DESIGN.md`
-  §8.9).
+  §8.9): the same search pill on `/search` and the 404 page has no submit state, and those pages
+  no script (spec #432 "The search pill").
 - A list or detail page reuses the shared pieces in `src/components/` and follows the shape of
   `src/pages/news/`. That shape covers reads through EmDash's query functions, `?page=` and GET
   filters, `Astro.rewrite("/404")` for anything not visible, and the SiteLayout head props. A
-  piece that two pages need moves into `src/components/` or `src/lib/`. So does a page's title
+  piece that two pages need moves into `src/components/` or `src/lib/`, as the search pill the
+  Homepage, `/search` and the 404 page share (`SearchPill`; spec #432 "Scope of the change"). So
+  does a page's title
   that another page shows as a crumb or link: one constant in its section's module, as
   `HEALTH_CONTENT_TITLE` is.
 - CMS images go through EmDash's `Image` with a `sizes` that matches their box, in plain lengths

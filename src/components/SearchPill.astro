@@ -6,8 +6,12 @@
 // brand-dark, 44 px and 52 px from `sm`, which grows under the pointer only with motion allowed.
 // The pill is 60 px high and 68 px from `sm`, as wide as its column up to 540 px, and `wide` up to
 // 640 px from `lg`, as the hero is without a Featured item, and /search and the 404 page always.
-// It lies on the deep field, so it takes the brand-primary focus ring inside its white
-// (`focus-ring-on-light`).
+// It lies on the deep field. While its field has focus, from a click as from Tab, the field shows
+// no ring of its own and the whole pill takes the accent-warm ring that other parts on the field
+// take, 3 px wide and 2 px outside it; the button keeps its own brand-primary ring inside the white
+// (`focus-ring-on-light`) (Product Owner, 2026-11-24: #436 comment 7135305142, option A). The field
+// gives up its ring only where the browser has `:has()`, which draws the pill's; without it the
+// field keeps its own.
 //
 // It is a plain GET form to /search that carries the query alone, so it works without JavaScript
 // and a new search starts from ทุกประเภท and the first page. The form and its field are named
@@ -46,7 +50,7 @@ const { id, placeholder, value, wide = false, submitState = false } = Astro.prop
 	aria-label="ค้นหาในเว็บไซต์"
 	data-submit-state={submitState ? "" : undefined}
 	class:list={[
-		"hero-enter focus-ring-on-light flex h-15 [--hero-enter-delay:0.22s] max-w-135 items-center gap-3 rounded-pill bg-surface-base pr-2 pl-5 text-text-secondary shadow-deep sm:h-17 sm:pl-6",
+		"hero-enter focus-ring-on-light flex h-15 [--hero-enter-delay:0.22s] max-w-135 items-center gap-3 rounded-pill bg-surface-base pr-2 pl-5 text-text-secondary shadow-deep has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-accent-warm sm:h-17 sm:pl-6",
 		submitState && "group/submit",
 		wide && "lg:max-w-160",
 	]}
@@ -62,7 +66,7 @@ const { id, placeholder, value, wide = false, submitState = false } = Astro.prop
 		value={value}
 		maxlength={MAX_QUERY_LENGTH}
 		placeholder={placeholder}
-		class="min-h-11 w-full min-w-0 flex-1 rounded-pill bg-transparent text-body text-text-primary placeholder:text-text-secondary sm:text-body-large"
+		class="min-h-11 w-full min-w-0 flex-1 rounded-pill bg-transparent text-body text-text-primary placeholder:text-text-secondary supports-[selector(:has(a))]:focus-visible:outline-none sm:text-body-large"
 	/>
 	<button
 		type="submit"
