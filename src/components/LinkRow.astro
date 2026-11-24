@@ -1,0 +1,60 @@
+---
+// The row that is one link (Feature 015 #434; spec #432 "Scope of the change", "A result's row";
+// Product Owner, 2026-11-24: #434 comment 7124814084, item 2), which three rows share, each with
+// its own tile and text in its slot: an Announcement's (AnnouncementRow, the Homepage's Current
+// Announcements and the Announcements list), a Health Report's (HealthReportRow) and a search
+// result's (SearchResultRow). A white row, radius 22, the `card` shadow, 12 px of padding, and
+// from `sm` 18 px above and below, 22 px at the right and 18 px at the left; its parts in one line,
+// centred on each other, 14 px apart and 22 px from `sm`. From `sm` it ends in the 20 px
+// arrow-right in brand-primary on a 40 px round surface-soft circle, decorative; below `sm` it has
+// none.
+//
+// A native link named by the row's title, the element `titleId` names, covers the whole row; the
+// rest of the row stays readable outside the link's name (WCAG 2.2 SC 2.5.3). A row that may lie
+// over the deep field's lower edge, a list's, has a white band on both sides of its focus ring
+// (`focus-ring-banded`; Product Owner, 2026-11-13: #283 comment 6854670042).
+//
+// Under the pointer the arrow's circle turns accent-warm with a brand-dark arrow, and the row moves
+// 10 px to the right with the `deep` shadow, the movement and the shadow only under
+// `prefers-reduced-motion: no-preference` (#434 comment 7124814084, item 1). The article keeps its
+// place and its surface moves inside it; while it has moved, the link reaches back over the 10 px
+// the surface left, so a press there still opens the row's page. A row's title turns brand-primary
+// under the pointer itself, where its row says so (`group-hover:`).
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+
+interface Props {
+	/** The address the row opens. */
+	href: string;
+	/** The id of the row's title, which names its link. */
+	titleId: string;
+	/** The test id of the row's moving surface, by which the suites read it. */
+	surface: string;
+	/** A row that may lie over the deep field's edge: the focus ring's white band. */
+	banded?: boolean;
+}
+
+const { href, titleId, surface, banded = true } = Astro.props;
+---
+
+<article class="group">
+	<div
+		data-testid={surface}
+		class="relative flex items-center gap-3.5 rounded-22 bg-surface-base p-3 shadow-card motion-safe:transition motion-safe:duration-300 motion-safe:group-hover:translate-x-2.5 motion-safe:group-hover:shadow-deep sm:gap-5.5 sm:py-4.5 sm:pr-5.5 sm:pl-4.5"
+	>
+		<slot />
+		<span
+			aria-hidden="true"
+			class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-soft text-brand-primary group-hover:bg-accent-warm group-hover:text-brand-dark motion-safe:transition-colors max-sm:hidden"
+		>
+			<ArrowRight class="shrink-0" size={20} />
+		</span>
+		<a
+			href={href}
+			aria-labelledby={titleId}
+			class:list={[
+				"absolute inset-0 rounded-22 after:absolute after:inset-y-0 after:right-full after:hidden after:w-2.5 motion-safe:group-hover:after:block",
+				banded && "focus-ring-banded",
+			]}
+		></a>
+	</div>
+</article>

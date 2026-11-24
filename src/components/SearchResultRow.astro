@@ -1,20 +1,46 @@
 ---
 // A search result (Feature 003 #63, Feature 004 #125; spec #51 "Search", spec #121 "Public
-// routes", `08` §8): a white card with the `card` shadow and radius 24, holding its kind in Thai,
-// or a MOIT's number and fiscal year, and the date its kind is listed by, its title
-// linking to its canonical address, the snippet, and the status the list of its kind states, with
-// that list's status label. No internal field shows.
+// routes", `08` §8) as a row (Feature 015 #434; spec #432 "A result's row", decisions 3 and 10,
+// prototype P2): a Health Report's row (HealthReportRow) with a result's content, on the row the
+// three share (LinkRow). No internal field shows.
+//
+// The light row tile (RowTile) holds the 24 px icon of the result's kind alone, its kind's list
+// heading icon, or `info` for a Basic Page (src/lib/search-matcher.ts KIND_ICONS); it is
+// decorative, since the facts line says the kind in words. Beside it, 4 px apart: the facts line,
+// as before (MetaLine: the kind in Thai, or a MOIT's number and fiscal year, then the date its
+// kind's list shows, none for a kind listed undated); the title, an H2 at body size, semibold,
+// body-large from `sm`, in text-primary, shown whole on as many lines as it needs; the snippet,
+// when the result has one, regular at label size and body size from `sm`, in text-secondary; and
+// the status its kind's list states, with that list's status label, 6 px under the line above it.
 //
 // The snippet is HTML that src/lib/search-matcher.ts builds: the entry's plain text, escaped, with
 // the matched terms in <mark>. Nothing else is set as HTML. A mark is semibold text-primary without
 // a fill, because the warm fill marks a status that needs attention (Product Owner, 2026-10-30:
 // #63 comment 6518347225).
+//
+// A native link named by the title covers the whole row; the facts, the snippet and the status
+// stay readable outside the link's name. The first row lies over the deep field's lower edge, so
+// its focus ring has the lists' white band (`focus-ring-banded`). Under the pointer the title turns
+// brand-primary and the arrow's circle accent-warm, and with motion allowed the row moves 10 px to
+// the right with the `deep` shadow (LinkRow; Product Owner, 2026-11-24: #434 comment 7124814084).
+import FileChartColumn from "@lucide/astro/icons/file-chart-column";
+import FileText from "@lucide/astro/icons/file-text";
+import FolderOpen from "@lucide/astro/icons/folder-open";
+import Heart from "@lucide/astro/icons/heart";
+import HeartPulse from "@lucide/astro/icons/heart-pulse";
+import Hospital from "@lucide/astro/icons/hospital";
+import Info from "@lucide/astro/icons/info";
+import MessageSquare from "@lucide/astro/icons/message-square";
+import ShieldCheck from "@lucide/astro/icons/shield-check";
+import Users from "@lucide/astro/icons/users";
 import type { SearchEntry } from "../lib/search";
-import { KIND_LABELS } from "../lib/search-matcher";
+import { KIND_ICONS, KIND_LABELS, type SearchKindIcon } from "../lib/search-matcher";
 import AnnouncementStatus from "./AnnouncementStatus.astro";
 import DocumentStatus from "./DocumentStatus.astro";
 import HealthServiceStatus from "./HealthServiceStatus.astro";
+import LinkRow from "./LinkRow.astro";
 import MetaLine from "./MetaLine.astro";
+import RowTile from "./RowTile.astro";
 import ThaiTitle from "./ThaiTitle.astro";
 
 interface Props {
@@ -22,37 +48,59 @@ interface Props {
 	snippet: string;
 }
 
+/** Each kind's icon, by its Lucide name. */
+const ICONS: Record<SearchKindIcon, typeof Info> = {
+	"file-chart-column": FileChartColumn,
+	"file-text": FileText,
+	"folder-open": FolderOpen,
+	heart: Heart,
+	"heart-pulse": HeartPulse,
+	hospital: Hospital,
+	info: Info,
+	"message-square": MessageSquare,
+	"shield-check": ShieldCheck,
+	users: Users,
+};
+
 const { entry, snippet } = Astro.props;
 const { status } = entry;
+const Icon = ICONS[KIND_ICONS[entry.kind]];
+const titleId = `result-${crypto.randomUUID()}`;
 ---
 
-<article class="flex flex-col gap-2 rounded-24 bg-surface-base p-5 shadow-card">
-	<MetaLine
-		facts={[
-			...(entry.facts ?? [KIND_LABELS[entry.kind]]).map((text) => ({ text })),
-			entry.shownDate && { date: entry.shownDate },
-		]}
-	/>
-	<h2 class="text-body-large font-semibold wrap-anywhere text-brand-dark">
-		<a class="underline-offset-4 hover:text-brand-primary hover:underline" href={entry.href}>
-			<ThaiTitle text={entry.title} />
-		</a>
-	</h2>
-	{snippet && (
-		<p
-			class="wrap-anywhere text-text-secondary [&_mark]:bg-transparent [&_mark]:font-semibold [&_mark]:text-text-primary"
-			set:html={snippet}
+<LinkRow href={entry.href} titleId={titleId} surface="result-surface">
+	<RowTile>
+		<Icon class="shrink-0" size={24} />
+	</RowTile>
+	<div class="flex min-w-0 flex-1 flex-col gap-1">
+		<MetaLine
+			facts={[
+				...(entry.facts ?? [KIND_LABELS[entry.kind]]).map((text) => ({ text })),
+				entry.shownDate && { date: entry.shownDate },
+			]}
 		/>
-	)}
-	{status && (
-		<p>
-			{status.kind === "announcement" ? (
-				<AnnouncementStatus status={status.value} />
-			) : status.kind === "document" ? (
-				<DocumentStatus status={status.value} />
-			) : (
-				<HealthServiceStatus status={status.value} />
-			)}
-		</p>
-	)}
-</article>
+		<h2
+			id={titleId}
+			class="text-body font-semibold wrap-anywhere group-hover:text-brand-primary sm:text-body-large"
+		>
+			<ThaiTitle text={entry.title} />
+		</h2>
+		{snippet && (
+			<p
+				class="text-label font-normal wrap-anywhere text-text-secondary sm:text-body [&_mark]:bg-transparent [&_mark]:font-semibold [&_mark]:text-text-primary"
+				set:html={snippet}
+			/>
+		)}
+		{status && (
+			<p class="mt-0.5">
+				{status.kind === "announcement" ? (
+					<AnnouncementStatus status={status.value} />
+				) : status.kind === "document" ? (
+					<DocumentStatus status={status.value} />
+				) : (
+					<HealthServiceStatus status={status.value} />
+				)}
+			</p>
+		)}
+	</div>
+</LinkRow>

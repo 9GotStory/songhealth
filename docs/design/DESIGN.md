@@ -18,7 +18,7 @@
 > `/health`'s and `/about`'s cards follow spec #417, implemented by #418–#421, and were accepted
 > on #417 (Product Owner, 2026-11-24: #417 comment 7120317286). Feature 015's redesign of Search
 > and the 404 page follows spec #432, implemented by #433–#436.
-> **Updated:** 2026-11-24 (#433); first drafted 2026-10-30
+> **Updated:** 2026-11-24 (#434); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -314,7 +314,7 @@ The tokens began as Concept v1's variables and keep their names. Colours:
 | `text-secondary` | `#65736d` | leads, meta lines; the day and the month and year on a closed Announcement's date tile (§8.7; Feature 014 #419) |
 | `bg-page` | `#f6f9f7` | the page |
 | `surface-base` | `#ffffff` | cards, white bands |
-| `surface-soft` | `#eaf5f0` | soft bands, the Current Announcements' band and its general category badge; the ground of a row's light tile (`RowTile`): the file tile of a Document row and of the card on a Document's and a Health Report's page, and a MOIT's, a Health Report's, a Health Service's and a current Announcement's row's tile (§7.3, §8.3, §8.7; Feature 014 #418, #419) |
+| `surface-soft` | `#eaf5f0` | soft bands, the Current Announcements' band and its general category badge; the ground of a row's light tile (`RowTile`): the file tile of a Document row and of the card on a Document's and a Health Report's page, and a MOIT's, a Health Report's, a Health Service's, a search result's and a current Announcement's row's tile (§7.3, §8.3, §8.7; Feature 014 #418, #419; Feature 015 #434) |
 | `border-default` | `#dce7e2` | borders; the 1 px edge of a closed Announcement's date tile (§8.7; Feature 014 #419) |
 | `topic-blue` | `#f0f5fc` | the procurement Announcement badge's fill (§8.7); `topic-green`, the old Health Information cards' other fill, left the tokens with them (#246), `contact-visual-from` and `-to`, the map stand-in's fill, with it (#247), and `activity-visual-from` and `-to`, the old Activity card's fill without a picture, with that card (#313) |
 | `divider` | `#dbe8e3` | separators inside a white box: the line above a post's topics; the rule in the card on a Document's and a Health Report's page is `border-default` (§9.5, §9.6) |
@@ -396,7 +396,7 @@ The ratios of the pairs the pages use, computed from the token values (WCAG 2.2 
 | `brand-primary` on the header's surface over `brand-dark` | 5.39:1 |
 | `surface-base` at 70 % (the footer's quiet text) on `brand-dark` | 6.83:1 |
 | `brand-primary` (the day) and `brand-dark` (the month and year) on a current Announcement's date tile, the light tile (`RowTile`, flat `surface-soft`), on the Homepage and the Announcements list, whatever its status (§8.7; spec #417 decisions 1 and 12, #419); `text-secondary` (the day, the month and year) on a closed Announcement's tile, `surface-base` with a `border-default` edge, on the Announcements list (spec #417 decision 13) | measured with `scripts/measure-text-contrast.ts --all-text --fold` at the five widths at `404bffc` (#419) on the Homepage (the demo dataset and `homepage-announcements`) and `/announcements` (the demo dataset and `lists-by-count` with 21, pages 1 and 2): the day 5.78:1, the month and year 10.94:1, a closed tile's day and month and year 4.97:1, as the token values and the prototype give them |
-| `brand-primary` (the icon, a MOIT's number) and `brand-dark` (the file's type or "ไฟล์", "MOIT", a report's fiscal year) on a row's light tile (`RowTile`, flat `surface-soft`): the file tile of a Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents, and in the card on a Document's and a Health Report's page (§9.4 to §9.9), a MOIT's row (§8.3), a Health Report's row and a Health Service's (§7.3; spec #417 decision 12, prototype P1 A) | measured with `scripts/measure-text-contrast.ts --all-text --fold` at the five widths at `2d2b027` (#418): a MOIT's number 5.78:1; "PDF", "ไฟล์", "MOIT" and a report's fiscal year 10.94:1, as the token values and the prototype give them |
+| `brand-primary` (the icon, a MOIT's number) and `brand-dark` (the file's type or "ไฟล์", "MOIT", a report's fiscal year) on a row's light tile (`RowTile`, flat `surface-soft`): the file tile of a Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents, and in the card on a Document's and a Health Report's page (§9.4 to §9.9), a MOIT's row (§8.3), a Health Report's row and a Health Service's (§7.3; spec #417 decision 12, prototype P1 A), and a search result's row, its icon alone (§7.3; Feature 015 #434) | measured with `scripts/measure-text-contrast.ts --all-text --fold` at the five widths at `2d2b027` (#418): a MOIT's number 5.78:1; "PDF", "ไฟล์", "MOIT" and a report's fiscal year 10.94:1, as the token values and the prototype give them |
 | `procurement-text` on `topic-blue` (the procurement badge, §8.7) | 7.43:1 |
 | `brand-dark` on `accent-warm` (the recruitment badge, a status that is not open yet) | 7.75:1 |
 | `text-primary` on `status-closed` (a closed Announcement's dotted label, §8.7, and the label on its page, §9.4) | 13.85:1 |
@@ -488,8 +488,13 @@ own module.
   tile on `/health-services`, with `hospital`, whose
   "เปิดแผนที่" opens with a 20 px `map-pin` and ends in the 16 px `arrow-up-right` (§7.3; Feature
   011 #341), and a Health Report row's tile on `/health/reports`, with `file-chart-column`, whose
-  round arrow holds the Announcement row's 20 px `arrow-right` (§7.3; #342). A Service card shows
-  the Service's icon (below).
+  round arrow holds the Announcement row's 20 px `arrow-right` (§7.3; #342), and a search
+  result's row's tile on `/search`, with its kind's list heading icon (`message-square` for News,
+  `heart` for an Activity, `file-text` for an Announcement, `users` for a Service, `hospital` for a
+  Health Service, `heart-pulse` for Health Content, `file-chart-column` for a Health Report,
+  `folder-open` for a Document, `shield-check` for a MOIT) or `info` for a Basic Page, which has no
+  list, a reserved one under `/about` too (`src/lib/search-matcher.ts` `KIND_ICONS`), and the same
+  round arrow (§7.3; Feature 015 #434). A Service card shows the Service's icon (below).
 - **Service icons** (Product Owner, 2026-11-12: #248 comment 6826430670): a Service card's tile
   shows the icon staff chose for the Service in the Service editor, on the Homepage (§8.4) and in
   the Service catalog (`ServiceIcon`). Without a choice it shows the standard icon, `hand-heart`,
@@ -586,7 +591,7 @@ this document names:
 | Posts | `PostHeader`, `PostColumns`, `PostBody` with `TopicPills`, `ActivityPhotos`, `RichText`; `CardOverField`, an Announcement's, a Document's, a Health Report's, a Service's and a Health Service's page under a Post page's header (§9.4 to §9.8), with `FileBlock`, the file first in the card of a Document's and a Health Report's page (§9.5, §9.6); `BasicPageContent`, a Basic Page on `/pages/{slug}` and `/about/organization`, its header in `PostColumns` without a picture, and `BasicPageText`, its body and related Documents, which `/about` shares after its tiles; `PostHeader` heads `/about` too, on a list's field (§9.9), and a MOIT's page, on its own `DeepField` with `ListBody` after it, with "MOIT n" opening its H1 and the H1 no larger than H2 size (§9.11) |
 | Chips | `TopicChip`: a Health Topic chip, on the Homepage's Health Information (§8.8) and a post's Health Topics (§9.1) |
 | Links | `ActionLink` (buttons; with `arrow`, semibold with a 16 px `arrow-right`, `/contact`'s routes, §9.10), `ArrowLink` (onward links), `Pagination`, `Breadcrumb`; `ContentLink`'s `compact` form, the footer's official channels and `/contact`'s pills (§9.10) |
-| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RequirementCard`, a MOIT's Requirement card, and `MoitNeighbours`, the links to the MOITs before and after it, on a MOIT's page (§8.3, §9.11); `RowTile`, the light row tile of 68 px and 92 px from `sm` on flat `surface-soft`, which `FileTile`, `ItaMoitRow`, `HealthReportRow`, `HealthServiceMapRow` and `AnnouncementRow` share, each with its own lines (Feature 014 #418, #419), read aloud on an Announcement's row and white with an edge on a closed one's (§8.7); `RelatedDocuments` |
+| Lists | `FilterForm`; `DocumentDownloadRow`, the Document row on `/documents`, on the About Document pages and in an Announcement's, a Service's and a Basic Page's related Documents (§7.3, §7.8, §9.4, §9.7, §9.9), with `FileTile` and `FileDownloadLink`, which a Document's and a Health Report's page share through `FileBlock` (§9.5, §9.6); `HealthServiceMapRow`, the Health Service row on `/health-services` and under a Service's "หน่วยบริการสุขภาพที่ให้บริการนี้", with `MapLink`'s row pill (§7.3, §9.7); `HealthReportRow`, the Health Report row on `/health/reports`, the Announcement row's look without its badge (§7.3); `SearchResultRow`, a search result's row on `/search`, the Health Report row's with a result's content (§7.3, §7.8; Feature 015 #434); `LinkRow`, the row that is one link with its round arrow, which `AnnouncementRow`, `HealthReportRow` and `SearchResultRow` share, each with its own tile and text (§7.3, §8.7; #434); `ItaMoitRow`, a MOIT's row on a fiscal year's page (§8.3); `RequirementCard`, a MOIT's Requirement card, and `MoitNeighbours`, the links to the MOITs before and after it, on a MOIT's page (§8.3, §9.11); `RowTile`, the light row tile of 68 px and 92 px from `sm` on flat `surface-soft`, which `FileTile`, `ItaMoitRow`, `HealthReportRow`, `HealthServiceMapRow`, `AnnouncementRow` and `SearchResultRow` share, each with its own lines (Feature 014 #418, #419; Feature 015 #434), read aloud on an Announcement's row and white with an edge on a closed one's (§8.7); `RelatedDocuments` |
 
 ### 7.2 Component rules
 
@@ -748,8 +753,8 @@ this document names:
   Basic Page's "เอกสารที่เกี่ยวข้อง" it shows at once (§9.7, §9.9; Feature 011 #344; Feature 012
   #368). The About Document pages show
   the same row, titles H2, over the field's edge, as `/documents` without its filter form (§7.8;
-  Feature 012 #366), and search results keep their own; a Health Report's
-  page shows its one Document
+  Feature 012 #366); a search result is a row of its own since Feature 015 #434 (below); a Health
+  Report's page shows its one Document
   as a Document's page shows its file (§9.6; Feature 011 #343). With
   `--all-text` at the five widths every text of a row reads 4.97:1 or more, the facts line, the
   summary and "ไฟล์ไม่พร้อมให้บริการ" in `text-secondary` the lowest; the tile's "PDF" and "ไฟล์" 10.94:1 on the light tile (#418: `scripts/measure-text-contrast.ts --all-text --fold` at `2d2b027`),
@@ -823,6 +828,30 @@ this document names:
   it and 6.07:1 beside it (#342; measured at `7b49b6e` with `scripts/measure-text-contrast.ts` on
   the demo dataset's list and with `scripts/screenshot-fixtures/lists-by-count.ts`, and
   `scripts/measure-focus-contrast.ts`).
+- **A search result's row** on `/search` (Feature 015 #434; spec #432 "A result's row", decisions
+  3 and 10, prototype P2), `SearchResultRow`: the Health Report row with a result's content, on
+  the row the Announcement's, the Health Report's and a result's rows share (`LinkRow`; Product
+  Owner, 2026-11-24: #434 comment 7124814084, item 2): white, radius 22, the `card` shadow, 12 px
+  of padding, and from `sm` 18 px above and below, 22 px at the right and 18 px at the left; the
+  rows 14 px apart, 32 px under the groups' card (§7.8); its parts in one line at every width,
+  centred on each other, 14 px apart and 22 px from `sm`. It holds the row's light tile (`RowTile`:
+  68 px, radius 14, below `sm`; 92 px, radius 18, from `sm`; flat `surface-soft`) with the 24 px
+  icon of the result's kind in `brand-primary` and nothing else, its kind's list heading icon or
+  `info` for a Basic Page (§5); it is decorative, since the facts line says the kind in words.
+  Beside the tile, 4 px apart: the facts line as before (`MetaLine`: the kind in Thai, or a MOIT's
+  "MOIT n" and "ปีงบประมาณ" with the year, then the date its kind's list shows, none for a kind
+  listed undated, at small size in `text-secondary`); the title, an H2, `text-primary`, semibold,
+  body size below `sm` and body-large from `sm`, shown whole on as many lines as it needs; the
+  snippet, when the result has one, at the label token's size and line height in regular weight
+  below `sm` and at body size from `sm`, in `text-secondary`, its marks semibold `text-primary`
+  without a fill; and the status label its kind's list states, when it has one, 6 px under the
+  line above it. From `sm` the round `arrow-right` ends the row, none below. **One link**, named by
+  the title, covers the row, with the lists' `focus-ring-banded`; the facts, the snippet and the
+  status stay outside its name. Under the pointer the title turns `brand-primary` and the arrow's
+  circle `accent-warm` with a `brand-dark` arrow; with motion allowed the row also moves 10 px to
+  the right with the `deep` shadow, and the link reaches back over the strip it left, as the Health
+  Report row's (#434 comment 7124814084, item 1). Each row reveals as it comes into the window and
+  shows whole while it holds the keyboard's focus (§8.12). No internal field shows.
 - **Crops:** a list's card, a News, Health Content or Activity card, crops its picture to 16:9
   from `sm` and 4:3 below (`ContentCard.astro`), as the Homepage's small News card does; the
   Homepage's Health Content
@@ -1117,11 +1146,12 @@ and 9) Search (`/search`).
   inside it, the current one `brand-primary` with `surface-base` words, the others `surface-soft`
   with `brand-dark` words and `border-default` under the pointer, a group at 0 still a link with
   its count) and 16 px under them "พบ n รายการ" at label size in `text-secondary`. The results, a
-  search result's card (§7.3), follow it, then the pager, 32 px apart; a group at 0 or a page past
+  search result's row each (§7.3; Feature 015 #434), 14 px apart, follow it, then the pager, 32 px
+  apart; a group at 0 or a page past
   the last shows its empty state under the card in their place (spec #432 "`/search`: each state
   over the field's edge"). With motion allowed the heading block, then the lead, then the pill
-  rise in, the pill as the hero's search does; the breadcrumb, the groups' card, an empty state
-  and the pager show at once.
+  rise in, the pill as the hero's search does; each result's row reveals as it comes into the
+  window (#434); the breadcrumb, the groups' card, an empty state and the pager show at once.
 - **The links under the lead.** `/services` has two, "ค้นหาหน่วยบริการสุขภาพที่เกี่ยวข้อง" to the
   directory and "คู่มือและแบบฟอร์ม" to `/documents`, its related pages that are not Services (spec
   #338 "The Service catalog", decision 15): 16 px under the lead, `surface-base` words, semibold,
@@ -1173,7 +1203,8 @@ and 9) Search (`/search`).
   #370). The
   breadcrumb, the link, the links under the lead, the filter form, the empty state and the pager
   show at once; `/services`' cards reveal as the other lists' cards do (#340), `/health-services`'
-  rows as the Documents' (#341), and `/health/reports`' rows as the Announcements' (#342).
+  rows as the Documents' (#341), `/health/reports`' rows as the Announcements' (#342), and
+  `/search`'s result rows as the Health Reports' (Feature 015 #434).
 - **Measured** on the development runtime at `fb11b3e`, the head of `009-news-post-redesign`,
   with the demo dataset's six News and five Health Content (#287,
   `docs/evidence/287-news-post-redesign-evidence-round.md`):
@@ -3830,3 +3861,15 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   §7.1, §7.8, §8.1 and §8.9 name the page. Authority: spec #432 "The search pill", "`/search`: on
   the field", "`/search`: each state over the field's edge", "Motion" and decisions 2, 4, 8 and 9,
   and #432 comment 7121642793.
+- **v1.9 A search result's row (2026-11-24, Feature 015 #434):** each result on `/search` is a
+  white row that is one link, the Health Report row's (§7.3), with the light row tile holding its
+  kind's list heading icon, `info` for a Basic Page (§5; `KIND_ICONS` in
+  `src/lib/search-matcher.ts`), in place of the flat card with its linked title; the rows are 14 px
+  apart and reveal as they come into the window (§7.8). Its text stays: the facts line, the title,
+  now `text-primary` and shown whole, the snippet with its marks, now regular at label size below
+  `sm`, and the status label. The Announcement's, the Health Report's and a result's rows now share
+  one row (`LinkRow`, §7.1), each looking as before; under the pointer a result's row behaves as
+  the Health Report row, the `deep` shadow coming with the move only where motion is allowed.
+  §3.1, §3.2, §5, §7.1, §7.3 and §7.8 name it, and §7.3 no longer says search results keep their
+  own. Authority: spec #432 "A result's row", "Motion" and decisions 3 and 10, and #434 comment
+  7124814084 (the shadow under reduced motion and the shared row).

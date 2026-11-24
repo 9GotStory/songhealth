@@ -59,6 +59,7 @@ import {
 	type DraftFixture,
 } from "./cms.helpers";
 import {
+	boxOf,
 	cardList,
 	deepField,
 	DESKTOP_VIEWPORT,
@@ -71,17 +72,26 @@ import {
 	expectNoAxeViolations,
 	expectNoHorizontalScroll,
 	expectVisibleFocusOnEveryStop,
+	expectGridRevealsBelowShortWindow,
 	HOME_CRUMB,
+	lightRowTile,
 	LIST_FIELD_LOOK,
 	listedItem,
 	listedTitles,
 	listHeading,
+	movingSurface,
 	ownTitles,
 	pillStyle,
+	pointAtRowEdge,
+	pressInside,
 	readHeaderMotion,
 	readListField,
 	readWholeAtTwoWidths,
+	rowShadow,
+	rowTileLook,
+	rowTileShapeAt,
 	searchPath,
+	shownLines,
 	test,
 	testHeadingOnField,
 	textStyle,
@@ -354,7 +364,9 @@ test("results are grouped with a count each, and the query, group and page stay 
 	);
 });
 
-test("a reserved Basic Page's result links to its /about address", async ({ page }) => {
+test("a reserved Basic Page's result links to its /about address, its tile showing the Basic Page's icon, info", async ({
+	page,
+}) => {
 	const own = await readEntry(admin, "pages", "organization");
 	let title: string;
 	if (own.ok) {
@@ -372,10 +384,17 @@ test("a reserved Basic Page's result links to its /about address", async ({ page
 		await publishEntryAt(admin, "pages", created.entryId!);
 	}
 	await search(page, { q: title, group: "about" });
-	await expect(listedItem(page, title).getByRole("link", { name: title })).toHaveAttribute(
-		"href",
-		"/about/organization",
-	);
+	const row = listedItem(page, title);
+	expect(
+		{
+			href: await row.getByRole("link", { name: title }).getAttribute("href"),
+			tile: await rowTileLook(resultRowParts(row).tile),
+		},
+		"the reserved page's row",
+	).toEqual({
+		href: "/about/organization",
+		tile: await lightRowTile(page, [{ line: "info", token: "brand-primary", size: 24 }]),
+	});
 });
 
 test("MOITs are found by their titles and by an Evidence label alone, under ITA with its count, ties in the ITA pages' order, each result reading MOIT n, the fiscal year and its title and leading to its page, and a draft MOIT never appears", async ({
@@ -1136,7 +1155,8 @@ test.describe("on the deep field", () => {
 					...risingParts.map(([name, part]): [string, Locator] => [name, part]),
 					...atOnce,
 				],
-				false,
+				// The results' rows reveal as they come into the window (Feature 015 #434).
+				state === "results",
 			);
 			seen[state] = read.seen;
 			expected[state] = read.expected;
@@ -1187,6 +1207,575 @@ test.describe("on the deep field", () => {
 				sent: searchPath({ q: other }),
 			});
 		});
+	});
+});
+
+/**
+ * The longest title the office has published, in characters (spec #392 "Measured in the
+ * prototype").
+ */
+const PUBLISHED_TITLE_LENGTH = 175;
+
+/**
+ * The widest word a title keeps whole (src/lib/thai-title.ts; spec #432 "Measured in the
+ * prototype").
+ */
+const KEPT_WORD = "ความดันโลหิตสูง";
+
+/**
+ * The parts of a result's row a citizen meets, found by what they show: the tile, the decoration
+ * that holds an icon other than the arrow; the title by its heading, the facts line just above it
+ * and the paragraphs under it, the snippet and then the status; the arrow by its icon; and the
+ * white surface that moves inside the row's place under the pointer.
+ */
+function resultRowParts(row: Locator) {
+	const title = row.getByRole("heading", { level: 2 });
+	return {
+		tile: row.locator('[aria-hidden="true"]:has(svg):not(:has(svg.lucide-arrow-right))'),
+		title,
+		facts: title.locator("xpath=preceding-sibling::*[1]"),
+		under: title.locator("xpath=following-sibling::p"),
+		arrow: row.locator("svg.lucide-arrow-right"),
+		surface: row.getByTestId("result-surface"),
+	};
+}
+
+/**
+ * Where a result's row and its parts sit as the page is laid out now (spec #432 "A result's row"):
+ * the surface's look, the tile's shape, the gaps across the row and down its text, whether its
+ * parts lie in one line centred on each other, the arrow's circle, whether the one link covers the
+ * surface, and how far the next row lies under it.
+ */
+function placesOfRow(row: Locator) {
+	return row.evaluate((article) => {
+		const box = (element: Element) => element.getBoundingClientRect();
+		const shown = (element: Element | null | undefined) =>
+			element && getComputedStyle(element).display !== "none" && box(element).width > 0
+				? element
+				: undefined;
+		const surface = article.querySelector('[data-testid="result-surface"]') ?? article;
+		const style = getComputedStyle(surface);
+		const tile = [...article.querySelectorAll('[aria-hidden="true"]')].find(
+			(part) => part.querySelector("svg") && !part.querySelector("svg.lucide-arrow-right"),
+		);
+		const title = article.querySelector("h2");
+		const column = title?.parentElement;
+		const facts = title?.previousElementSibling;
+		const [snippet, status] = title
+			? [...column!.children].filter(
+					(part) => part.localName === "p" && part.compareDocumentPosition(title) & 2,
+				)
+			: [];
+		const circle = shown(article.querySelector("svg.lucide-arrow-right")?.parentElement);
+		const link = article.querySelector("a");
+		const parts = [tile, column, circle].filter(Boolean) as Element[];
+		const middles = parts.map((part) => box(part).top + box(part).height / 2);
+		const next = article.closest("li")?.nextElementSibling?.querySelector("article");
+		const gap = (upper: Element | undefined | null, lower: Element | undefined | null) =>
+			upper && lower ? Math.round(box(lower).top - box(upper).bottom) : "missing";
+		return {
+			surface: {
+				fill: style.backgroundColor,
+				radius: style.borderTopLeftRadius,
+				padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
+			},
+			tile: tile
+				? [
+						Math.round(box(tile).width),
+						Math.round(box(tile).height),
+						getComputedStyle(tile).borderTopLeftRadius,
+					]
+				: "no tile",
+			tileToText: tile && column ? Math.round(box(column).left - box(tile).right) : "missing",
+			textToArrow: column && circle ? Math.round(box(circle).left - box(column).right) : "no arrow",
+			oneLine: parts.every(
+				(part, index) => index === 0 || box(parts[index - 1]!).right <= box(part).left + 0.5,
+			),
+			centred: middles.length > 1 && Math.max(...middles) - Math.min(...middles) < 1,
+			down: {
+				factsToTitle: gap(facts, title),
+				titleToSnippet: gap(title, snippet),
+				snippetToStatus: gap(snippet, status),
+			},
+			arrow: circle
+				? {
+						circle: [Math.round(box(circle).width), Math.round(box(circle).height)],
+						round: getComputedStyle(circle).borderTopLeftRadius,
+						fill: getComputedStyle(circle).backgroundColor,
+						icon: Math.round(box(circle.querySelector("svg")!).width),
+						colour: getComputedStyle(circle).color,
+					}
+				: "hidden",
+			linkCoversRow:
+				!!link &&
+				(["x", "y", "width", "height"] as const).every(
+					(side) => Math.abs(box(link)[side] - box(surface)[side]) < 1,
+				),
+			nextRowUnder: next ? Math.round(box(next).top - box(article).bottom) : "no next row",
+		};
+	});
+}
+
+/** The type of `part` with its line height, as the page is laid out now. */
+async function typeOf(part: Locator) {
+	return {
+		...(await textStyle(part)),
+		lineHeight: await part.evaluate((element) => getComputedStyle(element).lineHeight),
+	};
+}
+
+test.describe("a result's row", () => {
+	/** The word each row of these cases carries, so a search for it finds them alone. */
+	let word: string;
+	/** Each kind's result as its row shows it, a News without a snippet too. */
+	let rows: Array<{
+		kind: string;
+		title: string;
+		href: string;
+		icon: string;
+		facts: string[];
+		/** The paragraphs under the title: the snippet, then the status label. */
+		under: string[];
+	}>;
+	/** A News whose title is PUBLISHED_TITLE_LENGTH characters, holding KEPT_WORD. */
+	let long: DraftFixture;
+
+	test.beforeAll(async () => {
+		word = thaiWord();
+		const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+		const summary = (what: string) => `สรุป${what}ที่มีคำ${word}ในสรุป`;
+		const news = await createDraft("news", `ข่าว${word}`, "row-news", {
+			data: { summary: summary("ข่าว") },
+		});
+		const bare = await createDraft("news", `ข่าว${word}`, "row-bare");
+		const activity = await createDraft("activities", `กิจกรรม${word}`, "row-activity", {
+			data: { summary: summary("กิจกรรม") },
+		});
+		const announcement = await createDraft("announcements", `ประกาศ${word}`, "row-announcement", {
+			data: {
+				closes_at: lastWeek,
+				details: [portableTextBlock(`รายละเอียดประกาศที่มีคำ${word}`)],
+			},
+		});
+		const service = await createSyntheticService(admin, "row-service", {
+			name: `บริการ${word}`,
+			data: { summary: summary("บริการ") },
+		});
+		const healthService = await createSyntheticHealthService(admin, "row-health-service", {
+			displayName: `รพ.สต.${word}`,
+			data: { operational_status: "temporarily_closed", address: `ที่อยู่ที่มีคำ${word}` },
+		});
+		const content = await createDraft("health_content", `ความรู้${word}`, "row-content", {
+			data: { summary: summary("ความรู้") },
+		});
+		const documentAt = "2026-02-10T10:00:00+07:00";
+		const document = await createSyntheticDocument(admin, "row-document", {
+			data: { summary: summary("เอกสาร"), domain_status: "superseded", document_at: documentAt },
+		});
+		const report = await createDraft("health_reports", `รายงาน${word}`, "row-report", {
+			data: { summary: summary("รายงาน") },
+			references: { report_document: [document.id] },
+		});
+		const basicPage = await createDraft("pages", `หน้า${word}`, "row-page", {
+			data: { summary: summary("หน้า") },
+		});
+		const moit = await createSyntheticMoit(
+			admin,
+			"row-moit",
+			{ year: FISCAL_YEAR, number: 8, name: `ตัวชี้วัด${word}`, evidence: [] },
+			{ data: { summary: summary("ตัวชี้วัด") } },
+		);
+		const room = PUBLISHED_TITLE_LENGTH - `${SYNTHETIC_FIXTURE_MARK}  row-long 123456`.length;
+		long = await createDraft(
+			"news",
+			`ข่าว${word} ${KEPT_WORD} ${"หัวข้อข่าวสมมุติสำหรับทดสอบการตัดบรรทัด ".repeat(8)}`
+				.slice(0, room)
+				.trimEnd()
+				.padEnd(room, "ก"),
+			"row-long",
+		);
+		const dated = async (collection: string, fixture: DraftFixture, at: string) =>
+			thaiDate(await publish(collection, fixture, at));
+		const newsAt = await dated("news", news, "2026-01-05T03:00:00.000Z");
+		const bareAt = await dated("news", bare, "2026-01-04T03:00:00.000Z");
+		await publish("news", long);
+		const activityAt = await dated("activities", activity, "2026-01-06T03:00:00.000Z");
+		const announcementAt = await dated("announcements", announcement, "2026-01-07T03:00:00.000Z");
+		await publish("services", service);
+		await publish("health_services", healthService);
+		const contentAt = await dated("health_content", content, "2026-01-08T03:00:00.000Z");
+		await publish("documents", document);
+		const reportAt = await dated("health_reports", report, "2026-01-09T03:00:00.000Z");
+		await publish("pages", basicPage);
+		await publish("moit", moit);
+		rows = [
+			{
+				kind: "News",
+				title: news.title,
+				href: `/news/${news.slug}`,
+				icon: "message-square",
+				facts: ["ข่าว", "•", newsAt],
+				under: [summary("ข่าว")],
+			},
+			{
+				kind: "News without a snippet",
+				title: bare.title,
+				href: `/news/${bare.slug}`,
+				icon: "message-square",
+				facts: ["ข่าว", "•", bareAt],
+				under: [],
+			},
+			{
+				kind: "Activity",
+				title: activity.title,
+				href: `/activities/${activity.slug}`,
+				icon: "heart",
+				facts: ["กิจกรรม", "•", activityAt],
+				under: [summary("กิจกรรม")],
+			},
+			{
+				kind: "Announcement",
+				title: announcement.title,
+				href: `/announcements/${announcement.slug}`,
+				icon: "file-text",
+				facts: ["ประกาศ", "•", announcementAt],
+				under: [`รายละเอียดประกาศที่มีคำ${word}`, "ปิดแล้ว"],
+			},
+			{
+				kind: "Service",
+				title: service.title,
+				href: `/services/${service.slug}`,
+				icon: "users",
+				facts: ["บริการประชาชน"],
+				under: [summary("บริการ")],
+			},
+			{
+				kind: "Health Service",
+				title: healthService.title,
+				href: `/health-services/${healthService.slug}`,
+				icon: "hospital",
+				facts: ["หน่วยบริการสุขภาพ"],
+				under: [`ที่อยู่ที่มีคำ${word}`, "ปิดให้บริการชั่วคราว"],
+			},
+			{
+				kind: "Health Content",
+				title: content.title,
+				href: `/health/content/${content.slug}`,
+				icon: "heart-pulse",
+				facts: ["ความรู้สุขภาพ", "•", contentAt],
+				under: [summary("ความรู้")],
+			},
+			{
+				kind: "Health Report",
+				title: report.title,
+				href: `/health/reports/${report.slug}`,
+				icon: "file-chart-column",
+				facts: ["รายงานสุขภาพ", "•", reportAt],
+				under: [summary("รายงาน")],
+			},
+			{
+				kind: "Document",
+				title: document.title,
+				href: `/documents/${document.slug}`,
+				icon: "folder-open",
+				facts: ["เอกสารเผยแพร่", "•", thaiDate(documentAt)],
+				under: [summary("เอกสาร"), "ถูกแทนที่แล้ว"],
+			},
+			{
+				kind: "Basic Page",
+				title: basicPage.title,
+				href: `/pages/${basicPage.slug}`,
+				icon: "info",
+				facts: ["หน้าข้อมูล"],
+				under: [summary("หน้า")],
+			},
+			{
+				kind: "MOIT",
+				title: moit.title,
+				href: `/ita/${moit.slug}`,
+				icon: "shield-check",
+				facts: ["MOIT 8", "•", `ปีงบประมาณ ${FISCAL_YEAR}`],
+				under: [summary("ตัวชี้วัด")],
+			},
+		];
+	});
+
+	/** The row of the result titled `title`. */
+	const rowOf = (page: Page, title: string) => listedItem(page, title);
+
+	test("each kind's result is a row: the light tile, decorative, holding its kind's list heading icon at 24 px in brand-primary and nothing else, info for a Basic Page; the facts line as today, the kind in Thai or a MOIT's number and fiscal year, then the date its list shows, none for a kind listed undated; the title as an H2 naming the row's one link to the result's address; then the snippet with its words marked and the status label its list states, each only when the result has one", async ({
+		page,
+	}) => {
+		await search(page, { q: word });
+		const seen: Record<string, unknown> = {};
+		const expected: Record<string, unknown> = {};
+		for (const { kind, title, href, icon, facts, under } of rows) {
+			const row = rowOf(page, title);
+			const parts = resultRowParts(row);
+			seen[kind] = {
+				tile: await rowTileLook(parts.tile),
+				facts: await parts.facts.evaluate((line) =>
+					[...line.children].map((part) => part.textContent?.trim()),
+				),
+				title: (await parts.title.textContent())?.trim(),
+				links: await row.getByRole("link").count(),
+				namedByTitle: await row.getByRole("link", { name: title, exact: true }).count(),
+				href: await row.getByRole("link").first().getAttribute("href"),
+				under: (await parts.under.allTextContents()).map((text) => text.trim()),
+				marks: await row.locator("mark").allTextContents(),
+			};
+			expected[kind] = {
+				tile: await lightRowTile(page, [{ line: icon, token: "brand-primary", size: 24 }]),
+				facts,
+				title,
+				links: 1,
+				namedByTitle: 1,
+				href,
+				under,
+				marks: under.length > 0 ? [word] : [],
+			};
+		}
+		expect(seen, "each kind's row").toEqual(expected);
+	});
+
+	test("a row's parts sit as stated at 320, 639, 640 and 1,440 px: white, radius 22, the card shadow, 12 px of padding and from 640 px 18 px above and below, 22 at the right and 18 at the left; the tile 68 px with radius 14 and 92 px with radius 18 from 640 px; the parts in one line, centred on each other, 14 px apart and 22 px from 640 px; the text's lines 4 px apart and the status 6 px under the snippet; the facts at small size, the title semibold at body size and body-large from 640 px in text-primary, the snippet regular at label size and body size from 640 px in text-secondary with its marks semibold text-primary without a fill; from 640 px the 20 px arrow in brand-primary on a 40 px round surface-soft circle, none below; the link over the whole row; the rows 14 px apart", async ({
+		page,
+	}) => {
+		await search(page, { q: word });
+		const row = rowOf(page, rows.find(({ kind }) => kind === "Announcement")!.title);
+		const parts = resultRowParts(row);
+		const snippet = parts.under.first();
+		const mark = row.locator("mark");
+		const [white, soft, primary, secondary, brand] = await Promise.all(
+			["surface-base", "surface-soft", "text-primary", "text-secondary", "brand-primary"].map(
+				(name) => tokenColor(page, name),
+			),
+		);
+		const seen: Record<string, unknown> = {
+			shadow: (await parts.surface.count()) > 0 ? await rowShadow(parts.surface) : "no surface",
+		};
+		const expected: Record<string, unknown> = { shadow: "card" };
+		for (const width of [320, 639, 640, 1440]) {
+			await page.setViewportSize({ width, height: 900 });
+			const wide = width >= 640;
+			seen[width] = {
+				places: await placesOfRow(row),
+				facts: await typeOf(parts.facts),
+				title: await typeOf(parts.title),
+				snippet: await typeOf(snippet),
+				mark: {
+					weight: (await textStyle(mark)).weight,
+					colour: (await textStyle(mark)).colour,
+					fill: await mark.evaluate((element) => getComputedStyle(element).backgroundColor),
+				},
+			};
+			expected[width] = {
+				places: {
+					surface: {
+						fill: white,
+						radius: "22px",
+						padding: wide ? ["18px", "22px", "18px", "18px"] : ["12px", "12px", "12px", "12px"],
+					},
+					tile: rowTileShapeAt(width),
+					tileToText: wide ? 22 : 14,
+					textToArrow: wide ? 22 : "no arrow",
+					oneLine: true,
+					centred: true,
+					down: { factsToTitle: 4, titleToSnippet: 4, snippetToStatus: 6 },
+					arrow: wide
+						? { circle: [40, 40], round: "9999px", fill: soft, icon: 20, colour: brand }
+						: "hidden",
+					linkCoversRow: true,
+					nextRowUnder: 14,
+				},
+				facts: { size: 13, weight: "400", colour: secondary, underline: false, lineHeight: "20px" },
+				title: {
+					size: wide ? 18 : 16,
+					weight: "600",
+					colour: primary,
+					underline: false,
+					lineHeight: wide ? "30px" : "26px",
+				},
+				snippet: {
+					size: wide ? 16 : 14,
+					weight: "400",
+					colour: secondary,
+					underline: false,
+					lineHeight: wide ? "26px" : "22px",
+				},
+				mark: { weight: "600", colour: primary, fill: "rgba(0, 0, 0, 0)" },
+			};
+		}
+		expect(seen, "the row's parts by width").toEqual(expected);
+	});
+
+	test("a row is one link: the keyboard reaches each row once, in order, its ring banded over the field; a press on its tile, on its lower corner and Enter open the result; under the pointer its title turns brand-primary and its arrow's circle accent-warm with a brand-dark arrow, and only with motion allowed it takes the deep shadow and moves 10 px to the right, where a press on the strip it left opens the result", async ({
+		page,
+	}) => {
+		const path = searchPath({ q: word });
+		const target = rows.find(({ kind }) => kind === "Health Report")!;
+		/** Press `row` at `point` and the address it opens, or the search's when it opens none. */
+		const opensFrom = async (point: { x: number; y: number }, label: string) => {
+			await pressInside(page, rowOf(page, target.title), point, label);
+			await page.waitForURL(target.href, { timeout: 5_000 }).catch(() => undefined);
+			const opened = new URL(page.url()).pathname;
+			await page.goto(path);
+			return opened;
+		};
+		/** What the row shows under the pointer: its surface, its title's colour and its arrow's. */
+		const underPointer = async (row: Locator) => {
+			const { title, arrow, surface } = resultRowParts(row);
+			return {
+				surface:
+					(await surface.count()) > 0 ? await movingSurface(row, "result-surface") : "no surface",
+				title: (await textStyle(title)).colour,
+				circle:
+					(await arrow.count()) > 0
+						? await arrow
+								.locator("xpath=..")
+								.evaluate((circle) => getComputedStyle(circle).backgroundColor)
+						: "no arrow",
+				arrow: (await arrow.count()) > 0 ? (await textStyle(arrow)).colour : "no arrow",
+			};
+		};
+
+		await search(page, { q: word });
+		const [brandPrimary, accentWarm, brandDark, white] = await Promise.all(
+			["brand-primary", "accent-warm", "brand-dark", "surface-base"].map((name) =>
+				tokenColor(page, name),
+			),
+		);
+		const links = page.getByRole("main").getByRole("article").getByRole("link");
+		const listed = await links.evaluateAll((all) => all.map((link) => link.getAttribute("href")));
+		const reached: Array<string | null> = [];
+		await links.first().focus();
+		for (let index = 0; index < listed.length; index += 1) {
+			reached.push(await page.evaluate(() => document.activeElement?.getAttribute("href") ?? null));
+			await page.keyboard.press("Tab");
+		}
+		const firstLink = links.first();
+		await firstLink.focus();
+		const band = await firstLink.evaluate((link) => getComputedStyle(link).boxShadow);
+
+		// The row lies below the window's first screen: each press is aimed with it in sight.
+		await rowOf(page, target.title).scrollIntoViewIfNeeded();
+		const tile = resultRowParts(rowOf(page, target.title)).tile;
+		const tileBox = (await tile.count()) === 1 ? await boxOf(tile, "the tile") : undefined;
+		const fromTile = tileBox
+			? await opensFrom(
+					{ x: tileBox.x + tileBox.width / 2, y: tileBox.y + tileBox.height / 2 },
+					"the row's tile",
+				)
+			: "no tile";
+		await rowOf(page, target.title).scrollIntoViewIfNeeded();
+		const place = await boxOf(rowOf(page, target.title), "the row's place");
+		const fromCorner = await opensFrom(
+			{ x: place.x + place.width - 30, y: place.y + place.height - 8 },
+			"the row's lower right",
+		);
+		await rowOf(page, target.title).getByRole("link").focus();
+		await page.keyboard.press("Enter");
+		await page.waitForURL(target.href, { timeout: 5_000 }).catch(() => undefined);
+		const byEnter = new URL(page.url()).pathname;
+		await page.goto(path);
+
+		const still = await pointAtRowEdge(page, rowOf(page, target.title));
+		const stillRow = await underPointer(rowOf(page, target.title));
+		await page.emulateMedia({ reducedMotion: "no-preference" });
+		await page.goto(path);
+		const moving = await pointAtRowEdge(page, rowOf(page, target.title));
+		const movedRow = await underPointer(rowOf(page, target.title));
+		const fromStrip = await opensFrom(moving.edge, "the part the row left");
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		expect(
+			{
+				reached,
+				listed: listed.length,
+				band,
+				fromTile,
+				fromCorner,
+				byEnter,
+				stillRow,
+				movedRow,
+				fromStrip,
+			},
+			"the row's link, its presses and the row under the pointer",
+		).toEqual({
+			reached: listed,
+			listed: rows.length + 1,
+			band: expect.stringContaining(`${white} 0px 0px 0px 7px`),
+			fromTile: target.href,
+			fromCorner: target.href,
+			byEnter: target.href,
+			stillRow: {
+				surface: { x: still.x, shadow: "card" },
+				title: brandPrimary,
+				circle: accentWarm,
+				arrow: brandDark,
+			},
+			movedRow: {
+				surface: { x: moving.x + 10, shadow: "deep" },
+				title: brandPrimary,
+				circle: accentWarm,
+				arrow: brandDark,
+			},
+			fromStrip: target.href,
+		});
+	});
+
+	test("a title of the published length shows whole at 320 px, wrapping inside its column on as many lines as it needs, the word it keeps whole inside the row, the row's parts in one line, and nothing past the window", async ({
+		page,
+	}) => {
+		expect(long.title, "the fixture's title").toHaveLength(PUBLISHED_TITLE_LENGTH);
+		await page.setViewportSize(MOBILE_VIEWPORT);
+		await search(page, { q: word });
+		await expectNoHorizontalScroll(page, "/search with the long title at 320 px");
+		const row = rowOf(page, long.title);
+		const { title } = resultRowParts(row);
+		const lines = await shownLines(title);
+		const seen = {
+			clamped: lines.clamped,
+			moreThanTwoLines: lines.lines > 2,
+			...(await row.evaluate((article, kept) => {
+				const heading = article.querySelector("h2")!;
+				const column = heading.parentElement!.getBoundingClientRect();
+				const word = [...heading.querySelectorAll("span")].find(
+					(span) => span.textContent === kept,
+				);
+				const inside = (box: DOMRect) =>
+					box.left >= column.left - 0.5 && box.right <= column.right + 0.5;
+				return {
+					column: Math.round(column.width),
+					titleInside: inside(heading.getBoundingClientRect()),
+					keptWordInside: word ? inside(word.getBoundingClientRect()) : "not kept",
+					rowInsideWindow:
+						article.getBoundingClientRect().right <= document.documentElement.clientWidth,
+				};
+			}, KEPT_WORD)),
+			oneLine: (await placesOfRow(row)).oneLine,
+		};
+		expect(seen, "the long title at 320 px").toEqual({
+			clamped: false,
+			moreThanTwoLines: true,
+			// The window less the 16 px gutters, the row's 12 px of padding, the 68 px tile and the
+			// 14 px gap (spec #432 "Measured in the prototype").
+			column: 182,
+			titleInside: true,
+			keptWordInside: true,
+			rowInsideWindow: true,
+			oneLine: true,
+		});
+	});
+
+	test("with motion allowed each row reveals as it comes into the window, and one that holds the keyboard's focus shows whole", async ({
+		page,
+	}) => {
+		await expectGridRevealsBelowShortWindow(
+			page,
+			searchPath({ q: word }),
+			cardList(page).grid,
+			"a row",
+		);
 	});
 });
 
