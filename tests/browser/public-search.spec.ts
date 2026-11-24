@@ -1583,7 +1583,7 @@ test.describe("a result's row", () => {
 					centred: true,
 					down: { factsToTitle: 4, titleToSnippet: 4, snippetToStatus: 6 },
 					arrow: wide
-						? { circle: [40, 40], round: "9999px", fill: soft, icon: 20, colour: brand }
+						? { circle: [40, 40], round: "999px", fill: soft, icon: 20, colour: brand }
 						: "hidden",
 					linkCoversRow: true,
 					nextRowUnder: 14,
