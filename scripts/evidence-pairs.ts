@@ -1,17 +1,25 @@
 // Which before/after pairs of a folder of screenshots are identical, and where the others differ,
 // for a hand-off's record to quote (#397 retro item 3; scripts/evidence-pairs/plan.ts).
 //
-//   node scripts/evidence-pairs.ts <dir of PNGs>
+//   node scripts/evidence-pairs.ts [--cases] <dir of PNGs>
+//   node scripts/evidence-pairs.ts --against <dir of PNGs> <evidence branch>...
 //
 // A pair is before-<name>.png with after-<name>.png. A pair byte for byte the same is identical;
 // the others are decoded (8 bits a channel, not interlaced, as Chromium's screenshots are) and
-// compared pixel by pixel. scripts/evidence-branch.sh prints it after the heights. Read-only.
+// compared pixel by pixel. The first form gives a line per pair; with --cases, the cases alike at
+// every width on a line each and a line per other case, a block for a record to quote whole (#421
+// retro item 1). scripts/evidence-branch.sh prints both after the heights. --against holds each
+// after-<name>.png against the same file on the first of the branches, newest first, that has it,
+// such as the feature's earlier tickets' (#420 retro). Read-only.
 
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { inflateSync } from "node:zlib";
 
 import {
+	againstReport,
+	casesReport,
 	comparePixels,
 	pairsReport,
 	unfilter,
@@ -19,17 +27,22 @@ import {
 	type Image,
 } from "./evidence-pairs/plan.ts";
 
-const dir = process.argv[2];
-if (dir === undefined) {
-	console.error("usage: node scripts/evidence-pairs.ts <dir of PNGs>");
+const usage = () => {
+	console.error(
+		"usage: node scripts/evidence-pairs.ts [--cases] <dir of PNGs>\n" +
+			"       node scripts/evidence-pairs.ts --against <dir of PNGs> <evidence branch>...",
+	);
 	process.exit(2);
-}
+};
+const args = process.argv.slice(2);
+const mode = args[0] === "--cases" || args[0] === "--against" ? args.shift() : undefined;
+const dir = args.shift();
+if (dir === undefined || (mode === "--against") !== args.length > 0) usage();
 
 /** Channels a pixel by the PNG colour type: grey, RGB, grey and alpha, RGBA. */
 const CHANNELS: Record<number, number> = { 0: 1, 2: 3, 4: 2, 6: 4 };
 
-function decode(file: string): Image {
-	const bytes = readFileSync(file);
+function decode(bytes: Buffer, file: string): Image {
 	let width = 0;
 	let height = 0;
 	let channels = 0;
@@ -53,16 +66,53 @@ function decode(file: string): Image {
 	return { width, height, channels, pixels };
 }
 
-const pairs: { name: string; result: Comparison }[] = [];
-for (const file of readdirSync(dir).sort()) {
-	if (!file.startsWith("before-") || !file.endsWith(".png")) continue;
-	const after = join(dir, `after-${file.slice("before-".length)}`);
-	if (!existsSync(after)) continue;
-	const name = file.slice("before-".length, -".png".length);
-	const before = join(dir, file);
-	const result = readFileSync(before).equals(readFileSync(after))
-		? ({ kind: "identical" } as const)
-		: comparePixels(decode(before), decode(after));
-	pairs.push({ name, result });
+/** Two PNGs: identical byte for byte, or compared pixel by pixel. */
+const compared = (before: Buffer, after: Buffer, file: string): Comparison =>
+	before.equals(after)
+		? { kind: "identical" }
+		: comparePixels(decode(before, `${file} (before)`), decode(after, file));
+
+/** A file on a branch's tip, or undefined when the branch holds none of that name. */
+function onBranch(branch: string, file: string): Buffer | undefined {
+	try {
+		return execFileSync("git", ["cat-file", "blob", `${branch}:${file}`], {
+			maxBuffer: 256 * 1024 * 1024,
+			stdio: ["ignore", "pipe", "ignore"],
+		});
+	} catch {
+		return undefined;
+	}
 }
-for (const line of pairsReport(pairs)) console.log(line);
+
+const files = readdirSync(dir!).sort();
+if (mode === "--against") {
+	const entries: { name: string; ref?: string; result?: Comparison }[] = [];
+	for (const file of files) {
+		if (!file.startsWith("after-") || !file.endsWith(".png")) continue;
+		const name = file.slice("after-".length, -".png".length);
+		const after = readFileSync(join(dir!, file));
+		const held = args
+			.map((ref) => ({ ref, bytes: onBranch(ref, file) }))
+			.find(({ bytes }) => bytes !== undefined);
+		entries.push(
+			held === undefined
+				? { name }
+				: { name, ref: held.ref, result: compared(held.bytes!, after, file) },
+		);
+	}
+	for (const line of againstReport(entries)) console.log(line);
+} else {
+	const pairs: { name: string; result: Comparison }[] = [];
+	for (const file of files) {
+		if (!file.startsWith("before-") || !file.endsWith(".png")) continue;
+		const after = join(dir!, `after-${file.slice("before-".length)}`);
+		if (!existsSync(after)) continue;
+		const name = file.slice("before-".length, -".png".length);
+		pairs.push({
+			name,
+			result: compared(readFileSync(join(dir!, file)), readFileSync(after), after),
+		});
+	}
+	const report = mode === "--cases" ? casesReport : pairsReport;
+	for (const line of report(pairs)) console.log(line);
+}
