@@ -9,7 +9,8 @@
 # path (#282 retro). It ends with the table of the pages' heights that scripts/evidence-heights.ts
 # reads from the PNGs, for a pull request or a record to quote whole (#287 retro), then a line per
 # pair that says whether it is identical or where it differs (scripts/evidence-pairs.ts; #397
-# retro). The push is left to you: it publishes the images, and the repository is public.
+# retro), and the same by case, short enough to quote whole (#421 retro). The push is left to you:
+# it publishes the images, and the repository is public.
 #   scripts/evidence-branch.sh [--before-from <branch>] [--after] <ticket: 003-61, or 169 for a
 #   standalone one> <dir of PNGs>
 # --before-from takes the missing before images from another branch's tip in place of this
@@ -122,3 +123,5 @@ echo "heights (px):"
 node "$(dirname "${BASH_SOURCE[0]}")/evidence-heights.ts" "$dir"
 echo "pairs:"
 node "$(dirname "${BASH_SOURCE[0]}")/evidence-pairs.ts" "$dir"
+echo "pairs by case:"
+node "$(dirname "${BASH_SOURCE[0]}")/evidence-pairs.ts" --cases "$dir"

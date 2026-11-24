@@ -5,7 +5,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { comparePixels, pairsReport, unfilter } from "../../scripts/evidence-pairs/plan.ts";
+import {
+	againstReport,
+	casesReport,
+	comparePixels,
+	pairsReport,
+	unfilter,
+	type Comparison,
+} from "../../scripts/evidence-pairs/plan.ts";
 
 /** An image of `width` × rows, one byte a pixel for brevity, each row given as its bytes. */
 const image = (width: number, rows: number[][]) => ({
@@ -84,6 +91,66 @@ describe("pairsReport", () => {
 				"home-375  6,344 → 6,320 px high; rows 0–2,484 the same",
 				"qa-375  11 px differ in rows 259–264, 300",
 				"1 of 4 pairs identical",
+			],
+		);
+	});
+});
+
+// #421 retro item 1: the 145 pair lines were too many to quote, so the record paraphrased them
+// and left a page out; the cases' block is short enough to quote whole.
+const heights = (before: number, after: number, sameRows: number): Comparison => ({
+	kind: "heights",
+	before,
+	after,
+	sameRows,
+});
+const differ = (pixels: number, first: number, last: number): Comparison => ({
+	kind: "differ",
+	pixels,
+	bands: [[first, last]],
+});
+const identical: Comparison = { kind: "identical" };
+
+describe("casesReport", () => {
+	it("groups the cases alike at every width and gives each other case its widths, widest first", () => {
+		assert.deepEqual(
+			casesReport([
+				{ name: "about-1024", result: heights(1813, 1933, 61) },
+				{ name: "about-1440", result: heights(1813, 1925, 404) },
+				{ name: "doc-1440", result: identical },
+				{ name: "doc-375", result: identical },
+				{ name: "health-1440", result: differ(5, 382, 523) },
+				{ name: "health-320", result: heights(900, 985, 356) },
+				{ name: "list-1440", result: differ(9, 10, 20) },
+				{ name: "list-375", result: differ(9, 30, 40) },
+			]),
+			[
+				"identical at every width (1): doc",
+				"differ at every width, at the same height (1): list",
+				"about  1440: 1,813 → 1,925 px high; rows 0–403 the same  |  1024: 1,813 → 1,933 px high; rows 0–60 the same",
+				"health  1440: 5 px differ in rows 382–523  |  320: 900 → 985 px high; rows 0–355 the same",
+				"2 of 8 pairs identical",
+			],
+		);
+	});
+});
+
+describe("againstReport", () => {
+	it("groups each after image by the earlier ticket's branch that holds it, then by case", () => {
+		assert.deepEqual(
+			againstReport([
+				{ name: "about-1440", ref: "evidence/014-420-screenshots", result: identical },
+				{ name: "about-375", ref: "evidence/014-420-screenshots", result: identical },
+				{ name: "home-1440", ref: "evidence/014-420-screenshots", result: identical },
+				{ name: "page-1440", ref: "evidence/014-418-screenshots", result: differ(90, 715, 749) },
+				{ name: "page-375", ref: "evidence/014-418-screenshots", result: identical },
+				{ name: "new-1440" },
+			]),
+			[
+				"identical to evidence/014-420-screenshots at every width (2): about, home",
+				"page against evidence/014-418-screenshots  1440: 90 px differ in rows 715–749  |  375: identical",
+				"no earlier after image (1): new",
+				"4 of 5 after images identical to the earlier ticket's",
 			],
 		);
 	});
