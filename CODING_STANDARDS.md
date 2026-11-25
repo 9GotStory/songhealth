@@ -321,6 +321,10 @@ one current answer (`00`'s Clean Rebaseline Rule). A change to them is reviewed 
   guarantees after §18 became the ITA model. `tests/node/document-versions.test.ts` checks the
   cited versions, and `tests/node/removed-names.test.ts` the name of a component a commit removes,
   so that commit carries its citers' changes (#368 retro).
+- **Decisions.** A change that brings the documents into line with a decision greps each clause of
+  the decision in its own words over `docs/` and `README.md`, beyond the ticket's summary of it. In
+  #452 the ticket said "nothing is built on the host", the decision also said the host "never
+  installs dependencies", and `wordpress-cutover.md`'s `npm ci --include=dev` reached the review.
 - **Owners.** A rule that another section owns is pointed to, or restated with its owner's scope
   and conditions. In #127, `02` §18 widened `03` §11's slug rule, and `05` §7 said search finds a
   file where `08` §8 shows its MOIT.
