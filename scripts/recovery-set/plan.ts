@@ -106,14 +106,14 @@ export function appStateRefusal(runtime: Runtime, state: string): string | undef
 	return `cannot tell whether ${service} runs (systemctl says: ${state || "nothing"}): refusing`;
 }
 
-/** Why the command stops, given `podman container inspect --format {{.State.Running}}` of the db
- * container ("" when it does not exist), or nothing when it runs. */
 /** The restore keeps the target's marker, so it refuses a media volume without one. */
 export function markerRefusal(runtime: Runtime, present: boolean): string | undefined {
 	if (present) return undefined;
 	return `the media volume ${runtime.mediaVolume} has no ${runtime.mediaMarker}: ${runtime.markerRemedy}`;
 }
 
+/** Why the command stops, given `podman container inspect --format {{.State.Running}}` of the db
+ * container ("" when it does not exist), or nothing when it runs. */
 export function databaseRefusal(runtime: Runtime, running: string): string | undefined {
 	if (running === "true") return undefined;
 	const state = running === "" ? "does not exist" : "is not running";
@@ -746,16 +746,26 @@ export function listStore(
 		: { error };
 }
 
+/** A line that quotes a row: PostgreSQL's DETAIL or CONTEXT, alone or after a tool's name. */
+const QUOTES_A_ROW = /^\s*(?:[\w.-]+:\s+)?(?:detail|context):/i;
+/** A line that starts a message of its own, where a DETAIL's or CONTEXT's further lines end. */
+const STARTS_A_MESSAGE =
+	/^(?:pg_restore|pg_dump|psql|tar|find|rm|cat|podman|Error|ERROR|WARNING|NOTICE|HINT|FATAL|PANIC|LOG|STATEMENT)\b/;
+
 /**
- * The last lines of a failed command's standard error for the Operator, without PostgreSQL's DETAIL
- * and CONTEXT lines, which can quote a row's values (a failing COPY's column, a key that exists).
+ * The last lines of a failed command's standard error for the Operator, without what can quote a
+ * row's values: PostgreSQL's DETAIL and CONTEXT lines with their further lines (a failing COPY's
+ * column, a failing row), and a value an error quotes after a colon, as in `for type integer: "…"`.
  */
 export function errorTail(stderr: string, lines = 8): string[] {
-	return stderr
-		.trim()
-		.split("\n")
-		.filter((line) => !/^\s*(?:[\w.-]+:\s+)?(?:detail|context):/i.test(line))
-		.slice(-lines);
+	const kept: string[] = [];
+	let dropping = false;
+	for (const line of stderr.trim().split("\n")) {
+		if (QUOTES_A_ROW.test(line)) dropping = true;
+		else if (STARTS_A_MESSAGE.test(line)) dropping = false;
+		if (!dropping) kept.push(line.replace(/: "(?:[^"\\]|\\.)*"/g, ': "…"'));
+	}
+	return kept.slice(-lines);
 }
 
 /** The command's exit codes: a refusal changes nothing, nor does a check that finds a difference;

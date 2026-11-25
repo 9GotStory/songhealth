@@ -282,7 +282,8 @@ function psql(
  * newlines, in primary-key order (each key column's text in the C collation, so the order does not
  * hang on the database's collation; a table without a key orders by the whole row). The session
  * pins the settings that change a row's text: time zone, date and interval styles, float digits,
- * bytea and money output. All in the server: no row leaves the container.
+ * bytea and money output, and the search path reg* types print against (PostgreSQL 18,
+ * runtime-config-client.html). All in the server: no row leaves the container.
  */
 const TABLE_DIGESTS = String.raw`
 SET TimeZone = 'UTC';
@@ -291,6 +292,7 @@ SET IntervalStyle = 'postgres';
 SET extra_float_digits = 1;
 SET bytea_output = 'hex';
 SET lc_monetary = 'C';
+SET search_path = public;
 SELECT format(
   'SELECT %L || ''|'' || count(*) || ''|'' || encode(sha256(convert_to(coalesce(string_agg(recovery_row::text, E''\n'' ORDER BY %s), ''''), ''UTF8'')), ''hex'') FROM public.%I AS recovery_row',
   c.relname,
@@ -506,7 +508,7 @@ function backup(runtime: Runtime, dir: string): void {
 		const missed = mediaDifferences(held.media, walked.files, ["the store", "the archive"]);
 		if (missed.length > 0)
 			throw new Refusal(`the media archive does not hold the store's files: ${missed.join("; ")}`);
-		// The app must not have started while the set was read, or its files may disagree.
+		// Checked again: an app that runs now may have written while the set was read.
 		requireStopped(runtime);
 
 		const manifest = buildManifest({
@@ -619,7 +621,8 @@ async function confirmations(questions: readonly string[]): Promise<boolean> {
 		}
 		return true;
 	} finally {
-		// Released, or a terminal's standard input keeps the process waiting after its last line.
+		// Released, or a terminal's standard input keeps the process waiting after its last line
+		// (measured on a pseudo-terminal under Node 26.13.0, #221).
 		input.close();
 	}
 }

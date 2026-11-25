@@ -746,6 +746,23 @@ describe("errorTail", () => {
 			'pg_restore: error: COPY failed for table "options": ERROR:  invalid input syntax for type json',
 		]);
 	});
+
+	it("drops a DETAIL's or CONTEXT's further lines up to the next message, and a value an error quotes", () => {
+		const stderr = [
+			"pg_restore: error: could not execute query: ERROR:  invalid input syntax for type json",
+			"CONTEXT:  JSON data, line 1: a-value",
+			'COPY options, line 3, column value: "a-value"',
+			"DETAIL:  Failing row contains (7, first line",
+			"second line of a-value).",
+			'psql:<stdin>:3: ERROR:  invalid input syntax for type integer: "a-value"',
+			'HINT:  relation "media" stays',
+		].join("\n");
+		assert.deepEqual(errorTail(stderr), [
+			"pg_restore: error: could not execute query: ERROR:  invalid input syntax for type json",
+			'psql:<stdin>:3: ERROR:  invalid input syntax for type integer: "…"',
+			'HINT:  relation "media" stays',
+		]);
+	});
 });
 
 describe("admitSet", () => {
