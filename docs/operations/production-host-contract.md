@@ -36,9 +36,11 @@ Each item gives:
   name to the application as a fixed `Host`, limits the request body, and answers with a static HTML
   notice and HTTP 503 while the application is stopped for the night's Recovery Set (§3). Where the
   site must refer to something private, such as which addresses may reach it before the cutover, it
-  imports a named snippet the host defines, so no address enters the repository. Caddy reads the
-  certificate and key for the site's name from files the Operator places, and requests no ACME
-  certificate for a name they cover. A request for a host name no system serves is closed at the
+  imports a named snippet the host defines, so no address enters the repository: `songhealth_private`
+  closes the connection for every source outside the allowed network. Caddy reads the
+  certificate and key for the site's name from files the Operator places, named in a second
+  snippet the host defines, `songhealth_tls` (#456: [`deploy/caddy/songhealth.caddy`](../../deploy/caddy/songhealth.caddy)
+  imports both), and requests no ACME certificate for a name they cover. A request for a host name no system serves is closed at the
   host's level, and closing it leaves every other system's site as it is.
 - **Permission:** the Deployment account cannot read the certificate's key, change Caddy's
   configuration or reload it. A change to Songhealth's site configuration is reviewed in this
@@ -61,24 +63,29 @@ Each item gives:
 - **Interface:** the host provides what rootless Podman with Quadlet needs for the Deployment
   account:
   - Podman with Quadlet, from the distribution (Ubuntu 26.04's is 5.7.0; the Quadlet keys the
-    units use are in its documentation, spec #450 "Confirmed facts"), and the rootless packages
-    Podman only recommends: `uidmap` (not on the minimal cloud image), with subordinate UID and GID
-    ranges for the account, and `pasta` (package `passt`) for rootless networking;
+    units use are in its documentation, spec #450 "Confirmed facts", and started as written on the
+    rehearsal machine, #456), and the packages Podman and `netavark` only recommend: `uidmap` (not
+    on the minimal cloud image), with subordinate UID and GID ranges for the account, `pasta`
+    (package `passt`) for rootless networking, and `aardvark-dns` and `nftables` for the private
+    network, without which the application cannot resolve the database's name (#456);
   - Podman's init at `/usr/libexec/podman/catatonit`, Podman's default `init_path`, which the
     application unit runs (`RunInit=true`, `production-foundation.md` §3, §7.1). Ubuntu's `podman`
     recommends `catatonit`, which installs that path; a host installed with
     `--no-install-recommends` installs `catatonit` by name;
   - `/usr/bin/stat` with the output the database unit's existing-store guard reads
     (`production-foundation.md` §3, §6.1). On Ubuntu 26.04 that path is the uutils `stat` and GNU's
-    is `/usr/bin/gnustat`; whether the uutils output serves is checked on the rehearsal machine
-    (#456), and what it shows goes to the Product Owner before anything changes;
+    is `/usr/bin/gnustat`. On the rehearsal machine the uutils `stat` 0.10.0 printed the guard's
+    exact records, and the unit keeps `/usr/bin/stat` (Product Owner, #456 comment 7166769976);
   - lingering for the account (`loginctl enable-linger`, `production-foundation.md` §4.6), so its
     user manager and Songhealth's units run without a login session and start at boot;
   - any change to a host safeguard, such as an AppArmor rule for Podman's `pasta` (Launchpad bug
-    2154379), only once the Product Owner has approved it with its effect.
+    2154379), only once the Product Owner has approved it with its effect. On the rehearsal
+    machine that bug logs one denial at each stop and the teardown still completes, so no change
+    is made (#456 comment 7166769976).
 - **Permission:** installing packages, setting subordinate ranges and lingering, and changing a
   safeguard are root steps of the Operator's, through Songhealth's guided script for the root steps
-  it needs. The Deployment account has no sudo. Songhealth installs Node 26.13.0, the version
+  it needs ([`scripts/host/root-setup.sh`](../../scripts/host/root-setup.sh), which installs these
+  packages by name where the host has not). The Deployment account has no sudo. Songhealth installs Node 26.13.0, the version
   `package.json` pins, under the account from the official distribution with its checksum
   verified, for its operational scripts; no dependency and no development toolchain is installed
   on the host.
@@ -187,7 +194,7 @@ states.
 
 Some details here go beyond what spec #450 decided, so that both sides can be built against them,
 and the Product Owner reviews them with this document: the snippet the site imports for the
-private-network rule (§1), the rename into the folder of finished sets and the status file's three
+private-network rule and the one naming the certificate files (§1), the rename into the folder of finished sets and the status file's three
 keys (§3), the alert command's arguments (§4), the access log's JSON lines (§5), and the
 announcement of a Podman upgrade on the host before it is applied (§2). The tickets
 that build each side (#456, #458, #460, #462) confirm them against the stand-in, and a change goes
