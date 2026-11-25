@@ -301,6 +301,13 @@ fetch (Astro's `/_image` fetches a relative `href` on the server), the dev serve
 routing (`/_%65mdash` reached `/_emdash`). In #238 the filter followed the ticket's list, and three
 review rounds found these one at a time.
 
+A command whose output must carry no row content and no secret writes a failed tool's own text
+whole to an owner-only file beside the data it came from, and prints that file's path and the
+tool's exit status. Only where no such file can be written does it print the tool's text through a
+filter, and that filter names every message shape the tool writes, each with its source. In #221
+a filter of `pg_restore`'s standard error met a new shape in each of four review rounds and still
+lets two through (`scripts/recovery-set/plan.ts` `errorTail`).
+
 ## Documents
 
 The current documents (`docs/website-modernization-docs/current/`) and `docs/design/` each give
@@ -365,4 +372,10 @@ called, not each cell (#287 retro: 45 typed rows held one page under another's n
 A runbook in `docs/operations/` can be followed as written. Everything a step uses comes from an
 earlier step or its Setup, and a step's check reads something its command prints. In #185 no step
 brought the reviewed list to the host, no step took WordPress's backup, and a check compared
-redirect counts with an inventory that holds none.
+redirect counts with an inventory that holds none. A step that creates, removes or works past a
+guard (a store's marker, the window's lock, the database's first-initialization authorization)
+cites the rule that owns the guard and keeps it, in the runbook and in a script's message that
+tells the Operator what to do, and each step's end state is read from the script the step runs.
+In #221 a review fix told dev to create a lost media marker by hand, which
+`production-foundation.md` §5.3 forbids, and the corrected steps left out that the installer
+starts the app.

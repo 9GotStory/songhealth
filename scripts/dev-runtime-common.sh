@@ -7,6 +7,7 @@
 export LC_ALL=C                                   # stable tool output (the host locale is th_TH)
 
 SRC=$HOME/dev/songhealth-quadlet                  # runtime source checkout, bind-mounted at /src
+WORKSPACE=$HOME/dev/songhealth                    # the workspace clone, its worktrees under .tmp/
 UNIT_DIR=$HOME/.config/containers/systemd         # rootless Quadlet search path
 SHARE_DIR=$HOME/.local/share/songhealth-qdev      # db init script (mounted read-only)
 STATE_DIR=$HOME/.local/state/songhealth-qdev      # development PAT, backups, first-init flag
@@ -55,6 +56,19 @@ note() { printf '%s: %s\n' "${0##*/}" "$*"; }
 warn() { printf '%s: WARNING: %s\n' "${0##*/}" "$*" >&2; }
 log_event() { # log_event TEXT — a line in RUNTIME_EVENTS, so another session reads what happened
   printf '%s %s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${0##*/}" "$*" >> "$RUNTIME_EVENTS"
+}
+running_suites() { # running_suites — "pid directory" of each Songhealth browser suite's process
+  # A Playwright process that runs from the workspace, one of its worktrees or SRC. The Playwright
+  # MCP servers and another project's suites match the same pgrep, so they are left out (#221 retro).
+  local pid cmd cwd
+  for pid in $(pgrep -f '^node .*playwright' || true); do
+    cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null) || continue
+    if [[ $cmd == *playwright-mcp* ]]; then continue; fi
+    cwd=$(readlink "/proc/$pid/cwd" 2>/dev/null) || continue
+    if [[ $cwd == "$WORKSPACE" || $cwd == "$WORKSPACE"/* || $cwd == "$SRC" || $cwd == "$SRC"/* ]]; then
+      printf '%s %s\n' "$pid" "$cwd"
+    fi
+  done
 }
 last_event() { # last_event — the newest line of RUNTIME_EVENTS, if there is one
   [[ ! -s $RUNTIME_EVENTS ]] || note "the last runtime event: $(tail -n 1 -- "$RUNTIME_EVENTS")"
