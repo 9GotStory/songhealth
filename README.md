@@ -113,7 +113,21 @@ integrated CMS/Admin, backed by PostgreSQL 18.6.
   `docs/design/DESIGN.md` v1.8 records it with the code, and
   `docs/evidence/421-light-tile-cards-evidence-round.md` its evidence and what that does not
   cover. The Product Owner accepted it on 2026-11-24 (#417 comment 7120317286), and it was merged
-  into `main`. Every other page keeps its design until its own feature.
+  into `main`.
+- **Feature 015 `search-404`:** complete: Search and the 404 page, the last two public pages in
+  the earlier look, redesigned after the Homepage and Features 009 to 014's pages as built, in the
+  look the Product Owner picked from a prototype. `/search` opens on a list's deep green field
+  under the label "ค้นหา", with the site's white search pill under its heading. With results, the
+  groups and the count sit on a white card over the field's edge, and each result is one link over
+  its row, its light row tile holding its kind's icon. Each empty state is a white card over the
+  field's edge. The 404 page opens on the field under the label "ขออภัย", with the search pill and,
+  under it, the links "กลับไปหน้าแรก" and "ติดต่อเรา". While its field has focus, the whole pill
+  takes the `accent-warm` ring, on the Homepage too. The matching, the groups and their counts,
+  every address and the 404 page's status stay as they were (spec #432, tickets #433–#436).
+  `docs/design/DESIGN.md` v1.9 records it with the code, and
+  `docs/evidence/436-search-404-evidence-round.md` its evidence and what that does not cover. The
+  Product Owner accepted it on 2026-11-25 (#432 comment 7151135270), and it was merged into
+  `main`. With it every public page has the new design.
 
 A checked task marker in `specs/` records completion only; acceptance is a separate state,
 evidenced per artifact. Runtime testing targets the single development runtime documented below,

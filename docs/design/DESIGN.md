@@ -18,7 +18,8 @@
 > `/health`'s and `/about`'s cards follow spec #417, implemented by #418–#421, and were accepted
 > on #417 (Product Owner, 2026-11-24: #417 comment 7120317286). Feature 015's redesign of Search
 > and the 404 page, the last two public pages in the earlier look, follows spec #432, implemented
-> by #433–#436, and with it every public page has the new design; its acceptance is due on #432.
+> by #433–#436, and was accepted on #432 (Product Owner, 2026-11-25: #432 comment 7151135270);
+> with it every public page has the new design.
 > **Updated:** 2026-11-24 (#436); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
@@ -3133,8 +3134,8 @@ reference (`docs/prototypes/search-404.md` there). Each ticket's decisions are o
 in §13. The evidence round of #436 (`docs/evidence/436-search-404-evidence-round.md`) measures the
 pages and names what the evidence does not cover, which the Product Owner accepted after the
 walkthrough, answering "ผ่าน" (pass) and "ยอมรับตามรายการ" (accept as listed) (#436 comment
-7135305142). With the feature every public page has the new design. The feature's acceptance is
-due on #432.
+7135305142). With the feature every public page has the new design. The Product Owner accepted
+the feature on #432 (comment 7151135270).
 
 **What the Product Owner picked** on the Feature 006 prototype, with the legacy site's real
 content (spec #144 Further Notes). The picks for posts, cards and titles stand; on the Homepage,
