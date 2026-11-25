@@ -50,8 +50,9 @@ Out of scope, unchanged:
 - **Placing secret values or access credentials in Git, images/build artifacts, tests,
   transcripts, planning artifacts, logs, or review evidence** — including this document. Every
   example below uses placeholders only.
-- **Backup/restore of database and media** — the Recovery Set procedure is the later T025–T027
-  source work; this document treats it only as a separate, independently required dependency
+- **Backup/restore of database and media** — the Recovery Set's commands
+  (`scripts/recovery-set.ts`, `production-foundation.md` §7.6; #221 replaced the T025–T027
+  sources); this document treats them only as a separate, independently required dependency
   (data-model §6–§7).
 - **Any RTO/RPO, schedule, retention, or rating policy** — no time or rating threshold applies
   (spec clarification 2026-10-06); none is invented here.
@@ -105,10 +106,10 @@ entry 1 — never `songhealth-db-password` and never the bootstrap administrator
 consumed only at Phase A initialization; normal startup contains no initialization path, so
 replacing the secret never changes an existing cluster's stored bootstrap credential (§9).
 
-**No additional credential exists in the foundation.** The backup/restore procedures planned for
-T025–T026 consume the same protected `PG*` / migration inputs through a protected connection
-mechanism (quickstart §7.2) — the foundation defines no separate "backup credential," and none
-may be introduced under this document. The committed
+**No additional credential exists in the foundation.** The Recovery Set's backup and restore
+(`production-foundation.md` §7.6) use no credential at all: they reach PostgreSQL through
+`podman exec` on the database container's local socket — the foundation defines no separate
+"backup credential," and none may be introduced under this document. The committed
 [`.env.example`](../../.env.example) is the variable-name contract: its two remaining named
 inputs are non-secret, and no secret value is committed anywhere.
 
@@ -195,8 +196,8 @@ command, argument, or output in this document.
 ### 6.1 Preconditions
 
 Restore runs only when §8 stage A (availability) has passed for every entry, and — for a full
-platform recovery — alongside the separately authorized Recovery Set restore (T026), which is an
-independent dependency (§2). Do not run restoration steps "to see if the value looks right":
+platform recovery — alongside the separately authorized Recovery Set restore
+(`production-foundation.md` §7.6), which is an independent dependency (§2). Do not run restoration steps "to see if the value looks right":
 values are never displayed.
 
 ### 6.2 Procedure
@@ -756,9 +757,10 @@ installation, Phase A identity checks, database health, or application markers.
 ### 8.4 Relationship to the Recovery Set and later integrity verification
 
 These stages prove secret recovery only. Recovery Set validity (archive readability, checksums,
-error-stopping restore, migration state) and post-restore integrity (the exact native site
-`tagline` value/digest and every designated media digest) are proven by the separately authorized
-T025–T027 sources and the T028 drill (quickstart §7.2). Operational recovery acceptance requires
+error-stopping restore, migration state) and post-restore integrity (every table's row count and
+digest, the migrations and every media digest) are proven by the Recovery Set's commands
+(`production-foundation.md` §7.6, which replaced the T025–T027 sources in #221) and the T028
+drill (quickstart §7.2). Operational recovery acceptance requires
 both halves; §8 alone proves only one (§2).
 
 ## 9. Rotation and escalation boundaries

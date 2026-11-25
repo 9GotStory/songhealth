@@ -674,6 +674,26 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   `content_publish`, `schema_create_field`, `schema_delete_collection`, and taxonomy and menu
   changes (`src/mcp/server.ts`).
 
+## Database migrations and backup
+
+- EmDash records each applied core migration, by name and time, in the `_emdash_migrations` table,
+  the Kysely migrator's table under EmDash's name (`src/database/migrations/runner.ts`
+  `MIGRATION_TABLE`, `createMigrator`); `getMigrationStatus` reads what is applied and pending
+  from it. On the development runtime at `9929198` it held `001_initial` to
+  `091_redirect_artifacts` (#221), and `./scripts/recovery-set.ts` records the names as a Recovery
+  Set's migration state.
+- On PostgreSQL the migrator locks with `pg_try_advisory_xact_lock`, and fails fast while another
+  holds it (`src/database/pg-migration-lock.ts` `FailFastPostgresDialect`, which
+  `src/db/postgres.ts` uses). The `_emdash_migrations_lock` table
+  (`src/database/migration-lock.ts` `MIGRATION_LOCK_TABLE`) is written only by the SQLite adapter
+  for D1, `LockingSqliteAdapter`.
+- EmDash's own backup (`src/api/handlers/backup.ts`) wraps the content snapshot
+  (`src/api/handlers/snapshot.ts` `generateSnapshot`) as JSON: every entry with its drafts,
+  scheduled and trashed states, the schema, taxonomies, menus, widgets, revisions, media metadata
+  and site settings. It leaves out users, sessions, credentials and tokens, secrets and the media
+  files. `current/10-system-blueprint.md` §18 rules out such an export as the only backup, so
+  `./scripts/recovery-set.ts` takes the whole database and media store instead (#221).
+
 ## Search and seeding
 
 - Full-text search is SQLite-only: `enableSearch` throws on PostgreSQL (`src/search/fts-manager.ts`;

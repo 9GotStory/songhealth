@@ -172,7 +172,7 @@ ensure_volume() { # ensure_volume NAME [MARKER] — a label-owned volume; MARKER
   if [[ -n $marker ]]; then
     p=$(volume_path "$name")
     podman unshare test -f "$p/$marker" \
-      || die "volume $name lost its store marker: restore it from a backup (see the docs) instead of reusing it"
+      || die "volume $name lost its store marker: an incident to investigate, never marked by hand; on the Product Owner's word, remove the volume with the app stopped and run this again, which creates it with its marker and starts the app, then stop the app and restore a Recovery Set (docs/operations/development-quadlet.md \"Backup and restore\")"
   fi
   note "volume $name: present"
 }

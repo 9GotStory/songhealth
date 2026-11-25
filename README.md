@@ -248,11 +248,11 @@ contract, procedures and failure handling:
 # First install: from any checkout that contains T036. Afterwards: from the runtime's own
 # checkout ~/dev/songhealth-quadlet, whose scripts always belong to the promoted commit.
 scripts/dev-runtime-install.sh --sha <commit>   # install (converges; safe to re-run)
-scripts/dev-runtime-update.sh --sha <commit>    # promote another commit (backs up first)
-scripts/dev-runtime-model-update.sh             # give the database the seed's content model (backs up first)
+scripts/dev-runtime-update.sh --sha <commit>    # promote another commit (a Recovery Set first, the app stopped)
+scripts/dev-runtime-model-update.sh             # give the database the seed's content model (a Recovery Set first)
 scripts/dev-runtime-verify.sh                   # read-only checks, the content model included; ends with VERIFY: PASS|FAIL
 scripts/dev-runtime-admin-activity.sh           # read-only: Admin pages opened in the last 10 minutes
-scripts/dev-runtime-backup.sh <dir>             # database dump + media archive
+node scripts/recovery-set.ts backup dev <dir>   # a Recovery Set of the stopped runtime; restore|check dev <dir>
 scripts/dev-runtime-uninstall.sh [--purge]      # remove the units (keep data) | delete everything
 ```
 
