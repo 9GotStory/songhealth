@@ -7,9 +7,11 @@
 # non-ignored untracked files. A check prints only when it fails. CI runs these with the
 # build and the full node tests on every pull request (.github/workflows/checks.yml). The checks
 # read the working tree, not the staged snapshot: to commit part of the changes, set the rest aside
-# first (git stash push --keep-index). Where the Legacy site's export exists, the leak check
-# (#179 retro) reads the staged changes too, and every tracked file's name and text (#289); CI
-# holds no export. Enable once per clone:
+# first in a stash under a name of its own (git stash push --keep-index -m <name>), then apply it
+# by the hash `git stash list --format='%H %gs'` gives and drop it by that name. Every worktree of
+# the clone shares one stash, so a bare pop can take another session's (#436 retro). Where the
+# Legacy site's export exists, the leak check (#179 retro) reads the staged changes too, and every
+# tracked file's name and text (#289); CI holds no export. Enable once per clone:
 #   git config core.hooksPath .githooks
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"

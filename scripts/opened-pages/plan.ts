@@ -92,3 +92,20 @@ export function notOpened(
 	const paths = expected.map((address) => address.replace(/[?#].*$/, ""));
 	return [...new Set(paths)].filter((path) => !answered.has(path));
 }
+
+/**
+ * The lines --expect prints for the pages `notOpened` gives, each with what the latest request
+ * for it answered when a request named it (#436 retro: the 404 page's step answered [404] and read
+ * "not opened" with nothing beside it).
+ */
+export function notOpenedLines(
+	opened: { pages: readonly OpenedPage[]; homepage: readonly HomepageStretch[] },
+	expected: readonly string[],
+): string[] {
+	return notOpened(opened, expected).map((path) => {
+		const latest = opened.pages.findLast((page) => page.path === path);
+		return latest === undefined
+			? `not opened: ${path}`
+			: `not opened: ${path} (answered ${latest.status} at ${latest.at})`;
+	});
+}
