@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { notOpened, openedPages } from "../../scripts/opened-pages/plan.ts";
+import { notOpened, notOpenedLines, openedPages } from "../../scripts/opened-pages/plan.ts";
 
 /** A line of `podman logs --timestamps`, at a second of 2026-11-13T09:mm:ss+07:00. */
 function line(clock: string, path: string, status = 200): string {
@@ -104,6 +104,21 @@ describe("notOpened", () => {
 
 	it("does not count a page that answered another status", () => {
 		assert.deepEqual(notOpened(opened, ["/news/demo-news-gone"]), ["/news/demo-news-gone"]);
+	});
+
+	it("says beside a page it lists what the latest request for it answered, when one named it", () => {
+		// #436 retro: the 404 page's step answered [404] and read "not opened" with nothing beside it.
+		assert.deepEqual(notOpenedLines(opened, ["/news/demo-news-gone", "/health/content"]), [
+			"not opened: /news/demo-news-gone (answered 404 at 2026-11-13T02:11:12Z)",
+			"not opened: /health/content",
+		]);
+		const answeredTwice = openedPages(
+			[line("11:12", "/gone", 404), line("11:20", "/gone", 500)],
+			15,
+		);
+		assert.deepEqual(notOpenedLines(answeredTwice, ["/gone"]), [
+			"not opened: /gone (answered 500 at 2026-11-13T02:11:20Z)",
+		]);
 	});
 
 	it("reads an expected address without its query string, as the log holds it, and names it once", () => {

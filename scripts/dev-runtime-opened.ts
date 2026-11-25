@@ -9,15 +9,17 @@
 // every client's requests, a browser suite's too, and neither query strings nor window widths.
 //
 // --expect takes the addresses a walkthrough's steps gave, and prints each one the log does not
-// show answered, so the steps to ask about again are named in the same reading (#287 retro: a
-// list and a post were missed by eye, in two rounds). An address counts without its query string.
+// show answered 200, so the steps to ask about again are named in the same reading (#287 retro: a
+// list and a post were missed by eye, in two rounds), with what the latest request for it answered
+// when one named it, such as a step on the 404 page (#436 retro). An address counts without its
+// query string.
 // One --expect takes every address after it; a second one is refused, as an address that is a flag
 // (#318 retro: "--expect" was read as an address and printed as not opened).
 
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-import { notOpened, openedPages } from "./opened-pages/plan.ts";
+import { notOpenedLines, openedPages } from "./opened-pages/plan.ts";
 
 const [since, flag, ...expected] = process.argv.slice(2);
 if (
@@ -63,7 +65,7 @@ console.log(
 	`opened since ${since}: ${pages.length} page requests, ${homepage.length} stretches of / beyond the health check (every ${interval} s)`,
 );
 if (expected.length > 0) {
-	const missing = notOpened(opened, expected);
-	for (const path of missing) console.log(`not opened: ${path}`);
+	const missing = notOpenedLines(opened, expected);
+	for (const line of missing) console.log(line);
 	console.log(`expected: ${missing.length} of ${expected.length} addresses not shown as opened`);
 }
