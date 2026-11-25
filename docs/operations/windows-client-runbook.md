@@ -18,10 +18,11 @@ never holds an administrator login there.
 `<workstation address>` the workstation's, `<computer address>` this computer's. None of them, no
 tailnet name, key or credential is written into the repository, an issue or evidence.
 
-The two scripts it uses are in the repository: [`scripts/windows/client.ps1`](../../scripts/windows/client.ps1),
-run by the Product Owner in PowerShell opened as administrator, and
-[`scripts/windows/check-tls.ps1`](../../scripts/windows/check-tls.ps1), which Claude Code runs over the
-control channel without administrator rights. Run `client.ps1` as
+The two scripts it uses are in the repository and are kept in one folder on the computer:
+[`scripts/windows/client.ps1`](../../scripts/windows/client.ps1), run by the Product Owner in
+PowerShell opened as administrator, and
+[`scripts/windows/check-tls.ps1`](../../scripts/windows/check-tls.ps1), the read-only certificate
+check Claude Code runs over the control channel without administrator rights. Run `client.ps1` as
 `powershell -ExecutionPolicy Bypass -File .\client.ps1 -Action <action> ...`.
 
 ## 1. Joining the private network
@@ -38,10 +39,11 @@ needed; the Product Owner removes the device from the tailnet.
 ## 2. The control channel
 
 Windows' built-in OpenSSH Server, reached over the private network from the workstation alone, by
-a standard local account, `songhealth-test`, that accepts only Claude Code's own key and may only
-forward to the test browsers' debugging ports on this computer's loopback (127.0.0.1:9222 for
-Chrome, 127.0.0.1:9223 for Edge). The Product Owner can revoke it at any moment by closing or
-removing the channel.
+a standard local account, `songhealth-test`, that accepts only Claude Code's own key, may forward
+only to the test browsers' debugging ports on this computer's loopback (127.0.0.1:9222 for
+Chrome, 127.0.0.1:9223 for Edge), and runs no command but `check-tls.ps1` (sshd's `ForceCommand`,
+on a copy only administrators can change). The Product Owner can revoke it at any moment by
+closing or removing the channel.
 
 **Set up, once** (administrator prompt):
 
@@ -50,9 +52,10 @@ removing the channel.
 ```
 
 It installs the OpenSSH Server optional feature if Windows does not have it yet, creates the
-account with a random password nobody sees, writes the key, adds its rules to `sshd_config` (each
-line tagged `# songhealth-test-channel`), limits the firewall rule for port 22 to the workstation,
-and starts the server.
+account with a random password nobody sees, writes the key, copies `check-tls.ps1` beside
+`sshd_config`, adds its rules to `sshd_config` between `# songhealth-test-channel begin` and
+`end` lines, checks the file with `sshd -t` (a file sshd refuses is put back as it was), limits
+the firewall rule for port 22 to the workstation, and starts the server.
 
 **Each test session:**
 
@@ -75,7 +78,8 @@ and starts the server.
 4. At the end, close the test browsers and close the channel: `.\client.ps1 -Action CloseChannel`.
 
 **Remove** (after #466, or whenever the Product Owner decides): `.\client.ps1 -Action RemoveChannel`
-removes the account, its key, its `sshd_config` lines and the firewall rule's permission; the script
+removes the account, its key, the copy of `check-tls.ps1`, its `sshd_config` lines and the
+firewall rule's permission; the script
 then prints the command that uninstalls the OpenSSH Server feature too. Delete the test profiles'
 folder, `%LOCALAPPDATA%\songhealth-test`, after the production checks, once the Admin session there
 is signed out.
@@ -104,7 +108,8 @@ store, and empties the DNS cache.
 
 - `.\client.ps1 -Action Status` shows two hosts entries and the test CA in Trusted Root once;
 - `Resolve-DnsName songhealth.moph.go.th` answers with `<machine address>`;
-- Claude Code runs `check-tls.ps1` over the channel: `songhealth.moph.go.th` reports `TRUSTED` with
+- Claude Code runs `check-tls.ps1` over the channel (`ssh songhealth-test@<computer address>`):
+  `songhealth.moph.go.th` reports `TRUSTED` with
   the test authority as issuer, and `name-check.invalid` reports `REFUSED` with Windows' name
   constraint status.
 
@@ -126,7 +131,7 @@ with its evidence; the Product Owner certifies the result.
 | W1 | Windows' own verification (`check-tls.ps1`) | `songhealth.moph.go.th` is `TRUSTED`, issued by the test authority; `name-check.invalid` is `REFUSED` |
 | W2 | The browser refuses a name outside the constraint | `https://name-check.invalid/` ends in a certificate error, in Chrome and in Edge |
 | W3 | The site under its real name | `https://songhealth.moph.go.th/` opens with no certificate warning, and the certificate the browser shows is the test authority's, in Chrome and in Edge |
-| W4 | The Admin under its real name | `https://songhealth.moph.go.th/_emdash/admin` opens with no certificate warning, in Chrome and in Edge; its setup screen is left untouched (the first Administrator is #457's) |
+| W4 | The Admin under its real name | `https://songhealth.moph.go.th/_emdash/admin` opens with no certificate warning, and the certificate the browser shows is the test authority's, in Chrome and in Edge; its setup screen is left untouched (the first Administrator is #457's) |
 | W5 | Windows Hello reaches the desktop | while the script drives the page, a WebAuthn request for `songhealth.moph.go.th` brings up the Windows Hello prompt on the Product Owner's desktop; the Product Owner cancels it, so no passkey is made |
 
 The feasibility of the channel itself is recorded with these results in #456: Playwright attaching

@@ -1,8 +1,8 @@
 # Windows' own verification of the site's certificate (Feature 016, #456;
-# docs/operations/windows-client-runbook.md). Needs no administrator: Claude Code runs it over the
-# control channel as the standard account songhealth-test, sent as an encoded command:
-#   ssh songhealth-test@<computer> powershell -NoProfile -EncodedCommand \
-#     "$(iconv -t UTF-16LE check-tls.ps1 | base64 -w0)"
+# docs/operations/windows-client-runbook.md). Needs no administrator: client.ps1 copies it where
+# only administrators can change it and makes it the one command the standard account
+# songhealth-test may run (sshd's ForceCommand), so Claude Code runs it with
+#   ssh songhealth-test@<computer>
 # For each name it resolves the name as this computer does (the hosts file included), opens TLS with
 # that name, and builds the chain with Windows' chain engine (X509Chain, the machine's trust
 # stores). It prints the issuer, the validity and Windows' verdict, never an address. The
@@ -32,6 +32,6 @@ foreach ($name in @('songhealth.moph.go.th', 'name-check.invalid')) {
                 $name, $resolved, $presented.Issuer, $presented.NotAfter, $verdict, $(if ($status) { "($status)" } else { '' }))
     }
     catch {
-        Write-Output ("{0}: ERROR {1}" -f $name, ($_.Exception.Message -replace '\d{1,3}(\.\d{1,3}){3}', '<address>'))
+        Write-Output ("{0}: ERROR {1}" -f $name, ($_.Exception.Message -replace '\d{1,3}(\.\d{1,3}){3}|\[?[0-9a-fA-F]{0,4}(:[0-9a-fA-F]{0,4}){2,7}\]?', '<address>'))
     }
 }

@@ -5,9 +5,10 @@
 #
 #   .\client.ps1 -Action OpenChannel -PublicKey '<ssh-ed25519 ...>' -WorkstationAddress <address>
 #       first time: turns on Windows' OpenSSH Server, makes the standard local account
-#       songhealth-test that accepts only that key and may only forward to the two browsers'
-#       debugging ports on this computer's loopback, and lets only the workstation reach port 22.
-#       Later times: starts the server again.
+#       songhealth-test that accepts only that key, may forward only to the two browsers' debugging
+#       ports on this computer's loopback, and runs no command but the read-only certificate check
+#       check-tls.ps1 (kept beside this script, copied where only administrators can change it),
+#       and lets only the workstation reach port 22. Later times: starts the server again.
 #   .\client.ps1 -Action CloseChannel           stops the SSH server between test sessions
 #   .\client.ps1 -Action RemoveChannel          removes the account, its key and the server's rules
 #   .\client.ps1 -Action AddRehearsal -MachineAddress <address> -CaFile <ca.crt>
@@ -31,6 +32,7 @@ $Account = 'songhealth-test'
 $SshDir = Join-Path $env:ProgramData 'ssh'
 $SshdConfig = Join-Path $SshDir 'sshd_config'
 $KeyFile = Join-Path $SshDir "$Account`_authorized_keys"
+$CheckFile = Join-Path $SshDir 'songhealth-check-tls.ps1'
 $Marker = '# songhealth-test-channel'
 $HostsFile = Join-Path $env:SystemRoot 'System32\drivers\etc\hosts'
 $HostsMarker = '# songhealth-rehearsal'
@@ -44,9 +46,32 @@ function Assert-Administrator {
     }
 }
 
+# Well-known SIDs, so that the script also works where Windows names its groups in another language.
+$System = '*S-1-5-18'
+$Administrators = '*S-1-5-32-544'
+
+function Set-ReadOnlyAcl([string]$Path, [string]$Reader) {
+    icacls $Path /inheritance:r /grant "${System}:F" /grant "${Administrators}:F" /grant "${Reader}" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "icacls could not set the permissions of $Path (exit $LASTEXITCODE)" }
+}
+
 function Remove-MarkedLines([string]$Path, [string]$Tag) {
     if (Test-Path $Path) {
         $kept = Get-Content $Path | Where-Object { $_ -notmatch [regex]::Escape($Tag) }
+        Set-Content -Path $Path -Value $kept -Encoding ASCII
+    }
+}
+
+# sshd_config takes no comment after ForceCommand (the rest of the line is the command,
+# sshd_config(5)), so the channel's lines sit between a begin and an end comment line instead.
+function Remove-MarkedBlocks([string]$Path, [string]$Tag) {
+    if (Test-Path $Path) {
+        $inside = $false
+        $kept = foreach ($line in Get-Content $Path) {
+            if ($line -eq "$Tag begin") { $inside = $true; continue }
+            if ($line -eq "$Tag end") { $inside = $false; continue }
+            if (-not $inside) { $line }
+        }
         Set-Content -Path $Path -Value $kept -Encoding ASCII
     }
 }
@@ -64,24 +89,38 @@ function Open-Channel {
         $password = ConvertTo-SecureString ([Convert]::ToBase64String($bytes) + 'aA1!') -AsPlainText -Force
         New-LocalUser -Name $Account -Password $password -PasswordNeverExpires -UserMayNotChangePassword `
             -Description 'Songhealth acceptance tests: SSH tunnel to the test browsers only (removable)' | Out-Null
-        Add-LocalGroupMember -Group 'Users' -Member $Account -ErrorAction SilentlyContinue
+        Add-LocalGroupMember -SID 'S-1-5-32-545' -Member $Account -ErrorAction SilentlyContinue
     }
     Set-Content -Path $KeyFile -Value $PublicKey -Encoding ASCII
-    icacls $KeyFile /inheritance:r /grant 'SYSTEM:F' /grant 'Administrators:F' /grant "${Account}:R" | Out-Null
-    Remove-MarkedLines $SshdConfig $Marker
+    Set-ReadOnlyAcl $KeyFile "${Account}:R"
+    $source = Join-Path $PSScriptRoot 'check-tls.ps1'
+    if (-not (Test-Path $source)) { throw "check-tls.ps1 must be in the same folder as this script" }
+    Copy-Item $source $CheckFile -Force
+    Set-ReadOnlyAcl $CheckFile "${Account}:RX"
+    $previous = Get-Content $SshdConfig
+    Remove-MarkedBlocks $SshdConfig $Marker
     $config = Get-Content $SshdConfig
-    $top = @("AllowUsers $Account $Marker")
+    $top = @("$Marker begin", "AllowUsers $Account", "$Marker end")
     $match = @(
-        "Match User $Account $Marker",
-        "    AuthorizedKeysFile __PROGRAMDATA__/ssh/$Account`_authorized_keys $Marker",
-        "    PasswordAuthentication no $Marker",
-        "    AllowTcpForwarding local $Marker",
-        "    PermitOpen 127.0.0.1:9222 127.0.0.1:9223 $Marker",
-        "    PermitTTY no $Marker",
-        "    X11Forwarding no $Marker",
-        "    AllowAgentForwarding no $Marker"
+        "$Marker begin",
+        "Match User $Account",
+        "    AuthorizedKeysFile __PROGRAMDATA__/ssh/$Account`_authorized_keys",
+        "    PasswordAuthentication no",
+        "    AllowTcpForwarding local",
+        "    PermitOpen 127.0.0.1:9222 127.0.0.1:9223",
+        "    PermitTTY no",
+        "    X11Forwarding no",
+        "    AllowAgentForwarding no",
+        "    ForceCommand powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$CheckFile`"",
+        "$Marker end"
     )
     Set-Content -Path $SshdConfig -Value ($top + $config + $match) -Encoding ASCII
+    # sshd's own test mode reads the new file; one it refuses is put back as it was.
+    & (Join-Path $env:SystemRoot 'System32\OpenSSH\sshd.exe') -t
+    if ($LASTEXITCODE -ne 0) {
+        Set-Content -Path $SshdConfig -Value $previous -Encoding ASCII
+        throw "sshd refuses the new sshd_config (exit $LASTEXITCODE); the previous one was put back"
+    }
     $rule = Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue
     if (-not $rule) {
         New-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -DisplayName 'OpenSSH Server (sshd)' -Enabled True `
@@ -100,8 +139,8 @@ function Close-Channel {
 
 function Remove-Channel {
     Stop-Service sshd -ErrorAction SilentlyContinue
-    Remove-MarkedLines $SshdConfig $Marker
-    if (Test-Path $KeyFile) { Remove-Item $KeyFile -Force }
+    Remove-MarkedBlocks $SshdConfig $Marker
+    foreach ($file in @($KeyFile, $CheckFile)) { if (Test-Path $file) { Remove-Item $file -Force } }
     if (Get-LocalUser -Name $Account -ErrorAction SilentlyContinue) { Remove-LocalUser -Name $Account }
     $profileDir = Join-Path $env:SystemDrive "Users\$Account"
     Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -eq $profileDir } | Remove-CimInstance

@@ -82,8 +82,8 @@ own startup sequence performs every gate before the server process starts (§6.2
   unit runs it first in the container (`RunInit=true`, §7.1). Ubuntu 26.04's `podman` 5.7.0
   recommends the `catatonit` package, which installs that path (packages.ubuntu.com, read on
   2026-11-25 for #453); a host installed without recommends needs it installed by name.
-- **GNU coreutils `/usr/bin/stat`** at that absolute path: the database unit's existing-store
-  guard relies on its exact output contract (§6.1). Its availability, version, and behavior on
+- **A `/usr/bin/stat` that prints GNU coreutils' records** at that absolute path: the database
+  unit's existing-store guard relies on that exact output contract (§6.1). Its availability, version, and behavior on
   the target host are **mandatory pre-adoption runtime evidence** — verify and record them
   before adopting a host (T022 records them; they are unverified until then). On Ubuntu 26.04
   that path is the uutils `stat` 0.10.0, which printed the guard's exact records on the rehearsal
@@ -370,11 +370,12 @@ throwaway stand-in, `scripts/rehearsal/stand-in.sh`.
 
 1. **Root steps, by the Operator.** From a checkout at the Release record's
    `deploymentConfigCommit` (§7.7), with Songhealth's site file and the public key Claude Code
-   will use copied to the host:
+   will use copied to the host (the Operator's own copy, by their own means):
 
    ```bash
    sudo bash root-setup.sh --account <deployment account> --authorized-key <public key file> \
-     --site-config songhealth.caddy --caddy-sites-dir <directory the host's Caddyfile imports>
+     --site-config songhealth.caddy --caddy-sites-dir <directory the host's Caddyfile imports> \
+     [--caddyfile <the host's Caddyfile, when not /etc/caddy/Caddyfile>]
    ```
 
    [`scripts/host/root-setup.sh`](../../scripts/host/root-setup.sh) explains each step and waits
@@ -382,12 +383,17 @@ throwaway stand-in, `scripts/rehearsal/stand-in.sh`.
    (§4.6), the account's SSH key, the secrets and both environment files (§4.3, §4.4) with a
    root-only recovery copy the Operator moves to their protected store
    ([`runtime-secret-recovery.md`](runtime-secret-recovery.md) §5), and the site file placed and
-   Caddy reloaded. It prints no secret and replaces none that exists.
+   Caddy reloaded; a site file Caddy refuses is taken out again before any reload. It prints no
+   secret and replaces none that exists.
+   From here on Claude Code works as the account over SSH, and copies `install-node.sh`,
+   `provision-stores.sh`, the Release's folder and the units from the same checkout to the
+   account's home with `scp`.
 2. **Node, as the account.** `bash install-node.sh <version>` with the version `package.json`
    pins (`engines.node`): [`scripts/host/install-node.sh`](../../scripts/host/install-node.sh)
    downloads the official Linux x64 archive, checks it against the release's `SHASUMS256.txt`
-   and unpacks it under `~/.local/opt`. Nothing else is installed: no package, dependency or
-   toolchain.
+   and unpacks it under `~/.local/opt`, then removes the `npm`, `npx`, `corepack` and C headers
+   the archive carries, so `node` alone stays. Nothing else is installed: no package, dependency
+   or toolchain.
 3. **The Release's image, as the account.** Copy the Release's folder (§7.7) to the host, then
    `sha256sum -c songhealth-app-<version>.oci.tar.sha256`,
    `podman load --input songhealth-app-<version>.oci.tar`, and compare
@@ -421,8 +427,8 @@ throwaway stand-in, `scripts/rehearsal/stand-in.sh`.
 **Measured on the rehearsal machine** (4 vCPU, 6 GB, no swap used): the first start, with 90
 migrations applied, 35.7 s from `systemctl --user start` to healthy; later starts 34 to 42 s; the
 application healthy 68 s after boot with nobody logged in. The application service's peak memory
-2,469 MiB and the whole machine's 2,549 MiB used during the first start. A stop of the
-application or the database under 1 s. The comparison of host sizes is #464's.
+2,469 MiB and the whole machine's 2,549 MiB used during the first start. The comparison of host
+sizes is #464's.
 
 ## 5. One-time store provisioning
 

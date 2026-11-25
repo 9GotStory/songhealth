@@ -7,7 +7,9 @@
 #
 #   bash install-node.sh <version>     e.g. 26.13.0, the value of package.json "engines.node"
 #
-# It installs into ~/.local/opt/node-v<version>-linux-x64 and points ~/.local/bin/node at it.
+# It installs into ~/.local/opt/node-v<version>-linux-x64 and points ~/.local/bin/node at it. The
+# official archive also carries npm, npx, corepack and the C headers for native addons; they are
+# removed, so the runtime alone stays (spec #450: no dependency and no toolchain on the host).
 set -euo pipefail
 
 version=${1:-}
@@ -32,6 +34,7 @@ else
   mkdir -p "$opt"
   tar -xJf "$work/$name.tar.xz" -C "$opt"
 fi
+rm -rf "$target/bin/npm" "$target/bin/npx" "$target/bin/corepack" "$target/lib/node_modules" "$target/include"
 mkdir -p "$HOME/.local/bin"
 ln -sfn "$target/bin/node" "$HOME/.local/bin/node"
 "$HOME/.local/bin/node" --version

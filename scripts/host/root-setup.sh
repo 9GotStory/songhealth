@@ -5,9 +5,11 @@
 # and waits for the Operator's yes before it acts. It prints no secret.
 #
 #   sudo bash root-setup.sh --account <name> --authorized-key <public-key-file> \
-#     --site-config <songhealth.caddy> --caddy-sites-dir <directory the host's Caddyfile imports>
+#     --site-config <songhealth.caddy> --caddy-sites-dir <directory the host's Caddyfile imports> \
+#     [--caddyfile <the host's Caddyfile; default /etc/caddy/Caddyfile>]
 #
-# Steps, in order (each idempotent; a step already done says so and changes nothing):
+# Steps, in order. Each can run again: a step already done says so and changes nothing, except
+# that step 1 lets apt confirm the packages again.
 #   1. the packages rootless Podman needs, without the ones it only recommends
 #   2. the Deployment account, without sudo, with its subordinate UID and GID ranges
 #   3. lingering for the account, so its units run with nobody logged in and start at boot
@@ -17,7 +19,7 @@
 #   6. Songhealth's site configuration placed where the host's Caddy imports it, and Caddy reloaded
 #
 # What it never does: install Node, an image, the units or any dependency (the account does those,
-# production-foundation.md §4, §11), change a host safeguard (AppArmor), or touch another system.
+# production-foundation.md §4.7), change a host safeguard (AppArmor), or touch another system.
 set -euo pipefail
 
 SITE_URL=https://songhealth.moph.go.th
@@ -29,13 +31,14 @@ APP_ROLE=songhealth_app # PGUSER: the least-privilege application role
 # without which the application cannot resolve the database's name) and nftables for netavark.
 PACKAGES=(podman uidmap passt catatonit dbus-user-session aardvark-dns nftables)
 
-account='' key_file='' site_config='' sites_dir=''
+account='' key_file='' site_config='' sites_dir='' caddyfile=/etc/caddy/Caddyfile
 while (($#)); do
   case $1 in
     --account) account=$2; shift 2 ;;
     --authorized-key) key_file=$2; shift 2 ;;
     --site-config) site_config=$2; shift 2 ;;
     --caddy-sites-dir) sites_dir=$2; shift 2 ;;
+    --caddyfile) caddyfile=$2; shift 2 ;;
     *) sed -n '2,/^set -euo/p' "$0" | sed '$d'; exit 2 ;;
   esac
 done
@@ -53,6 +56,7 @@ confirm() {
 [[ -f $key_file ]] || fail "--authorized-key needs the public key file"
 [[ -f $site_config ]] || fail "--site-config needs Songhealth's deploy/caddy/songhealth.caddy"
 [[ -d $sites_dir ]] || fail "--caddy-sites-dir needs the directory the host's Caddyfile imports"
+[[ -f $caddyfile ]] || fail "--caddyfile: no host Caddyfile at $caddyfile"
 # shellcheck source=/dev/null
 . /etc/os-release
 [[ ${ID:-} == ubuntu && ${VERSION_ID:-} == 26.04 ]] || fail "written for Ubuntu 26.04; this is ${PRETTY_NAME:-unknown}"
@@ -61,6 +65,7 @@ as_account() { # run a command as the account inside its user manager's environm
   local uid
   uid=$(id -u "$account")
   # from the account's home: Podman refuses to start in a directory the account cannot enter
+  # ("cannot chdir to /home/<admin>: Permission denied", Podman 5.7.0 on the rehearsal machine, #456)
   (cd "$(getent passwd "$account" | cut -d: -f6)" && runuser -u "$account" -- env \
     XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@")
 }
@@ -85,7 +90,8 @@ for group in sudo admin wheel; do
   id -nG "$account" | tr ' ' '\n' | grep -qx "$group" && fail "$account is in $group; it must have no sudo"
 done
 for f in /etc/subuid /etc/subgid; do
-  # useradd allocates the ranges once uidmap is installed (login.defs SUB_UID_*); an account made
+  # useradd allocates the ranges once uidmap is installed (useradd(8) and login.defs(5),
+  # SUB_UID_MIN/SUB_UID_COUNT; seen on the rehearsal machine, #456); an account made
   # before that has none, and choosing a free range on a shared host is the Operator's call.
   grep "^$account:" "$f" || fail "$account has no range in $f; add one with usermod --add-subuids/--add-subgids"
 done
@@ -141,30 +147,39 @@ else
   } >"$config/songhealth-app.env"
   chown "$account:$account" "$config/songhealth-db.env" "$config/songhealth-app.env"
   chmod 0600 "$config/songhealth-db.env" "$config/songhealth-app.env"
-  printf '%s' "$db_password" | as_account podman secret create songhealth-db-password - >/dev/null
-  printf '%s' "$migration_url" | as_account podman secret create songhealth-migration-database-url - >/dev/null
-  printf '%s' "$encryption_key" | as_account podman secret create songhealth-encryption-key - >/dev/null
+  # The recovery copy first, so that no secret can exist without one if a later command fails.
   recovery="/root/songhealth-recovery-copy/$(date -u +%Y%m%dT%H%M%SZ)"
   install -d -m 0700 "$recovery"
   printf '%s\n' "$app_password" >"$recovery/1-PGPASSWORD"
   printf '%s\n' "$migration_url" >"$recovery/2-songhealth-migration-database-url"
   printf '%s\n' "$encryption_key" >"$recovery/3-songhealth-encryption-key"
   printf '%s\n' "$db_password" >"$recovery/4-songhealth-db-password"
-  unset db_password app_password encryption_key migration_url
   echo "Recovery copy: $recovery (root only). Move it to your protected store, then delete it here."
+  printf '%s' "$db_password" | as_account podman secret create songhealth-db-password - >/dev/null
+  printf '%s' "$migration_url" | as_account podman secret create songhealth-migration-database-url - >/dev/null
+  printf '%s' "$encryption_key" | as_account podman secret create songhealth-encryption-key - >/dev/null
+  unset db_password app_password encryption_key migration_url
 fi
 as_account podman secret ls --format '{{.Name}}'
 
 say "6. Songhealth's site configuration in the host's Caddy"
-if cmp -s "$site_config" "$sites_dir/songhealth.caddy"; then
+target="$sites_dir/songhealth.caddy"
+if cmp -s "$site_config" "$target"; then
   echo "already in place"
 else
-  confirm "Install it as $sites_dir/songhealth.caddy and reload Caddy?"
-  install -m 0644 "$site_config" "$sites_dir/songhealth.caddy"
+  confirm "Install it as $target and reload Caddy?"
+  # Validated in place before the reload; a file Caddy refuses is taken out again (the previous one
+  # put back), so neither the running configuration nor the next start reads it.
+  previous=''
+  [[ -f $target ]] && previous=$(mktemp) && cp -p "$target" "$previous"
+  install -m 0644 "$site_config" "$target"
+  if ! caddy validate --config "$caddyfile" --adapter caddyfile >/dev/null; then
+    if [[ -n $previous ]]; then mv "$previous" "$target"; else rm -f "$target"; fi
+    fail "Caddy refuses the configuration with this site file; it was taken out and Caddy not reloaded"
+  fi
+  [[ -n $previous ]] && rm -f "$previous"
+  systemctl reload caddy
+  echo "Caddy reloaded"
 fi
-caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 ||
-  fail "Caddy refuses the configuration; the running one stays (caddy validate --config /etc/caddy/Caddyfile)"
-systemctl reload caddy
-echo "Caddy reloaded"
 
-say "Done. The account's own steps follow: production-foundation.md §11."
+say "Done. The account's own steps follow: production-foundation.md §4.7."

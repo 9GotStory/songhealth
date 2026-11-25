@@ -4,8 +4,8 @@
 # workstation; QEMU's user-mode network, so the machine is not on the LAN and answers the
 # workstation only through the two loopback forwards below, and everyone else only through its
 # own Tailscale node (spec #450 "The rehearsal"; Product Owner, #456 comment 7164993353).
-# Everything it has lives in one folder, so `remove` takes it away whole. The development runtime
-# is never touched.
+# Everything it has lives in one folder, its two SSH keys in another, and `remove` takes both away
+# whole. The development runtime is never touched.
 #
 #   scripts/rehearsal/vm.sh create    download and check the image, make the disk and the seed
 #   scripts/rehearsal/vm.sh start     boot it as the user unit songhealth-rehearsal-vm
@@ -14,7 +14,7 @@
 #   scripts/rehearsal/vm.sh ssh [cmd] the administrator account, with Claude Code's key
 #   scripts/rehearsal/vm.sh account [cmd]  the Deployment account, with its own key (made here; the
 #                                     Operator authorizes it through scripts/host/root-setup.sh)
-#   scripts/rehearsal/vm.sh remove    stop it and delete its folder (asks first)
+#   scripts/rehearsal/vm.sh remove    stop it and delete its folder and keys (asks first)
 #
 # Size: 4 vCPU and 6 GB (Product Owner, #456 comment 7164993353); REHEARSAL_CPUS and
 # REHEARSAL_MEMORY_MB change it for a later measurement (#464).
@@ -153,8 +153,8 @@ remove() {
   [[ $answer == remove ]] || die "not removed"
   systemctl --user stop "$UNIT" 2>/dev/null || true
   systemctl --user reset-failed "$UNIT" 2>/dev/null || true
-  rm -rf "$DIR"
-  echo "rehearsal-vm: removed $DIR (the key in $KEY_DIR stays until its holder deletes it)"
+  rm -rf "$DIR" "$KEY_DIR"
+  echo "rehearsal-vm: removed $DIR and its keys in $KEY_DIR"
 }
 
 case ${1:-} in
