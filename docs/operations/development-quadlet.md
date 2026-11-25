@@ -417,13 +417,15 @@ Runtime results are interpreted only against the commit verify reports.
 ## Production image check
 
 ```bash
-scripts/production-image-check.sh --sha <commit> [<news-path>] [-- <command> [<arg>...]]
+scripts/production-image-check.sh --sha <commit> [--image <ref>] [<news-path>] [-- <command> [<arg>...]]
 ```
 
 It builds `deploy/Containerfile` at the commit and shows what production serves, which `astro dev`
 cannot. Run it when `deploy/Containerfile`, `deploy/quadlet/songhealth-app.container` or a
-dependency with a native binary changes, for the ADR 0003 revisit of production images, and as
-the image check of a Release's commit (spec #450 "Releases", step 3).
+dependency with a native binary changes, and for the ADR 0003 revisit of production images. A
+Release's cut runs it as its image check (spec #450 "Releases", step 3; `production-foundation.md`
+§7.7) with `--image`: then it checks the Release's own image, built from the commit, in place of a
+build of its own, and leaves that image in place (Product Owner, #455 comment 7163433918).
 
 - **Build.** It builds from a `git archive` of the commit, so untracked files never enter, with
   `--layers=false`, which commits the final image alone. A build took 88 to 111 s on this host
@@ -466,10 +468,10 @@ the image check of a Release's commit (spec #450 "Releases", step 3).
   `SuccessExitStatus=` counts a success, on which systemd would mark the unit failed. It prints
   the stop's time and exit status. The verdicts of the startup build and the stop are
   `scripts/production-image-check/plan.ts`'s, under node:test.
-- **Cleanup.** It removes the container and the image on every exit, pass or fail, and lists any
-  image the run added that is still there. Other projects share this image storage, so it never
-  removes an image by its age or by a difference in the image list. The image is never deployed or
-  tagged as a release.
+- **Cleanup.** It removes the container and the image it built on every exit, pass or fail, and
+  lists any image the run added that is still there; an image given with `--image` stays. Other
+  projects share this image storage, so it never removes an image by its age or by a difference in
+  the image list. The image it builds is never deployed or tagged as a Release.
 - **Credentials.** It prints log lines only on a failed start, with anything shaped like a
   credential masked.
 
