@@ -514,10 +514,12 @@ refuses, so a window holds the runtime. A script the window runs for the first t
 the demo dataset and goes through review before the window opens, since a wrong number found after
 the restore costs another window (#183 retro):
 
-1. Check that no suite is running, which the lock cannot see: `pgrep -f '^node .*playwright'` prints
-   nothing. Agree with the Product Owner when the window closes, then
+1. Agree with the Product Owner when the window closes, then
    `scripts/dev-runtime-window.sh open "<why, with the ticket>" <until, UTC, such as 2026-11-11T12:00Z>`
-   writes the lock. A window held while a person reviews its data closes at that time too: one held
+   writes the lock. It refuses while a Songhealth browser suite runs, which the lock cannot stop,
+   and names each one's process and directory: a Playwright process that runs from the workspace,
+   one of its worktrees or the runtime checkout. The Playwright MCP servers and another project's
+   suites are left out (#221 retro). A window held while a person reviews its data closes at that time too: one held
    for a review with no end stayed open 19 hours while another session's suite waited (#238 retro).
    `scripts/dev-runtime-update.sh` and `scripts/dev-runtime-env.sh` refuse from now on, naming the
    window and its close time, for every session. Its holder runs
