@@ -3,8 +3,8 @@
 //
 //   node scripts/production-image-check-verdict.ts stop-contract <unit>
 //     prints "<init: true|false> <stop timeout in s>" for the Quadlet unit's text;
-//   node scripts/production-image-check-verdict.ts startup-build <report>
-//     prints the report's figures, from the JSON the image's startup build wrote;
+//   node scripts/production-image-check-verdict.ts startup-build < <report>
+//     prints the figures of the JSON report the image's startup build wrote, read from stdin;
 //   node scripts/production-image-check-verdict.ts stop <unit> <exit code> <seconds>
 //
 // A verdict prints each failure on its own line to stderr. Exit status 1: a failure; 2: a wrong
@@ -21,8 +21,6 @@ import {
 
 /** The startup build's report: the verdict's facts and the figures recorded beside them. */
 interface StartupBuildReport extends StartupBuild {
-	/** The build output's last lines, printed when it fails. */
-	tail: string[];
 	/** The build's wall-clock time in s. */
 	seconds: number;
 	/** The container's peak memory in bytes (cgroup v2 memory.peak), or null where unreadable. */
@@ -38,21 +36,21 @@ function main(args: string[]): number {
 		const { init, stopTimeout } = stopContract(readFileSync(rest[0], "utf8"));
 		console.log(`${init} ${stopTimeout}`);
 		return 0;
-	} else if (command === "startup-build" && rest.length === 1) {
-		const report = JSON.parse(rest[0]) as StartupBuildReport;
+	} else if (command === "startup-build" && rest.length === 0) {
+		const report = JSON.parse(readFileSync(0, "utf8")) as StartupBuildReport;
 		const peak =
 			report.peakBytes === null ? "unreadable" : `${Math.round(report.peakBytes / MIB)} MiB`;
 		console.log(
 			`  uid ${report.uid}, exit ${report.status}, ${report.seconds} s, peak memory ${peak}`,
 		);
-		if (report.status !== 0) for (const line of report.tail) console.log(`  | ${line}`);
+		if (report.status !== 0) for (const line of report.output.slice(-5)) console.log(`  | ${line}`);
 		failures = startupBuildFailures(report);
 	} else if (command === "stop" && rest.length === 3) {
 		const contract = stopContract(readFileSync(rest[0], "utf8"));
 		failures = stopFailures({ exitCode: Number(rest[1]), seconds: Number(rest[2]) }, contract);
 	} else {
 		console.error(
-			"usage: production-image-check-verdict.ts stop-contract <unit> | startup-build <report> |",
+			"usage: production-image-check-verdict.ts stop-contract <unit> | startup-build < <report> |",
 		);
 		console.error("       stop <unit> <exit code> <seconds>");
 		return 2;

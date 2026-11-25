@@ -114,17 +114,16 @@ const started = Date.now();
 fs.rmSync(".emdash/migrations.json", { force: true });
 const build = spawnSync("npm", ["run", "build"], { encoding: "utf8", maxBuffer: 1 << 28 });
 const seconds = Math.round((Date.now() - started) / 100) / 10;
-const fresh = (file) => { try { return fs.statSync(file).mtimeMs >= started - 1000; } catch { return false; } };
+const mtime = (file) => { try { return fs.statSync(file).mtimeMs; } catch { return null; } };
 const open = spawnSync("find", ["/app", "-xdev", "-perm", "-o+w", "!", "-type", "l"], { encoding: "utf8" });
 let peakBytes = null;
 try { peakBytes = Number(fs.readFileSync("/sys/fs/cgroup/memory.peak", "utf8")); } catch {}
-const output = `${build.stdout ?? ""}${build.stderr ?? ""}`.trim().split("\n");
-const error = output.find((line) => /error|EACCES|ENOENT|ERR_/i.test(line))?.trim() ?? null;
-console.log(JSON.stringify({ uid: process.getuid(), status: build.status, entry: fresh("dist/server/entry.mjs"),
-  manifest: fresh(".emdash/migrations.json"), worldWritable: open.stdout.split("\n").filter(Boolean),
-  error, tail: output.slice(-5), seconds, peakBytes }));
+const output = `${build.stdout ?? ""}${build.stderr ?? ""}`.trim().split("\n").slice(-400);
+console.log(JSON.stringify({ uid: process.getuid(), status: build.status, startedMs: started,
+  entryMs: mtime("dist/server/entry.mjs"), manifestMs: mtime(".emdash/migrations.json"),
+  worldWritable: open.stdout.split("\n").filter(Boolean), output, seconds, peakBytes }));
 ') || die "the startup build could not be run in the image"
-node "$REPO/scripts/production-image-check-verdict.ts" startup-build "$startup_build" \
+node "$REPO/scripts/production-image-check-verdict.ts" startup-build <<<"$startup_build" \
   || die "the startup gate's build fails in this image as its runtime user"
 
 UNIT=$work/context/deploy/quadlet/songhealth-app.container

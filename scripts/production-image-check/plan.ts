@@ -11,16 +11,21 @@ export interface StopContract {
 	successExitStatuses: number[];
 }
 
-/** systemd's true booleans (systemd.syntax(7)); Quadlet reads `RunInit=` with the same parser. */
+/**
+ * systemd's true booleans (systemd.syntax(7)). Podman 6.2.0's Quadlet reads each, in any case, as
+ * `RunInit=` true: `quadlet -dryrun` gives `--init` for each (#453).
+ */
 const TRUE_WORDS = new Set(["1", "yes", "y", "true", "t", "on"]);
 
-/** The keys a unit file sets, by section, in file order; comments and blank lines skipped. */
+/**
+ * The keys a unit file sets, by section, in file order. A comment line holds no key the contract
+ * reads, so it needs no skipping.
+ */
 function unitEntries(unit: string): { section: string; key: string; value: string }[] {
 	const entries: { section: string; key: string; value: string }[] = [];
 	let section = "";
 	for (const raw of unit.split("\n")) {
 		const line = raw.trim();
-		if (line === "" || line.startsWith("#") || line.startsWith(";")) continue;
 		const header = /^\[(.+)\]$/.exec(line);
 		if (header) {
 			section = header[1];
@@ -65,34 +70,41 @@ export interface StartupBuild {
 	uid: number;
 	/** The build's exit status; null when a signal ended it. */
 	status: number | null;
-	/** Whether this build wrote the standalone server entry (entry.mjs under dist/server). */
-	entry: boolean;
-	/** Whether this build wrote the migration manifest (migrations.json under .emdash). */
-	manifest: boolean;
+	/** When the build started, in ms since the epoch, by the container's clock. */
+	startedMs: number;
+	/** The standalone server entry's (entry.mjs under dist/server) mtime in ms, or null if absent. */
+	entryMs: number | null;
+	/** The migration manifest's (migrations.json under .emdash) mtime in ms, or null if absent. */
+	manifestMs: number | null;
 	/** The paths under /app that anyone may write, links aside. */
 	worldWritable: string[];
-	/** The build output's first line that names an error, if any. */
-	error: string | null;
+	/** The build's output lines. */
+	output: string[];
 }
 
+/**
+ * The slack for a file the build wrote, for a stamp the file system rounds below the build's start.
+ * The image's own copy of a file is minutes old or more.
+ */
+const STAMP_SLACK_MS = 1_000;
+
+/** An error line in npm's, Node's or Astro's output: `EACCES:`, `ERR_…`, `TypeError`, `[ERROR]`. */
+const ERROR_LINE = /\bE[A-Z]{2,}:|\bERR_[A-Z_]+|\b[A-Za-z]*Error\b|\[ERROR\]/;
+
 /** What is wrong with the startup build, one line each: none for a build the gate can run. */
-export function startupBuildFailures({
-	uid,
-	status,
-	entry,
-	manifest,
-	worldWritable,
-	error,
-}: StartupBuild): string[] {
+export function startupBuildFailures(build: StartupBuild): string[] {
+	const { uid, status, startedMs, worldWritable, output } = build;
+	const written = (mtime: number | null) => mtime !== null && mtime >= startedMs - STAMP_SLACK_MS;
 	const failures: string[] = [];
 	if (uid === 0)
 		failures.push("the startup gate's build ran as root, not as a non-root runtime user");
 	if (status !== 0) {
 		const end = status === null ? "was ended by a signal" : `exited ${status}`;
+		const error = output.find((line) => ERROR_LINE.test(line))?.trim();
 		failures.push(`the startup gate's build ${end}: ${error ?? "no line names an error"}`);
 	}
-	if (!entry) failures.push("the build did not emit dist/server/entry.mjs");
-	if (!manifest) failures.push("the build did not emit .emdash/migrations.json");
+	if (!written(build.entryMs)) failures.push("the build did not emit dist/server/entry.mjs");
+	if (!written(build.manifestMs)) failures.push("the build did not emit .emdash/migrations.json");
 	if (worldWritable.length > 0)
 		failures.push(`world-writable under /app: ${worldWritable.join(" ")}`);
 	return failures;
