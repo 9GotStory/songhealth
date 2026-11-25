@@ -78,9 +78,9 @@ describe("the runtime map", () => {
 				appService: "songhealth-dev-app.service",
 				mediaMarker: ".songhealth-qdev-media-store",
 				markerRemedy:
-					"create it as dev-runtime-install.sh does for a new store, " +
-					"podman unshare touch <the volume's mountpoint>/.songhealth-qdev-media-store, then restore again " +
-					'(development-quadlet.md "Backup and restore")',
+					"a lost marker is an incident to investigate, never created by hand (production-foundation.md §5.3); " +
+					"on the Product Owner's word, remove the volume with the app stopped and run dev-runtime-install.sh, " +
+					'which creates it with its marker, then restore again (development-quadlet.md "Backup and restore")',
 				appRole: { kind: "fixed", name: "songhealth_qdev_app" },
 				serves: { kind: "marker", path: "dev/songhealth-quadlet/.songhealth-qdev-source-identity" },
 				emdash: {
@@ -97,7 +97,8 @@ describe("the runtime map", () => {
 				appService: "songhealth-app.service",
 				mediaMarker: ".songhealth-media-store",
 				markerRemedy:
-					"provision the store first (production-foundation.md §5.3), then restore again",
+					"provision a recreated store first; a store that lost its marker is an incident to investigate, " +
+					"never marked by hand (production-foundation.md §5.3); then restore again",
 				appRole: { kind: "env-file", path: ".config/containers/systemd/songhealth-app.env" },
 				serves: { kind: "unit-image", path: ".config/containers/systemd/songhealth-app.container" },
 				emdash: { kind: "image" },
@@ -709,18 +710,19 @@ describe("markerRefusal", () => {
 		assert.equal(markerRefusal(RUNTIMES.production, true), undefined);
 	});
 
-	it("refuses a media volume without its marker, and says how each runtime's store gets one", () => {
+	it("refuses a media volume without its marker as an incident, and says how each runtime's store gets one (#221 comment 7153300185)", () => {
 		assert.equal(
 			markerRefusal(RUNTIMES.dev, false),
 			"the media volume songhealth-qdev-media has no .songhealth-qdev-media-store: " +
-				"create it as dev-runtime-install.sh does for a new store, " +
-				"podman unshare touch <the volume's mountpoint>/.songhealth-qdev-media-store, then restore again " +
-				'(development-quadlet.md "Backup and restore")',
+				"a lost marker is an incident to investigate, never created by hand (production-foundation.md §5.3); " +
+				"on the Product Owner's word, remove the volume with the app stopped and run dev-runtime-install.sh, " +
+				'which creates it with its marker, then restore again (development-quadlet.md "Backup and restore")',
 		);
 		assert.equal(
 			markerRefusal(RUNTIMES.production, false),
 			"the media volume songhealth-media has no .songhealth-media-store: " +
-				"provision the store first (production-foundation.md §5.3), then restore again",
+				"provision a recreated store first; a store that lost its marker is an incident to investigate, " +
+				"never marked by hand (production-foundation.md §5.3); then restore again",
 		);
 	});
 });

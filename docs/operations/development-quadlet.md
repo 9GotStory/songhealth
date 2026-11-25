@@ -489,10 +489,11 @@ node scripts/recovery-set.ts check dev "$SET"       # the integrity check on its
   migrations and every media file against the manifest. Exit 1 changed nothing; exit 3 left the
   runtime partial: keep the app stopped and restore again.
 - **The media store's marker.** A set leaves out `.songhealth-qdev-media-store`, and the restore
-  keeps the volume's own and refuses a volume without one. When the installer reports that the
-  volume lost its marker, create it as the installer does for a new store, `podman unshare touch
-  "$(podman volume inspect --format '{{.Mountpoint}}' songhealth-qdev-media)/.songhealth-qdev-media-store"`,
-  then restore a set into it.
+  keeps the volume's own and refuses a volume without one. The marker is a provisioning record, as
+  on production (`production-foundation.md` §5.3): a volume that lost it is an incident to
+  investigate, and nobody creates it by hand (#221 comment 7153300185). On the Product Owner's
+  word, stop the app, remove `songhealth-qdev-media`, run `scripts/dev-runtime-install.sh`, which
+  creates the volume with its marker, and restore a set into it.
 - **`check`.** A difference prints `FAIL` with each table or path and exits 1, with nothing
   changed. While the app runs, the tables it writes differ.
 - **Sets from before #221.** The `backups/` folders of four files (`qdev-db-*.dump`,
@@ -651,7 +652,7 @@ makes a new node, so every start needs the approval again.
 | The app exits with `refusing` (exit 78; not restarted) | The message names the cause: dependencies are missing (re-run the installer), the checkout is not the promoted commit (use `update`), the media store marker is missing, or a secret is malformed. |
 | The database refuses: "no database cluster and no first-initialization authorization" | The data volume was recreated or emptied. Restore a Recovery Set; never let it re-initialize silently. |
 | Install stops: "app role missing or wrong" | The first initialization failed partway. The database holds no application data yet, so run `uninstall --purge` and install again. |
-| Install refuses an unlabeled volume, a media volume without its marker, or partial secrets | A foreign or half-made resource. Inspect it; purge only what this runtime created. |
+| Install refuses an unlabeled volume, a media volume without its marker, or partial secrets | A foreign or half-made resource. Inspect it; purge only what this runtime created. A media volume of this runtime that lost its marker is an incident: on the Product Owner's word, remove it, run the installer and restore a Recovery Set ("Backup and restore"). |
 | Port 4324 is in use | Something else listens there. There is no fallback port: resolve the conflict at its cause. |
 | The PAT check fails | `dev-pat` is missing, has the wrong mode or was revoked. Minting a new one means running `setup/dev-bypass?token=1`, which rotates the token; do that only deliberately. It also applies the seed again, which empties the seed's menus, the Homepage menus included (emdash 1.1.0 `src/seed/apply.ts`): note their items first and put them back in the Admin. |
 | The role fixture check fails | `role-fixture-pat` is missing, or a role test was interrupted and left the account with another role or disabled. Restore it in the Admin (Users: Author, enabled), or delete the file; then re-run the installer, which re-mints the PAT. |

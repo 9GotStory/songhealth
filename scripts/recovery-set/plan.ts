@@ -16,7 +16,8 @@ export interface Runtime {
 	appService: string;
 	/** The media store's provisioning record: the restore keeps the target's, and no set holds it. */
 	mediaMarker: string;
-	/** What the Operator does for a store without its marker, which the restore refuses. */
+	/** What the Operator does for a store without its marker, which the restore refuses: the marker
+	 * is a provisioning record, never created by hand (#221 comment 7153300185). */
 	markerRemedy: string;
 	/** The app role, which owns what a restore writes. The database's and its administrator's names
 	 * are the db container's own POSTGRES_DB and POSTGRES_USER. */
@@ -43,9 +44,9 @@ export const RUNTIMES: Record<RuntimeName, Runtime> = {
 		appService: "songhealth-dev-app.service",
 		mediaMarker: ".songhealth-qdev-media-store",
 		markerRemedy:
-			"create it as dev-runtime-install.sh does for a new store, " +
-			"podman unshare touch <the volume's mountpoint>/.songhealth-qdev-media-store, then restore again " +
-			'(development-quadlet.md "Backup and restore")',
+			"a lost marker is an incident to investigate, never created by hand (production-foundation.md §5.3); " +
+			"on the Product Owner's word, remove the volume with the app stopped and run dev-runtime-install.sh, " +
+			'which creates it with its marker, then restore again (development-quadlet.md "Backup and restore")',
 		appRole: { kind: "fixed", name: "songhealth_qdev_app" },
 		serves: { kind: "marker", path: "dev/songhealth-quadlet/.songhealth-qdev-source-identity" },
 		emdash: { kind: "checkout", path: "dev/songhealth-quadlet/node_modules/emdash/package.json" },
@@ -58,7 +59,9 @@ export const RUNTIMES: Record<RuntimeName, Runtime> = {
 		mediaVolume: "songhealth-media",
 		appService: "songhealth-app.service",
 		mediaMarker: ".songhealth-media-store",
-		markerRemedy: "provision the store first (production-foundation.md §5.3), then restore again",
+		markerRemedy:
+			"provision a recreated store first; a store that lost its marker is an incident to investigate, " +
+			"never marked by hand (production-foundation.md §5.3); then restore again",
 		// The Operator sets the role in the app's environment file (production-foundation.md §4.3).
 		appRole: { kind: "env-file", path: `${QUADLET}/songhealth-app.env` },
 		serves: { kind: "unit-image", path: `${QUADLET}/songhealth-app.container` },
