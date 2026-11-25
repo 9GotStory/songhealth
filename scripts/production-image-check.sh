@@ -4,7 +4,10 @@
 # image's own user (#453), run the image once against the development runtime's data, show how a
 # News picture is served, stop it the way the commit's application unit would, and remove the
 # container and the image.
-#   scripts/production-image-check.sh --sha <commit> [<news-path>] [-- <command> [<arg>...]]
+#   scripts/production-image-check.sh --sha <commit> [--image <ref>] [<news-path>] [-- <command> [<arg>...]]
+# With --image (#455; Product Owner, #455 comment 7163433918) it checks that image, a Release's,
+# instead of building one, reads the commit's unit all the same, and leaves the image in place:
+# scripts/release.ts runs it on the image it cut from <commit>.
 # The startup build (#453; spec #450 "The image and the startup gate") is the build the T013 gate
 # runs in its S2 each time the production container starts: it removes the migration manifest and
 # runs `npm run build` as the image's user, in a container with no network and the placeholder
@@ -20,12 +23,13 @@
 # least-privilege app role, with the runtime's own podman secrets as environment variables, the
 # media volume read-only, published on 127.0.0.1:4325 only. Production's native migration mode is
 # `check`, so it changes no schema; like any server, it adds a missed address to EmDash's 404 log.
-# The image is never deployed or tagged as a release. A base image that is missing locally is
-# pulled by the digest deploy/Containerfile pins.
+# The image it builds is never deployed or tagged as a Release. A base image that is missing
+# locally is pulled by the digest deploy/Containerfile pins.
 # Cleanup: the decision named removing the build's intermediate images by the IDs it added. Other
 # projects share this image storage and may build meanwhile, so the build instead runs with
 # `--layers=false`, which commits the final image alone (podman 5.8.4, 2026-11-01), and only its
-# tag is removed. Any image the run added that is still there at the end is listed, not removed.
+# tag is removed; an image given with --image is not. Any image the run added that is still there
+# at the end is listed, not removed.
 # <news-path> defaults to the demo dataset's Featured News, which has a picture. sharp is optional
 # (spec #51 "Dependencies"), so a sharp that does not load is reported, not failed. <command> runs
 # while the image serves, with CHECK_ORIGIN, CHECK_IMAGE and CHECK_NETWORK in its environment
@@ -35,17 +39,23 @@ set -euo pipefail
 # shellcheck source=scripts/dev-runtime-common.sh
 . "$(dirname "${BASH_SOURCE[0]}")/dev-runtime-common.sh"
 
-usage() { echo "usage: ${0##*/} --sha <commit> [<news-path>] [-- <command> [<arg>...]]" >&2; exit 2; }
+usage() { echo "usage: ${0##*/} --sha <commit> [--image <ref>] [<news-path>] [-- <command> [<arg>...]]" >&2; exit 2; }
 [[ ${1:-} == --sha && -n ${2:-} ]] || usage
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 COMMIT=$(git -C "$REPO" rev-parse --verify -q "$2^{commit}") || die "no commit $2"
 NEWS_PATH=/news/demo-news-ncd-screening
 shift 2
+GIVEN_IMAGE=
+if [[ ${1:-} == --image ]]; then
+  [[ -n ${2:-} ]] || usage
+  GIVEN_IMAGE=$2
+  shift 2
+fi
 if [[ $# -gt 0 && $1 != -- ]]; then NEWS_PATH=${1:-$NEWS_PATH}; shift; fi
 if [[ $# -gt 0 ]]; then [[ $1 == -- && $# -gt 1 ]] || usage; shift; fi
 CHECK_PORT=4325
 CHECK_ORIGIN=http://127.0.0.1:$CHECK_PORT
-TAG=localhost/songhealth-image-check:${COMMIT:0:7}
+TAG=${GIVEN_IMAGE:-localhost/songhealth-image-check:${COMMIT:0:7}}
 CTR=songhealth-image-check
 
 # The database the runtime's app unit names: one source of truth for the connection.
@@ -60,30 +70,40 @@ masked() {
 since() { awk -v start="$1" -v now="$EPOCHREALTIME" 'BEGIN { printf "%.2f", now - start }'; }
 
 podman container exists "$CTR" && die "container $CTR exists: another check is running or was left behind"
-podman image exists "$TAG" && die "image $TAG exists: remove it first (podman rmi $TAG)"
+if [[ -n $GIVEN_IMAGE ]]; then
+  podman image exists "$TAG" || die "no image $TAG"
+else
+  podman image exists "$TAG" && die "image $TAG exists: remove it first (podman rmi $TAG)"
+fi
 curl -s -o /dev/null --max-time 2 "$CHECK_ORIGIN/" && die "$CHECK_ORIGIN already answers"
 
 work=$(mktemp -d)
 podman images -aq --no-trunc | sort >"$work/images-before"
 cleanup() {
   podman rm -f -t 0 "$CTR" >/dev/null 2>&1 || true
-  podman rmi "$TAG" >/dev/null 2>&1 || true
+  [[ -n $GIVEN_IMAGE ]] || podman rmi "$TAG" >/dev/null 2>&1 || true
   local left
   left=$(podman images -aq --no-trunc | sort | comm -13 "$work/images-before" -)
   rm -rf "$work"
   if [[ -n $left ]]; then warn "images added during the run are still present: ${left//$'\n'/ }"
+  elif [[ -n $GIVEN_IMAGE ]]; then note "removed the container; the image $TAG stays"
   else note "removed the container and the image; no image the run added is left"; fi
 }
 trap cleanup EXIT
 
-note "building deploy/Containerfile at ${COMMIT:0:7} from a git archive"
 mkdir "$work/context"
 { git -C "$REPO" archive "$COMMIT" | tar -x -C "$work/context"; } || die "could not export ${COMMIT:0:7}"
-started=$SECONDS
-podman build --layers=false -f "$work/context/deploy/Containerfile" -t "$TAG" \
-  "$work/context" >"$work/build.log" 2>&1 || { tail -20 "$work/build.log" >&2; die "the image build failed"; }
-note "built $(podman image inspect "$TAG" --format '{{.Id}}' | cut -c1-12) in $((SECONDS - started)) s," \
-  "$(podman image inspect "$TAG" --format '{{.Size}}' | numfmt --to=si) bytes"
+if [[ -n $GIVEN_IMAGE ]]; then
+  note "checking $TAG ($(podman image inspect "$TAG" --format '{{.Id}}' | cut -c1-12)," \
+    "$(podman image inspect "$TAG" --format '{{.Size}}' | numfmt --to=si) bytes) against ${COMMIT:0:7}'s unit"
+else
+  note "building deploy/Containerfile at ${COMMIT:0:7} from a git archive"
+  started=$SECONDS
+  podman build --layers=false -f "$work/context/deploy/Containerfile" -t "$TAG" \
+    "$work/context" >"$work/build.log" 2>&1 || { tail -20 "$work/build.log" >&2; die "the image build failed"; }
+  note "built $(podman image inspect "$TAG" --format '{{.Id}}' | cut -c1-12) in $((SECONDS - started)) s," \
+    "$(podman image inspect "$TAG" --format '{{.Size}}' | numfmt --to=si) bytes"
+fi
 
 note "native pieces, in a container with no network:"
 pieces=$(podman run --rm --network none "$TAG" node -e '
@@ -221,4 +241,4 @@ note "asked to stop, it exited $exit_code after $stop_seconds s"
 grep -q . "$work/stop.log" && sed 's/^/  | /' "$work/stop.log"
 node "$REPO/scripts/production-image-check-verdict.ts" stop "$UNIT" "$exit_code" "$stop_seconds" \
   || die "the container did not leave cleanly on the stop signal"
-note "PRODUCTION IMAGE CHECK: PASS at ${COMMIT:0:7}"
+note "PRODUCTION IMAGE CHECK: PASS at ${COMMIT:0:7}${GIVEN_IMAGE:+ on $GIVEN_IMAGE}"

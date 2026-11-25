@@ -34,8 +34,9 @@ T028, waits for T022. See §11.
 ## 1. Scope, authority, and verification status
 
 In scope here: installation, one-time provisioning, startup, start/stop/restart/recreation,
-the Recovery Set's backup and restore (§7.6), readiness interpretation, the private database
-boundary, and the external HTTPS/reverse-proxy boundary of the Feature 001 production baseline.
+the Recovery Set's backup and restore (§7.6), cutting a Release (§7.7, Feature 016), readiness
+interpretation, the private database boundary, and the external HTTPS/reverse-proxy boundary of the
+Feature 001 production baseline.
 
 Out of scope of Feature 001's baseline: selecting a reverse-proxy or monitoring product (Feature 001 explicitly
 excludes both; §10 states the required boundary only), scheduled backups and keeping several
@@ -303,8 +304,12 @@ container creation closed. Two consequences for operators:
      was retired.
    - **Moving it.** Move it between accounts or hosts with
      `podman save --format oci-archive --uncompressed` and `podman load`, which keep the
-     manifest digest. The default `oci-archive`, `docker-archive` and `docker-dir` formats
-     rewrite the manifest and change the digest.
+     manifest digest of an image whose manifest lists uncompressed layers, as Feature 001's
+     0.0.1 does. Podman 6.2.0's `podman build` compresses the layers its manifest lists unless
+     given `--disable-compression=true`, and such an image saved `--uncompressed` loads with
+     another digest (#455, measured on the workstation, 2026-11-25); `docker-archive` changes
+     the digest of either. A Release's image is therefore built uncompressed, and its cut loads
+     the archive into an empty store to read the digest back (§7.7).
 2. **Changing the accepted build is a review-gated change to the pinned identity** in the
    committed unit — never an automatic re-pin, and never a fallback to a bare mutable tag or
    `latest`. (The PostgreSQL image is an upstream registry reference and is pulled by digest if
@@ -840,6 +845,90 @@ provisioned, with the marker in place, which is how T028 drills a recreated runt
 
 `node scripts/recovery-set.ts check production "$SET"` runs the integrity check on its own; while
 the application runs, the tables it writes differ.
+
+### 7.7 Cutting a Release
+
+A Release (`GLOSSARY.md`) is an image built on the workstation from a commit, identified by its
+version, that commit and its digest, and moved to the host as an archive (spec #450 "Releases").
+Versions follow SemVer: `1.0.0` is a Release, and a version with a pre-release part, such as
+`1.0.0-rc.1`, is a release candidate for the rehearsal. **Cutting a Release deploys nothing and
+needs no approval.** The Operator's approval sits before a deployment, after the pin below has been
+reviewed, and every deployment needs its own; a version is not that approval, and it is not
+go-live.
+
+**Before a cut**, the build commit passes the repository's checks as they exist:
+
+| Check | How | Where it runs |
+|---|---|---|
+| Types and `astro check` | `npm run typecheck` | CI and the workstation |
+| The build check | `npm run build:check` | CI and the workstation |
+| The node tests | `npm run test:node` | CI and the workstation |
+| The lifecycle harness's self-test | `tests/operations/verify-foundation.sh --self-test` | CI |
+| Formatting | `npm run format:check` | CI and the workstation |
+| Knip | `npm run knip` | CI and the workstation |
+| jscpd | `npm run jscpd` | CI and the workstation |
+| The shell lint | `npm run lint:shell` | CI and the workstation |
+| The browser suites the change calls for | `node scripts/suites-for-change.ts <base>` lists them; they run against the development runtime (`README.md`) | the workstation |
+| CI | `.github/workflows/checks.yml`, on every push to `main` and to an integration branch | GitHub |
+
+The repository has no ESLint. That is a recorded gap in the Product Owner's quality baseline,
+followed up in #471, not a check a Release passes.
+
+**The cut.** From a clean checkout, on the Node `package.json` pins (26.13.0), with `gh` signed in
+and the development runtime running (the image check uses its network and database):
+
+```bash
+node scripts/release.ts cut 1.0.0-rc.1 --sha <commit>     # or no --sha: the checkout's HEAD
+```
+
+It refuses a checkout with uncommitted changes, a commit whose GitHub check runs have not all
+passed, and a version that already has a record, a tag or an image. A Release (no pre-release part)
+also needs `package.json` to read its version at the commit, and the commit to be on `origin/main`
+(Product Owner, #455 comment 7163433918). Then, in order, each step stopping the cut on a failure:
+
+1. builds `deploy/Containerfile` from a `git archive` of the commit as
+   `localhost/songhealth-app:<version>`, with `--disable-compression=true` (§4.5) and the OCI
+   labels `org.opencontainers.image.version` and `org.opencontainers.image.revision`;
+2. runs the image check on that image,
+   `scripts/production-image-check.sh --sha <commit> --image localhost/songhealth-app:<version>`
+   (#453: the native pieces, the startup gate's build as the image's user, a run against the
+   development database and a stop as the commit's unit stops it), which leaves the image in place;
+3. checks that the image's `/app/package.json` and `/app/tests/operations/verify-startup.sh` equal
+   the commit's byte for byte, which the lifecycle harness requires of the deployed checkout;
+4. saves the image with `podman save --format oci-archive --uncompressed` as
+   `songhealth-app-<version>.oci.tar`, beside its SHA-256 in `songhealth-app-<version>.oci.tar.sha256`
+   (`sha256sum -c` reads it on the host);
+5. loads the archive into an empty, temporary Podman store and checks that the image reads the same
+   digest there, then removes that store;
+6. checks that no image left the workstation's storage and that Feature 001's
+   `localhost/songhealth-app:0.0.1@sha256:4cfccf41…` is still there;
+7. writes `record.json`: the version, the build commit, the image, its digest, the archive's name,
+   SHA-256 and size, the tag, the UTC time, and `deploymentConfigCommit`, null until the pin.
+
+A Release's record names its tag, `v<version>`, and the cut makes that annotated tag on the build
+commit before it writes the record, its message naming the record, the image and digest and the archive's checksum; push it
+with `git push origin v<version>`. A release candidate gets a record and no tag. The files go to
+`<releases>/<version>/`, where `<releases>` is `--releases`, or `$SONGHEALTH_RELEASES`, or
+`~/.local/share/songhealth/releases`; keep that folder off the host as well (spec #450 "Recovery
+Sets, every night").
+
+The command removes no image. A cut that fails removes its folder and leaves its image, and names
+it: remove that image by its name (`podman rmi localhost/songhealth-app:<version>`) before cutting
+the version again, or cut the next version.
+
+**The pin**, a second commit reviewed on its own, so that the image is never rebuilt because only
+the pin changed:
+
+```bash
+node scripts/release.ts pin 1.0.0-rc.1      # rewrites songhealth-app.container's Image= line
+# commit that line, with §4.5 naming the new image, alone; review and merge it
+node scripts/release.ts pinned 1.0.0-rc.1 <the merged pin commit>
+```
+
+`pinned` checks that the commit is not the build commit, descends from it and is on `origin/main`
+or an integration branch (its review merged it), that its unit pins the record's image and digest, and that its `package.json` and
+startup script are the build commit's; then it adds the commit to the record as
+`deploymentConfigCommit`. The build commit and the pin commit stay apart in the record.
 
 ## 8. Readiness interpretation
 
