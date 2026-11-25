@@ -37,7 +37,7 @@ In scope here: installation, one-time provisioning, startup, start/stop/restart/
 the Recovery Set's backup and restore (§7.6), readiness interpretation, the private database
 boundary, and the external HTTPS/reverse-proxy boundary of the Feature 001 production baseline.
 
-Out of scope, unchanged: selecting a reverse-proxy or monitoring product (Feature 001 explicitly
+Out of scope of Feature 001's baseline: selecting a reverse-proxy or monitoring product (Feature 001 explicitly
 excludes both; §10 states the required boundary only), scheduled backups and keeping several
 Recovery Sets (#221), any second production stack (Docker/Compose and Kubernetes are not
 baselines), and any boot-time or scheduling policy the committed units do not define (§4.6).
@@ -47,8 +47,9 @@ with the office's other systems (`docs/adr/0009`): the proxy is Caddy at the hos
 Recovery Set is taken every night and kept off the host, and monitoring is split between
 Songhealth's watch and the host's (`10` §3.1, §17, §18).
 [`production-host-contract.md`](production-host-contract.md) states what Songhealth needs from the
-host for each. This document takes each in as the Feature 016 ticket that builds it lands; until
-then §2, §7.6 and §10 describe Feature 001's boundary.
+host for each. §2 and §10 already name the proxy's place and the split watch; §7.6 describes the
+Recovery Set taken by hand until the nightly set's ticket (#460) lands, and each Feature 016 ticket
+brings this document to what it builds.
 
 ## 2. Production topology
 

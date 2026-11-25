@@ -32,7 +32,7 @@ Each item gives:
 - **Interface:** Caddy runs at the host's level for every system on it. Its configuration imports
   Songhealth's site configuration, a file this repository provides (#456 places it, #458 completes
   it), from a path the host chooses. That site answers `songhealth.moph.go.th` alone, forwards to
-  Songhealth's loopback publication (`127.0.0.1:4321`, `production-foundation.md` §9), passes the
+  Songhealth's loopback publication (`127.0.0.1:4321`, `production-foundation.md` §2, §10), passes the
   name to the application as a fixed `Host`, limits the request body, and answers with a static HTML
   notice and HTTP 503 while the application is stopped for the night's Recovery Set (§3). Where the
   site must refer to something private, such as which addresses may reach it before the cutover, it
@@ -169,8 +169,9 @@ Each item gives:
   substitute for memory the system needs (spec #450).
 - **Permission:** setting a limit or swap is a root step of the Operator's. The account reads its
   limits and cannot change them.
-- **Status:** the account reads its limits from systemd (`systemctl show user-<uid>.slice`) and its
-  own units' use (`systemctl --user status`); the host watches the machine's memory and swap.
+- **Status:** the account can read its limits where the host applies them, which the host tells
+  it, and its own units' use (`systemctl --user status`); the host watches the machine's memory and
+  swap.
 - **On failure:** a start that runs out of memory is killed; the unit fails or restarts, and
   Songhealth's watch reports it (§4). The host's watch reports pressure on the machine.
 - **Recovery:** the Operator raises the limit or the swap, after the figures say why; Songhealth
@@ -187,7 +188,7 @@ states.
 Some details here go beyond what spec #450 decided, so that both sides can be built against them,
 and the Product Owner reviews them with this document: the snippet the site imports for the
 private-network rule (§1), the rename into the folder of finished sets and the status file's three
-keys (§3), the alert command's arguments (§4), and the access log's JSON lines (§5), and that a Podman upgrade on the host is announced before it
-is applied (§2). The tickets
+keys (§3), the alert command's arguments (§4), the access log's JSON lines (§5), and the
+announcement of a Podman upgrade on the host before it is applied (§2). The tickets
 that build each side (#456, #458, #460, #462) confirm them against the stand-in, and a change goes
 into this document first.
