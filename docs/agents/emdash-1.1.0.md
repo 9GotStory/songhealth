@@ -224,6 +224,18 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
     `astro dev`, `/_image?href=/_emdash/api/setup/dev-bypass&w=64` would therefore call that GET
     route, which applies the seed again. The Thai search UAT's proxy refuses every `/_image` whose
     `href` is not a media file (`./scripts/uat-proxy/policy.ts`, #238).
+  - The Admin asks `/_image` for its own thumbnails, as WebP of a local media file's same-origin URL:
+    80 px wide in the Media Library's list rows and its selection tray, 400 in the media browser's
+    items (the library's and the picker's), 1,200 in an item's detail panel
+    (`@emdash-cms/admin/dist/index.js` `getMediaThumbnailUrl`, `MEDIA_THUMBNAIL_WIDTH`,
+    `MEDIA_DETAIL_PREVIEW_WIDTH`; `MediaListItem`, `MediaSelectionTrayItem`, `MediaBrowserItem`). A Media Library page holds 35 items by
+    default (70 or 90 on request, `MEDIA_BROWSER_PAGE_SIZES`), and a picker page 12
+    (`PICKER_PAGE_SIZE`). Where a rendition fails to load, the media browser's items, the list
+    rows and the detail and focal-point previews swap to the original once
+    (`fallbackToOriginalThumbnail`), so a proxy that refuses `/_image` costs each of those pictures
+    one refused request before its original shows. The selection tray's 80 px thumbnail has no
+    such fallback and stays broken (`MediaSelectionTrayItem`, which the picker shows) (spec #450;
+    #458 tests it).
   - The middleware gives `/_image` its storage with no runtime init and no setup probe, so a
     container with no database and no media volume still has storage: a safe key answers 404 with
     nothing fetched (`src/astro/middleware.ts` `isImageEndpointRequest`, `tryGetStorage`; #183
@@ -644,7 +656,9 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
 - In development, with no other email provider, the console email provider writes each email to
   standard output, an invite's link and token included, so they reach the app's journal
   (`src/plugins/email-console.ts`). With no provider configured, the invite route returns the link
-  in its answer instead (`src/astro/routes/api/auth/invite/index.ts`).
+  in its answer instead (`src/astro/routes/api/auth/invite/index.ts`), and the Admin shows it to
+  copy (`@emdash-cms/admin/dist/index.js` `InviteUserModal`). The link is valid for 7 days, and completing it consumes its token, so it works once
+  (`@emdash-cms/auth/src/invite.ts` `TOKEN_EXPIRY_MS`, `completeInvite`).
 - Each media item keeps `author_id` and `created_at` (`src/database/migrations/001_initial.ts`).
   The Admin takes and refreshes an entry's edit lock with `POST …/lock` and releases it with
   `DELETE` (`src/astro/routes/api/content/[collection]/[id]/lock.ts`).
@@ -673,6 +687,38 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   takes bearer tokens only (`src/astro/integration/runtime.ts`). Its tools include
   `content_publish`, `schema_create_field`, `schema_delete_collection`, and taxonomy and menu
   changes (`src/mcp/server.ts`).
+
+## Authentication and setup
+
+What production sign-in rests on, read for spec #450 on 2026-11-25.
+
+- A passkey's relying party (`rpId`) and its expected origin come from the configured site URL,
+  `EMDASH_SITE_URL` in this repository's units, and from the request's URL only when no site URL is
+  set; the request's `Host` never decides them once it is set (`src/auth/passkey-config.ts`
+  `getPasskeyConfig`, `src/api/public-url.ts` `getPublicOrigin`, read by each route that makes or
+  checks a passkey, the first Administrator's included). Extra accepted origins (`EMDASH_ALLOWED_ORIGINS`) must be the site's own host or a
+  subdomain of it, and an IP-literal site URL takes none (`src/auth/allowed-origins.ts`
+  `validateAllowedOrigins`). So a passkey made under `songhealth.moph.go.th` works only at that
+  name.
+- With no email provider, this repository's production configuration, sign-in is by passkey only,
+  and no supported route recovers a lost one: an Administrator's recovery link answers
+  `EMAIL_NOT_CONFIGURED` (`src/astro/routes/api/admin/users/[id]/send-recovery.ts`). A user renames
+  or deletes only their own passkeys, never their last one, and the Administrator's user routes
+  read, update, disable and enable a user but reset no passkey
+  (`src/astro/routes/api/auth/passkey/[id].ts`, `src/astro/routes/api/admin/users/[id]/index.ts`,
+  `src/astro/routes/api/admin/users/[id]/disable.ts`,
+  `src/astro/routes/api/admin/users/[id]/enable.ts`).
+- The setup routes are public, under `/_emdash/api/setup` (`src/astro/middleware/auth.ts`
+  `PUBLIC_API_PREFIXES`): until the first Administrator exists, anyone who reaches the site can
+  start creating one. `POST …/setup/admin` refuses once a user exists
+  (`src/astro/routes/api/setup/admin.ts`), so the site stays private until the Product Owner has
+  set up the first Administrator.
+- Both development bypasses, `…/auth/dev-bypass` and `…/setup/dev-bypass`, answer
+  `403 FORBIDDEN` outside `astro dev` (`src/astro/routes/api/auth/dev-bypass.ts`,
+  `src/astro/routes/api/setup/dev-bypass.ts`), which is how the production image runs.
+- An API token is checked by its hash alone, with no regard to the request's `Host`, so it
+  works against the application's loopback address whatever name the request carries
+  (`src/astro/middleware/auth.ts` `handleBearerAuth`, `src/api/handlers/api-tokens.ts` `resolveApiToken`).
 
 ## Database migrations and backup
 
@@ -868,7 +914,8 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `./playwright.config.ts` sends a `songhealth-unknown-` referrer with every test request, so
   `./scripts/dev-runtime-residue.sh` counts a test's miss as the tests' even where its path cannot
   carry the mark, such as a fiscal year's `/ita/2404`.
-- `GET /_emdash/api/auth/dev-bypass` answers only in development, and signs in one account, the
+- `GET /_emdash/api/auth/dev-bypass` answers only in development (`403` elsewhere, "Authentication
+  and setup"), and signs in one account, the
   Administrator `dev@emdash.local`, which it creates when missing
   (`src/astro/routes/api/auth/dev-bypass.ts` `handleDevBypass`). `./tests/browser/cms.helpers.ts`
   `openDevAdminSession` and `./scripts/capture-admin.ts` sign in through it.

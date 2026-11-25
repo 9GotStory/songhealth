@@ -37,16 +37,25 @@ In scope here: installation, one-time provisioning, startup, start/stop/restart/
 the Recovery Set's backup and restore (§7.6), readiness interpretation, the private database
 boundary, and the external HTTPS/reverse-proxy boundary of the Feature 001 production baseline.
 
-Out of scope, unchanged: selecting a reverse-proxy or monitoring product (Feature 001 explicitly
+Out of scope of Feature 001's baseline: selecting a reverse-proxy or monitoring product (Feature 001 explicitly
 excludes both; §10 states the required boundary only), scheduled backups and keeping several
 Recovery Sets (#221), any second production stack (Docker/Compose and Kubernetes are not
 baselines), and any boot-time or scheduling policy the committed units do not define (§4.6).
+
+Feature 016 (spec #450) settles three of these for the Production host, which Songhealth shares
+with the office's other systems (`docs/adr/0009`): the proxy is Caddy at the host's level, a
+Recovery Set is taken every night and kept off the host, and monitoring is split between
+Songhealth's watch and the host's (`10` §3.1, §17, §18).
+[`production-host-contract.md`](production-host-contract.md) states what Songhealth needs from the
+host for each. §2 and §10 already name the proxy's place and the split watch; §7.6 describes the
+Recovery Set taken by hand until the nightly set's ticket (#460) lands, and each Feature 016 ticket
+brings this document to what it builds.
 
 ## 2. Production topology
 
 ```text
 Internet
-  -> external HTTPS/reverse-proxy boundary (product not selected; §10)
+  -> external HTTPS/reverse-proxy boundary (the host's proxy, Feature 016; §10)
   -> host loopback 127.0.0.1:4321  (the ONLY publication — application port)
   -> systemd-songhealth-app  (Astro SSR + EmDash, non-root `node` user)
        -> private Podman network "songhealth"  (songhealth-network.service)
@@ -285,7 +294,10 @@ container creation closed. Two consequences for operators:
    Podman storage (inspectable as `localhost/songhealth-app@sha256:4cfccf41…`). A fresh
    `podman build -f deploy/Containerfile …` does **not** satisfy the pinned identity: default
    image builds are not bit-reproducible across build times, so a rebuilt image has a different
-   digest by construction. Never rebuild onto a deployment host expecting it to match.
+   digest by construction. A Release's image is built on the workstation only and moved to the
+   host as an archive (`10` §3.1, "Two builds"): never build an image on the Production host.
+   That is not the startup build, the application's own build that the startup gate runs inside
+   the container at every start (§6.2), which stays.
    - **Where the artifact is.** As of 2026-10-29 (Feature 002 T037) the accepted artifact is
      held in the rootless Podman storage of `thanakorn` (UID 1000). Its build account, UID 1001,
      was retired.
@@ -929,7 +941,9 @@ this deployment: readiness is private (§8.2) by Product decision.
 
 The deployment publishes the application on `127.0.0.1:4321` and nothing else; everything beyond
 that is the **external HTTPS/reverse-proxy boundary**, which Feature 001 explicitly does not
-select a product for. The proxy's responsibilities at this boundary:
+select a product for. Feature 016 places Caddy there, at the host's level, with Songhealth's own
+site configuration (`10` §3.1 item 8; [`production-host-contract.md`](production-host-contract.md)
+item 1). The proxy's responsibilities at this boundary:
 
 - terminate **HTTPS** on the public origin and forward to the application's loopback publication
   (`127.0.0.1:4321`) on the same host;
@@ -950,7 +964,9 @@ signal.
 No monitoring product is selected or required by this baseline: the observable operational
 surface is user systemd and the containers themselves — unit state and results, the journal
 (startup-gate verdicts, refusal diagnostics), container health, and the on-demand readiness
-helper (§8). Selecting a monitoring stack remains a later, separately authorized decision.
+helper (§8). Feature 016 adds no monitoring stack: Songhealth's own watch reads these and
+reports through the host's alert command, and the host watches the machine (`10` §17;
+[`production-host-contract.md`](production-host-contract.md) items 4 and 5).
 
 ## 11. Runtime evidence status and deferred work
 
