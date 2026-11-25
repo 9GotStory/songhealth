@@ -126,7 +126,10 @@ function run(
 		...spawn,
 	});
 	if (result.error !== undefined || result.status !== 0) {
-		const detail = errorTail(result.error?.message ?? String(result.stderr ?? "")).join("\n  ");
+		// A spawn error is the host's own message; a tool's stderr can quote a row.
+		const detail = (
+			result.error === undefined ? errorTail(String(result.stderr ?? "")) : [result.error.message]
+		).join("\n  ");
 		throw new fail(
 			`${what} failed (exit ${result.status ?? "none"})${detail === "" ? "" : `:\n  ${detail}`}`,
 		);
@@ -282,8 +285,9 @@ function psql(
  * newlines, in primary-key order (each key column's text in the C collation, so the order does not
  * hang on the database's collation; a table without a key orders by the whole row). The session
  * pins the settings that change a row's text: time zone, date and interval styles, float digits,
- * bytea and money output, and the search path reg* types print against (PostgreSQL 18,
- * runtime-config-client.html). All in the server: no row leaves the container.
+ * bytea and money output (PostgreSQL 18, runtime-config-client.html), and the search path that
+ * reg* types print their names against (datatype-oid.html). All in the server: no row leaves the
+ * container.
  */
 const TABLE_DIGESTS = String.raw`
 SET TimeZone = 'UTC';
@@ -621,8 +625,9 @@ async function confirmations(questions: readonly string[]): Promise<boolean> {
 		}
 		return true;
 	} finally {
-		// Released, or a terminal's standard input keeps the process waiting after its last line
-		// (measured on a pseudo-terminal under Node 26.13.0, #221).
+		// close() relinquishes the input stream (Node's doc/api/readline.md); without it a terminal's
+		// standard input kept the process waiting after its last line (a pseudo-terminal, Node
+		// 26.13.0).
 		input.close();
 	}
 }

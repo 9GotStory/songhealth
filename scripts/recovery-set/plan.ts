@@ -46,7 +46,8 @@ export const RUNTIMES: Record<RuntimeName, Runtime> = {
 		markerRemedy:
 			"a lost marker is an incident to investigate, never created by hand (production-foundation.md §5.3); " +
 			"on the Product Owner's word, remove the volume with the app stopped and run dev-runtime-install.sh, " +
-			'which creates it with its marker, then restore again (development-quadlet.md "Backup and restore")',
+			"which creates it with its marker and starts the app; stop the app again, then restore " +
+			'(development-quadlet.md "Backup and restore")',
 		appRole: { kind: "fixed", name: "songhealth_qdev_app" },
 		serves: { kind: "marker", path: "dev/songhealth-quadlet/.songhealth-qdev-source-identity" },
 		emdash: { kind: "checkout", path: "dev/songhealth-quadlet/node_modules/emdash/package.json" },
@@ -749,26 +750,31 @@ export function listStore(
 		: { error };
 }
 
-/** A line that quotes a row: PostgreSQL's DETAIL or CONTEXT, alone or after a tool's name. */
-const QUOTES_A_ROW = /^\s*(?:[\w.-]+:\s+)?(?:detail|context):/i;
-/** A line that starts a message of its own, where a DETAIL's or CONTEXT's further lines end. */
-const STARTS_A_MESSAGE =
-	/^(?:pg_restore|pg_dump|psql|tar|find|rm|cat|podman|Error|ERROR|WARNING|NOTICE|HINT|FATAL|PANIC|LOG|STATEMENT)\b/;
+/**
+ * A line that starts a message, in the shapes the command's tools write: a tool's name and ": "
+ * (`psql:<stdin>:3:` too), libpq's label and two spaces, or podman's and Node's "Error: ".
+ */
+const A_MESSAGE =
+	/^(?:(?:pg_restore|pg_dump|tar|find|rm|cat|podman): |psql:|(?:ERROR|WARNING|NOTICE|HINT|FATAL|PANIC): {2}|Error: )/;
+/**
+ * PostgreSQL's DETAIL and CONTEXT, which can quote a row (a failing COPY's column, a failing row).
+ */
+const QUOTES_A_ROW = /^(?:(?:pg_restore|pg_dump): )?(?:detail|context):/i;
 
 /**
- * The last lines of a failed command's standard error for the Operator, without what can quote a
- * row's values: PostgreSQL's DETAIL and CONTEXT lines with their further lines (a failing COPY's
- * column, a failing row), and a value an error quotes after a colon, as in `for type integer: "…"`.
+ * The last messages of a failed command's standard error for the Operator, without what can quote
+ * a row's values. It keeps only the lines that start a message, never a DETAIL or CONTEXT, so the
+ * further lines of a value that holds a newline go too, and cuts a line from a quoted value after a
+ * colon to its end, as in `for type integer: "…"`, since PostgreSQL escapes nothing inside the
+ * quotes. A value line that itself starts like a message would still show.
  */
 export function errorTail(stderr: string, lines = 8): string[] {
-	const kept: string[] = [];
-	let dropping = false;
-	for (const line of stderr.trim().split("\n")) {
-		if (QUOTES_A_ROW.test(line)) dropping = true;
-		else if (STARTS_A_MESSAGE.test(line)) dropping = false;
-		if (!dropping) kept.push(line.replace(/: "(?:[^"\\]|\\.)*"/g, ': "…"'));
-	}
-	return kept.slice(-lines);
+	return stderr
+		.trim()
+		.split("\n")
+		.filter((line) => A_MESSAGE.test(line) && !QUOTES_A_ROW.test(line))
+		.map((line) => line.replace(/: ".*$/, ': "…"'))
+		.slice(-lines);
 }
 
 /** The command's exit codes: a refusal changes nothing, nor does a check that finds a difference;

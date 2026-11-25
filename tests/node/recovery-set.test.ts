@@ -80,7 +80,8 @@ describe("the runtime map", () => {
 				markerRemedy:
 					"a lost marker is an incident to investigate, never created by hand (production-foundation.md §5.3); " +
 					"on the Product Owner's word, remove the volume with the app stopped and run dev-runtime-install.sh, " +
-					'which creates it with its marker, then restore again (development-quadlet.md "Backup and restore")',
+					"which creates it with its marker and starts the app; stop the app again, then restore " +
+					'(development-quadlet.md "Backup and restore")',
 				appRole: { kind: "fixed", name: "songhealth_qdev_app" },
 				serves: { kind: "marker", path: "dev/songhealth-quadlet/.songhealth-qdev-source-identity" },
 				emdash: {
@@ -716,7 +717,8 @@ describe("markerRefusal", () => {
 			"the media volume songhealth-qdev-media has no .songhealth-qdev-media-store: " +
 				"a lost marker is an incident to investigate, never created by hand (production-foundation.md §5.3); " +
 				"on the Product Owner's word, remove the volume with the app stopped and run dev-runtime-install.sh, " +
-				'which creates it with its marker, then restore again (development-quadlet.md "Backup and restore")',
+				"which creates it with its marker and starts the app; stop the app again, then restore " +
+				'(development-quadlet.md "Backup and restore")',
 		);
 		assert.equal(
 			markerRefusal(RUNTIMES.production, false),
@@ -728,9 +730,9 @@ describe("markerRefusal", () => {
 });
 
 describe("errorTail", () => {
-	it("keeps a failed command's last eight lines, without PostgreSQL's DETAIL and CONTEXT lines, which can quote a row", () => {
+	it("keeps a failed command's last eight messages, without PostgreSQL's DETAIL and CONTEXT lines, which can quote a row", () => {
 		const stderr = [
-			...Array.from({ length: 9 }, (_, i) => `line ${i}`),
+			...Array.from({ length: 9 }, (_, i) => `pg_restore: processing item ${i}`),
 			'pg_restore: error: COPY failed for table "options": ERROR:  invalid input syntax for type json',
 			'DETAIL:  Token "a-value" is invalid.',
 			'CONTEXT:  COPY options, line 3, column value: "a-value"',
@@ -738,30 +740,36 @@ describe("errorTail", () => {
 			"",
 		].join("\n");
 		assert.deepEqual(errorTail(stderr), [
-			"line 2",
-			"line 3",
-			"line 4",
-			"line 5",
-			"line 6",
-			"line 7",
-			"line 8",
+			"pg_restore: processing item 2",
+			"pg_restore: processing item 3",
+			"pg_restore: processing item 4",
+			"pg_restore: processing item 5",
+			"pg_restore: processing item 6",
+			"pg_restore: processing item 7",
+			"pg_restore: processing item 8",
 			'pg_restore: error: COPY failed for table "options": ERROR:  invalid input syntax for type json',
 		]);
 	});
 
-	it("drops a DETAIL's or CONTEXT's further lines up to the next message, and a value an error quotes", () => {
+	it("keeps only the lines that start a message, and cuts a value an error quotes after a colon to its end", () => {
 		const stderr = [
 			"pg_restore: error: could not execute query: ERROR:  invalid input syntax for type json",
 			"CONTEXT:  JSON data, line 1: a-value",
 			'COPY options, line 3, column value: "a-value"',
 			"DETAIL:  Failing row contains (7, first line",
-			"second line of a-value).",
-			'psql:<stdin>:3: ERROR:  invalid input syntax for type integer: "a-value"',
+			"Error codes below are a-value).",
+			'psql:<stdin>:3: ERROR:  invalid input syntax for type integer: "C:\\"',
+			'psql:<stdin>:4: ERROR:  invalid input syntax for type integer: "a"b"',
+			"tar: ./2026/x.jpg: Cannot open: Permission denied",
+			'ERROR:  "media" is not a view',
 			'HINT:  relation "media" stays',
 		].join("\n");
 		assert.deepEqual(errorTail(stderr), [
 			"pg_restore: error: could not execute query: ERROR:  invalid input syntax for type json",
 			'psql:<stdin>:3: ERROR:  invalid input syntax for type integer: "…"',
+			'psql:<stdin>:4: ERROR:  invalid input syntax for type integer: "…"',
+			"tar: ./2026/x.jpg: Cannot open: Permission denied",
+			'ERROR:  "media" is not a view',
 			'HINT:  relation "media" stays',
 		]);
 	});
