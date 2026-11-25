@@ -242,6 +242,10 @@ more over 5 lines; `.jscpd.json` lists the clones that stay and why, and `.jscpd
   classes held in a constant, a list or a prop, a component imported under another name (#298
   retro: `tests/node/public-media.test.ts` first read only a tag's own text, so a cropped picture
   whose classes sat in a constant would have passed).
+- A test that reads a committed file reads what the ticket holds fixed, and sets for itself a value
+  the repository's own flow rewrites, such as the image the application unit pins or the package's
+  version (#455 retro: `tests/node/release.test.ts` took the unit's `Image=` line for Feature
+  001's, and the first pin, PR #480, needed a commit to keep it passing).
 - A rule with an edge is tested on both sides of the edge: a count such as "the first eight" or
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage
