@@ -906,7 +906,7 @@ also needs `package.json` to read its version at the commit, and the commit to b
    SHA-256 and size, the tag, the UTC time, and `deploymentConfigCommit`, null until the pin.
 
 A Release's record names its tag, `v<version>`, and the cut makes that annotated tag on the build
-commit, its message naming the record, the image and digest and the archive's checksum; push it
+commit before it writes the record, its message naming the record, the image and digest and the archive's checksum; push it
 with `git push origin v<version>`. A release candidate gets a record and no tag. The files go to
 `<releases>/<version>/`, where `<releases>` is `--releases`, or `$SONGHEALTH_RELEASES`, or
 `~/.local/share/songhealth/releases`; keep that folder off the host as well (spec #450 "Recovery
@@ -925,8 +925,8 @@ node scripts/release.ts pin 1.0.0-rc.1      # rewrites songhealth-app.container'
 node scripts/release.ts pinned 1.0.0-rc.1 <the merged pin commit>
 ```
 
-`pinned` checks that the commit is not the build commit, descends from it and is on a branch of
-`origin`, that its unit pins the record's image and digest, and that its `package.json` and
+`pinned` checks that the commit is not the build commit, descends from it and is on `origin/main`
+or an integration branch (its review merged it), that its unit pins the record's image and digest, and that its `package.json` and
 startup script are the build commit's; then it adds the commit to the record as
 `deploymentConfigCommit`. The build commit and the pin commit stay apart in the record.
 

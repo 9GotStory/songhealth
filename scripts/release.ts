@@ -10,23 +10,27 @@
 //   also needs package.json to read its version and its commit to be on origin/main (Product
 //   Owner, #455 comment 7163433918). Then it builds deploy/Containerfile from a git archive of the
 //   commit as localhost/songhealth-app:<version>, its layers uncompressed so that the archive keeps
-//   its digest; runs scripts/production-image-check.sh on that image, which stops the cut on a
-//   failure; checks that the image's package.json and startup script equal the commit's byte for
-//   byte; saves the image as an OCI archive with its SHA-256, loads the archive into an empty store
-//   to read its digest back; checks that no image left the workstation's storage and that Feature
-//   001's image is still there; and writes record.json. A Release's annotated tag v<version> goes
-//   on the build commit, its message naming the record; the person pushes it.
+//   its digest (Podman 6.2.0 compresses them by default; production-foundation.md §4.5); runs
+//   scripts/production-image-check.sh on that image, which stops the cut on a failure; checks that
+//   the image's package.json and startup script equal the commit's byte for byte; saves the image
+//   as an OCI archive with its SHA-256, loads the archive into an empty store to read its digest
+//   back; checks that no image left the workstation's storage and that Feature 001's image is still
+//   there; and writes record.json. A Release's annotated tag v<version> goes on the build commit
+//   before the record is written, its message naming the record; the person pushes it.
 // - pin: rewrites the checkout's deploy/quadlet/songhealth-app.container `Image=` line to the
 //   record's image and digest, for the second commit that is reviewed on its own.
-// - pinned: once that commit is merged, checks that its unit pins the record's digest, that it
-//   descends from the build commit and keeps its harness files, and adds it to the record.
+// - pinned: once that commit is merged into origin/main or an integration branch, checks that its
+//   unit pins the record's digest, that it descends from the build commit and keeps its harness
+//   files, and adds it to the record.
 //
 // The folder holding <version>/record.json and the archive is --releases, or $SONGHEALTH_RELEASES,
-// or ~/.local/share/songhealth/releases. Every rule is in scripts/release/plan.ts. The command
-// removes no image: a cut that fails leaves its image for the person to look at, and its version
-// is not cut again until they remove that image by its name. The image check needs the development
-// runtime's network and database (#453). Runbook: docs/operations/production-foundation.md §7.7.
-// Exit status 0: done; 1: refused or failed; 2: a wrong argument.
+// or ~/.local/share/songhealth/releases. The rules the cut, the record and the pin follow are in
+// scripts/release/plan.ts, under node:test; this file reads the facts and runs the steps. The
+// command removes no image: a cut that fails leaves its image for the person to look at, and its
+// version is not cut again until they remove that image by its name. The image check needs the
+// development runtime's network and database (#453). Runbook:
+// docs/operations/production-foundation.md §7.7. Exit status 0: done; 1: refused or failed; 2: a
+// wrong argument.
 
 import { spawnSync, type SpawnSyncOptions } from "node:child_process";
 import { createHash } from "node:crypto";
