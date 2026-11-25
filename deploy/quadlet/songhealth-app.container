@@ -44,7 +44,7 @@ After=songhealth-db.service
 [Container]
 # Pinned by repository, version and digest. Podman resolves the digest in local storage, so another
 # or rebuilt image fails container creation: accepting a new build means changing this line.
-Image=localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407
+Image=localhost/songhealth-app:1.0.0-rc.1@sha256:316d4f748127ad1314d48190b7e2baaac3063a3eaecdad6678b9076138eca1c7
 
 # Quadlet adds the network's and the volume's services as dependencies of this unit.
 Network=songhealth.network

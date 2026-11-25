@@ -22,10 +22,18 @@ import {
 	type ReleaseRecord,
 } from "../../scripts/release/plan.ts";
 
+/** Feature 001's pin, the one the application unit held when #455 was built. */
+const FEATURE_001_PIN =
+	"Image=localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407";
+
+/**
+ * The committed application unit with Feature 001's pin, whatever Release it pins now: a pin
+ * changes the committed line, and these tests read the rest of the unit as it is.
+ */
 const UNIT = readFileSync(
 	new URL("../../deploy/quadlet/songhealth-app.container", import.meta.url),
 	"utf8",
-);
+).replace(/^Image=.*$/m, FEATURE_001_PIN);
 
 /** A cut every check admits: a release candidate of a clean checkout whose CI passed. */
 const CLEAN: CutFacts = {
@@ -260,12 +268,7 @@ describe("the pin", () => {
 		const before = UNIT.split("\n");
 		const after = unit.split("\n");
 		const changed = after.flatMap((line, at) => (line === before[at] ? [] : [[before[at], line]]));
-		assert.deepEqual(changed, [
-			[
-				"Image=localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407",
-				pinned,
-			],
-		]);
+		assert.deepEqual(changed, [[FEATURE_001_PIN, pinned]]);
 	});
 
 	it("refuses a unit with no Image= line or two", () => {

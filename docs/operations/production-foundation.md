@@ -282,25 +282,28 @@ disagreement skips/blocks startup naming the mismatching field only.
 
 Every production image is pinned by explicit version **and** immutable digest:
 
-- Application: `localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407`
+- Application: `localhost/songhealth-app:1.0.0-rc.1@sha256:316d4f748127ad1314d48190b7e2baaac3063a3eaecdad6678b9076138eca1c7`,
+  the release candidate for the rehearsal, built from `38bc570` (#455; its record and archive:
+  §7.7). Feature 001's accepted artifact,
+  `localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407`,
+  was pinned until this change and stays on the workstation as a record.
 - PostgreSQL: `docker.io/library/postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf`
 - The application image's build base is itself digest-pinned inside the Containerfile
-  (official Node 26.13.0 image since #101). The accepted artifact above was built on Node 24.21.0
-  and stays pinned until a reviewed re-pin replaces it.
+  (official Node 26.13.0 image since #101), on which 1.0.0-rc.1 was built; Feature 001's 0.0.1
+  was built on Node 24.21.0.
 
 Podman resolves the digest against local image storage, so any other or rebuilt image fails
 container creation closed. Two consequences for operators:
 
-1. **The accepted application artifact must be present** in the deployment user's rootless
-   Podman storage (inspectable as `localhost/songhealth-app@sha256:4cfccf41…`). A fresh
+1. **The pinned application image must be present** in the deployment user's rootless Podman
+   storage (inspectable as `localhost/songhealth-app@<the digest the unit pins>`). A fresh
    `podman build -f deploy/Containerfile …` does **not** satisfy the pinned identity: default
    image builds are not bit-reproducible across build times, so a rebuilt image has a different
    digest by construction. A Release's image is built on the workstation only and moved to the
    host as an archive (`10` §3.1, "Two builds"): never build an image on the Production host.
    That is not the startup build, the application's own build that the startup gate runs inside
    the container at every start (§6.2), which stays.
-   - **Where the artifact is.** As of 2026-10-29 (Feature 002 T037) the accepted artifact is
-     held in the rootless Podman storage of `thanakorn` (UID 1000). Its build account, UID 1001,
+   - **Where Feature 001's artifact is.** As of 2026-10-29 (Feature 002 T037) it is held in the rootless Podman storage of `thanakorn` (UID 1000). Its build account, UID 1001,
      was retired.
    - **Moving it.** Move it between accounts or hosts with
      `podman save --format oci-archive --uncompressed` and `podman load`, which keep the
