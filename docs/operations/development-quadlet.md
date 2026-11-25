@@ -224,8 +224,8 @@ node scripts/recovery-set.ts restore dev <dir>       # type yes for the database
 scripts/dev-runtime-install.sh --sha <old-commit>    # reinstalls deps/units if needed, starts, verifies
 ```
 
-A commit from before #221 restores its own sets, of four `qdev-*` files, with its
-`scripts/dev-runtime-restore.sh --confirm <dump> <media-tar> <checksums> <meta>`.
+A commit from before #221 restores its own sets, of four `qdev-*` files, with the restore its
+own `development-quadlet.md` "Backup and restore" names.
 
 ## Update the content model
 
@@ -488,9 +488,16 @@ node scripts/recovery-set.ts check dev "$SET"       # the integrity check on its
   empties the media volume but for its marker, extracts the archive, and checks every table, the
   migrations and every media file against the manifest. Exit 1 changed nothing; exit 3 left the
   runtime partial: keep the app stopped and restore again.
+- **The media store's marker.** A set leaves out `.songhealth-qdev-media-store`, and the restore
+  keeps the volume's own and refuses a volume without one. When the installer reports that the
+  volume lost its marker, create it as the installer does for a new store, `podman unshare touch
+  "$(podman volume inspect --format '{{.Mountpoint}}' songhealth-qdev-media)/.songhealth-qdev-media-store"`,
+  then restore a set into it.
+- **`check`.** A difference prints `FAIL` with each table or path and exits 1, with nothing
+  changed. While the app runs, the tables it writes differ.
 - **Sets from before #221.** The `backups/` folders of four files (`qdev-db-*.dump`,
   `qdev-media-*.tar`, `qdev-checksums-*.sha256`, `qdev-meta-*.txt`) are restored by their own
-  commit's `scripts/dev-runtime-restore.sh` (the rollback steps above).
+  commit's restore (the rollback steps above).
 - **A window:** backing up, changing the data and restoring as one held stretch is "A window" below.
 - **What a backup covers.** Database and media only. The secrets (including
   `EMDASH_ENCRYPTION_KEY`, needed to read encrypted plugin settings) live in the podman secret

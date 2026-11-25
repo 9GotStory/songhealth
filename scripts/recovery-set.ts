@@ -9,6 +9,10 @@
 // The runtime's name is the only thing that names a resource; scripts/recovery-set/plan.ts maps it
 // to its db container, volumes and app service, and holds every rule this file applies.
 //
+// The native gap: EmDash 1.1.0's own backup (src/api/handlers/backup.ts) exports content as JSON,
+// without users, sessions, secrets or media files, and current/10-system-blueprint.md §18 rules
+// such an export out as the only backup; this command takes the whole database and media store.
+//
 // - backup: refuses while the app's service runs, and prints the stop and start commands. Writes a
 //   complete custom-format pg_dump made inside the db container (database.dump), a ustar archive
 //   of the media volume made under `podman unshare` (media.tar), and manifest.json last. The
@@ -64,6 +68,7 @@ import {
 	buildManifest,
 	compareHoldings,
 	DATABASE_FILE,
+	describeTotals,
 	databaseRefusal,
 	directoryRefusal,
 	errorTail,
@@ -83,9 +88,9 @@ import {
 	parseServes,
 	parseTableDigests,
 	partialTarget,
+	recordedHoldings,
 	type Runtime,
 	serializeManifest,
-	totals,
 	walkUstar,
 } from "./recovery-set/plan.ts";
 
@@ -550,7 +555,6 @@ function backup(runtime: Runtime, dir: string): void {
 }
 
 function report(runtime: Runtime, dir: string, manifest: Manifest, text: string): void {
-	const { tables, rows, mediaFiles } = totals(manifest);
 	const { database, media } = manifest.archives;
 	say(`wrote the ${runtime.name} Recovery Set ${dir}:`);
 	process.stdout.write(
@@ -558,7 +562,7 @@ function report(runtime: Runtime, dir: string, manifest: Manifest, text: string)
 			`  ${MANIFEST_FILE}  sha256 ${createHash("sha256").update(text).digest("hex")}`,
 			`  ${DATABASE_FILE}  ${database.size} bytes  sha256 ${database.sha256}`,
 			`  ${MEDIA_FILE}      ${media.size} bytes  sha256 ${media.sha256}`,
-			`  ${tables} tables, ${rows} rows, ${mediaFiles} media files, ${manifest.database.migrations.length} migrations`,
+			`  ${describeTotals(manifest)}`,
 			`  serves ${manifest.serves}; ${manifest.versions.pgDump}; server ${manifest.versions.server}; EmDash ${manifest.versions.emdash}; ${manifest.createdUtc}`,
 			"",
 		].join("\n"),
@@ -570,8 +574,8 @@ function report(runtime: Runtime, dir: string, manifest: Manifest, text: string)
 
 // ----------------------------------------------------------------------------- restore and check
 
-/** The set's manifest for a runtime, read and checked for grammar and runtime only. */
-function readManifest(runtime: Runtime, dir: string): Manifest {
+/** The manifest of the set a check compares with: its grammar and its runtime, nothing else. */
+function manifestToCheck(runtime: Runtime, dir: string): Manifest {
 	let text: string;
 	try {
 		text = readFileSync(join(dir, MANIFEST_FILE), "utf8");
@@ -588,19 +592,11 @@ function readManifest(runtime: Runtime, dir: string): Manifest {
 	return parsed.manifest;
 }
 
-function expected(manifest: Manifest): Holdings {
-	return {
-		tables: manifest.database.tables,
-		migrations: manifest.database.migrations,
-		media: manifest.media,
-	};
-}
-
 function check(runtime: Runtime, dir: string): void {
 	requireDatabase(runtime);
-	const manifest = readManifest(runtime, dir);
+	const manifest = manifestToCheck(runtime, dir);
 	const differences = compareHoldings(
-		expected(manifest),
+		recordedHoldings(manifest),
 		holdings(runtime, names(runtime), mountpoint(runtime.mediaVolume), Refusal),
 	);
 	if (differences.length > 0) {
@@ -609,10 +605,7 @@ function check(runtime: Runtime, dir: string): void {
 			`the ${runtime.name} runtime differs from the set ${dir} in ${differences.length} places`,
 		);
 	}
-	const { tables, rows, mediaFiles } = totals(manifest);
-	say(
-		`PASS: the ${runtime.name} runtime holds the set ${dir}: ${tables} tables, ${rows} rows, ${mediaFiles} media files, ${manifest.database.migrations.length} migrations`,
-	);
+	say(`PASS: the ${runtime.name} runtime holds the set ${dir}: ${describeTotals(manifest)}`);
 }
 
 async function confirmations(questions: readonly string[]): Promise<boolean> {
@@ -760,7 +753,10 @@ async function restore(runtime: Runtime, dir: string): Promise<void> {
 			fail: Partial,
 		});
 
-		const differences = compareHoldings(expected(manifest), holdings(runtime, db, store, Partial));
+		const differences = compareHoldings(
+			recordedHoldings(manifest),
+			holdings(runtime, db, store, Partial),
+		);
 		if (differences.length > 0) {
 			process.stderr.write(differences.map((line) => `  ${line}\n`).join(""));
 			throw new Partial(
@@ -774,9 +770,8 @@ async function restore(runtime: Runtime, dir: string): Promise<void> {
 	} finally {
 		spawnSync("podman", ["exec", runtime.dbContainer, "rm", "-f", staged], { env: ENV });
 	}
-	const { tables, rows, mediaFiles } = totals(manifest);
 	say(
-		`PASS: restored the ${runtime.name} runtime from ${dir}, and the integrity check passed: ${tables} tables, ${rows} rows, ${mediaFiles} media files`,
+		`PASS: restored the ${runtime.name} runtime from ${dir}, and the integrity check passed: ${describeTotals(manifest)}`,
 	);
 	say(`start the app: systemctl --user start ${runtime.appService}`);
 }

@@ -29,7 +29,10 @@ export interface Runtime {
 
 const QUADLET = ".config/containers/systemd";
 
-/** The one place each runtime's names live: deploy/dev-quadlet/ and deploy/quadlet/. */
+/**
+ * The command's one map of each runtime's names, as deploy/dev-quadlet/ and deploy/quadlet/ give
+ * them; scripts/dev-runtime-common.sh names dev's again for the shell scripts.
+ */
 export const RUNTIMES: Record<RuntimeName, Runtime> = {
 	dev: {
 		name: "dev",
@@ -242,6 +245,21 @@ export function serializeManifest(manifest: Manifest): string {
 }
 
 /** The set's size, for the Operator's record: tables, rows and media files. */
+/** What a set holds, in one line: its tables, rows, media files and migrations. */
+export function describeTotals(manifest: Manifest): string {
+	const { tables, rows, mediaFiles } = totals(manifest);
+	return `${tables} tables, ${rows} rows, ${mediaFiles} media files, ${manifest.database.migrations.length} migrations`;
+}
+
+/** What the integrity check expects a runtime to hold: the set's tables, migrations and media. */
+export function recordedHoldings(manifest: Manifest): Holdings {
+	return {
+		tables: manifest.database.tables,
+		migrations: manifest.database.migrations,
+		media: manifest.media,
+	};
+}
+
 export function totals(manifest: Manifest): { tables: number; rows: number; mediaFiles: number } {
 	return {
 		tables: manifest.database.tables.length,
@@ -599,10 +617,9 @@ function isZero(block: Uint8Array): boolean {
 /**
  * The files and directories of a media archive, each file with its size and SHA-256, read through
  * `read(offset, length)`. It admits only what `tar --format=ustar -C <store> .` writes for plain
- * files and directories, with names inside the store, and refuses anything else, as the dev
- * runtime's restore admitted archives before it (#221): links, devices, PAX and GNU extension
- * headers, other formats, bad checksums and numbers, unsafe or repeated names, cut-off payloads and
- * trailing bytes.
+ * files and directories, with names inside the store, and refuses anything else: links, devices,
+ * PAX and GNU extension headers, other formats, bad checksums and numbers, unsafe or repeated
+ * names, cut-off payloads and trailing bytes.
  */
 export function walkUstar(
 	size: number,
@@ -780,19 +797,19 @@ export function parseDatabaseNames(
 /** The app role, from the PGUSER lines a `grep '^PGUSER='` of the app's environment file printed:
  * the command never reads the file itself, which holds PGPASSWORD too. */
 export function parseAppRole(lines: string, file: string): string | { error: string } {
-	const match = /^PGUSER=([A-Za-z0-9_]+)\n$/.exec(lines);
-	return (
-		match?.[1] ?? {
-			error: `${file} does not hold one unquoted PGUSER=<role> line of letters, digits and underscores`,
-		}
-	);
+	const role = lines.startsWith("PGUSER=") && lines.endsWith("\n") ? lines.slice(7, -1) : "";
+	if (ROLE_NAME.test(role)) return role;
+	return {
+		error: `${file} does not hold one unquoted PGUSER=<role> line of letters, digits and underscores`,
+	};
 }
 
 /** What the runtime serves: the commit in dev's marker, or the image production's app unit pins. */
 export function parseServes(runtime: Runtime, text: string): string | { error: string } {
 	if (runtime.serves.kind === "marker") {
-		const match = /^([0-9a-f]{40})\n$/.exec(text);
-		return match?.[1] ?? { error: `${runtime.serves.path} is not one 40-hex commit and a newline` };
+		const commit = text.endsWith("\n") ? text.slice(0, -1) : "";
+		if (COMMIT_ID.test(commit)) return commit;
+		return { error: `${runtime.serves.path} is not one 40-hex commit and a newline` };
 	}
 	const images = text
 		.split("\n")
@@ -806,11 +823,11 @@ export function parseTableDigests(output: string): TableEntry[] | { error: strin
 	const tables: TableEntry[] = [];
 	for (const line of output.split("\n")) {
 		if (line === "") continue;
-		const match = /^([A-Za-z_][A-Za-z0-9_$]{0,62})\|(\d+)\|([0-9a-f]{64})$/.exec(line);
-		if (match === null) {
+		const [name = "", rows = "", digest = "", ...rest] = line.split("|");
+		if (rest.length > 0 || !TABLE_NAME.test(name) || !/^\d+$/.test(rows) || !SHA256.test(digest)) {
 			return { error: "the database's table digests are not lines of <table>|<rows>|<SHA-256>" };
 		}
-		tables.push({ name: match[1]!, rows: Number(match[2]), sha256: match[3]! });
+		tables.push({ name, rows: Number(rows), sha256: digest });
 	}
 	return tables;
 }

@@ -43,6 +43,7 @@ import {
 	admitSet,
 	appStateRefusal,
 	databaseRefusal,
+	describeTotals,
 	buildManifest,
 	compareHoldings,
 	directoryRefusal,
@@ -67,25 +68,40 @@ import {
 
 describe("the runtime map", () => {
 	it("maps dev to the songhealth-qdev resources and production to the production Quadlet's units", () => {
-		const seen = Object.fromEntries(
-			Object.entries(RUNTIMES).map(([name, runtime]) => [
-				name,
-				[runtime.dbContainer, runtime.mediaVolume, runtime.appService, runtime.mediaMarker],
-			]),
-		);
-		assert.deepEqual(seen, {
-			dev: [
-				"songhealth-qdev-db",
-				"songhealth-qdev-media",
-				"songhealth-dev-app.service",
-				".songhealth-qdev-media-store",
-			],
-			production: [
-				"systemd-songhealth-db",
-				"songhealth-media",
-				"songhealth-app.service",
-				".songhealth-media-store",
-			],
+		assert.deepEqual(RUNTIMES, {
+			dev: {
+				name: "dev",
+				dbContainer: "songhealth-qdev-db",
+				dbService: "songhealth-dev-db.service",
+				dbVolume: "songhealth-qdev-db-data",
+				mediaVolume: "songhealth-qdev-media",
+				appService: "songhealth-dev-app.service",
+				mediaMarker: ".songhealth-qdev-media-store",
+				markerRemedy:
+					"create it as dev-runtime-install.sh does for a new store, " +
+					"podman unshare touch <the volume's mountpoint>/.songhealth-qdev-media-store, then restore again " +
+					'(development-quadlet.md "Backup and restore")',
+				appRole: { kind: "fixed", name: "songhealth_qdev_app" },
+				serves: { kind: "marker", path: "dev/songhealth-quadlet/.songhealth-qdev-source-identity" },
+				emdash: {
+					kind: "checkout",
+					path: "dev/songhealth-quadlet/node_modules/emdash/package.json",
+				},
+			},
+			production: {
+				name: "production",
+				dbContainer: "systemd-songhealth-db",
+				dbService: "songhealth-db.service",
+				dbVolume: "songhealth-db-data",
+				mediaVolume: "songhealth-media",
+				appService: "songhealth-app.service",
+				mediaMarker: ".songhealth-media-store",
+				markerRemedy:
+					"provision the store first (production-foundation.md §5.3), then restore again",
+				appRole: { kind: "env-file", path: ".config/containers/systemd/songhealth-app.env" },
+				serves: { kind: "unit-image", path: ".config/containers/systemd/songhealth-app.container" },
+				emdash: { kind: "image" },
+			},
 		});
 	});
 
@@ -264,8 +280,12 @@ describe("buildManifest", () => {
 		});
 	});
 
-	it("counts its tables, rows and media files", () => {
+	it("counts its tables, rows and media files, and says so in one line with its migrations", () => {
 		assert.deepEqual(totals(buildManifest(observed())), { tables: 3, rows: 93, mediaFiles: 3 });
+		assert.equal(
+			describeTotals(buildManifest(observed())),
+			"3 tables, 93 rows, 3 media files, 2 migrations",
+		);
 	});
 });
 
