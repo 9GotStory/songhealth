@@ -166,6 +166,28 @@ describe("a Release's record", () => {
 				"the record's image localhost/songhealth-app:0.0.1 is not localhost/songhealth-app:1.0.0",
 			],
 			[{ digest: "4cfccf41" }, "the record's digest 4cfccf41 is not a sha256 digest"],
+			[{ digest: "sha256:4cfccf41" }, "the record's digest sha256:4cfccf41 is not a sha256 digest"],
+			[
+				{ digest: `md5:${"4cfccf41".repeat(8)}` },
+				`the record's digest md5:${"4cfccf41".repeat(8)} is not a sha256 digest`,
+			],
+			[
+				{ archive: { ...good.archive, bytes: 0 } },
+				"the record's archive size 0 is not a number of bytes",
+			],
+			[
+				{ archive: { ...good.archive, bytes: 1.5 } },
+				"the record's archive size 1.5 is not a number of bytes",
+			],
+			[{ cutAt: "2026-11-25" }, "the record's cut time 2026-11-25 is not a UTC time"],
+			[
+				{ cutAt: "2026-11-25T14:00:00.000Z" },
+				"the record's cut time 2026-11-25T14:00:00.000Z is not a UTC time",
+			],
+			[
+				{ cutAt: "2026-11-25T21:00:00+07:00" },
+				"the record's cut time 2026-11-25T21:00:00+07:00 is not a UTC time",
+			],
 			[
 				{ archive: { ...good.archive, sha256: "" } },
 				"the record's archive checksum  is not a SHA-256",
@@ -186,6 +208,7 @@ describe("a Release's record", () => {
 		];
 		for (const [change, failure] of cases)
 			assert.deepEqual(recordFailures({ ...good, ...change }), [failure], failure);
+		assert.deepEqual(recordFailures({ ...good, archive: { ...good.archive, bytes: 1 } }), []);
 		assert.deepEqual(
 			recordFailures({ ...newRecord({ ...CUT, version: "1.0.0-rc.1" }), tag: "v1.0.0-rc.1" }),
 			["the record's tag v1.0.0-rc.1 is not null"],

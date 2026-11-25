@@ -309,7 +309,8 @@ async function cut(version: string, sha: string, releases: string): Promise<void
 		try {
 			path = writeRecord(releases, record);
 		} catch (error) {
-			if (tag) run("git", ["tag", "--delete", tag]);
+			// The record's own error is the one reported; a tag that stays is refused on the next cut.
+			if (tag) succeeds("git", ["tag", "--delete", tag]);
 			throw error;
 		}
 		done = true;
@@ -320,7 +321,11 @@ async function cut(version: string, sha: string, releases: string): Promise<void
 		note(`next: node scripts/release.ts pin ${version}, then commit and review that change alone`);
 	} finally {
 		if (!done) {
-			rmSync(folder, { recursive: true, force: true });
+			try {
+				rmSync(folder, { recursive: true, force: true });
+			} catch {
+				note(`could not remove ${folder}: remove it with podman unshare rm -rf`);
+			}
 			if (succeeds("podman", ["image", "exists", imageName(version)]))
 				note(
 					`the cut failed; its image ${imageName(version)} stays (the command removes no image): remove it by that name before cutting ${version} again`,
@@ -388,7 +393,7 @@ async function main(args: string[]): Promise<number> {
 	const releasesOption = option("--releases");
 	const releases = resolve(
 		releasesOption ??
-			process.env.SONGHEALTH_RELEASES ??
+			(process.env.SONGHEALTH_RELEASES || undefined) ??
 			join(homedir(), ".local/share/songhealth/releases"),
 	);
 	const sha = option("--sha");
