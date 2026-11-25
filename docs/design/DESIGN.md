@@ -1,6 +1,6 @@
 # Songhealth — Design System & Public UI Contract
 
-> **Status:** v1.9, current. Feature 006's design was accepted on #144; Feature 007's
+> **Status:** v1.10, current. Feature 006's design was accepted on #144; Feature 007's
 > bounded refinements follow spec #190, implemented by #191–#198, and were accepted on #190
 > (Product Owner, 2026-11-10: #190 comment 6759434955). Feature 008's redesign follows spec #239,
 > implemented by #240–#250, and was accepted on #239 (Product Owner, 2026-11-13: #239 comment
@@ -19,8 +19,9 @@
 > on #417 (Product Owner, 2026-11-24: #417 comment 7120317286). Feature 015's redesign of Search
 > and the 404 page, the last two public pages in the earlier look, follows spec #432, implemented
 > by #433–#436, and was accepted on #432 (Product Owner, 2026-11-25: #432 comment 7151135270);
-> with it every public page has the new design.
-> **Updated:** 2026-11-24 (#436); first drafted 2026-10-30
+> with it every public page has the new design. Feature 016, the production track (spec #450),
+> changes no page; v1.10 records the blueprint's new version (#452).
+> **Updated:** 2026-11-25 (#452); first drafted 2026-10-30
 > **Target:** Songhealth public website (Astro SSR + integrated EmDash)
 > **Repository path:** `docs/design/DESIGN.md`
 > **Source of the design:** the code (the tokens in `src/styles/global.css` and the components in
@@ -3293,8 +3294,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
 
 - Product/behavior: `docs/website-modernization-docs/current/04-homepage.md` (v2.7, 2026-11-13);
   `03-sitemap.md` (v2.7, 2026-11-13); staff guidance in `05` §5.1.
-- Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.9,
-  2026-11-09); `README.md`; `CLAUDE.md`.
+- Architecture: `docs/website-modernization-docs/current/10-system-blueprint.md` (v2.10,
+  2026-11-25); `README.md`; `CLAUDE.md`.
 - Decisions: ADR 0001 (Tailwind CSS v4), ADR 0003 (CMS images in production), ADR 0007 (the
   design's source).
 - Feature 006: spec #144 and tickets #145 to #151.
@@ -4016,3 +4017,8 @@ with many photos and a Health Content post (spec #144 "Evidence, not gates").
   (`docs/evidence/436-search-404-evidence-round.md`). Authority: spec #432 "Documents" and
   "Decisions the Product Owner made", the decisions on #433 and #434, the notes on #436, and #436
   comment 7135305142 (the walkthrough and the ring).
+- **v1.10 the blueprint's version (2026-11-25, Feature 016 #452):** §13 cites `10` at v2.10, which
+  takes Feature 016's decisions on the Production host, its proxy, its monitoring and the nightly
+  Recovery Set. No page, token, component or measure changes, and §1 to §12 stand as v1.9 left
+  them. Authority: spec #450 "The documents and the language"; CODING_STANDARDS "Documents",
+  Citers and Amendments.

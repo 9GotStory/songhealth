@@ -237,7 +237,7 @@ verify 40 to 46 s (`astro dev`, so these are not production's figures).
 | --- | --- | --- |
 | The import stopped before writing | Nothing was written. Fix the cause and repeat from "Cutover" step 6 | Operator |
 | The import stopped during its writes, or verify fails, before the DNS switch | Restore the last Recovery Set of "Before cutover" step 10 with the commands below, then repeat from step 6. WordPress is still what the public sees | Operator |
-| A problem after the DNS switch | Point the record back at WordPress and tell staff to stop publishing on Songhealth. A restore is needed only to redo the import, and it discards what was written on Songhealth since. WordPress's certificate expired on 2026-10-31, so visitors see a certificate error unless it has been renewed | Product Owner, DNS holder, Operator |
+| A problem after the DNS switch | Point the record back at WordPress and tell staff to stop publishing on Songhealth. A restore is needed only to redo the import, and it discards what was written on Songhealth since. WordPress's certificate, read on 2026-11-25, is valid until 2 April 2027; after that date visitors see a certificate error unless it has been renewed | Product Owner, DNS holder, Operator |
 
 The restore, from the set's directory on the host (`production-foundation.md` §7.6):
 

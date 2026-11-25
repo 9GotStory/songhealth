@@ -1,9 +1,9 @@
 # System Blueprint — เว็บไซต์สำนักงานสาธารณสุขอำเภอสอง
 
 > **Document ID:** 10-system-blueprint
-> **Status:** CLEAN REBASELINE v2.9 — CURRENT native-only publication
-> **Version:** 2.9
-> **Last Updated:** 9 พฤศจิกายน 2569 (2026-11-09): Feature 005, WordPress migration
+> **Status:** CLEAN REBASELINE v2.10 — CURRENT native-only publication
+> **Version:** 2.10
+> **Last Updated:** 25 พฤศจิกายน 2569 (2026-11-25): Feature 016, Production Ready for Import (#452)
 > **Depends On:** `00-website-foundation.md` through `09-migration-plan.md`
 > **Purpose:** กำหนด architecture ปัจจุบันที่ใช้ Astro + EmDash แบบ platform-native และเพิ่ม Songhealth-specific code เฉพาะ gap ที่พิสูจน์แล้ว
 > **Implementation Authorization:** NONE
@@ -50,6 +50,15 @@
 > migration is a temporary Songhealth script on EmDash's native APIs, not EmDash's WordPress
 > import, and one final import that stops on an existing slug replaces the rerun guard (§16).
 
+> **Feature 016 decision (Product Owner, 2026-11-25; spec #450, `docs/adr/0009`):** production
+> runs on the Production host, an Ubuntu Server LTS machine that the office shares among several of
+> its systems; Songhealth owns only its own account, units, volumes, secrets and Recovery Sets, and
+> `docs/operations/production-host-contract.md` states what it needs from the host and what it
+> gives back (§3, §3.1). The proxy is at the host's level (§3.1). Monitoring is split between
+> Songhealth's own watch and the host's (§17). A Recovery Set is taken every night and kept off the
+> host (§18). A Release's image is built on the workstation only; the startup build inside the
+> application's container stays (§3.1).
+
 ---
 
 # 1. Architecture Principle
@@ -88,10 +97,10 @@ Internet
 HTTPS / Reverse Proxy
    │
    ▼
-Linux / Fedora-compatible production host
-   │
+Production host (Ubuntu Server LTS, shared with the office's other systems)
+   │   proxy at the host's level
    ▼
-rootless Podman + systemd Quadlet
+Songhealth's Deployment account: rootless Podman + systemd Quadlet
    │
    └── private Songhealth network
        │
@@ -118,7 +127,7 @@ Baseline topology มีเพียง:
 - PostgreSQL container
 - persistent PostgreSQL storage
 - persistent media storage
-- HTTPS/reverse proxy ใน deployment boundary
+- HTTPS/reverse proxy ที่ระดับ host (ข้อ 8)
 
 ข้อกำหนดขั้นต่ำ:
 
@@ -129,7 +138,11 @@ Baseline topology มีเพียง:
 5. Quadlet/service definition ต้องกำหนด startup/restart behavior และ health/readiness verification ตาม capability ของ runtime
 6. production image/dependency versions ต้อง pin ให้ reproduce deployment ได้
 7. backup/restore ต้องกู้ข้อมูล PostgreSQL และ media ได้โดยไม่ขึ้นกับอายุของ application container
-8. reverse proxy implementation อาจเลือกตาม deployment environment แต่ต้องรักษา HTTPS, forwarding headers, request limits และ security boundary ที่ระบบต้องการ
+8. reverse proxy อยู่ที่ระดับ host และให้บริการทุกระบบบนเครื่อง: Caddy จาก official repository ของ Caddy โหลด certificate ของชื่อเว็บไซต์ที่ Operator วางไว้ และปิดชื่อ host ที่ไม่รู้จักที่ระดับ host โดยไม่แตะ site ของระบบอื่น. Songhealth เป็นเจ้าของ site configuration ของตนเอง: ตอบ `songhealth.moph.go.th` เท่านั้น ส่งชื่อนั้นเป็น `Host` คงที่ให้ application และจำกัดขนาด request body; ต้องรักษา HTTPS, forwarding headers, request limits และ security boundary ที่ระบบต้องการ (spec #450)
+
+**Production host (Feature 016).** Production host คือเครื่อง Ubuntu Server LTS ที่สำนักงานใช้ร่วมกันหลายระบบ (`GLOSSARY.md`, `docs/adr/0009`). หนึ่งระบบมีหนึ่ง Linux account: Songhealth รันใต้ Deployment account ที่ไม่มี sudo, คง loopback port ของตนเอง, PostgreSQL ไม่ publish port และ environment, secrets, volumes และ Recovery Sets เป็นของ Songhealth เท่านั้น. Resource limits กำหนดต่อเครื่องนอก committed units. Repository นี้เป็นเจ้าของเฉพาะส่วนของ Songhealth (units, site configuration ของ proxy, scripts, timers, runbooks และ guided script ของ root steps ที่ Songhealth ต้องใช้) และไม่เก็บ address ของ host, private-network configuration, key, certificate, credential หรือสิ่งใดของระบบอื่น. สิ่งที่ Songhealth ต้องการจาก host และสิ่งที่ให้กลับอยู่ใน `docs/operations/production-host-contract.md`; infrastructure ของ host เป็น project แยกนอก repository นี้.
+
+**Two builds.** *การ build Release* ทำบน workstation เท่านั้น: image สร้างจาก commit ของ `main` ที่ผ่าน CI และ checks แล้วย้ายไป host เป็น OCI archive; host ไม่ build image, ไม่ติดตั้ง dependencies และไม่มี development toolchain. *Startup build* เป็นอีกสิ่งหนึ่ง: ทุกครั้งที่ application container start, startup gate รัน build ของ application ภายใน container นั้นจากไฟล์ของ image เอง เพื่อ emit migration manifest ที่ gate ตรวจ (Feature 001 T013). Startup build คงอยู่ตาม architecture ที่ accepted แล้ว; "ไม่ build อะไรบน Production host" หมายถึงอย่างแรก และไม่ห้ามอย่างหลัง.
 
 Development ไม่บังคับให้ทุก process รันใน container. Astro/Node tooling, Spec Kit และ AI agents รัน native บนเครื่องพัฒนาได้; ใช้ Podman ใน development เมื่อช่วยให้ database/runtime parity หรือ integration verification ชัดเจนขึ้น.
 
@@ -357,6 +370,8 @@ Runtime monitoringขั้นต่ำต้องเห็น:
 
 ไม่ Freeze monitoring stack.
 
+**Feature 016: the watch is split.** ไม่มี monitoring stack (ไม่มี Prometheus หรือ Grafana). Songhealth เฝ้าดู service ของตนเองที่ล้มเหลวหรือ restart วน, readiness ของ application และ health ของ container, สถานะของ Recovery Set และของสำเนานอกเครื่อง, application errors และ HTTP 5xx จาก access log ของตนเอง. Host เฝ้าดู CPU, memory, disk และวันหมดอายุของ certificate และเป็นผู้ส่ง email. Songhealth แจ้งผ่าน alert command ของ host โดยไม่ใช้ sudo และส่ง weekly health report ผ่านช่องทางเดียวกัน. ทั้งหมดทำงานได้โดยไม่ต้องเปิด workstation (spec #450; `docs/operations/production-host-contract.md` ข้อ 4–5).
+
 ---
 
 # 18. Backup and Recovery
@@ -372,6 +387,8 @@ PostgreSQL data และ media persistence ต้องอยู่นอก ep
 Runtime secrets/keys ที่จำเป็นต่อการใช้งานระบบหลัง restore ต้องมี independently protected recovery path. Secret values ต้องอยู่นอก Git, database/media backup artifacts, generated planning artifacts และ logs; recovery design ระดับนี้ไม่บังคับ secret-management platform เฉพาะราย.
 
 ก่อน risky schema change, bulk import หรือ major upgrade ต้องมี restorable database backup และ restore verification ตามระดับความเสี่ยง.
+
+**Feature 016: a Recovery Set every night, kept off the host.** Recovery Set (`GLOSSARY.md`: database และ media เท่านั้น) ถูกสร้างอัตโนมัติทุกคืนขณะ application หยุด และ application กลับมาทันทีที่ set บนเครื่องถูกสร้างและตรวจแล้ว; ระหว่างนั้น proxy ตอบ static HTML notice พร้อม HTTP 503. ค่าเริ่มต้น: 03:00 Asia/Bangkok ทุกวัน, เก็บ 7 sets บนเครื่อง, 30 daily และ 12 monthly นอกเครื่อง, recovery point 24 ชั่วโมง, recovery ภายใน 1 ชั่วโมงบนเครื่องเดิมและ 1 วันทำการบนเครื่องใหม่. Recovery times ทั้งสองเป็น target จนกว่า drill จะพิสูจน์. Songhealth สร้างและตรวจ Recovery Set ของตนเอง; การเข้ารหัสและการส่งออกนอกเครื่องเป็นของ central backup ของ host และ Songhealth ไม่สร้างกลไกสำเนาชุดที่สอง (`docs/operations/production-host-contract.md` ข้อ 3). ส่ง production Recovery Set ออกนอกเครื่องได้หลัง data-governance approval เท่านั้น. Restore ถูกซ้อมอย่างน้อยทุกหกเดือน (spec #450).
 
 ---
 
@@ -492,6 +509,11 @@ Version 1 ไม่มี baseline requirement สำหรับ:
 - PostgreSQL: **YES**
 - Production container runtime: **rootless Podman**
 - Production service lifecycle: **systemd Quadlet**
+- Production host: **Ubuntu Server LTS shared with the office's other systems; Songhealth in its own Deployment account (`docs/adr/0009`)**
+- Reverse proxy: **Caddy at the host's level; Songhealth owns its site configuration**
+- Release build: **on the workstation only; the startup build inside the container stays**
+- Monitoring: **split: Songhealth's own watch and the host's; email through the host's alert command; no monitoring stack**
+- Recovery Set: **every night, the application stopped; kept on the host and off it**
 - Private app/database container network: **YES; no public PostgreSQL port**
 - Docker/Docker Compose parallel production baseline: **NO**
 - Kubernetes: **NO**
