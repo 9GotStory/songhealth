@@ -2,9 +2,9 @@
 
 Judgement calls for review. The mechanical rules are enforced by the checks that CI runs on every
 pull request: `npm run build:check`, `npm run typecheck`, `npm run test:node`,
-`npm run format:check`, `npm run knip`, `npm run jscpd` and `npm run lint:shell`. `npm run jscpd`
-fails on a new clone of 100 tokens or more over 5 lines; `.jscpd.json` lists the clones that stay
-and why, and `.jscpd-baseline.json` records them.
+`tests/operations/verify-foundation.sh --self-test`, `npm run format:check`, `npm run knip`,
+`npm run jscpd` and `npm run lint:shell`. `npm run jscpd` fails on a new clone of 100 tokens or
+more over 5 lines; `.jscpd.json` lists the clones that stay and why, and `.jscpd-baseline.json` records them.
 
 ## Comments
 
@@ -33,7 +33,9 @@ and why, and `.jscpd-baseline.json` records them.
   touches the file, keeping only the platform claims checked again against the pinned source: an
   old header can be wrong, as #93 found a 401 that EmDash answers with 403 CSRF_REJECTED. The
   trim belongs to the ticket that touches the file, and its review reads it as that ticket's scope
-  (Product Owner, #453 comment 7160143292).
+  (Product Owner, #453 comment 7160143292). A ticket whose criteria name the only lines it may
+  change leaves the rest of the file as it is, header and `scripts/lint-shell.sh`'s list
+  included, and its pull request lists them as left as is (#454 comment 7162701597).
 
 ## Public pages
 

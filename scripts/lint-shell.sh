@@ -2,7 +2,8 @@
 # ShellCheck for the development-runtime scripts and the commit hooks, on a digest-pinned
 # ShellCheck 0.11.0 image so that CI (docker) and the workstation (podman) run the same version.
 # The container gets no network and a read-only view of the repository. The accepted Feature 001
-# scripts join the list when a change touches them.
+# scripts join the list when a change touches them, unless its ticket names the only lines it may
+# change (CODING_STANDARDS "Comments").
 #   npm run lint:shell
 set -euo pipefail
 IMAGE=docker.io/koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
