@@ -755,7 +755,9 @@ export function listStore(
  * (`psql:<stdin>:3:` too), libpq's label and two spaces, or podman's and Node's "Error: ".
  */
 const A_MESSAGE =
-	/^(?:(?:pg_restore|pg_dump|tar|find|rm|cat|podman): |psql:|(?:ERROR|WARNING|NOTICE|HINT|FATAL|PANIC): {2}|Error: )/;
+	/^(?:(?:recovery-set|pg_restore|pg_dump|tar|find|rm|cat|podman): |psql:|(?:ERROR|WARNING|NOTICE|HINT|FATAL|PANIC): {2}|[A-Z]?\w*Error(?: \[[A-Z_]+\])?: )/;
+/** A server message's text, after libpq's label, up to a value it quotes after a colon. */
+const QUOTED_VALUE = /((?:ERROR|WARNING|NOTICE|HINT|FATAL|PANIC): {2}.*?): ".*$/;
 /**
  * PostgreSQL's DETAIL and CONTEXT, which can quote a row (a failing COPY's column, a failing row).
  */
@@ -764,16 +766,18 @@ const QUOTES_A_ROW = /^(?:(?:pg_restore|pg_dump): )?(?:detail|context):/i;
 /**
  * The last messages of a failed command's standard error for the Operator, without what can quote
  * a row's values. It keeps only the lines that start a message, never a DETAIL or CONTEXT, so the
- * further lines of a value that holds a newline go too, and cuts a line from a quoted value after a
- * colon to its end, as in `for type integer: "…"`, since PostgreSQL escapes nothing inside the
- * quotes. A value line that itself starts like a message would still show.
+ * further lines of a value that holds a newline go too. In a server message it cuts a value quoted
+ * after a colon to the line's end, as in `for type integer: "…"`, since PostgreSQL escapes nothing
+ * inside the quotes; a host's message, such as podman's `exec: "tar"`, keeps its names. Two risks
+ * remain: a value line that itself starts like a message, and a value a server message quotes with
+ * no colon before it (`value "…" is out of range for type integer`).
  */
 export function errorTail(stderr: string, lines = 8): string[] {
 	return stderr
 		.trim()
 		.split("\n")
 		.filter((line) => A_MESSAGE.test(line) && !QUOTES_A_ROW.test(line))
-		.map((line) => line.replace(/: ".*$/, ': "…"'))
+		.map((line) => line.replace(QUOTED_VALUE, '$1: "…"'))
 		.slice(-lines);
 }
 

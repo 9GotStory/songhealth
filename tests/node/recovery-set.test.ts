@@ -773,6 +773,22 @@ describe("errorTail", () => {
 			'HINT:  relation "media" stays',
 		]);
 	});
+
+	it("keeps the command's own and Node's error lines, and a host error's quoted name whole", () => {
+		const stderr = [
+			"file:///op/scripts/recovery-set.ts:210",
+			"    throw error;",
+			'TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string',
+			"    at readdirSync (node:fs:1:1)",
+			"recovery-set: REFUSED: the media store cannot be read",
+			'Error: exec: "tar": executable file not found in $PATH',
+		].join("\n");
+		assert.deepEqual(errorTail(stderr), [
+			'TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string',
+			"recovery-set: REFUSED: the media store cannot be read",
+			'Error: exec: "tar": executable file not found in $PATH',
+		]);
+	});
 });
 
 describe("admitSet", () => {
