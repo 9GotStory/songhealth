@@ -68,6 +68,10 @@ own startup sequence performs every gate before the server process starts (§6.2
   `.container`/`.network`/`.volume`, health, and secret behaviors this deployment uses
   (verified against the v6.1.3 release-tag documentation in the T001 evidence). Record the exact
   host versions in runtime evidence — they are not pinned by this document.
+- **Podman's init binary** at its default path `/usr/libexec/podman/catatonit`: the application
+  unit runs it first in the container (`RunInit=true`, §7.1). Ubuntu 26.04's `podman` 5.7.0
+  recommends the `catatonit` package, which installs that path (packages.ubuntu.com, read on
+  2026-11-25 for #453); a host installed without recommends needs it installed by name.
 - **GNU coreutils `/usr/bin/stat`** at that absolute path: the database unit's existing-store
   guard relies on its exact output contract (§6.1). Its availability, version, and behavior on
   the target host are **mandatory pre-adoption runtime evidence** — verify and record them
@@ -601,6 +605,30 @@ container exits (`Restart=always`, `RestartSec=5s`); an explicit `systemctl --us
 restarted, and systemd's built-in start-rate limiting bounds any retry loop, so a persistently
 failing startup gate can only retry within those bounds or stay down — it never escalates to
 healthy.
+
+**How the application stops** (#453; Product Owner, #453 comment 7158951848). Podman's init runs
+first in the application container (`RunInit=true`) and passes the stop signal to the server, which
+ends at once: as the container's first process it would ignore SIGTERM and be killed when Podman's
+10 s stop timeout ran out (#67). The server exits 143 (128 + SIGTERM), which the unit counts a
+success (`SuccessExitStatus=143`), so after `systemctl --user stop` the unit is `inactive`, not
+`failed`. A request in flight when the stop arrives is cut, and the client keeps the part of the
+response it has received. The startup gate does not change.
+
+Workstation figures (#453, 2026-11-25; 8 CPUs, 15 GiB, Podman 6.2.0, the image built at
+`2906e45`, `scripts/production-image-check.sh`). They are no sizing for a host: the rehearsal and the
+Production host record their own (spec #450).
+
+| What | Figure |
+|---|---|
+| The startup gate's build (S2), as the runtime user, no network | 12.4 s; peak memory 2,164 MiB |
+| The server, from the container's start to serving `/` (no startup gate) | 2.48 s |
+| The server's peak memory while serving the check's requests | 150 MiB |
+| `podman stop`, with Podman's init | 0.35 s, exit 143, no kill |
+| `systemctl --user stop` of a Quadlet unit with `RunInit=true` and `SuccessExitStatus=143`, on `main` `2ca082b`'s image with `/app` given to the runtime user | 0.43 s, `inactive`, result `success` |
+| `podman stop` as Feature 001's unit had it (no init), on the same Containerfile's image (`0cc29b4`, never pushed) | 10.41 s, exit 137 after SIGKILL |
+
+The whole start also holds the role prerequisite and the gate's migration steps and media probe,
+which need the production stack and are measured on the rehearsal machine.
 
 ### 7.2 Container recreation retaining both named volumes
 
