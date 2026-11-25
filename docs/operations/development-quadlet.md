@@ -421,16 +421,29 @@ scripts/production-image-check.sh --sha <commit> [<news-path>] [-- <command> [<a
 ```
 
 It builds `deploy/Containerfile` at the commit and shows what production serves, which `astro dev`
-cannot. Run it when `deploy/Containerfile` or a dependency with a native binary changes, and for
-the ADR 0003 revisit of production images.
+cannot. Run it when `deploy/Containerfile`, `deploy/quadlet/songhealth-app.container` or a
+dependency with a native binary changes, for the ADR 0003 revisit of production images, and as
+the image check of a Release's commit (spec #450 "Releases", step 3).
 
 - **Build.** It builds from a `git archive` of the commit, so untracked files never enter, with
   `--layers=false`, which commits the final image alone. A build took 88 to 111 s on this host
   (#276, three runs).
 - **Native pieces.** It checks that Tailwind's oxide binary and `sharp` load in the image, in a
   container with no network. `sharp` is optional (spec #51), so it is reported, not failed.
+- **The startup build** (#453). Each time the production container starts, its startup gate
+  removes the migration manifest and runs `npm run build` in it (S2 of
+  `tests/operations/verify-startup.sh`). The check runs that build as the image's own user, in a
+  container with no network and the placeholder inputs of the Containerfile's build stage. It
+  fails when the build exits non-zero, when it does not write the server entry and the manifest
+  anew, when the user is root, or when a path under `/app` is world-writable. It prints the
+  build's time and its peak memory. The image built from `main` at `a7e287d` fails here with
+  `EACCES` on `/app/.astro`. The gate's checks of the manifest's content (its schema and EmDash
+  version, the migration set and its fingerprint) are not repeated: S2 runs them at each start.
 - **One run.** It runs the image once against this runtime's data: the Product Owner's exception
   to one application server (#67 comment 6558196151).
+  - It runs the image as the commit's application unit would: with Podman's init when the unit
+    sets `RunInit=`, and with the unit's stop timeout (`StopTimeout=`, Podman's 10 s without one).
+    It prints how long the server took to serve `/` and its peak memory.
   - The container joins the runtime's private network and connects to the database as the
     least-privilege app role, with the runtime's podman secrets as environment variables.
   - It mounts the media volume read-only and publishes `127.0.0.1:4325` only.
@@ -448,6 +461,11 @@ the ADR 0003 revisit of production images.
   built page has lost the reveal, and writes a screenshot of each state into `<screenshot-dir>`
   (#276). Run it after a change to the reveal's styles in `src/styles/global.css` or to a
   dependency that builds the stylesheet (Product Owner, 2026-11-13: #276 comment 6842672237).
+- **The stop** (#453). It stops the run with `podman stop` and fails when the container is killed
+  at the stop timeout, or exits with a status other than 0 and those the unit's
+  `SuccessExitStatus=` counts a success, on which systemd would mark the unit failed. It prints
+  the stop's time and exit status. The verdicts of the startup build and the stop are
+  `scripts/production-image-check/plan.ts`'s, under node:test.
 - **Cleanup.** It removes the container and the image on every exit, pass or fail, and lists any
   image the run added that is still there. Other projects share this image storage, so it never
   removes an image by its age or by a difference in the image list. The image is never deployed or
