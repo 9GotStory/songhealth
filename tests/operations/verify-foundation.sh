@@ -257,7 +257,14 @@ readonly JOURNAL_MAX_LINES=20000
 # Canonical validation evidence (T015, non-environment-specific by design).
 readonly TAGLINE_EXPECTED='Songhealth Feature 001 foundation validation'
 readonly TAGLINE_EXPECTED_SHA256='84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415'
-readonly MEDIA_EXPECTED_SHA256='3d8133b049b52f94d6f5a55ee8d1d1181b2eaa8a907eee557b16f0163a66198d'
+# The validation picture (#454): T015's picture (SHA-256 3d8133b0…, its
+# evidence file) is in no repository, history or local store and could not
+# be made again to that digest, so the picture is now committed with the
+# command that makes it (scripts/make-validation-picture.ts) and this is its
+# digest. The check that reads it is unchanged (spec #450 "T022, T028 and the
+# validation fixture"; Product Owner, round 2).
+readonly MEDIA_EXPECTED_SHA256='2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396'
+readonly MEDIA_PICTURE='tests/operations/fixtures/validation-picture.png'
 
 # T013 authority: the reused startup-acceptance contract. The gate banner is
 # derived from this script at runtime, never re-typed here, so this harness
@@ -2511,6 +2518,8 @@ check_missing_attachment_negative() {
 # restore/cleanup branches run against scratch files with a shimmed
 # systemctl first on PATH, the negative-result reasoner runs on synthetic
 # states, and the non-mutation detector runs against a scratch directory.
+# The validation picture's two cases (#454) check the committed picture and a
+# fresh run of its command against the expected media digest.
 # Exit is 0 only when every demonstration passes.
 # ---------------------------------------------------------------------------
 
@@ -3758,6 +3767,27 @@ F01JS
 		st_fail f02-inspection-field 'ownership must inspect the compatible field'
 	fi
 	rm -f "$ST_ROOT/fx-podman-cgroup" "$ST_ROOT/fx-unit-controlgroup"
+
+	# The validation picture (#454): the committed file is the one whose
+	# digest check_media expects.
+	local picture_sha=''
+	if [ -f "$ROOT/$MEDIA_PICTURE" ]; then
+		picture_sha="$(sha256sum "$ROOT/$MEDIA_PICTURE" | awk '{print $1}')"
+	fi
+	if [ "$picture_sha" = "$MEDIA_EXPECTED_SHA256" ]; then
+		st_case media-picture-committed "PASS $MEDIA_PICTURE is committed and its SHA-256 is the expected media digest"
+	else
+		st_fail media-picture-committed "$MEDIA_PICTURE must be committed with the SHA-256 $MEDIA_EXPECTED_SHA256 (found: ${picture_sha:-no file})"
+	fi
+	local remade="$ST_ROOT/validation-picture.png" remade_sha=''
+	if node "$ROOT/scripts/make-validation-picture.ts" "$remade" >/dev/null && [ -f "$remade" ]; then
+		remade_sha="$(sha256sum "$remade" | awk '{print $1}')"
+	fi
+	if [ "$remade_sha" = "$MEDIA_EXPECTED_SHA256" ] && cmp -s "$remade" "$ROOT/$MEDIA_PICTURE"; then
+		st_case media-picture-reproducible 'PASS scripts/make-validation-picture.ts made the committed picture again, byte for byte, with the expected media digest'
+	else
+		st_fail media-picture-reproducible "scripts/make-validation-picture.ts must make $MEDIA_PICTURE again byte for byte with the SHA-256 $MEDIA_EXPECTED_SHA256 (made: ${remade_sha:-nothing})"
+	fi
 
 	rm -rf "$ST_ROOT"
 	if [ "$ST_FAILURES" -eq 0 ]; then
