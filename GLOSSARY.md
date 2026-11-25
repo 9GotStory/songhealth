@@ -139,3 +139,9 @@ _Avoid_: Old site, เว็บเก่า
 **Classification list** (บัญชีจัดประเภท):
 The list, reviewed by people, that says what each Legacy site news, directive and procurement item becomes on Songhealth (News, an Activity, an Announcement of a given type, or a Document), with the Summary staff wrote for the current fiscal year's News and Activities. Its defaults come from the items' legacy categories.
 _Avoid_: Mapping file, category map
+
+## Operations
+
+**Recovery Set** (ชุดกู้คืน):
+Songhealth's whole database and every media file, taken together while nobody writes, with a record of what both held, from which one runtime is restored and checked. It holds no runtime secrets, which are recovered on their own path.
+_Avoid_: Production backup, snapshot (it is not atomic); "backup" for the Legacy site's own backup on the WordPress host
