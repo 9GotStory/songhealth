@@ -1,11 +1,11 @@
-# Songhealth checks: the production build, typecheck, node tests, formatting, unused
-# files, dependencies and exports (Knip), duplicated code (jscpd, .jscpd.json) and
-# ShellCheck on the development-runtime scripts, on every pull request, whatever its
-# base, and on every push to main or to a feature's integration branch, named
-# <feature number>-<name> such as 004-ita (docs/agents/issue-tracker.md, Branches), so
-# a new feature's branch needs no change here (#122 retro). The browser suites need the
-# development runtime's database and credentials, so they run there instead
-# (README.md).
+# Songhealth checks: the production build, typecheck, node tests, the T016 harness's
+# self-test, formatting, unused files, dependencies and exports (Knip), duplicated code
+# (jscpd, .jscpd.json) and ShellCheck on the development-runtime scripts, on every pull
+# request, whatever its base, and on every push to main or to a feature's integration
+# branch, named <feature number>-<name> such as 004-ita (docs/agents/issue-tracker.md,
+# Branches), so a new feature's branch needs no change here (#122 retro). The browser
+# suites need the development runtime's database and credentials, so they run there
+# instead (README.md).
 name: checks
 
 on:
@@ -34,6 +34,10 @@ jobs:
       - run: npm run build:check
       - run: npm run typecheck
       - run: npm run test:node
+      # The T016 lifecycle harness's self-test runs on scratch files and shims, never a
+      # deployment; among its cases, the validation picture, the command that makes it
+      # and the digest the harness expects agree (#454 retro).
+      - run: tests/operations/verify-foundation.sh --self-test
       - run: npm run format:check
       - run: npm run knip
       - run: npm run jscpd
