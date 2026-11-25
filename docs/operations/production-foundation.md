@@ -28,18 +28,19 @@ evidence for every behavior claimed below, the committed deployment definitions 
 accepted with runtime evidence; T019 and T020 have independent static review PASS at this
 baseline. Production runtime/durability evidence (executing the T016 harness on a
 production-capable verification host) is the separately authorized T022 task and is **pending**;
-recovery work (T023–T028) is later. See §11.
+the Recovery Set's backup and restore are §7.6 (#221, which replaced T024–T027), and their drill,
+T028, waits for T022. See §11.
 
 ## 1. Scope, authority, and verification status
 
 In scope here: installation, one-time provisioning, startup, start/stop/restart/recreation,
-readiness interpretation, the private database boundary, and the external HTTPS/reverse-proxy
-boundary of the Feature 001 production baseline.
+the Recovery Set's backup and restore (§7.6), readiness interpretation, the private database
+boundary, and the external HTTPS/reverse-proxy boundary of the Feature 001 production baseline.
 
 Out of scope, unchanged: selecting a reverse-proxy or monitoring product (Feature 001 explicitly
-excludes both; §10 states the required boundary only), backup/recovery procedures (later tasks —
-see §11), any second production stack (Docker/Compose and Kubernetes are not baselines), and any
-boot-time or scheduling policy the committed units do not define (§4.6).
+excludes both; §10 states the required boundary only), scheduled backups and keeping several
+Recovery Sets (#221), any second production stack (Docker/Compose and Kubernetes are not
+baselines), and any boot-time or scheduling policy the committed units do not define (§4.6).
 
 ## 2. Production topology
 
@@ -253,8 +254,8 @@ podman secret create songhealth-encryption-key <path-to-protected-file>
 The two application secrets are mounted read-only as files and are **not** part of the
 container's configured environment, so `podman inspect` cannot leak them; anything that dumps
 the *application process* environment can. Missing secrets fail container creation. Keep an
-independently protected recovery copy of every required runtime secret (the recovery procedure
-itself is later work — §11).
+independently protected recovery copy of every required runtime secret
+(`runtime-secret-recovery.md`).
 
 **Identity matching.** The migration URL inside `songhealth-migration-database-url` must
 identify the **same intended database** as the `PG*` inputs — same host (`systemd-songhealth-db`),
@@ -668,7 +669,11 @@ Deliberately absent, and not to be improvised as "maintenance":
   `podman volume prune`, no `podman system prune`, no manual `initdb`, no store wipe. A refused
   start names its prerequisite; resolving it is investigation (§5, §6, §8), never deletion.
   Reinitializing persistent stores is exclusively the explicit, humanly-authorized decision
-  described for interrupted-provisioning states (§5.1, S2–S4).
+  described for interrupted-provisioning states (§5.1, S2–S4). The one tool that replaces the
+  stores' content is the Recovery Set's restore (§7.6): it runs only while the application is
+  stopped, only from a set of this runtime taken while it served the same image, and only after
+  the Operator types `yes` for the database and again for the media. It keeps the volumes, the
+  cluster, the roles and the media store's marker.
 - **No automatic repair.** Neither unit repairs, grants, initializes, or provisions anything.
 - **No broad cleanup procedures.** This document intentionally documents none; ordinary
   lifecycle creates no residue to clean (the media probe removes its own file with a no-residue
@@ -683,8 +688,8 @@ EmDash applies `seed/seed.json` only when it sets up a fresh database. A databas
 earlier seed gets a later content model from the model-update step, `scripts/model-update.mjs`
 (`10` §4). The step uses only EmDash's native schema, taxonomy and menu APIs:
 
-1. Back up the database and its media (`10` §18). The production backup procedure belongs to the
-   pending recovery work (§11).
+1. Take a Recovery Set of the database and its media (`10` §18; §7.6): stop the application,
+   back up, and start it again before step 2, which needs it serving.
 2. Use a checkout at the deployed commit, the Node its `package.json` engines pins, and an API
    token of an Administrator with the `schema:read`, `schema:write`, `content:read`,
    `taxonomies:manage` and `menus:manage` scopes (emdash 1.1.0 `src/astro/middleware/auth.ts`).
@@ -736,6 +741,63 @@ journalctl --user -u songhealth-app.service -o cat --grep 'songhealth-admin-chan
 
 How long journald keeps them is set with the production host (Feature 001 T022/T028), where the
 Product Owner confirms whether a legal minimum applies (ADR 0005).
+
+### 7.6 Backup and restore: the Recovery Set
+
+A Recovery Set (`GLOSSARY.md`) is the whole database and every media file, taken while the
+application is stopped, with a manifest of what both held; it holds no runtime secret, which
+`runtime-secret-recovery.md` recovers on its own path. `10` §18 asks for one before a risky schema
+change, a bulk import or a major upgrade: the content-model update (§7.4) and the WordPress import
+(`wordpress-cutover.md` "Before cutover" step 10) are both. Run the command from a checkout at the
+deployed commit, on the Node `package.json` pins (26.13.0), as the deployment's user (#221):
+
+```bash
+SET=<an empty directory outside both volumes, mode 0700, such as ~/recovery-sets/<UTC time>>
+systemctl --user stop songhealth-app.service       # the database stays up; nobody writes now
+node scripts/recovery-set.ts backup production "$SET"
+systemctl --user start songhealth-app.service
+```
+
+The backup refuses while `songhealth-app.service` runs and prints these two `systemctl` commands.
+It writes three owner-only files and never overwrites one: `database.dump`, a complete
+custom-format `pg_dump` made inside `systemd-songhealth-db` as the bootstrap administrator over its
+local socket; `media.tar`, a ustar archive of the `songhealth-media` volume made under
+`podman unshare`, without the `.songhealth-media-store` marker; and `manifest.json`, written last.
+The manifest records the runtime, the image `songhealth-app.container` pins, the UTC time, the
+`pg_dump`, server and EmDash versions, both archives' sizes and SHA-256, every table's row count
+and the SHA-256 of its rows in primary-key order, EmDash's applied migrations, and every media
+file's path, size and SHA-256. It prints the totals and the three files' SHA-256 for the
+Operator's record. Then copy the set off the host over a private channel, since a set on the host
+dies with the host; keeping several sets and a schedule are not part of this baseline.
+
+The database's name and its administrator's come from the database container's own
+`POSTGRES_DB` and `POSTGRES_USER` (`songhealth-db.env`), and the application role from the
+`PGUSER=` line of `songhealth-app.env`, read by `grep` so that the command never holds
+`PGPASSWORD`. No credential is asked for, printed or stored.
+
+```bash
+systemctl --user stop songhealth-app.service
+node scripts/recovery-set.ts restore production "$SET"    # asks for "yes" twice
+systemctl --user start songhealth-app.service
+```
+
+The restore admits the whole set before it changes anything: its three files and no other, the
+manifest's grammar, a set of `production`'s taken while it served the image it serves now (point
+the unit back at the set's image first, §4.5), both archives' sizes and SHA-256, a dump
+`pg_restore --list` reads, and a media archive holding plain files and directories only, exactly
+the manifest's. It refuses while the application runs, and asks for a typed `yes` for the database
+and again for the media. Then it drops and recreates the `public` schema owned by the application
+role, restores the dump as that role (`pg_restore --no-owner --no-privileges --exit-on-error
+--single-transaction`), empties the media volume but for its marker, extracts the archive, and
+runs the integrity check: every table's row count and digest, the migrations and every media file
+against the manifest. A difference names its table or file path, never a row's content. A refusal
+exits 1 with nothing changed; a failure after the reset began exits 3, says the runtime is
+partial, and names the set to restore from again: keep the application stopped until a restore
+passes. The restore works the same on a database that Quadlet has just created and §5 has just
+provisioned, with the marker in place, which is how T028 drills a recreated runtime.
+
+`node scripts/recovery-set.ts check production "$SET"` runs the integrity check on its own; while
+the application runs, the tables it writes differ.
 
 ## 8. Readiness interpretation
 
@@ -871,10 +933,10 @@ missing-attachment not-ready behavior, and exact `tagline`/media persistence-int
 comparison. Every runtime-shaped claim in this document (host `stat` behavior, rootless
 port-forwarding behavior, actual startup durations vs the §6.3 ceiling, isolation probes) is
 as-built design recorded in the units, not yet runtime-proven on the production host; T022
-records the exact host versions alongside it. Recovery work (runtime-secret recovery
-documentation, backup/restore scripts, and the recovery drill — T023–T028) is later Feature 001
-work and is intentionally not described here beyond the secret-recovery prerequisite noted in
-§4.4. This document claims no runtime acceptance and integrates nothing into the canonical
+records the exact host versions alongside it. Runtime-secret recovery is
+`runtime-secret-recovery.md` (T023), and the Recovery Set's backup and restore are §7.6 (#221,
+which replaced T024–T027). The recovery drill, T028, runs them on the production host after T022
+and is pending. This document claims no runtime acceptance and integrates nothing into the canonical
 branch.
 
 ## Appendix A. T021 element traceability

@@ -16,7 +16,6 @@ seed/
 # listed file even when it is named on the command line, then formats the file in a
 # commit of its own.
 scripts/verify-readiness.mjs
-scripts/verify-restored-foundation.mjs
 tests/node/foundation.test.ts
 tests/browser/foundation.spec.ts
 tests/browser/fixtures/

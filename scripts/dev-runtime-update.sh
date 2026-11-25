@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Songhealth development runtime — UPDATE: promote another commit to the running runtime
-# (Feature 002 T036). Backs up the database and media first, stops the app, moves the
+# (Feature 002 T036). Stops the app, takes a Recovery Set of the database and media
+# (scripts/recovery-set.ts, which needs the app stopped: #221), moves the
 # runtime checkout to the commit, then hands over to THAT commit's installer, which
 # reinstalls dependencies only when the lockfile changed, refreshes changed units, starts
 # the app (EmDash applies pending core migrations in development) and runs verify.
@@ -20,8 +21,9 @@
 # refused, and again after the wait, since another promotion can land during it. It refuses while a
 # window holds the runtime (scripts/dev-runtime-window.sh, #178 retro), at the same two points: a
 # window's restore admits only a backup of the commit the runtime serves.
-# Rolling back after new EmDash migrations ran means restoring the backup taken here, after
-# pointing the checkout back at the backup's commit (docs/operations/development-quadlet.md).
+# Rolling back after new EmDash migrations ran means restoring the Recovery Set taken here, after
+# pointing the checkout back at the set's commit (docs/operations/development-quadlet.md). A failed
+# backup starts the app again and changes nothing.
 set -Eeuo pipefail
 set +a
 umask 077
@@ -91,11 +93,11 @@ wait until nobody is editing (--wait does it), or pass --force when these loads 
   require_contains_served
 fi
 
-if [[ $BACKUP == yes ]]; then
-  backup_runtime
-fi
 note "stopping $APP"
 systemctl --user stop "$APP"
+if [[ $BACKUP == yes ]]; then
+  backup_runtime || { systemctl --user start "$APP"; die "the backup failed: nothing was changed, and $APP is started again"; }
+fi
 git -C "$SRC" checkout --quiet --detach "$SHA"
 printf '%s\n' "$SHA" > "$SRC/$MARKER.tmp"
 mv -f -- "$SRC/$MARKER.tmp" "$SRC/$MARKER"

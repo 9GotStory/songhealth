@@ -57,7 +57,7 @@ All of them stay outside the repository. A record of this run holds counts, chec
    ```
 
 4. **The model-update step (Operator).** Its deletion of Categories and Tags has no undo but a
-   restore, so a production backup (step 10) comes first:
+   restore, so a Recovery Set (step 10) comes first:
 
    ```bash
    node scripts/model-update.mjs --origin "$ORIGIN" --check < "$TOKEN"   # 0: nothing pending, 3: changes pending
@@ -95,12 +95,23 @@ All of them stay outside the repository. A record of this run holds counts, chec
 9. **The freeze's date, and DNS's TTL (Product Owner, DNS holder).** Tell staff the date. Lower the
    record's TTL at least one old TTL before the switch.
 10. **The backups of `09` §15.**
-    - **Production database and media (Operator):** one before step 4, and one after staff's last
-      change, again if anyone writes to production before the import. **Command: none yet.**
-      `scripts/backup-foundation.sh` is the only production backup in the repository, and it produces
-      nothing unless the site's tagline is the validation value of Feature 001's T015, so it cannot
-      back up a site with real settings. **Open (#221):** the production track supplies the command,
-      proves it with T028's drill and names it here. The cutover stops here until it exists.
+    - **A Recovery Set of production's database and media (Operator):** one before step 4, and one
+      after staff's last change, again if anyone writes to production before the import
+      (`production-foundation.md` §7.6, whose commands step 1's T028 drills on this host). Each
+      stops Songhealth for the backup's few minutes, which nobody sees while the public still
+      reaches WordPress:
+
+      ```bash
+      SET=$STATE/recovery-set-<UTC time, such as 20261201T0300Z>
+      install -d -m 0700 "$SET"
+      systemctl --user stop songhealth-app.service
+      node scripts/recovery-set.ts backup production "$SET"
+      systemctl --user start songhealth-app.service
+      ```
+
+      The backup refuses while the app runs. Copy the set off the host over a private channel, and
+      put the totals and the three SHA-256 it prints in the run's record. The set holds no runtime
+      secret (`runtime-secret-recovery.md`).
     - **WordPress database and files (Product Owner):** with the WordPress host's own tools, just
       before the freeze. `wp-content.zip` holds no database, so it is not this backup.
 
@@ -198,7 +209,7 @@ verify 40 to 46 s (`astro dev`, so these are not production's figures).
 | any import, before writing | an ITA post without exactly one fiscal year tag and one `moit-N` tag; a fiscal year with no Round (other than 2567–2570); a published post with no publish date; a link into the uploads naming no attachment; a link to a page of the site with no new address; a MOIT over 100 blocks | the Product Owner decides: the rule lives in the script, and a change is a commit that goes through its tests and review |
 | any import, before writing | a target slug or a legacy redirect that exists; a missing term | a term: run the model-update step. A slug or redirect: find out what wrote it, and restore if it was an earlier run |
 | a final import | any row still ต้องเลือก | decide the row |
-| during the writes | a write the target refuses | restore the backup of "Before cutover" step 10: the run stopped where it was |
+| during the writes | a write the target refuses | restore the last Recovery Set of "Before cutover" step 10 (Rollback): the run stopped where it was |
 
 ## After cutover
 
@@ -225,8 +236,18 @@ verify 40 to 46 s (`astro dev`, so these are not production's figures).
 | Where it went wrong | What to do | Who |
 | --- | --- | --- |
 | The import stopped before writing | Nothing was written. Fix the cause and repeat from "Cutover" step 6 | Operator |
-| The import stopped during its writes, or verify fails, before the DNS switch | Restore the production database and media from "Before cutover" step 10, then repeat from step 6. WordPress is still what the public sees | Operator |
+| The import stopped during its writes, or verify fails, before the DNS switch | Restore the last Recovery Set of "Before cutover" step 10 with the commands below, then repeat from step 6. WordPress is still what the public sees | Operator |
 | A problem after the DNS switch | Point the record back at WordPress and tell staff to stop publishing on Songhealth. A restore is needed only to redo the import, and it discards what was written on Songhealth since. WordPress's certificate expired on 2026-10-31, so visitors see a certificate error unless it has been renewed | Product Owner, DNS holder, Operator |
 
-Rollback is practical recovery, not a distributed transaction (`09` §15). The restore command comes
-with the backup's (#221).
+The restore, from the set's directory on the host (`production-foundation.md` §7.6):
+
+```bash
+systemctl --user stop songhealth-app.service
+node scripts/recovery-set.ts restore production "$SET"   # type yes for the database, then for the media
+systemctl --user start songhealth-app.service
+```
+
+It changes nothing until both answers, and refuses a set of another runtime or of another image.
+Exit 3 means it stopped after the reset began: keep the app stopped and run the restore again.
+
+Rollback is practical recovery, not a distributed transaction (`09` §15).

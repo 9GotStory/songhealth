@@ -178,9 +178,9 @@ The update runs these steps:
    that a session is still testing (#177 retro). Pass `--replace` once that work no longer needs
    the runtime. The check runs again after a `--wait`, since another promotion can land during it.
 2. Refuses when an Admin page was opened in the last 10 minutes, and lists those page loads. The
-   restart in steps 4–6 would cut off someone editing in the Admin, and the Product Owner uses
-   this Admin. Verify's own probe of the Admin does not count, and neither do the browser suites'
-   own Admin sessions: `tests/browser/cms.helpers.ts` records each one's start and end in
+   stop in step 3 and the restart in step 5 would cut off someone editing in the Admin, and the
+   Product Owner uses this Admin. Verify's own probe of the Admin does not count, and neither do
+   the browser suites' own Admin sessions: `tests/browser/cms.helpers.ts` records each one's start and end in
    `~/.local/state/songhealth-qdev/admin-test-sessions` when the suite runs through
    `scripts/dev-runtime-env.sh`.
    - Pass `--force` only for Admin loads you know are your own and the guard still lists, such as
@@ -194,10 +194,11 @@ The update runs these steps:
    - The guard sees page loads only. The Admin routes its screens in the browser
      (`@tanstack/react-router`), so an editor who opened it earlier and kept working passes
      unseen.
-3. Backs up the database and media to `~/.local/state/songhealth-qdev/backups/<UTC>/`.
-4. Stops the app.
-5. Moves the checkout to the commit and records it.
-6. Hands over to that commit's installer. The installer runs `npm ci` only if the lockfile
+3. Stops the app, then takes a Recovery Set of the database and media into
+   `~/.local/state/songhealth-qdev/backups/<UTC>/` ("Backup and restore" below), which needs the
+   app stopped. When the backup fails, it starts the app again and stops, with nothing changed.
+4. Moves the checkout to the commit and records it.
+5. Hands over to that commit's installer. The installer runs `npm ci` only if the lockfile
    changed, refreshes changed units, starts the app and runs verify.
 
 Keep the backup whenever the commit can change data: a new `package-lock.json` (an EmDash upgrade
@@ -210,19 +211,21 @@ A promotion never changes the content model of the existing database. When the c
 the promotion until the model-update step below has run.
 
 If that commit upgrades EmDash, its new core migrations run on the first request. Going
-**back** afterwards means restoring the pre-update backup. Restore admits a backup only when
-its recorded commit equals the runtime's promoted commit, so first point the checkout back at
-the backup's commit while the app is stopped:
+**back** afterwards means restoring the pre-update Recovery Set. The restore admits a set only
+when the commit it records equals the runtime's promoted commit, so first point the checkout
+back at the set's commit while the app is stopped, then restore with that commit's own restore:
 
 ```bash
 cd ~/dev/songhealth-quadlet
 systemctl --user stop songhealth-dev-app.service
 git -C ~/dev/songhealth-quadlet checkout --detach <old-commit>
 printf '%s\n' <old-commit> > ~/dev/songhealth-quadlet/.songhealth-qdev-source-identity
-scripts/dev-runtime-restore.sh --confirm <dir>/qdev-db-<ts>.dump <dir>/qdev-media-<ts>.tar \
-  <dir>/qdev-checksums-<ts>.sha256 <dir>/qdev-meta-<ts>.txt
+node scripts/recovery-set.ts restore dev <dir>       # type yes for the database, then for the media
 scripts/dev-runtime-install.sh --sha <old-commit>    # reinstalls deps/units if needed, starts, verifies
 ```
+
+A commit from before #221 restores its own sets, of four `qdev-*` files, with its
+`scripts/dev-runtime-restore.sh --confirm <dump> <media-tar> <checksums> <meta>`.
 
 ## Update the content model
 
@@ -237,9 +240,12 @@ content model from the model-update step:
   - It runs `scripts/model-update.mjs` in the app container. The script compares the promoted
     commit's seed with the database through EmDash's native schema API, with the development PAT
     on standard input.
-  - When changes are pending, the step backs up the database and media to
-    `~/.local/state/songhealth-qdev/backups/<UTC>/`, applies the changes, reads the model again
-    to confirm it, and runs verify.
+  - When changes are pending, the step refuses while an Admin page was opened in the last 10
+    minutes, as a promotion does, since it stops the app. Otherwise it stops the app, takes a
+    Recovery Set into `~/.local/state/songhealth-qdev/backups/<UTC>/` ("Backup and restore"),
+    starts the app again (its unit's start waits until it is healthy), applies the changes, reads
+    the model again to confirm it, and runs verify. When the backup fails, it starts the app again
+    and stops, with nothing changed.
   - With nothing pending, it changes nothing and takes no backup, so it is safe to run again.
 - **What it manages.** First the seed's block types, such as the ITA block types `ita_requirement`,
   `ita_file` and `ita_link` that MOIT's Evidence is made of (#122):
@@ -451,12 +457,40 @@ the ADR 0003 revisit of production images.
 
 ## Backup and restore
 
-- **Backup.** `scripts/dev-runtime-backup.sh <existing-dir>` writes four files: a `pg_dump -Fc`
-  of `songhealth_qdev`, a ustar archive of the media volume, a sha256 manifest and provenance
-  metadata.
-- **Restore.** `scripts/dev-runtime-restore.sh --confirm <dump> <media-tar> <checksums> <meta>`
-  restores into the running database with the app stopped. It admits only a backup whose
-  recorded commit equals the runtime's promoted commit (see the rollback steps above).
+The runtime's Recovery Set (`GLOSSARY.md`) comes from the command production uses
+(`production-foundation.md` §7.6), given `dev`. Run it from the runtime's checkout, whose scripts
+belong to the promoted commit, with the app stopped and the database up:
+
+```bash
+cd ~/dev/songhealth-quadlet
+SET=~/.local/state/songhealth-qdev/backups/<UTC time, such as 20261125T1200Z>
+install -d -m 0700 "$SET"
+systemctl --user stop songhealth-dev-app.service
+node scripts/recovery-set.ts backup dev "$SET"
+systemctl --user start songhealth-dev-app.service
+
+systemctl --user stop songhealth-dev-app.service
+node scripts/recovery-set.ts restore dev "$SET"     # type yes for the database, then for the media
+systemctl --user start songhealth-dev-app.service
+scripts/dev-runtime-verify.sh
+
+node scripts/recovery-set.ts check dev "$SET"       # the integrity check on its own
+```
+
+- **Backup.** It refuses while `songhealth-dev-app.service` runs, and prints the stop and start
+  commands. It writes `database.dump` (a `pg_dump` of `songhealth_qdev`), `media.tar` (the
+  `songhealth-qdev-media` volume without its `.songhealth-qdev-media-store` marker) and
+  `manifest.json`, owner-only, and prints the totals. A promotion and the model-update step take
+  one themselves.
+- **Restore.** It admits only a set of `dev`'s taken while the runtime served the commit it serves
+  now (see the rollback steps above), whose files all match the manifest. After a `yes` for each,
+  it recreates the `public` schema owned by `songhealth_qdev_app`, restores the dump as that role,
+  empties the media volume but for its marker, extracts the archive, and checks every table, the
+  migrations and every media file against the manifest. Exit 1 changed nothing; exit 3 left the
+  runtime partial: keep the app stopped and restore again.
+- **Sets from before #221.** The `backups/` folders of four files (`qdev-db-*.dump`,
+  `qdev-media-*.tar`, `qdev-checksums-*.sha256`, `qdev-meta-*.txt`) are restored by their own
+  commit's `scripts/dev-runtime-restore.sh` (the rollback steps above).
 - **A window:** backing up, changing the data and restoring as one held stretch is "A window" below.
 - **What a backup covers.** Database and media only. The secrets (including
   `EMDASH_ENCRYPTION_KEY`, needed to read encrypted plugin settings) live in the podman secret
@@ -479,8 +513,9 @@ the restore costs another window (#183 retro):
    `scripts/dev-runtime-update.sh` and `scripts/dev-runtime-env.sh` refuse from now on, naming the
    window and its close time, for every session. Its holder runs
    `scripts/dev-runtime-env.sh --in-window <command>`.
-2. `scripts/dev-runtime-verify.sh`, `scripts/dev-runtime-residue.sh`, then make a folder under
-   `~/.local/state/songhealth-qdev/backups/` and run `scripts/dev-runtime-backup.sh <that folder>`.
+2. `scripts/dev-runtime-verify.sh`, `scripts/dev-runtime-residue.sh`, then a Recovery Set into a
+   new folder under `~/.local/state/songhealth-qdev/backups/`, with the app stopped and started
+   again ("Backup and restore").
 3. The work. When a person walks through the result, read what they opened before step 4, while
    it can still be walked again (#184 retro):
 
@@ -495,8 +530,7 @@ the restore costs another window (#183 retro):
    last start, drops query strings, so a filter's address reads as its list's, and holds no window
    width. A walkthrough outside a window is read the same way, before the next promotion.
 4. Put it back: `systemctl --user stop songhealth-dev-app.service`, then the restore above (it asks
-   three times, so type `yes` three times), `systemctl --user start songhealth-dev-app.service`, and
-   verify.
+   twice, so type `yes` twice), `systemctl --user start songhealth-dev-app.service`, and verify.
 5. `scripts/dev-runtime-window.sh close`. `scripts/dev-runtime-window.sh status` says whether one is
    open, prints why it opened, when, the directory it was opened from and its close time, warns
    once that time has passed, and prints the newest line of
@@ -504,12 +538,13 @@ the restore costs another window (#183 retro):
    node's start and stop, adds a line there with its time and script, so a session reads what
    another one did to the runtime.
 
-**A window another session left open** is closed on the Product Owner's word, by steps 4 and 5
-(#240 retro; #238 comment 6787146310 is the worked record). Its backup is the folder under
-`~/.local/state/songhealth-qdev/backups/` whose `qdev-meta-*.txt` has the first `created-utc` after
-the window opened. Before the restore, stop what the window started (its issue and the directory
-`status` prints name it, such as `scripts/dev-runtime-uat.sh stop`), and back up the runtime as the
-window leaves it, so the restore can be undone. Record what was done on the window's issue.
+**A window another session left open** is closed on the Product Owner's word, by steps 4 and 5 (#240
+retro; #238 comment 6787146310 is the worked record). Its backup is the folder under
+`~/.local/state/songhealth-qdev/backups/` whose `manifest.json` has the first `createdUtc` after the
+window opened (before #221, whose `qdev-meta-*.txt` has the first `created-utc`). Before the
+restore, stop what the window started (its issue and the directory `status` prints name it, such as
+`scripts/dev-runtime-uat.sh stop`), and back up the runtime as the window leaves it, so the restore
+can be undone. Record what was done on the window's issue.
 `scripts/capture-screenshots.mjs` stops while a window is open, since its pages then show the
 window's content.
 
@@ -607,7 +642,7 @@ makes a new node, so every start needs the approval again.
 | Symptom | Cause and response |
 | --- | --- |
 | The app exits with `refusing` (exit 78; not restarted) | The message names the cause: dependencies are missing (re-run the installer), the checkout is not the promoted commit (use `update`), the media store marker is missing, or a secret is malformed. |
-| The database refuses: "no database cluster and no first-initialization authorization" | The data volume was recreated or emptied. Restore a backup; never let it re-initialize silently. |
+| The database refuses: "no database cluster and no first-initialization authorization" | The data volume was recreated or emptied. Restore a Recovery Set; never let it re-initialize silently. |
 | Install stops: "app role missing or wrong" | The first initialization failed partway. The database holds no application data yet, so run `uninstall --purge` and install again. |
 | Install refuses an unlabeled volume, a media volume without its marker, or partial secrets | A foreign or half-made resource. Inspect it; purge only what this runtime created. |
 | Port 4324 is in use | Something else listens there. There is no fallback port: resolve the conflict at its cause. |

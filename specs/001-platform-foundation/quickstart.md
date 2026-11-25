@@ -206,62 +206,42 @@ or logs. This is a separate recovery dependency and does not create a secret-man
 
 ### 7.2 Recovery Set creation and restore
 
-Quiesce validation writes, assign one recovery-set identifier, then create a complete unfiltered
-PostgreSQL custom archive and the separate media archive:
+The drill uses `scripts/recovery-set.ts` (`docs/operations/production-foundation.md` §7.6),
+which replaced T024–T027's sources in #221 and serves any site, the validation state and real
+content alike. On the production host, after T022, in the order of #221's decision 11:
 
 ```bash
-export RECOVERY_DIR=/approved/backup/location
-pg_dump --format=custom --file "$RECOVERY_DIR/database.dump" "$PGDATABASE"
-pg_restore --list "$RECOVERY_DIR/database.dump"
-tar --create --file "$RECOVERY_DIR/media.tar" --directory ./media .
-sha256sum "$RECOVERY_DIR/database.dump" "$RECOVERY_DIR/media.tar"
+SET=<an empty directory outside both volumes, mode 0700>
+systemctl --user stop songhealth-app.service
+node scripts/recovery-set.ts backup production "$SET"     # prints the totals and SHA-256 to record
+systemctl --user stop songhealth-db.service
+podman volume rm songhealth-db-data songhealth-media      # the drill's recreated persistence only
+# Quadlet recreates both volumes: provision them (production-foundation.md §5.1–§5.3) and
+# recover the runtime secrets (§7.1, runtime-secret-recovery.md)
+systemctl --user start songhealth-db.service
+node scripts/recovery-set.ts restore production "$SET"    # type yes for the database, then the media
+systemctl --user start songhealth-app.service
 ```
 
-`pg_dump`/`pg_restore` consume the native `PG*` client inputs for their connection. Use a protected
-PostgreSQL connection mechanism; do not place database credentials on the command
-line or in captured output. The media archive is taken from the stable application media path
-`./media`; it is not read from a `MEDIA_DIRECTORY` runtime input. Record the recovery-set identifier, ISO timestamp, tool/server versions,
-artifact checksums, and expected database/media validation evidence in the manifest. The two
-artifact classes and their common association evidence form the Recovery Set. They are associated
-with the same quiescent state but are not an atomic snapshot and do not contain runtime secrets.
-
-Restore the Recovery Set into a new empty database and media volume—not over the active source
-stores—then restore the required runtime secrets separately through the external protected
-mechanism before operational-use acceptance:
-
-```bash
-pg_restore --exit-on-error --no-owner --no-privileges \
-  --dbname "$RESTORE_DATABASE" "$RECOVERY_DIR/database.dump"
-tar --extract --file "$RECOVERY_DIR/media.tar" --directory "$RESTORE_MEDIA_MOUNT"
-npx emdash migrate --status --json
-npx emdash migrate --expected-target-fingerprint "$EMDASH_TARGET_FINGERPRINT"
-npx emdash migrate --check
-npm run verify:restored-foundation
-```
-
-Use the same exact-build manifest and verified target-fingerprint procedure from Section 3.2. The
-restore migration gate connects through the restored environment's
-`EMDASH_MIGRATION_DATABASE_URL`, which must identify the same restored database as the `PG*`
-runtime inputs—verified by non-secret identity components only. Extract media into the clean media
-volume's stable application mount path (`$RESTORE_MEDIA_MOUNT`), never over the active source
-store.
+The Recovery Set is the complete custom-format `pg_dump`, the ustar archive of the media volume
+and the manifest, associated with one stopped state but not an atomic snapshot, and holding no
+runtime secret. The commands need no database credential: they reach PostgreSQL through
+`podman exec` on the database container's local socket.
 
 Expected:
 
-- the complete PostgreSQL logical archive and media archive both match their recorded checksums;
-- `pg_restore --list` can read the database archive before restore;
-- restore into the clean database completes with zero ignored restore errors and no schema/table
-  filters;
-- the restored database contains the exact native site `tagline` value and digest recorded in the
-  validation manifest and has no pending or unknown native migrations after the native
-  status/apply/check sequence;
-- restored media is available through native EmDash behavior;
-- the canonical native site `tagline` and 100% of designated media are present;
-- the exact tagline value/digest, file sizes, and media SHA-256 digests show zero unexplained
-  differences;
+- the backup refuses while the application runs, and writes the three files with the totals;
+- the restore admits the set (both archives match the manifest's sizes and SHA-256, `pg_restore
+  --list` reads the dump, the media archive holds exactly the manifest's files, the set is
+  `production`'s and of the image the unit pins) before it changes anything;
+- restore into the freshly provisioned database completes with `--exit-on-error` and no
+  schema/table filters, and its integrity check shows zero differences in every table's row count
+  and digest, the migrations and every media file;
+- the application starts and passes readiness, with no pending native migration;
 - independently protected runtime secrets are injected successfully without their values appearing
   in Git or evidence output;
-- an incomplete, corrupt, mismatched, or unusable Recovery Set fails recovery-set validation; and
+- an incomplete, corrupt, mismatched or other-runtime Recovery Set is refused with nothing changed
+  (the planning module's node:test cases, `tests/node/recovery-set.test.ts`); and
 - independently, a missing or unusable required runtime secret prevents the restored application
   from being accepted as operationally usable.
 

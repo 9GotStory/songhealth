@@ -674,6 +674,16 @@ What EmDash records about who changed what, and when (#115; ADR 0005 builds on i
   `content_publish`, `schema_create_field`, `schema_delete_collection`, and taxonomy and menu
   changes (`src/mcp/server.ts`).
 
+## Database migrations
+
+- EmDash records each applied core migration, by name and time, in the `_emdash_migrations` table,
+  the Kysely migrator's table under EmDash's name, with `_emdash_migrations_lock` as its lock
+  (`src/database/migrations/runner.ts` `MIGRATION_TABLE`, `createMigrator`;
+  `src/database/migration-lock.ts` `MIGRATION_LOCK_TABLE`); `getMigrationStatus` reads what is
+  applied and pending from it. On the development runtime at `9929198` it held `001_initial` to
+  `091_redirect_artifacts` (#221). `./scripts/recovery-set.ts` records the names as a Recovery
+  Set's migration state.
+
 ## Search and seeding
 
 - Full-text search is SQLite-only: `enableSearch` throws on PostgreSQL (`src/search/fts-manager.ts`;

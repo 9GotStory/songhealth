@@ -80,11 +80,12 @@ setup_needed() { # prints true or false from EmDash's native setup status endpoi
     | python3 -I -c 'import json, sys; print(str(json.load(sys.stdin)["data"]["needsSetup"]).lower())'
 }
 require_sha() { [[ ${1:-} =~ ^[0-9a-f]{40}$ ]] || die "--sha must name a full 40-hex commit"; }
-backup_runtime() { # database and media into a new $STATE_DIR/backups/<UTC> directory, named in BACKUP_DIR
+backup_runtime() { # a Recovery Set of the runtime, its app stopped (scripts/recovery-set.ts, #221), into
+  # a new $STATE_DIR/backups/<UTC> directory named in BACKUP_DIR; returns 1 when it fails
   BACKUP_DIR=$STATE_DIR/backups/$(date -u +%Y%m%dT%H%M%SZ)
-  install -d -m 0700 -- "$STATE_DIR/backups" "$BACKUP_DIR"
-  "$SRC/scripts/dev-runtime-backup.sh" "$BACKUP_DIR" || die "backup failed: nothing was changed"
-  note "backup written to $BACKUP_DIR"
+  install -d -m 0700 -- "$STATE_DIR/backups" "$BACKUP_DIR" || return 1
+  node "$SRC/scripts/recovery-set.ts" backup dev "$BACKUP_DIR" || return 1
+  note "Recovery Set written to $BACKUP_DIR"
 }
 ADMIN_TEST_SESSIONS=$STATE_DIR/admin-test-sessions  # browser suites' Admin sessions, "start end" (cms.helpers.ts)
 admin_page_loads() { # the Admin pages opened in the last ADMIN_QUIET_MINUTES; verify's probe and the
