@@ -88,10 +88,13 @@ COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/.emdash ./.emdash
 
-# Empty stable media mount point: no validation or application media is baked
-# into the image; the later deployment (T018/T020) maps the persistent volume
-# here. Writable by the non-root runtime user only.
-RUN mkdir -p media && chown node:node media && chmod 750 media
+# /app itself goes to the runtime user too: WORKDIR creates it as root, and the
+# startup gate's build makes /app/.astro in it (`EACCES` on mkdir
+# /app/.astro/collections/ otherwise, #453). Mode 755, so only that user writes.
+# The empty stable media mount point: no validation or application media is
+# baked into the image; the deployment maps the persistent volume here.
+# Writable by the non-root runtime user only.
+RUN chown node:node /app && mkdir -p media && chown node:node media && chmod 750 media
 
 # Non-root runtime user (the official image's fixed UID/GID 1000/1000); no
 # privileged behavior and no host-specific ownership assumption.

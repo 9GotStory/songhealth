@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 # Production image check (#67 retro; Product Owner, #67 comment 6558736325): build
-# deploy/Containerfile for one commit, check its native pieces, run it once against the development
-# runtime's data, show how a News picture is served, and remove the container and the image.
+# deploy/Containerfile for one commit, check its native pieces, run the startup gate's build as the
+# image's own user (#453), run the image once against the development runtime's data, show how a
+# News picture is served, stop it the way the commit's application unit would, and remove the
+# container and the image.
 #   scripts/production-image-check.sh --sha <commit> [<news-path>] [-- <command> [<arg>...]]
+# The startup build (#453; spec #450 "The image and the startup gate") is the build the T013 gate
+# runs in its S2 each time the production container starts: it removes the migration manifest and
+# runs `npm run build` as the image's user, in a container with no network and the placeholder
+# inputs deploy/Containerfile's build stage uses. It must emit dist/server/entry.mjs and
+# .emdash/migrations.json anew, as a non-root user, with no path under /app that anyone may write.
+# The stop reads deploy/quadlet/songhealth-app.container at the commit: the run takes Podman's init
+# when the unit sets RunInit=, and the stop timeout the unit sets. It must end before that timeout,
+# with no kill, in an exit status the unit counts a success. Each verdict comes from
+# scripts/production-image-check/plan.ts. The run prints the startup build's time and peak memory,
+# the time the server took to serve, its peak memory, and the stop's time and exit status.
 # The run is the Product Owner's exception to "one application server" (#67 comment 6558196151):
 # a temporary container on the runtime's private network that connects to its database as the
 # least-privilege app role, with the runtime's own podman secrets as environment variables, the
@@ -44,6 +56,8 @@ masked() {
   sed -E 's/(ec_pat_|ec_oat_|emdash_enc_v1_)[A-Za-z0-9_-]+/\1[masked]/g
     s#postgres(ql)?://[^[:space:]]*#postgres://[masked]#g; s/[0-9a-fA-F]{32,}/[masked]/g'
 }
+# Seconds since an $EPOCHREALTIME reading, to the hundredth.
+since() { awk -v start="$1" -v now="$EPOCHREALTIME" 'BEGIN { printf "%.2f", now - start }'; }
 
 podman container exists "$CTR" && die "container $CTR exists: another check is running or was left behind"
 podman image exists "$TAG" && die "image $TAG exists: remove it first (podman rmi $TAG)"
@@ -86,8 +100,42 @@ if [[ $pieces == *'"sharp":"FAILS'* ]]; then
   warn "sharp does not load: pages still serve original pictures (ADR 0003), but its revisit needs sharp"
 fi
 
-note "running the image on $CHECK_ORIGIN against the development database"
-podman run -d --name "$CTR" --network "$NETWORK" -p "127.0.0.1:$CHECK_PORT:$CHECK_PORT" \
+note "the startup gate's build, as the image's own user, in a container with no network:"
+startup_build=$(podman run --rm --network none \
+  -e PGHOST=build.internal -e PGPORT=5432 -e PGDATABASE=build -e PGUSER=build \
+  -e PGPASSWORD=build-time-placeholder-not-a-secret \
+  -e EMDASH_MIGRATION_DATABASE_URL=postgresql://build:build-time-placeholder-not-a-secret@build.internal:5432/build \
+  -e EMDASH_SITE_URL=http://build.invalid -e HOST=127.0.0.1 -e PORT=4321 \
+  -e EMDASH_ENCRYPTION_KEY=build-time-placeholder-not-a-secret \
+  "$TAG" node -e '
+const { spawnSync } = require("node:child_process");
+const fs = require("node:fs");
+const started = Date.now();
+fs.rmSync(".emdash/migrations.json", { force: true });
+const build = spawnSync("npm", ["run", "build"], { encoding: "utf8", maxBuffer: 1 << 28 });
+const seconds = Math.round((Date.now() - started) / 100) / 10;
+const fresh = (file) => { try { return fs.statSync(file).mtimeMs >= started - 1000; } catch { return false; } };
+const open = spawnSync("find", ["/app", "-xdev", "-perm", "-o+w", "!", "-type", "l"], { encoding: "utf8" });
+let peakBytes = null;
+try { peakBytes = Number(fs.readFileSync("/sys/fs/cgroup/memory.peak", "utf8")); } catch {}
+const output = `${build.stdout ?? ""}${build.stderr ?? ""}`.trim().split("\n");
+const error = output.find((line) => /error|EACCES|ENOENT|ERR_/i.test(line))?.trim() ?? null;
+console.log(JSON.stringify({ uid: process.getuid(), status: build.status, entry: fresh("dist/server/entry.mjs"),
+  manifest: fresh(".emdash/migrations.json"), worldWritable: open.stdout.split("\n").filter(Boolean),
+  error, tail: output.slice(-5), seconds, peakBytes }));
+') || die "the startup build could not be run in the image"
+node "$REPO/scripts/production-image-check-verdict.ts" startup-build "$startup_build" \
+  || die "the startup gate's build fails in this image as its runtime user"
+
+UNIT=$work/context/deploy/quadlet/songhealth-app.container
+read -r unit_init stop_timeout < <(node "$REPO/scripts/production-image-check-verdict.ts" stop-contract "$UNIT")
+run_init=() init_note="without an init"
+[[ $unit_init == true ]] && run_init=(--init) init_note="with Podman's init"
+note "running the image on $CHECK_ORIGIN against the development database" \
+  "($init_note and a $stop_timeout s stop timeout, as the commit's application unit)"
+run_started=$EPOCHREALTIME
+podman run -d --name "$CTR" "${run_init[@]}" --stop-timeout "$stop_timeout" \
+  --network "$NETWORK" -p "127.0.0.1:$CHECK_PORT:$CHECK_PORT" \
   -e HOST=0.0.0.0 -e PORT="$CHECK_PORT" -e EMDASH_SITE_URL="$CHECK_ORIGIN" \
   -e PGHOST="$(unit_env PGHOST)" -e PGPORT="$(unit_env PGPORT)" \
   -e PGDATABASE="$(unit_env PGDATABASE)" -e PGUSER="$(unit_env PGUSER)" \
@@ -103,7 +151,7 @@ until serves_marker "$CHECK_ORIGIN" 5; do
   fi
   sleep 1
 done
-note "it serves the public marker at /"
+note "it serves the public marker at /, $(since "$run_started") s after the container was started"
 
 note "the first picture on $NEWS_PATH, in production and on the development runtime:"
 python3 -I - "$CHECK_ORIGIN" "$ORIGIN" "$NEWS_PATH" <<'PY' || die "the News page or its picture could not be read"
@@ -161,4 +209,16 @@ fi
 lines=$(podman logs "$CTR" 2>&1)
 note "its log: $(grep -c . <<<"$lines") lines, $(grep -ciE 'error|warn' <<<"$lines" || true) with an error or a warning"
 grep -qE 'ec_pat_|ec_oat_|emdash_enc_v1_|postgres(ql)?://' <<<"$lines" && die "its log holds a credential"
+
+peak=$(podman exec "$CTR" cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo unreadable)
+[[ $peak == unreadable ]] || peak="$(numfmt --to=iec-i --suffix=B "$peak")"
+note "its peak memory while serving: $peak"
+stop_started=$EPOCHREALTIME
+podman stop "$CTR" >"$work/stop.log" 2>&1 || true
+stop_seconds=$(since "$stop_started")
+exit_code=$(podman container inspect "$CTR" --format '{{.State.ExitCode}}')
+note "asked to stop, it exited $exit_code after $stop_seconds s"
+grep -q . "$work/stop.log" && sed 's/^/  | /' "$work/stop.log"
+node "$REPO/scripts/production-image-check-verdict.ts" stop "$UNIT" "$exit_code" "$stop_seconds" \
+  || die "the container did not leave cleanly on the stop signal"
 note "PRODUCTION IMAGE CHECK: PASS at ${COMMIT:0:7}"
