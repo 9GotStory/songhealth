@@ -31,7 +31,9 @@ and why, and `.jscpd-baseline.json` records them.
   decision (issue and comment) where it departs, so a later change does not "fix" it back.
 - Accepted Feature 001 and 002 files carry long historical headers. Trim them when a change
   touches the file, keeping only the platform claims checked again against the pinned source: an
-  old header can be wrong, as #93 found a 401 that EmDash answers with 403 CSRF_REJECTED.
+  old header can be wrong, as #93 found a 401 that EmDash answers with 403 CSRF_REJECTED. The
+  trim belongs to the ticket that touches the file, and its review reads it as that ticket's scope
+  (Product Owner, #453 comment 7160143292).
 
 ## Public pages
 
