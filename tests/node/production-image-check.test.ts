@@ -34,6 +34,7 @@ describe("the stop contract the application unit sets", () => {
 		const unit = [
 			"[Container]",
 			"RunInit=yes",
+			"StopTimeout=20",
 			"StopTimeout=30",
 			"[Service]",
 			"SuccessExitStatus=1",

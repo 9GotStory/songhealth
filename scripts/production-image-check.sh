@@ -111,14 +111,15 @@ startup_build=$(podman run --rm --network none \
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const started = Date.now();
-fs.rmSync(".emdash/migrations.json", { force: true });
+let removal = [];
+try { fs.rmSync(".emdash/migrations.json", { force: true }); } catch (e) { removal = [`Error: ${e.message}`]; }
 const build = spawnSync("npm", ["run", "build"], { encoding: "utf8", maxBuffer: 1 << 28 });
 const seconds = Math.round((Date.now() - started) / 100) / 10;
 const mtime = (file) => { try { return fs.statSync(file).mtimeMs; } catch { return null; } };
 const open = spawnSync("find", ["/app", "-xdev", "-perm", "-o+w", "!", "-type", "l"], { encoding: "utf8" });
 let peakBytes = null;
 try { peakBytes = Number(fs.readFileSync("/sys/fs/cgroup/memory.peak", "utf8")); } catch {}
-const output = `${build.stdout ?? ""}${build.stderr ?? ""}`.trim().split("\n").slice(-400);
+const output = [...removal, ...`${build.stdout ?? ""}${build.stderr ?? ""}`.trim().split("\n").slice(-400)];
 console.log(JSON.stringify({ uid: process.getuid(), status: build.status, startedMs: started,
   entryMs: mtime("dist/server/entry.mjs"), manifestMs: mtime(".emdash/migrations.json"),
   worldWritable: open.stdout.split("\n").filter(Boolean), output, seconds, peakBytes }));

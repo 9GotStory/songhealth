@@ -93,7 +93,7 @@ const ERROR_LINE = /\bE[A-Z]{2,}:|\bERR_[A-Z_]+|\b[A-Za-z]*Error\b|\[ERROR\]/;
 
 /** What is wrong with the startup build, one line each: none for a build the gate can run. */
 export function startupBuildFailures(build: StartupBuild): string[] {
-	const { uid, status, startedMs, worldWritable, output } = build;
+	const { uid, status, startedMs, entryMs, manifestMs, worldWritable, output } = build;
 	const written = (mtime: number | null) => mtime !== null && mtime >= startedMs - STAMP_SLACK_MS;
 	const failures: string[] = [];
 	if (uid === 0)
@@ -103,8 +103,8 @@ export function startupBuildFailures(build: StartupBuild): string[] {
 		const error = output.find((line) => ERROR_LINE.test(line))?.trim();
 		failures.push(`the startup gate's build ${end}: ${error ?? "no line names an error"}`);
 	}
-	if (!written(build.entryMs)) failures.push("the build did not emit dist/server/entry.mjs");
-	if (!written(build.manifestMs)) failures.push("the build did not emit .emdash/migrations.json");
+	if (!written(entryMs)) failures.push("the build did not emit dist/server/entry.mjs");
+	if (!written(manifestMs)) failures.push("the build did not emit .emdash/migrations.json");
 	if (worldWritable.length > 0)
 		failures.push(`world-writable under /app: ${worldWritable.join(" ")}`);
 	return failures;
