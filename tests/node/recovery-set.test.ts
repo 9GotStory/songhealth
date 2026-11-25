@@ -46,7 +46,11 @@ import {
 	buildManifest,
 	compareHoldings,
 	directoryRefusal,
+	errorTail,
 	EXIT,
+	listStore,
+	markerRefusal,
+	mediaDifferences,
 	parseAppRole,
 	parseCommand,
 	parseDatabaseNames,
@@ -57,6 +61,7 @@ import {
 	RUNTIMES,
 	serializeManifest,
 	totals,
+	type StoreReads,
 	walkUstar,
 } from "../../scripts/recovery-set/plan.ts";
 
@@ -498,7 +503,7 @@ function walk(archive: Uint8Array) {
 const sha256Of = (text: string) => createHash("sha256").update(text).digest("hex");
 
 describe("walkUstar", () => {
-	it("reads each file's path, size and SHA-256, and each directory, as tar -C <store> . names them", () => {
+	it("reads each file's path, size and SHA-256 as tar -C <store> . names it", () => {
 		const big = "x".repeat(1300);
 		const archive = ustar([
 			{ name: "./", type: "5" },
@@ -513,7 +518,6 @@ describe("walkUstar", () => {
 				{ path: "2026/big file.pdf", size: 1300, sha256: sha256Of(big) },
 				{ path: "2026/11/x.jpg", size: 0, sha256: sha256Of("") },
 			],
-			directories: ["2026"],
 		});
 	});
 
@@ -606,6 +610,124 @@ describe("walkUstar", () => {
 	});
 });
 
+describe("mediaDifferences", () => {
+	it("names the two sides it compares, such as the backup's store and its archive", () => {
+		const store = [
+			{ path: "a.png", size: 3, sha256: sha("1") },
+			{ path: "b.png", size: 1, sha256: sha("2") },
+		];
+		const archive = [{ path: "a.png", size: 3, sha256: sha("1") }];
+		assert.deepEqual(mediaDifferences(store, archive, ["the store", "the archive"]), [
+			"media b.png: in the store, not in the archive",
+		]);
+	});
+});
+
+describe("listStore", () => {
+	/** A store's reads over a tree of paths: a string is a file's content. */
+	function reads(tree: Record<string, string | "directory" | "link" | "fifo">): StoreReads {
+		return {
+			names: (dir) =>
+				Object.keys(tree).flatMap((path) => {
+					const parent = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+					return path !== "" && parent === dir
+						? [path.slice(parent === "" ? 0 : parent.length + 1)]
+						: [];
+				}),
+			kind: (path) =>
+				tree[path] === "directory"
+					? "directory"
+					: tree[path] === "link" || tree[path] === "fifo"
+						? "other"
+						: "file",
+			digest: (path) => ({ size: tree[path]!.length, sha256: sha256Of(tree[path]!) }),
+		};
+	}
+	const marker = RUNTIMES.dev.mediaMarker;
+
+	it("lists every file of the store by its path, in code-unit order, but the marker at its root", () => {
+		assert.deepEqual(
+			listStore(
+				marker,
+				reads({
+					"": "directory",
+					[marker]: "",
+					"a.png": "png",
+					"2026": "directory",
+					"2026/11": "directory",
+					"2026/11/x 1.jpg": "jpeg",
+					[`2026/${marker}`]: "kept",
+				}),
+			),
+			{
+				files: [
+					{ path: `2026/${marker}`, size: 4, sha256: sha256Of("kept") },
+					{ path: "2026/11/x 1.jpg", size: 4, sha256: sha256Of("jpeg") },
+					{ path: "a.png", size: 3, sha256: sha256Of("png") },
+				],
+			},
+		);
+	});
+
+	it("refuses a link, a special file and a name a Recovery Set cannot hold, and names it", () => {
+		const base = { "": "directory", "2026": "directory" } as const;
+		assert.deepEqual(listStore(marker, reads({ ...base, "2026/a.jpg": "link" })), {
+			error: "media 2026/a.jpg is neither a file nor a directory",
+		});
+		assert.deepEqual(listStore(marker, reads({ ...base, "2026/pipe": "fifo" })), {
+			error: "media 2026/pipe is neither a file nor a directory",
+		});
+		assert.deepEqual(listStore(marker, reads({ ...base, "2026/photo#1.jpg": "x" })), {
+			error: 'media "2026/photo#1.jpg" has a name a Recovery Set cannot hold',
+		});
+	});
+});
+
+describe("markerRefusal", () => {
+	it("goes on when the media volume holds its marker", () => {
+		assert.equal(markerRefusal(RUNTIMES.dev, true), undefined);
+		assert.equal(markerRefusal(RUNTIMES.production, true), undefined);
+	});
+
+	it("refuses a media volume without its marker, and says how each runtime's store gets one", () => {
+		assert.equal(
+			markerRefusal(RUNTIMES.dev, false),
+			"the media volume songhealth-qdev-media has no .songhealth-qdev-media-store: " +
+				"create it as dev-runtime-install.sh does for a new store, " +
+				"podman unshare touch <the volume's mountpoint>/.songhealth-qdev-media-store, then restore again " +
+				'(development-quadlet.md "Backup and restore")',
+		);
+		assert.equal(
+			markerRefusal(RUNTIMES.production, false),
+			"the media volume songhealth-media has no .songhealth-media-store: " +
+				"provision the store first (production-foundation.md §5.3), then restore again",
+		);
+	});
+});
+
+describe("errorTail", () => {
+	it("keeps a failed command's last eight lines, without PostgreSQL's DETAIL and CONTEXT lines, which can quote a row", () => {
+		const stderr = [
+			...Array.from({ length: 9 }, (_, i) => `line ${i}`),
+			'pg_restore: error: COPY failed for table "options": ERROR:  invalid input syntax for type json',
+			'DETAIL:  Token "a-value" is invalid.',
+			'CONTEXT:  COPY options, line 3, column value: "a-value"',
+			"pg_restore: detail: Key (name)=(a-value) already exists.",
+			"",
+		].join("\n");
+		assert.deepEqual(errorTail(stderr), [
+			"line 2",
+			"line 3",
+			"line 4",
+			"line 5",
+			"line 6",
+			"line 7",
+			"line 8",
+			'pg_restore: error: COPY failed for table "options": ERROR:  invalid input syntax for type json',
+		]);
+	});
+});
+
 describe("admitSet", () => {
 	const manifest = buildManifest(observed());
 	const archiveFiles = () => manifest.media.map((file) => ({ ...file }));
@@ -621,7 +743,7 @@ describe("admitSet", () => {
 		media: {
 			size: 10240,
 			sha256: sha("b"),
-			walk: { files: archiveFiles(), directories: ["2026", "2026/11"] },
+			walk: { files: archiveFiles() },
 		},
 	});
 	const refusal = (set: Parameters<typeof admitSet>[0]) => {
@@ -714,7 +836,7 @@ describe("admitSet", () => {
 				...whole(),
 				media: { ...whole().media!, walk: { error: "the media archive has bytes after its end" } },
 			}),
-			refusal({ ...whole(), media: { ...whole().media!, walk: { files, directories: [] } } }),
+			refusal({ ...whole(), media: { ...whole().media!, walk: { files } } }),
 		];
 		assert.deepEqual(seen, [
 			"the media archive has bytes after its end",

@@ -16,6 +16,8 @@ export interface Runtime {
 	appService: string;
 	/** The media store's provisioning record: the restore keeps the target's, and no set holds it. */
 	mediaMarker: string;
+	/** What the Operator does for a store without its marker, which the restore refuses. */
+	markerRemedy: string;
 	/** The app role, which owns what a restore writes. The database's and its administrator's names
 	 * are the db container's own POSTGRES_DB and POSTGRES_USER. */
 	appRole: { kind: "fixed"; name: string } | { kind: "env-file"; path: string };
@@ -37,6 +39,10 @@ export const RUNTIMES: Record<RuntimeName, Runtime> = {
 		mediaVolume: "songhealth-qdev-media",
 		appService: "songhealth-dev-app.service",
 		mediaMarker: ".songhealth-qdev-media-store",
+		markerRemedy:
+			"create it as dev-runtime-install.sh does for a new store, " +
+			"podman unshare touch <the volume's mountpoint>/.songhealth-qdev-media-store, then restore again " +
+			'(development-quadlet.md "Backup and restore")',
 		appRole: { kind: "fixed", name: "songhealth_qdev_app" },
 		serves: { kind: "marker", path: "dev/songhealth-quadlet/.songhealth-qdev-source-identity" },
 		emdash: { kind: "checkout", path: "dev/songhealth-quadlet/node_modules/emdash/package.json" },
@@ -49,6 +55,7 @@ export const RUNTIMES: Record<RuntimeName, Runtime> = {
 		mediaVolume: "songhealth-media",
 		appService: "songhealth-app.service",
 		mediaMarker: ".songhealth-media-store",
+		markerRemedy: "provision the store first (production-foundation.md §5.3), then restore again",
 		// The Operator sets the role in the app's environment file (production-foundation.md §4.3).
 		appRole: { kind: "env-file", path: `${QUADLET}/songhealth-app.env` },
 		serves: { kind: "unit-image", path: `${QUADLET}/songhealth-app.container` },
@@ -98,6 +105,12 @@ export function appStateRefusal(runtime: Runtime, state: string): string | undef
 
 /** Why the command stops, given `podman container inspect --format {{.State.Running}}` of the db
  * container ("" when it does not exist), or nothing when it runs. */
+/** The restore keeps the target's marker, so it refuses a media volume without one. */
+export function markerRefusal(runtime: Runtime, present: boolean): string | undefined {
+	if (present) return undefined;
+	return `the media volume ${runtime.mediaVolume} has no ${runtime.mediaMarker}: ${runtime.markerRemedy}`;
+}
+
 export function databaseRefusal(runtime: Runtime, running: string): string | undefined {
 	if (running === "true") return undefined;
 	const state = running === "" ? "does not exist" : "is not running";
@@ -250,7 +263,7 @@ const PATH_SEGMENT = /^[A-Za-z0-9._ -]+$/;
 const VERSION = /^[\x20-\x7e]{1,200}$/;
 
 /** A path inside the media store: relative, never climbing, of the characters an archive admits. */
-export function isStorePath(path: string): boolean {
+function isStorePath(path: string): boolean {
 	return path
 		.split("/")
 		.every((segment) => segment !== "." && segment !== ".." && PATH_SEGMENT.test(segment));
@@ -412,7 +425,7 @@ function pairs<T>(set: readonly T[], runtime: readonly T[], key: (item: T) => st
 }
 
 /** The two sides a comparison names, such as "the set" and "the runtime". */
-type Sides = readonly [string, string];
+export type Sides = readonly [string, string];
 
 function presence(
 	kind: string,
@@ -426,7 +439,8 @@ function presence(
 	return undefined;
 }
 
-function mediaDifferences(
+/** Each media file in one list and not the other, or with another size or content, by path. */
+export function mediaDifferences(
 	a: readonly MediaEntry[],
 	b: readonly MediaEntry[],
 	sides: Sides,
@@ -594,9 +608,8 @@ export function walkUstar(
 	size: number,
 	read: (offset: number, length: number) => Uint8Array,
 	sha256: () => { update(data: Uint8Array): void; digest(): string },
-): { files: MediaEntry[]; directories: string[] } | { error: string } {
+): { files: MediaEntry[] } | { error: string } {
 	const files: MediaEntry[] = [];
-	const directories: string[] = [];
 	const seen = new Set<string>();
 	try {
 		if (size === 0 || size % BLOCK !== 0) {
@@ -615,7 +628,7 @@ export function walkUstar(
 						throw new ArchiveError("the media archive has bytes after its end");
 					}
 				}
-				return { files, directories };
+				return { files };
 			}
 			if (decoder.decode(header.subarray(257, 265)) !== "ustar\u000000") {
 				throw new ArchiveError(`the media archive is not POSIX ustar (block at ${at})`);
@@ -658,9 +671,7 @@ export function walkUstar(
 			at += BLOCK;
 			const end = at + Math.ceil(length / BLOCK) * BLOCK;
 			if (end > size) throw new ArchiveError(`the media archive is cut off inside ${name}`);
-			if (type === "5") {
-				if (!isRoot) directories.push(path);
-			} else {
+			if (type !== "5") {
 				const hash = sha256();
 				for (let offset = 0; offset < length; offset += CHUNK) {
 					hash.update(read(at + offset, Math.min(CHUNK, length - offset)));
@@ -676,8 +687,62 @@ export function walkUstar(
 	}
 }
 
-/** The command's exit codes: a refusal changes nothing; a failure after the reset began leaves the
- * target partial, which the Operator must tell apart. */
+/** The reads of a media store, by path in the store ("" for its root). */
+export interface StoreReads {
+	names(dir: string): readonly string[];
+	/** What `lstat` says the path is: a link or a special file is "other". */
+	kind(path: string): "file" | "directory" | "other";
+	digest(path: string): { size: number; sha256: string };
+}
+
+/**
+ * Every file of a media store but the marker at its root, with its size and SHA-256, in code-unit
+ * order of its path. It refuses a
+ * link, a special file and a name a set cannot hold, as the walker refuses them in an archive.
+ */
+export function listStore(
+	marker: string,
+	reads: StoreReads,
+): { files: MediaEntry[] } | { error: string } {
+	const files: MediaEntry[] = [];
+	const visit = (dir: string): string | undefined => {
+		for (const name of reads.names(dir)) {
+			const path = dir === "" ? name : `${dir}/${name}`;
+			if (path === marker) continue;
+			if (!isStorePath(path))
+				return `media ${JSON.stringify(path)} has a name a Recovery Set cannot hold`;
+			const kind = reads.kind(path);
+			if (kind === "directory") {
+				const inner = visit(path);
+				if (inner !== undefined) return inner;
+			} else if (kind === "file") {
+				files.push({ path, ...reads.digest(path) });
+			} else {
+				return `media ${path} is neither a file nor a directory`;
+			}
+		}
+		return undefined;
+	};
+	const error = visit("");
+	return error === undefined
+		? { files: files.sort((a, b) => byCodeUnit(a.path, b.path)) }
+		: { error };
+}
+
+/**
+ * The last lines of a failed command's standard error for the Operator, without PostgreSQL's DETAIL
+ * and CONTEXT lines, which can quote a row's values (a failing COPY's column, a key that exists).
+ */
+export function errorTail(stderr: string, lines = 8): string[] {
+	return stderr
+		.trim()
+		.split("\n")
+		.filter((line) => !/^\s*(?:[\w.-]+:\s+)?(?:detail|context):/i.test(line))
+		.slice(-lines);
+}
+
+/** The command's exit codes: a refusal changes nothing, nor does a check that finds a difference;
+ * a failure after the reset began leaves the target partial, which the Operator must tell apart. */
 export const EXIT = { ok: 0, refused: 1, partial: 3 } as const;
 
 /** What a failure after the reset began tells the Operator. */

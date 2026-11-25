@@ -66,13 +66,16 @@ import {
 	DATABASE_FILE,
 	databaseRefusal,
 	directoryRefusal,
+	errorTail,
 	EXIT,
 	type Holdings,
-	isStorePath,
+	listStore,
 	type Manifest,
 	MANIFEST_FILE,
 	MEDIA_FILE,
+	markerRefusal,
 	type MediaEntry,
+	mediaDifferences,
 	parseAppRole,
 	parseCommand,
 	parseDatabaseNames,
@@ -96,6 +99,8 @@ const ENV = { ...process.env, LC_ALL: "C" };
 class Refusal extends Error {}
 /** Stops a restore after its reset began: the target is partial. */
 class Partial extends Error {}
+/** Ends a check that found a difference: it changed nothing, and the runtime is not the set's. */
+class Differs extends Error {}
 
 function say(line: string): void {
 	process.stdout.write(`recovery-set: ${line}\n`);
@@ -116,11 +121,7 @@ function run(
 		...spawn,
 	});
 	if (result.error !== undefined || result.status !== 0) {
-		const detail = (result.error?.message ?? String(result.stderr ?? ""))
-			.trim()
-			.split("\n")
-			.slice(-8)
-			.join("\n  ");
+		const detail = errorTail(result.error?.message ?? String(result.stderr ?? "")).join("\n  ");
 		throw new fail(
 			`${what} failed (exit ${result.status ?? "none"})${detail === "" ? "" : `:\n  ${detail}`}`,
 		);
@@ -169,29 +170,16 @@ function walkArchive(path: string): ReturnType<typeof walkUstar> {
 
 // ----------------------------------------------------------------------------- the media store
 
-/** `media-list`: every file of the store under `podman unshare`, but its marker, as JSON. */
-function listStore(root: string, marker: string): { files: MediaEntry[] } | { error: string } {
-	const files: MediaEntry[] = [];
-	const visit = (dir: string): string | undefined => {
-		for (const name of readdirSync(join(root, dir))) {
-			const path = dir === "" ? name : `${dir}/${name}`;
-			if (path === marker) continue;
-			if (!isStorePath(path))
-				return `media ${JSON.stringify(path)} has a name a Recovery Set cannot hold`;
+/** `media-list`: the store's files under `podman unshare`, but its marker, as JSON. */
+function readStore(root: string, marker: string): ReturnType<typeof listStore> {
+	return listStore(marker, {
+		names: (dir) => readdirSync(join(root, dir)),
+		kind: (path) => {
 			const entry = lstatSync(join(root, path));
-			if (entry.isDirectory()) {
-				const inner = visit(path);
-				if (inner !== undefined) return inner;
-			} else if (entry.isFile()) {
-				files.push({ path, ...digestFile(join(root, path)) });
-			} else {
-				return `media ${path} is neither a file nor a directory`;
-			}
-		}
-		return undefined;
-	};
-	const error = visit("");
-	return error === undefined ? { files } : { error };
+			return entry.isDirectory() ? "directory" : entry.isFile() ? "file" : "other";
+		},
+		digest: (path) => digestFile(join(root, path)),
+	});
 }
 
 function mountpoint(volume: string): string {
@@ -288,7 +276,8 @@ function psql(
  * Each table of the public schema: its row count and the SHA-256 of its rows' text, joined by
  * newlines, in primary-key order (each key column's text in the C collation, so the order does not
  * hang on the database's collation; a table without a key orders by the whole row). The session
- * pins every setting a row's text depends on. All in the server: no row leaves the container.
+ * pins the settings that change a row's text: time zone, date and interval styles, float digits,
+ * bytea and money output. All in the server: no row leaves the container.
  */
 const TABLE_DIGESTS = String.raw`
 SET TimeZone = 'UTC';
@@ -296,6 +285,7 @@ SET DateStyle = 'ISO, YMD';
 SET IntervalStyle = 'postgres';
 SET extra_float_digits = 1;
 SET bytea_output = 'hex';
+SET lc_monetary = 'C';
 SELECT format(
   'SELECT %L || ''|'' || count(*) || ''|'' || encode(sha256(convert_to(coalesce(string_agg(recovery_row::text, E''\n'' ORDER BY %s), ''''), ''UTF8'')), ''hex'') FROM public.%I AS recovery_row',
   c.relname,
@@ -508,12 +498,11 @@ function backup(runtime: Runtime, dir: string): void {
 		}
 		const walked = walkArchive(join(dir, MEDIA_FILE));
 		if ("error" in walked) throw new Refusal(walked.error);
-		const missed = compareHoldings(
-			{ tables: [], migrations: [], media: held.media },
-			{ tables: [], migrations: [], media: walked.files },
-		);
+		const missed = mediaDifferences(held.media, walked.files, ["the store", "the archive"]);
 		if (missed.length > 0)
 			throw new Refusal(`the media archive does not hold the store's files: ${missed.join("; ")}`);
+		// The app must not have started while the set was read, or its files may disagree.
+		requireStopped(runtime);
 
 		const manifest = buildManifest({
 			runtime,
@@ -616,7 +605,7 @@ function check(runtime: Runtime, dir: string): void {
 	);
 	if (differences.length > 0) {
 		process.stderr.write(differences.map((line) => `  ${line}\n`).join(""));
-		throw new Refusal(
+		throw new Differs(
 			`the ${runtime.name} runtime differs from the set ${dir} in ${differences.length} places`,
 		);
 	}
@@ -627,13 +616,19 @@ function check(runtime: Runtime, dir: string): void {
 }
 
 async function confirmations(questions: readonly string[]): Promise<boolean> {
-	const lines = createInterface({ input: process.stdin, terminal: false })[Symbol.asyncIterator]();
-	for (const question of questions) {
-		process.stdout.write(`recovery-set: ${question} [type yes]: `);
-		const answer = await lines.next();
-		if (answer.done === true || answer.value.trim() !== "yes") return false;
+	const input = createInterface({ input: process.stdin, terminal: false });
+	try {
+		const lines = input[Symbol.asyncIterator]();
+		for (const question of questions) {
+			process.stdout.write(`recovery-set: ${question} [type yes]: `);
+			const answer = await lines.next();
+			if (answer.done === true || answer.value.trim() !== "yes") return false;
+		}
+		return true;
+	} finally {
+		// Released, or a terminal's standard input keeps the process waiting after its last line.
+		input.close();
 	}
-	return true;
 }
 
 async function restore(runtime: Runtime, dir: string): Promise<void> {
@@ -672,11 +667,8 @@ async function restore(runtime: Runtime, dir: string): Promise<void> {
 	if (role !== "true|false")
 		throw new Refusal(`the app role ${db.app} is not a login role without superuser here`);
 	const store = mountpoint(runtime.mediaVolume);
-	if (!hasMarker(runtime, store)) {
-		throw new Refusal(
-			`the media volume ${runtime.mediaVolume} has no ${runtime.mediaMarker}: provision the store first (production-foundation.md §5.3)`,
-		);
-	}
+	const marker = markerRefusal(runtime, hasMarker(runtime, store));
+	if (marker !== undefined) throw new Refusal(marker);
 	const staged = `/tmp/songhealth-restore-${process.pid}.dump`;
 	let changing = false;
 	try {
@@ -698,6 +690,8 @@ async function restore(runtime: Runtime, dir: string): Promise<void> {
 			`replace every file of the ${runtime.mediaVolume} volume, but its marker, with the set's?`,
 		]);
 		if (!yes) throw new Refusal("not confirmed");
+		// Someone may have started the app while the answers were awaited.
+		requireStopped(runtime);
 
 		// From here on, a failure leaves the target partial.
 		changing = true;
@@ -791,7 +785,7 @@ async function restore(runtime: Runtime, dir: string): Promise<void> {
 
 async function main(argv: readonly string[]): Promise<number> {
 	if (argv[0] === "media-list" && argv.length === 3) {
-		process.stdout.write(JSON.stringify(listStore(argv[1]!, argv[2]!)));
+		process.stdout.write(JSON.stringify(readStore(argv[1]!, argv[2]!)));
 		return EXIT.ok;
 	}
 	const parsed = parseCommand(argv);
@@ -810,6 +804,12 @@ async function main(argv: readonly string[]): Promise<number> {
 		if (error instanceof Partial) {
 			process.stderr.write(`recovery-set: FAIL: ${error.message}\n`);
 			return EXIT.partial;
+		}
+		if (error instanceof Differs) {
+			process.stderr.write(
+				`recovery-set: FAIL: ${error.message}\nrecovery-set: the check changed nothing\n`,
+			);
+			return EXIT.refused;
 		}
 		if (error instanceof Refusal) {
 			process.stderr.write(

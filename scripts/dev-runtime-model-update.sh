@@ -31,7 +31,7 @@ $recent
 the backup stops the app: wait until nobody is editing, then run this again (nothing was changed)"
     note "stopping $APP for the backup"
     systemctl --user stop "$APP"
-    backup_runtime || { systemctl --user start "$APP"; die "the backup failed: nothing was changed, and $APP is started again"; }
+    backup_runtime
     note "starting $APP again"
     systemctl --user start "$APP" \
       || die "$APP did not start after the backup, and nothing else was changed: journalctl --user -u $APP -n 80"

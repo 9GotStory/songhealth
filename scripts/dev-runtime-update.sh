@@ -96,7 +96,7 @@ fi
 note "stopping $APP"
 systemctl --user stop "$APP"
 if [[ $BACKUP == yes ]]; then
-  backup_runtime || { systemctl --user start "$APP"; die "the backup failed: nothing was changed, and $APP is started again"; }
+  backup_runtime
 fi
 git -C "$SRC" checkout --quiet --detach "$SHA"
 printf '%s\n' "$SHA" > "$SRC/$MARKER.tmp"

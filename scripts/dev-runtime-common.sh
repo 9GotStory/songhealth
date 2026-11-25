@@ -80,12 +80,17 @@ setup_needed() { # prints true or false from EmDash's native setup status endpoi
     | python3 -I -c 'import json, sys; print(str(json.load(sys.stdin)["data"]["needsSetup"]).lower())'
 }
 require_sha() { [[ ${1:-} =~ ^[0-9a-f]{40}$ ]] || die "--sha must name a full 40-hex commit"; }
-backup_runtime() { # a Recovery Set of the runtime, its app stopped (scripts/recovery-set.ts, #221), into
-  # a new $STATE_DIR/backups/<UTC> directory named in BACKUP_DIR; returns 1 when it fails
+backup_runtime() { # a Recovery Set of the runtime, whose app the caller stopped (scripts/recovery-set.ts,
+  # #221), into a new $STATE_DIR/backups/<UTC> directory named in BACKUP_DIR; when it fails, it starts
+  # the app again and dies, with nothing changed
   BACKUP_DIR=$STATE_DIR/backups/$(date -u +%Y%m%dT%H%M%SZ)
-  install -d -m 0700 -- "$STATE_DIR/backups" "$BACKUP_DIR" || return 1
-  node "$SRC/scripts/recovery-set.ts" backup dev "$BACKUP_DIR" || return 1
-  note "Recovery Set written to $BACKUP_DIR"
+  if install -d -m 0700 -- "$STATE_DIR/backups" "$BACKUP_DIR" \
+    && node "$SRC/scripts/recovery-set.ts" backup dev "$BACKUP_DIR"; then
+    note "Recovery Set written to $BACKUP_DIR"
+  else
+    systemctl --user start "$APP"
+    die "the backup failed: nothing was changed, and $APP is started again"
+  fi
 }
 ADMIN_TEST_SESSIONS=$STATE_DIR/admin-test-sessions  # browser suites' Admin sessions, "start end" (cms.helpers.ts)
 admin_page_loads() { # the Admin pages opened in the last ADMIN_QUIET_MINUTES; verify's probe and the
