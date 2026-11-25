@@ -145,3 +145,19 @@ _Avoid_: Mapping file, category map
 **Recovery Set** (ชุดกู้คืน):
 Songhealth's whole database and every media file, taken together while nobody writes, with a record of what both held, from which one runtime is restored and checked. It holds no runtime secrets, which are recovered on their own path.
 _Avoid_: Production backup, snapshot (it is not atomic); "backup" for the Legacy site's own backup on the WordPress host
+
+**Operator** (ผู้ปฏิบัติการ):
+The person who approves every operational action on the Production host and answers for it; today the Product Owner. Anyone else, Claude Code included, acts there only under the Operator's approval.
+_Avoid_: Administrator (an Admin role), sysadmin, the Deployment account
+
+**Deployment account** (บัญชี deployment):
+The one unprivileged account on the Production host that owns Songhealth's production runtime and through which all its operational work is done. It is a means and holds no authority: whoever works through it acts under the Operator's approval, and it reaches nothing of the host's other systems.
+_Avoid_: Service account, deploy user, Operator
+
+**Production host** (เครื่อง production):
+The office's central server, on which Songhealth's production runtime runs beside the office's other systems. Songhealth owns only its own part of it.
+_Avoid_: VPS (a word for buying one), production server, production-capable verification host
+
+**Release** (รุ่นเผยแพร่):
+One version of Songhealth made for production: an application image identified by its version, the commit it was built from and its digest, which the Operator approves before it is deployed.
+_Avoid_: Build, deployment (the act of putting a Release on the host); "release" for an accepted feature reaching `main`
