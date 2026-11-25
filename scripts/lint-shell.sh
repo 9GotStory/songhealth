@@ -10,7 +10,7 @@ IMAGE=docker.io/koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 engine=$(command -v podman || command -v docker) || { echo "lint-shell: needs podman or docker" >&2; exit 2; }
 files=(scripts/dev-runtime-*.sh scripts/evidence-branch.sh scripts/lint-shell.sh scripts/check-node.sh
-  scripts/production-image-check.sh
+  scripts/production-image-check.sh scripts/rehearsal/*.sh scripts/host/*.sh
   deploy/dev-quadlet/initdb/*.sh .githooks/pre-commit .githooks/commit-msg)
 exec "$engine" run --rm --network none --security-opt label=disable -v "$PWD:/mnt:ro" -w /mnt \
   "$IMAGE" -x "${files[@]}"

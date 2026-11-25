@@ -87,8 +87,9 @@
 # (T013/T020). The provisioned role is verifiable secret-free through the
 # local administrative boundary (its pg_roles attributes must show
 # non-superuser and its database/schema privileges must match the approved
-# set); provisioning commands and their evidence remain disposable operator
-# material and are not committed to this repository.
+# set). The commands are scripts/host/provision-stores.sh (Feature 016, #456;
+# Product Owner, #456 comment 7166769976); their evidence stays out of the
+# repository.
 #
 # Existing-database-store guard — Phase B, NORMAL STARTUP (fail-closed; the
 # accepted Option A design). plan.md forbids that "a missing expected
