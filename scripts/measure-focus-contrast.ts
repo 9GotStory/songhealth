@@ -11,7 +11,8 @@
 // each selector matches, a Playwright locator such as "main article a >> nth=0", gives that element
 // the keyboard's focus and prints two readings of the contrast (WCAG 2.2 relative luminance) of
 // the ring's colour, its computed `outline-color`, each as the lowest, the highest and how many
-// pixels are under 3:1 (SC 1.4.11):
+// pixels are under 3:1 (SC 1.4.11). An element that draws no ring of its own is read by the ring
+// its nearest ancestor draws around it, as the search pill's field is (#436):
 // - under the ring: against the page under each of the ring's own pixels without focus, which is
 //   what a ring alone stands out from;
 // - beside it: against the pixels next to the ring on either side with focus, which counts what
@@ -32,7 +33,7 @@
 // is measured before it is built (#283: the band offered to the Product Owner). Pages are read
 // anonymously; the origin is PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324.
 
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 import { contrast, decode, distance, measureAtEachWidth, pixelAt, rgbOf } from "./contrast-kit.ts";
 
@@ -92,8 +93,18 @@ async function ringContrast(page: Page, selector: string): Promise<string> {
 	await page.waitForLoadState("networkidle");
 	await page.mouse.move(0, 0);
 	await element.focus();
+	// The ring that shows for the element: its own, else the one the nearest ancestor draws around
+	// it, as the search pill does for its field (#436). Its box is the one the ring follows.
 	const ring = await element.evaluate((node) => {
-		const style = getComputedStyle(node);
+		let owner: Element = node;
+		for (let part: Element | null = node; part !== null; part = part.parentElement) {
+			if (getComputedStyle(part).outlineStyle !== "none") {
+				owner = part;
+				break;
+			}
+		}
+		owner.setAttribute("data-measured-ring", "");
+		const style = getComputedStyle(owner);
 		return {
 			shown: style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0,
 			color: style.outlineColor,
@@ -102,9 +113,25 @@ async function ringContrast(page: Page, selector: string): Promise<string> {
 			radius: Number.parseFloat(style.borderTopLeftRadius),
 		};
 	});
-	if (!ring.shown) return `${measured}: no focus ring`;
+	const ringed = page.locator("[data-measured-ring]");
+	try {
+		if (!ring.shown) return `${measured}: no focus ring`;
+		return await readRing(page, element, ringed, ring, measured);
+	} finally {
+		await ringed.evaluate((node) => node.removeAttribute("data-measured-ring"));
+	}
+}
+
+/** The readings of `ring`, which `ringed` draws while `element` has the keyboard's focus. */
+async function readRing(
+	page: Page,
+	element: Locator,
+	ringed: Locator,
+	ring: { color: string; offset: number; width: number; radius: number },
+	measured: string,
+): Promise<string> {
 	await element.evaluate((node) => (node as HTMLElement).blur());
-	const box = await element.boundingBox();
+	const box = await ringed.boundingBox();
 	if (box === null) return "not shown";
 	// The element's box widened by the ring's reach and a pixel of its blended edge, in the window.
 	const viewport = page.viewportSize()!;

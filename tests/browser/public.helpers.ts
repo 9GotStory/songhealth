@@ -136,15 +136,21 @@ export async function expectVisibleFocusOnEveryStop(page: Page, label: string): 
 			const element = document.activeElement;
 			if (element === null || element === document.body) return null;
 			const style = getComputedStyle(element);
+			const ringed = (part: Element) => {
+				const { outlineStyle, outlineWidth } = getComputedStyle(part);
+				return outlineStyle !== "none" && Number.parseFloat(outlineWidth) >= 2;
+			};
 			// A link that wraps has one box per line, and the middle of its bounding box can fall
 			// beside a short last line. The first line box always holds the element.
 			const rect = element.getClientRects()[0] ?? element.getBoundingClientRect();
 			const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+			// The search pill's field shows no ring of its own: the whole pill around it takes the
+			// ring (Product Owner, 2026-11-24: #436 comment 7135305142), so an ancestor's ring counts.
+			let around: Element | null = element.parentElement;
+			while (around !== null && !ringed(around)) around = around.parentElement;
 			return {
 				name: `<${element.tagName.toLowerCase()}> ${(element.textContent ?? "").replace(/\s+/g, " ").trim()}`,
-				indicator:
-					(style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) >= 2) ||
-					style.boxShadow !== "none",
+				indicator: ringed(element) || style.boxShadow !== "none" || around !== null,
 				unobscured: rect.width > 0 && rect.height > 0 && hit !== null && element.contains(hit),
 			};
 		});
@@ -362,6 +368,33 @@ export function testAccessibilityAndReflow(pages: string, paths: () => readonly 
 /** The heading of the site-designed 404 page. */
 export const NOT_FOUND_HEADING = "ไม่พบหน้าที่คุณต้องการ";
 
+/** The 404 page's sentence under its H1, unchanged since Feature 003 (#52). */
+export const NOT_FOUND_SENTENCE = "ที่อยู่นี้อาจพิมพ์ไม่ถูกต้อง หรือหน้านี้อาจถูกย้ายหรือนำออกแล้ว";
+
+/**
+ * Everything the 404 page's main content gives assistive technology, in order (Feature 015 #435;
+ * spec #432 "The 404 page", decisions 5, 6 and 11): the label "ขออภัย", whose slashes the label's
+ * CSS adds (#433 comment 7123324643), the H1, the sentence, the site's search pill named
+ * "ค้นหาในเว็บไซต์" with its button "ค้นหา", and the links to the Homepage and to /contact. It
+ * names neither the address nor why it is not available, so every 404 reads the same: an unknown
+ * address and a draft, unpublished or trashed entry's (`03` §17).
+ */
+export const NOT_FOUND_CONTENT = `- main:
+  - paragraph: /ขออภัย/
+  - heading "${NOT_FOUND_HEADING}" [level=1]
+  - paragraph: ${NOT_FOUND_SENTENCE}
+  - search "ค้นหาในเว็บไซต์":
+    - text: ค้นหาในเว็บไซต์
+    - searchbox "ค้นหาในเว็บไซต์"
+    - button "ค้นหา"
+  - list:
+    - listitem:
+      - link "กลับไปหน้าแรก":
+        - /url: /
+    - listitem:
+      - link "ติดต่อเรา":
+        - /url: /contact`;
+
 /** The site title shown while the native site settings name none (src/lib/site-identity.ts). */
 export const DEFAULT_SITE_TITLE = "สำนักงานสาธารณสุขอำเภอสอง";
 
@@ -387,14 +420,152 @@ export function thaiDate(iso: string): string {
 }
 
 /**
- * Fail unless `path` answers the site 404 page with status 404. The request carries the
- * songhealth-unknown- referrer every test request does (playwright.config.ts), so the miss counts
- * as the tests' even where `path` cannot carry the mark.
+ * Fail unless `path` answers the site 404 page with status 404, its main content the same for every
+ * missing page (`NOT_FOUND_CONTENT`), so nothing on it tells an unknown address from a draft, an
+ * unpublished or a trashed entry's. The request carries the songhealth-unknown- referrer every test
+ * request does (playwright.config.ts), so the miss counts as the tests' even where `path` cannot
+ * carry the mark.
  */
 export async function expectSiteNotFound(page: Page, path: string, label: string): Promise<void> {
 	const response = await page.goto(path);
 	expect(response?.status(), `${label} must answer 404`).toBe(404);
 	await expect(page.getByRole("heading", { level: 1 })).toHaveText(NOT_FOUND_HEADING);
+	expect(
+		await page.getByRole("main").ariaSnapshot(),
+		`${label}: the 404 page's words, the same for every missing page`,
+	).toBe(NOT_FOUND_CONTENT);
+}
+
+/** The name of the site's search pill and of its field (spec #432 "The search pill"). */
+const SEARCH_NAME = "ค้นหาในเว็บไซต์";
+
+/**
+ * The site's search pill in the page's main content (SearchPill: /search, the 404 page): its
+ * search landmark, field, button and icons.
+ */
+export function searchPill(page: Page) {
+	const form = page.getByRole("main").getByRole("search", { name: SEARCH_NAME });
+	const button = form.getByRole("button", { name: "ค้นหา", exact: true });
+	return {
+		form,
+		field: form.getByRole("searchbox", { name: SEARCH_NAME }),
+		button,
+		icon: form.locator(":scope > svg.lucide-search"),
+		arrow: button.locator("svg.lucide-arrow-right"),
+	};
+}
+
+/**
+ * The focus rings of the site's search pill in the page's main content (Product Owner,
+ * 2026-11-24: #436 comment 7135305142, option A): with focus on its field, the field's own ring
+ * and the pill's; then, one Tab on, the button's own ring and the pill's. A ring is its colour,
+ * width and offset as the browser computes them, or "none".
+ */
+export async function searchPillRings(page: Page) {
+	const pill = searchPill(page);
+	const ring = async (part: Locator) =>
+		(await part.count()) === 1
+			? await part.evaluate((element) => {
+					const style = getComputedStyle(element);
+					return style.outlineStyle === "none"
+						? "none"
+						: {
+								colour: style.outlineColor,
+								width: style.outlineWidth,
+								offset: style.outlineOffset,
+							};
+				})
+			: "missing";
+	await pill.field.focus();
+	const field = { field: await ring(pill.field), pill: await ring(pill.form) };
+	await page.keyboard.press("Tab");
+	const button = { button: await ring(pill.button), pill: await ring(pill.form) };
+	return { field, button };
+}
+
+/** `part`'s box, or undefined where the page does not show it once. */
+export async function shownBox(part: Locator) {
+	return (await part.count()) === 1 && (await part.isVisible())
+		? ((await part.boundingBox()) ?? undefined)
+		: undefined;
+}
+
+/** The address the page shows now, its path and query. */
+export const shownAddress = (page: Page) => {
+	const url = new URL(page.url());
+	return `${url.pathname}${url.search}`;
+};
+
+/**
+ * What lies over `field`'s lower edge in the page's main content and outside the field, each part
+ * named by its tag and its first words: nothing on a page whose field has nothing over its edge
+ * (/search before a search, the 404 page). "no field" where the page has none.
+ */
+export async function partsOverFieldEdge(page: Page, field: Locator) {
+	return (await field.count()) === 1
+		? page.getByRole("main").evaluate(
+				(main, fieldElement) => {
+					const edge = fieldElement!.getBoundingClientRect().bottom;
+					return [...main.querySelectorAll("*")]
+						.filter((part) => !fieldElement!.contains(part))
+						.filter((part) => {
+							const box = part.getBoundingClientRect();
+							return box.width * box.height > 0 && box.top < edge - 0.5;
+						})
+						.map((part) => `<${part.localName}> ${part.textContent?.trim().slice(0, 30)}`);
+				},
+				await field.elementHandle(),
+			)
+		: "no field";
+}
+
+/**
+ * Fail unless `links`, links on the deep field, are `surface-base` words, semibold, at label size
+ * and underlined, each with a 16 px `arrow-right` after its words and 44 px high, keeping their
+ * colour under the pointer; and the first two sit 24 px apart on one row or, where they wrap, 4 px
+ * apart one under the other, as `rows` states at each viewport. These are the links under
+ * /services' lead (Feature 011 #339; spec #338 "The Service catalog") and the 404 page's (Feature
+ * 015 #435; spec #432 "The 404 page"). The viewport ends at the last of `rows`.
+ */
+export async function expectFieldLinks(
+	page: Page,
+	links: Array<[label: string, link: Locator]>,
+	rows: Array<[viewport: { width: number; height: number }, row: "one row" | "two rows"]>,
+): Promise<void> {
+	const white = await tokenColor(page, "surface-base");
+	for (const [label, link] of links) {
+		await expect(link, label).toHaveCSS("color", white);
+		await expect(link, label).toHaveCSS("font-weight", "600");
+		await expect(link, label).toHaveCSS("font-size", "14px");
+		await expect(link, label).toHaveCSS("text-decoration-line", "underline");
+		const box = await boxOf(link, label);
+		expect(box.height, `${label} is 44 px high`).toBeCloseTo(44, 0);
+		const arrow = link.locator("svg.lucide-arrow-right");
+		const arrowBox = await boxOf(arrow, `${label}'s arrow`);
+		expect([arrowBox.width, arrowBox.height], `${label}'s arrow is 16 px`).toEqual([16, 16]);
+		const words = await link.evaluate((element) => {
+			const range = document.createRange();
+			range.selectNodeContents(element.firstChild!);
+			return range.getBoundingClientRect().right;
+		});
+		expect(arrowBox.x, `${label}'s arrow follows its words`).toBeGreaterThanOrEqual(words);
+		await link.hover();
+		await expect(link, `${label} under the pointer`).toHaveCSS("color", white);
+	}
+
+	const [[, first], [, second]] = links as [[string, Locator], [string, Locator]];
+	for (const [viewport, row] of rows) {
+		await page.setViewportSize(viewport);
+		const at = `at ${viewport.width} px`;
+		const [one, two] = [await boxOf(first, "the first link"), await boxOf(second, "the second")];
+		if (row === "one row") {
+			expect(two.y, `the links on one row ${at}`).toBeCloseTo(one.y, 0);
+			expect(two.x - (one.x + one.width), `24 px apart across ${at}`).toBeCloseTo(24, 0);
+		} else {
+			expect(two.x, `the second link under the first ${at}`).toBeCloseTo(one.x, 0);
+			expect(two.y - (one.y + one.height), `4 px apart down ${at}`).toBeCloseTo(4, 0);
+		}
+	}
 }
 
 /**
@@ -417,6 +588,10 @@ export async function expectBreadcrumb(
 
 /** The breadcrumb's root crumb, the Homepage. */
 export const HOME_CRUMB = ["หน้าแรก", "/"] as const;
+
+/** `/search` with `params` in its address, or without a query string when there are none. */
+export const searchPath = (params: Record<string, string>) =>
+	Object.keys(params).length === 0 ? "/search" : `/search?${new URLSearchParams(params)}`;
 
 /**
  * Each main-navigation section's crumb, which follows หน้าแรก on every page inside the section but
@@ -578,11 +753,21 @@ export async function expectCrop(picture: Locator, position: string, label: stri
 }
 
 /**
- * The ancestors of `target` that cut into its focus ring: each one that clips its content where
- * the outline lies, the element's box widened by the outline's offset and width.
+ * The ancestors of `target` that cut into its focus ring, or into the ring an ancestor draws around
+ * it: each one that clips its content where the outline lies, the ringed element's box widened by
+ * the outline's offset and width.
  */
 function focusRingClippers(target: Locator): Promise<string[]> {
-	return target.evaluate((element) => {
+	return target.evaluate((focused) => {
+		// The ring that shows for the element: its own, else the nearest ancestor's that draws one
+		// around it, as the search pill does for its field.
+		let element: Element = focused;
+		for (let part: Element | null = focused; part !== null; part = part.parentElement) {
+			if (getComputedStyle(part).outlineStyle !== "none") {
+				element = part;
+				break;
+			}
+		}
 		const style = getComputedStyle(element);
 		const reach = Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth);
 		const ring = element.getBoundingClientRect();
@@ -680,6 +865,26 @@ export async function pointAtRowEdge(page: Page, row: Locator) {
 	await page.waitForTimeout(500);
 	return { x: Math.round(place.x), edge };
 }
+
+/**
+ * Whether a row's one link covers the whole row (`LinkRow`: an Announcement's, a Health Report's
+ * and a search result's row), as the page is laid out now.
+ */
+export const linkCoversRow = (row: Locator) =>
+	row.evaluate((article) => {
+		const link = article.querySelector("a")?.getBoundingClientRect();
+		const box = article.getBoundingClientRect();
+		return (
+			!!link &&
+			(["x", "y", "width", "height"] as const).every((side) => Math.abs(link[side] - box[side]) < 1)
+		);
+	});
+
+/**
+ * The longest title the office has published, in characters: a MOIT's (spec #392 "Measured in the
+ * prototype"), the length a suite's long-title fixture takes.
+ */
+export const PUBLISHED_TITLE_LENGTH = 175;
 
 /** A row's shadow as the page is now: the `deep` one under the pointer, else the `card` one. */
 export function rowShadow(row: Locator) {
@@ -2466,8 +2671,12 @@ export function testHeadingOnField(list: HeadingOnField): void {
 				href,
 			);
 		}
-		// Lucide's class is the one thing that tells two icons apart (expectServiceIcon).
-		const icon = await boxOf(heading.field.locator(`svg.lucide-${list.icon}`), "the tile's icon");
+		// Lucide's class is the one thing that tells two icons apart (expectServiceIcon). The tile's
+		// icon is its span's child: /search's search pill shows the same icon on the field (#433).
+		const icon = await boxOf(
+			heading.field.locator(`span > svg.lucide-${list.icon}`),
+			"the tile's icon",
+		);
 		expect([icon.width, icon.height], "the tile's icon is 24 px").toEqual([24, 24]);
 		expect(icon.x + icon.width, "the tile is left of the H1").toBeLessThanOrEqual(
 			(await boxOf(heading.title, "the H1")).x,

@@ -1,0 +1,84 @@
+---
+// The site search as a white pill (Feature 008 #241; spec #239 "Hero and Featured"), which the
+// Homepage's hero, /search (Feature 015 #433; spec #432 "The search pill") and the 404 page (#435)
+// show, each with its own placeholder: a 20 px search icon in text-secondary, the field at body
+// size and body-large from `sm`, and a round accent-warm submit button with a 20 px arrow-right in
+// brand-dark, 44 px and 52 px from `sm`, which grows under the pointer only with motion allowed.
+// The pill is 60 px high and 68 px from `sm`, as wide as its column up to 540 px, and `wide` up to
+// 640 px from `lg`, as the hero is without a Featured item, and /search and the 404 page always.
+// It lies on the deep field. While its field has focus, from a click as from Tab, the field shows
+// no ring of its own and the whole pill takes the accent-warm ring that other parts on the field
+// take, 3 px wide and 2 px outside it; the button keeps its own brand-primary ring inside the white
+// (`focus-ring-on-light`) (Product Owner, 2026-11-24: #436 comment 7135305142, option A). The field
+// gives up its ring only where the browser has `:has()`, which draws the pill's; without it the
+// field keeps its own.
+//
+// It is a plain GET form to /search that carries the query alone, so it works without JavaScript
+// and a new search starts from ทุกประเภท and the first page. The form and its field are named
+// "ค้นหาในเว็บไซต์" for assistive technology, with the icon and the placeholder in sight, and the
+// button "ค้นหา". With motion allowed it rises in as the page opens, after the text above it
+// (`hero-enter`, src/styles/global.css).
+//
+// `submitState` is the Homepage's alone: after submit the button shows a spinner in its arrow's
+// place and a further submit is ignored (SubmitStateIcon; Product Owner, 2026-11-12: #246 comment
+// 6816725778, item 3), through the Homepage's one script (CODING_STANDARDS "Public pages"). Without
+// it the pill has no spinner and needs no script.
+import ArrowRight from "@lucide/astro/icons/arrow-right";
+import Search from "@lucide/astro/icons/search";
+import { MAX_QUERY_LENGTH, QUERY_PARAM } from "../lib/search-matcher";
+import SubmitStateIcon from "./SubmitStateIcon.astro";
+
+interface Props {
+	/** The field's id, unique on the page. */
+	id: string;
+	placeholder: string;
+	/** The query the field holds. */
+	value?: string;
+	/** Up to 640 px wide from `lg`, in place of 540 px. */
+	wide?: boolean;
+	/** The Homepage's spinner after submit. */
+	submitState?: boolean;
+}
+
+const { id, placeholder, value, wide = false, submitState = false } = Astro.props;
+---
+
+<form
+	role="search"
+	method="get"
+	action="/search"
+	aria-label="ค้นหาในเว็บไซต์"
+	data-submit-state={submitState ? "" : undefined}
+	class:list={[
+		"hero-enter focus-ring-on-light flex h-15 [--hero-enter-delay:0.22s] max-w-135 items-center gap-3 rounded-pill bg-surface-base pr-2 pl-5 text-text-secondary shadow-deep has-[input:focus-visible]:outline-3 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-accent-warm sm:h-17 sm:pl-6",
+		submitState && "group/submit",
+		wide && "lg:max-w-160",
+	]}
+>
+	<Search class="shrink-0" size={20} />
+	<label class="sr-only" for={id}>
+		ค้นหาในเว็บไซต์
+	</label>
+	<input
+		id={id}
+		name={QUERY_PARAM}
+		type="search"
+		value={value}
+		maxlength={MAX_QUERY_LENGTH}
+		placeholder={placeholder}
+		class="min-h-11 w-full min-w-0 flex-1 rounded-pill bg-transparent text-body text-text-primary placeholder:text-text-secondary supports-[selector(:has(a))]:focus-visible:outline-none sm:text-body-large"
+	/>
+	<button
+		type="submit"
+		class="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-pill bg-accent-warm text-brand-dark motion-safe:transition-transform motion-safe:hover:scale-108 sm:size-13"
+	>
+		<span class="sr-only">ค้นหา</span>
+		{submitState ? (
+			<SubmitStateIcon>
+				<ArrowRight class="shrink-0" size={20} />
+			</SubmitStateIcon>
+		) : (
+			<ArrowRight class="shrink-0" size={20} />
+		)}
+	</button>
+</form>

@@ -22,6 +22,7 @@ import {
 	expectVisibleFocusOnEveryStop,
 	listedTitles,
 	ownTitles,
+	searchPath,
 	test,
 	thaiWord,
 } from "./public.helpers";
@@ -45,7 +46,6 @@ const ownedTerms: SyntheticTerm[] = [];
 const pager = (page: Page) => page.getByRole("navigation", { name: "การแบ่งหน้า" });
 const listPath = (term: SyntheticTerm, number = 1) =>
 	`/news/health?topic=${term.slug}${number > 1 ? `&page=${number}` : ""}`;
-const searchPath = (query: Record<string, string>) => `/search?${new URLSearchParams(query)}`;
 
 /** What the pager of one page of a list says and links to. */
 interface PagerState {

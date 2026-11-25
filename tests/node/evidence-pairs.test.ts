@@ -23,7 +23,7 @@ const image = (width: number, rows: number[][]) => ({
 });
 
 describe("comparePixels", () => {
-	it("counts the pixels that differ and bands the rows that hold them", () => {
+	it("counts the pixels that differ and bands the rows that hold them, each with its largest difference", () => {
 		const before = image(2, [
 			[0, 0],
 			[0, 0],
@@ -42,8 +42,8 @@ describe("comparePixels", () => {
 			kind: "differ",
 			pixels: 4,
 			bands: [
-				[1, 2],
-				[4, 4],
+				[1, 2, 1],
+				[4, 4, 9],
 			],
 		});
 	});
@@ -56,22 +56,66 @@ describe("comparePixels", () => {
 			before: 4,
 			after: 3,
 			sameRows: 2,
+			nearRows: 2,
+		});
+	});
+
+	// #434 retro item 4: a header's shadow one level off hid where a page that changed height
+	// started to move, until a script of the ticket's own read each row's largest difference.
+	it("gives the rows from the top within one level when the heights differ", () => {
+		const before = image(2, [
+			[0, 0],
+			[0, 1],
+			[0, 0],
+			[3, 0],
+			[0, 0],
+		]);
+		const after = image(2, [
+			[0, 0],
+			[0, 0],
+			[0, 0],
+			[0, 0],
+		]);
+		assert.deepEqual(comparePixels(before, after), {
+			kind: "heights",
+			before: 5,
+			after: 4,
+			sameRows: 1,
+			nearRows: 3,
 		});
 	});
 });
 
 describe("pairsReport", () => {
-	it("writes a line per pair, more than four bands as their span, then how many are identical", () => {
+	it("writes a line per pair with each band's largest difference, then how many are identical", () => {
 		assert.deepEqual(
 			pairsReport([
 				{ name: "about-1440", result: { kind: "identical" } },
 				{
 					name: "home-1440",
-					result: { kind: "differ", pixels: 3454, bands: [[2485, 2506]] },
+					result: { kind: "differ", pixels: 3454, bands: [[2485, 2506, 255]] },
 				},
 				{
 					name: "home-375",
-					result: { kind: "heights", before: 6344, after: 6320, sameRows: 2485 },
+					result: { kind: "heights", before: 6344, after: 6320, sameRows: 2485, nearRows: 2485 },
+				},
+				{
+					name: "found-1440",
+					result: { kind: "heights", before: 3863, after: 3735, sameRows: 61, nearRows: 534 },
+				},
+				{
+					name: "many-320",
+					result: {
+						kind: "differ",
+						pixels: 40,
+						bands: [
+							[10, 11, 1],
+							[20, 20, 1],
+							[30, 31, 64],
+							[40, 40, 1],
+							[50, 52, 2],
+						],
+					},
 				},
 				{
 					name: "qa-375",
@@ -79,18 +123,20 @@ describe("pairsReport", () => {
 						kind: "differ",
 						pixels: 11,
 						bands: [
-							[259, 264],
-							[300, 300],
+							[259, 264, 3],
+							[300, 300, 1],
 						],
 					},
 				},
 			]),
 			[
 				"about-1440  identical",
-				"home-1440  3,454 px differ in rows 2,485–2,506",
+				"home-1440  3,454 px differ in rows 2,485–2,506 (255 levels)",
 				"home-375  6,344 → 6,320 px high; rows 0–2,484 the same",
-				"qa-375  11 px differ in rows 259–264, 300",
-				"1 of 4 pairs identical",
+				"found-1440  3,863 → 3,735 px high; rows 0–60 the same, 61–533 within 1 level",
+				"many-320  40 px differ in rows 10–52 in 5 bands, up to 64 levels",
+				"qa-375  11 px differ in rows 259–264 (3 levels), 300 (1 level)",
+				"1 of 6 pairs identical",
 			],
 		);
 	});
@@ -103,11 +149,12 @@ const heights = (before: number, after: number, sameRows: number): Comparison =>
 	before,
 	after,
 	sameRows,
+	nearRows: sameRows,
 });
 const differ = (pixels: number, first: number, last: number): Comparison => ({
 	kind: "differ",
 	pixels,
-	bands: [[first, last]],
+	bands: [[first, last, 255]],
 });
 const identical: Comparison = { kind: "identical" };
 
@@ -128,7 +175,7 @@ describe("casesReport", () => {
 				"identical at every width (1): doc",
 				"differ at every width, at the same height (1): list",
 				"about  1440: 1,813 → 1,925 px high; rows 0–403 the same  |  1024: 1,813 → 1,933 px high; rows 0–60 the same",
-				"health  1440: 5 px differ in rows 382–523  |  320: 900 → 985 px high; rows 0–355 the same",
+				"health  1440: 5 px differ in rows 382–523 (255 levels)  |  320: 900 → 985 px high; rows 0–355 the same",
 				"2 of 8 pairs identical",
 			],
 		);
@@ -148,7 +195,7 @@ describe("againstReport", () => {
 			]),
 			[
 				"identical to evidence/014-420-screenshots at every width (2): about, home",
-				"page against evidence/014-418-screenshots  1440: 90 px differ in rows 715–749  |  375: identical",
+				"page against evidence/014-418-screenshots  1440: 90 px differ in rows 715–749 (255 levels)  |  375: identical",
 				"no earlier after image (1): new",
 				"4 of 5 after images identical to the earlier ticket's",
 			],

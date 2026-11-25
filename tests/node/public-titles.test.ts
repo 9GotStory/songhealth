@@ -35,7 +35,6 @@ describe("headings on public pages", () => {
 	it("are read from the templates, the components' <Heading> tags included", async () => {
 		const files = new Set((await headings()).map(({ file }) => file));
 		for (const file of [
-			"components/PageHeading.astro",
 			"components/ContentCard.astro",
 			"components/SectionHeading.astro",
 			"components/HomeActivityTile.astro",

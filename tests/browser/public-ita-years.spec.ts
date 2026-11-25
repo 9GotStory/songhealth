@@ -79,6 +79,7 @@ import {
 	tokenShadow,
 	whileNonePublished,
 	type ListHeadingText,
+	PUBLISHED_TITLE_LENGTH,
 } from "./public.helpers";
 
 /** The fiscal years of the suite's MOITs, which no real MOIT has. */
@@ -95,8 +96,6 @@ const BY_COUNT = 2408;
  * prototype").
  */
 const LONG_TITLE = 2412;
-/** The longest MOIT title the office has published, in characters. */
-const LONG_TITLE_LENGTH = 175;
 
 /** The ITA landing's heading. */
 const LANDING_HEADING = "การประเมินคุณธรรมและความโปร่งใส (ITA)";
@@ -121,10 +120,10 @@ const NEWER_HEADING = yearHeading(NEWER, 3);
 
 /**
  * A made-up name that gives the MOIT `createSyntheticMoit` titles `${mark} ${name} ${label}
- * ${ending}` a title of LONG_TITLE_LENGTH characters.
+ * ${ending}` a title of PUBLISHED_TITLE_LENGTH characters.
  */
 function longName(label: string): string {
-	const room = LONG_TITLE_LENGTH - `${SYNTHETIC_FIXTURE_MARK}  ${label} 123456`.length;
+	const room = PUBLISHED_TITLE_LENGTH - `${SYNTHETIC_FIXTURE_MARK}  ${label} 123456`.length;
 	return "ตัวชี้วัดตัวอย่างสำหรับทดสอบชื่อยาวที่แสดงครบทุกบรรทัดในแถว "
 		.repeat(4)
 		.slice(0, room)
@@ -147,7 +146,7 @@ let fifth: MoitFixture;
 let draft: MoitFixture;
 let older: MoitFixture;
 let draftsOnly: MoitFixture;
-/** LONG_TITLE's one MOIT, its title LONG_TITLE_LENGTH characters long, with a date. */
+/** LONG_TITLE's one MOIT, its title PUBLISHED_TITLE_LENGTH characters long, with a date. */
 let longTitle: MoitFixture;
 
 /** A synthetic MOIT draft of `year`, numbered `number`, with `evidence` as its blocks. */
@@ -1024,7 +1023,7 @@ test("a MOIT's row is white with the card shadow and radius 22, 12 px inside and
 test("a MOIT's row with a title of 175 characters shows its title whole at 320 px, its parts in one line and its facts inside its column, with nothing past the window", async ({
 	page,
 }) => {
-	expect(longTitle.title, "the fixture's title").toHaveLength(LONG_TITLE_LENGTH);
+	expect(longTitle.title, "the fixture's title").toHaveLength(PUBLISHED_TITLE_LENGTH);
 	await page.setViewportSize(MOBILE_VIEWPORT);
 	await page.goto(`/ita/${LONG_TITLE}`);
 	await expectNoHorizontalScroll(page, `/ita/${LONG_TITLE} at 320 px`);
@@ -1252,7 +1251,7 @@ test("a MOIT's page without Evidence or neighbours ends with its field, 40 px un
 test("a MOIT's page with a title of 175 characters shows its header on the field whole at 375 and 320 px, the breadcrumb's four crumbs on two lines at 320 px, with nothing past the window", async ({
 	page,
 }) => {
-	expect(longTitle.title, "the fixture's title").toHaveLength(LONG_TITLE_LENGTH);
+	expect(longTitle.title, "the fixture's title").toHaveLength(PUBLISHED_TITLE_LENGTH);
 	const path = `/ita/${longTitle.slug}`;
 	const seen: Record<number, unknown> = {};
 	const expected: Record<number, unknown> = {};
