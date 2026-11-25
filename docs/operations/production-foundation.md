@@ -614,18 +614,20 @@ success (`SuccessExitStatus=143`), so after `systemctl --user stop` the unit is 
 `failed`. A request in flight when the stop arrives is cut, and the client keeps the part of the
 response it has received. The startup gate does not change.
 
-Workstation figures (#453, 2026-11-25; 8 CPUs, 15 GiB, Podman 6.2.0, the image built at
-`2906e45`, `scripts/production-image-check.sh`). They are no sizing for a host: the rehearsal and the
-Production host record their own (spec #450).
+Workstation figures (#453, 2026-11-25; 8 CPUs, 15 GiB, Podman 6.2.0): two runs of
+`scripts/production-image-check.sh`, on the images built at `2906e45` and at `d0c04e5`, give each
+range. They are no sizing for a host: the rehearsal and the Production host record their own (spec
+#450).
 
 | What | Figure |
 |---|---|
-| The startup gate's build (S2), as the runtime user, no network | 12.4 s; peak memory 2,164 MiB |
-| The server, from the container's start to serving `/` (no startup gate) | 2.48 s |
-| The server's peak memory while serving the check's requests | 150 MiB |
-| `podman stop`, with Podman's init | 0.35 s, exit 143, no kill |
-| `systemctl --user stop` of a Quadlet unit with `RunInit=true` and `SuccessExitStatus=143`, on `main` `2ca082b`'s image with `/app` given to the runtime user | 0.43 s, `inactive`, result `success` |
-| `podman stop` as Feature 001's unit had it (no init), on the same Containerfile's image (`0cc29b4`, never pushed) | 10.41 s, exit 137 after SIGKILL |
+| The startup gate's build (S2), as the runtime user, no network | 12.4 to 13.9 s; peak memory 2,121 to 2,164 MiB |
+| The server, from the container's start to serving `/` (no startup gate) | 2.48 to 3.41 s |
+| The server's peak memory while serving the check's requests | 123 to 150 MiB |
+| `podman stop`, with Podman's init | 0.35 to 0.45 s, exit 143, no kill |
+| `systemctl --user stop` of a throwaway Quadlet unit with `RunInit=true` and `SuccessExitStatus=143` on the `d0c04e5` image | 1.43 s, `inactive`, result `success` |
+| `podman stop` with Feature 001's unit (no init), on this Containerfile's image | 10.41 s, exit 137 after SIGKILL |
+| `systemctl --user stop` of the same throwaway unit without either key | 11.21 s, `failed`, status 137 |
 
 The whole start also holds the role prerequisite and the gate's migration steps and media probe,
 which need the production stack and are measured on the rehearsal machine.

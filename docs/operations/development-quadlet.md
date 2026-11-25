@@ -437,7 +437,8 @@ the image check of a Release's commit (spec #450 "Releases", step 3).
   fails when the build exits non-zero, when it does not write the server entry and the manifest
   anew, when the user is root, or when a path under `/app` is world-writable. It prints the
   build's time and its peak memory. The image built from `main` at `a7e287d` fails here with
-  `EACCES` on `/app/.astro`.
+  `EACCES` on `/app/.astro`. The gate's checks of the manifest's content (its schema and EmDash
+  version, the migration set and its fingerprint) are not repeated: S2 runs them at each start.
 - **One run.** It runs the image once against this runtime's data: the Product Owner's exception
   to one application server (#67 comment 6558196151).
   - It runs the image as the commit's application unit would: with Podman's init when the unit
