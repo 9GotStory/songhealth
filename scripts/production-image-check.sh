@@ -214,7 +214,7 @@ peak=$(podman exec "$CTR" cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo unr
 [[ $peak == unreadable ]] || peak="$(numfmt --to=iec-i --suffix=B "$peak")"
 note "its peak memory while serving: $peak"
 stop_started=$EPOCHREALTIME
-podman stop "$CTR" >"$work/stop.log" 2>&1 || true
+podman stop "$CTR" >/dev/null 2>"$work/stop.log" || true
 stop_seconds=$(since "$stop_started")
 exit_code=$(podman container inspect "$CTR" --format '{{.State.ExitCode}}')
 note "asked to stop, it exited $exit_code after $stop_seconds s"
