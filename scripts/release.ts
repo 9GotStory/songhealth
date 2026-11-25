@@ -88,7 +88,7 @@ function run(command: string, args: string[], options: SpawnSyncOptions = {}): s
 		const tail = String(result.stderr ?? "")
 			.trim()
 			.split("\n")
-			.slice(-5)
+			.slice(-20)
 			.join("\n  ");
 		throw new Refused(`${command} ${args[0]} exited ${result.status}${tail ? `:\n  ${tail}` : ""}`);
 	}
@@ -111,7 +111,9 @@ async function fileSha256(path: string): Promise<string> {
 }
 
 function gitShow(commit: string, path: string): Buffer {
-	return spawnSync("git", ["show", `${commit}:${path}`], { cwd: REPO, maxBuffer: 1 << 28 }).stdout;
+	const shown = spawnSync("git", ["show", `${commit}:${path}`], { cwd: REPO, maxBuffer: 1 << 28 });
+	if (shown.status !== 0) throw new Refused(`${commit.slice(0, 7)} holds no ${path}`);
+	return shown.stdout;
 }
 
 function fullCommit(ref: string): string {
@@ -157,7 +159,8 @@ function loadedDigest(folder: string, archive: string, image: string): string {
 		return run("podman", [...podman, "image", "inspect", image, "--format", "{{.Digest}}"]).trim();
 	} finally {
 		// The loaded layers belong to the user namespace's IDs: remove them inside it.
-		spawnSync("podman", ["unshare", "rm", "-rf", store], { stdio: "ignore" });
+		if (spawnSync("podman", ["unshare", "rm", "-rf", store], { stdio: "ignore" }).status !== 0)
+			note(`could not remove the temporary store ${store}: remove it with podman unshare rm -rf`);
 	}
 }
 
@@ -201,7 +204,13 @@ async function cut(version: string, sha: string, releases: string): Promise<void
 		const context = mkdtempSync(join(tmpdir(), "songhealth-release-"));
 		try {
 			note(`building ${image} from a git archive of ${short}, its layers uncompressed`);
-			run("sh", ["-c", 'git archive "$1" | tar -x -C "$2"', "sh", commit, context]);
+			run("bash", [
+				"-c",
+				'set -o pipefail; git archive "$1" | tar -x -C "$2"',
+				"bash",
+				commit,
+				context,
+			]);
 			const started = Date.now();
 			run("podman", [
 				"build",
@@ -289,15 +298,21 @@ async function cut(version: string, sha: string, releases: string): Promise<void
 			cutAt: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
 		});
 		refuseOn(recordFailures(record));
-		const path = writeRecord(releases, record);
+		// The tag first, so that a record naming a tag is never written without it.
+		const tag = tagName(version);
+		if (tag) run("git", ["tag", "--annotate", tag, "--message", tagMessage(record), commit]);
+		let path: string;
+		try {
+			path = writeRecord(releases, record);
+		} catch (error) {
+			if (tag) run("git", ["tag", "--delete", tag]);
+			throw error;
+		}
 		done = true;
 		note(`wrote ${path}:`);
 		console.log(readFileSync(path, "utf8").trimEnd());
-		const tag = tagName(version);
-		if (tag) {
-			run("git", ["tag", "--annotate", tag, "--message", tagMessage(record), commit]);
-			note(`tagged ${short} ${tag}; push it with: git push origin ${tag}`);
-		} else note(`${version} is a release candidate: it gets no tag`);
+		if (tag) note(`tagged ${short} ${tag}; push it with: git push origin ${tag}`);
+		else note(`${version} is a release candidate: it gets no tag`);
 		note(`next: node scripts/release.ts pin ${version}, then commit and review that change alone`);
 	} finally {
 		if (!done) {
@@ -332,7 +347,14 @@ function pinned(version: string, ref: string, releases: string): void {
 			commit,
 			unit: gitShow(commit, UNIT).toString("utf8"),
 			descends: succeeds("git", ["merge-base", "--is-ancestor", record.buildCommit, commit]),
-			onOrigin: run("git", ["branch", "--remotes", "--contains", commit]).trim() !== "",
+			merged:
+				run("git", [
+					"for-each-ref",
+					"--contains",
+					commit,
+					"refs/remotes/origin/main",
+					"refs/remotes/origin/[0-9][0-9][0-9]-*",
+				]).trim() !== "",
 			harnessFilesSame: Object.fromEntries(
 				HARNESS_FILES.map((file) => [file, same(file)]),
 			) as Record<(typeof HARNESS_FILES)[number], boolean>,
@@ -359,14 +381,15 @@ async function main(args: string[]): Promise<number> {
 		args.splice(at, 2);
 		return value ?? "";
 	};
+	const releasesOption = option("--releases");
 	const releases = resolve(
-		option("--releases") ??
+		releasesOption ??
 			process.env.SONGHEALTH_RELEASES ??
 			join(homedir(), ".local/share/songhealth/releases"),
 	);
 	const sha = option("--sha");
 	const [command, version, commit, ...rest] = args;
-	if (rest.length > 0 || !version || sha === "") return usage();
+	if (rest.length > 0 || !version || sha === "" || releasesOption === "") return usage();
 	try {
 		if (command === "cut" && commit === undefined) await cut(version, sha ?? "HEAD", releases);
 		else if (command === "pin" && commit === undefined && sha === undefined) pin(version, releases);

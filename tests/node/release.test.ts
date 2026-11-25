@@ -44,10 +44,13 @@ describe("what the cut refuses", () => {
 		assert.deepEqual(cutRefusals(CLEAN), []);
 	});
 
-	it("refuses a tree with uncommitted changes, naming them, untracked files among them", () => {
+	it("refuses a tree with uncommitted changes, naming them, untracked files and a rename's new path among them", () => {
 		assert.deepEqual(
-			cutRefusals({ ...CLEAN, treeChanges: [" M src/pages/index.astro", "?? notes.txt"] }),
-			["the checkout has uncommitted changes: src/pages/index.astro, notes.txt"],
+			cutRefusals({
+				...CLEAN,
+				treeChanges: [" M src/pages/index.astro", "?? notes.txt", "R  old.ts -> new.ts"],
+			}),
+			["the checkout has uncommitted changes: src/pages/index.astro, notes.txt, new.ts"],
 		);
 	});
 
@@ -189,6 +192,34 @@ describe("a Release's record", () => {
 		);
 	});
 
+	it("names each field a record file lacks, rather than failing on it", () => {
+		const good = newRecord({ ...CUT, version: "1.0.0" });
+		const expected: Record<keyof ReleaseRecord, string[]> = {
+			version: ["the record's version undefined is not SemVer"],
+			buildCommit: ["the record's build commit undefined is not a full commit"],
+			image: ["the record's image undefined is not localhost/songhealth-app:1.0.0"],
+			digest: ["the record's digest undefined is not a sha256 digest"],
+			archive: [
+				"the record's archive undefined is not songhealth-app-1.0.0.oci.tar",
+				"the record's archive checksum undefined is not a SHA-256",
+				"the record's archive size undefined is not a number of bytes",
+			],
+			tag: ["the record's tag undefined is not v1.0.0"],
+			cutAt: ["the record's cut time undefined is not a UTC time"],
+			deploymentConfigCommit: [
+				"the record's deployment-configuration commit undefined is not a full commit",
+			],
+		};
+		const seen = Object.fromEntries(
+			Object.keys(expected).map((key) => {
+				const lacking: Record<string, unknown> = { ...good };
+				delete lacking[key];
+				return [key, recordFailures(lacking as unknown as ReleaseRecord)];
+			}),
+		);
+		assert.deepEqual(seen, expected);
+	});
+
 	it("gains the deployment-configuration commit once the pin is made, its build commit kept apart", () => {
 		const record = withDeploymentCommit(newRecord({ ...CUT, version: "1.0.0-rc.1" }), PIN);
 		assert.equal(record.buildCommit, BUILD);
@@ -226,7 +257,7 @@ describe("the pin", () => {
 		commit: PIN,
 		unit: pinUnit(UNIT, record),
 		descends: true,
-		onOrigin: true,
+		merged: true,
 		harnessFilesSame: { "package.json": true, "tests/operations/verify-startup.sh": true },
 	};
 
@@ -234,7 +265,7 @@ describe("the pin", () => {
 		assert.deepEqual(pinFailures(record, AT_PIN), []);
 	});
 
-	it("refuses a unit that pins another digest, the build commit itself, a commit not after it or not on origin, and a changed harness file, each alone", () => {
+	it("refuses a unit that pins another digest, the build commit itself, a commit not after it or not merged, a unit pinning it twice, and a changed harness file, each alone", () => {
 		assert.deepEqual(pinFailures(record, { ...AT_PIN, unit: UNIT }), [
 			`the unit at ${PIN.slice(0, 7)} pins localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407, not the record's localhost/songhealth-app:1.0.0-rc.1@${DIGEST}`,
 		]);
@@ -244,8 +275,11 @@ describe("the pin", () => {
 		assert.deepEqual(pinFailures(record, { ...AT_PIN, descends: false }), [
 			`${PIN.slice(0, 7)} does not descend from the build commit ${BUILD.slice(0, 7)}`,
 		]);
-		assert.deepEqual(pinFailures(record, { ...AT_PIN, onOrigin: false }), [
-			`${PIN.slice(0, 7)} is on no branch of origin: the pin is recorded once its review has merged it`,
+		assert.deepEqual(pinFailures(record, { ...AT_PIN, merged: false }), [
+			`${PIN.slice(0, 7)} is on neither origin/main nor an integration branch: the pin is recorded once its review has merged it`,
+		]);
+		assert.deepEqual(pinFailures(record, { ...AT_PIN, unit: `${AT_PIN.unit}\n${pinned}\n` }), [
+			`the unit at ${PIN.slice(0, 7)} pins localhost/songhealth-app:1.0.0-rc.1@${DIGEST}, localhost/songhealth-app:1.0.0-rc.1@${DIGEST}, not the record's localhost/songhealth-app:1.0.0-rc.1@${DIGEST}`,
 		]);
 		for (const file of ["package.json", "tests/operations/verify-startup.sh"] as const) {
 			assert.deepEqual(

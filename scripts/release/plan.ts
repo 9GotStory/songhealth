@@ -38,7 +38,10 @@ export interface CutFacts {
 	treeChanges: string[];
 	/** Every check run GitHub holds for the build commit. */
 	checkRuns: CheckRun[];
-	/** Whether the version's record exists in the releases folder. */
+	/**
+	 * Whether the version's folder exists in the releases folder: its record, or what a cut that
+	 * could not remove its folder left.
+	 */
 	recordExists: boolean;
 	/** Whether the tag `v<version>` exists in the checkout. */
 	tagExists: boolean;
@@ -147,23 +150,31 @@ export function newRecord(cut: CutResult): ReleaseRecord {
 
 const FULL_COMMIT = /^[0-9a-f]{40}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
+const DIGEST = /^sha256:[0-9a-f]{64}$/;
+const UTC_SECOND = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 
-/** What is wrong with a record, one line each: none for one a deployment may read. */
+/**
+ * What is wrong with a record read back from its file, one line each: none for one a deployment
+ * may read. A missing field reads as undefined and is named like a wrong one.
+ */
 export function recordFailures(record: ReleaseRecord): string[] {
-	const { version, buildCommit, image, digest, archive, tag, deploymentConfigCommit } = record;
+	const { version, buildCommit, image, digest, tag, cutAt, deploymentConfigCommit } = record;
+	const archive: Partial<ReleaseRecord["archive"]> = record.archive ?? {};
 	if (!SEMVER.test(version)) return [`the record's version ${version} is not SemVer`];
 	const failures: string[] = [];
 	if (!FULL_COMMIT.test(buildCommit))
 		failures.push(`the record's build commit ${buildCommit} is not a full commit`);
 	if (image !== imageName(version))
 		failures.push(`the record's image ${image} is not ${imageName(version)}`);
-	if (!digest.startsWith("sha256:") || !SHA256.test(digest.slice(7)))
-		failures.push(`the record's digest ${digest} is not a sha256 digest`);
+	if (!DIGEST.test(digest)) failures.push(`the record's digest ${digest} is not a sha256 digest`);
 	if (archive.file !== archiveName(version))
 		failures.push(`the record's archive ${archive.file} is not ${archiveName(version)}`);
-	if (!SHA256.test(archive.sha256))
+	if (!SHA256.test(archive.sha256 ?? ""))
 		failures.push(`the record's archive checksum ${archive.sha256} is not a SHA-256`);
+	if (!Number.isSafeInteger(archive.bytes) || (archive.bytes ?? 0) <= 0)
+		failures.push(`the record's archive size ${archive.bytes} is not a number of bytes`);
 	if (tag !== tagName(version)) failures.push(`the record's tag ${tag} is not ${tagName(version)}`);
+	if (!UTC_SECOND.test(cutAt)) failures.push(`the record's cut time ${cutAt} is not a UTC time`);
 	if (deploymentConfigCommit !== null) {
 		if (!FULL_COMMIT.test(deploymentConfigCommit))
 			failures.push(
@@ -219,8 +230,10 @@ export interface PinFacts {
 	unit: string;
 	/** Whether the commit descends from the build commit. */
 	descends: boolean;
-	/** Whether a branch of origin holds the commit: its review merged it. */
-	onOrigin: boolean;
+	/**
+	 * Whether origin/main or an integration branch of origin holds the commit: its review merged it.
+	 */
+	merged: boolean;
 	/** For each harness file, whether the commit's copy equals the build commit's byte for byte. */
 	harnessFilesSame: Record<(typeof HARNESS_FILES)[number], boolean>;
 }
@@ -239,9 +252,9 @@ export function pinFailures(record: ReleaseRecord, facts: PinFacts): string[] {
 		failures.push(
 			`${short(facts.commit)} does not descend from the build commit ${short(record.buildCommit)}`,
 		);
-	if (!facts.onOrigin)
+	if (!facts.merged)
 		failures.push(
-			`${short(facts.commit)} is on no branch of origin: the pin is recorded once its review has merged it`,
+			`${short(facts.commit)} is on neither origin/main nor an integration branch: the pin is recorded once its review has merged it`,
 		);
 	const images = facts.unit.split("\n").flatMap((line) => IMAGE_LINE.exec(line)?.[1] ?? []);
 	if (images.length !== 1 || images[0] !== pinnedImage(record))
