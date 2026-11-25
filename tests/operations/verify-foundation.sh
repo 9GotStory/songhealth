@@ -3780,7 +3780,7 @@ F01JS
 		st_fail media-picture-committed "$MEDIA_PICTURE must be committed with the SHA-256 $MEDIA_EXPECTED_SHA256 (found: ${picture_sha:-no file})"
 	fi
 	local remade="$ST_ROOT/validation-picture.png" remade_sha=''
-	if node "$ROOT/scripts/make-validation-picture.ts" "$remade" >/dev/null 2>&1 && [ -f "$remade" ]; then
+	if node "$ROOT/scripts/make-validation-picture.ts" "$remade" >/dev/null && [ -f "$remade" ]; then
 		remade_sha="$(sha256sum "$remade" | awk '{print $1}')"
 	fi
 	if [ "$remade_sha" = "$MEDIA_EXPECTED_SHA256" ] && cmp -s "$remade" "$ROOT/$MEDIA_PICTURE"; then

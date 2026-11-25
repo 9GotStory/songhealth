@@ -1,5 +1,6 @@
 // The validation picture of the T016 lifecycle harness (#454; spec #450 "T022, T028 and the
-// validation fixture"): a plain teal 96×32 PNG, the size and colour of T015's lost picture.
+// validation fixture"): a plain teal 96×32 PNG, as T015's lost picture was; the shade is this
+// file's.
 //
 //   node scripts/make-validation-picture.ts [output]   (default: the committed picture)
 //
@@ -38,6 +39,8 @@ function adler32(data: Buffer): number {
 // A zlib stream of one stored block (RFC 1950 and RFC 1951 §3.2.4); one block holds 65,535 bytes.
 function storedZlib(data: Buffer): Buffer {
 	if (data.length > 0xffff) throw new Error("the picture's rows exceed one stored block");
+	// zlib CMF 0x78 (deflate, 32 KiB window), FLG 0x01 (no dictionary, check bits); then the
+	// block's BFINAL=1 BTYPE=00 byte and room for LEN and NLEN.
 	const header = Buffer.from([0x78, 0x01, 0x01, 0, 0, 0, 0]);
 	header.writeUInt16LE(data.length, 3);
 	header.writeUInt16LE(~data.length & 0xffff, 5);
