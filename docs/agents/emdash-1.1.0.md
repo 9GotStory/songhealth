@@ -720,6 +720,29 @@ What production sign-in rests on, read for spec #450 on 2026-11-25.
 - Both development bypasses, `…/auth/dev-bypass` and `…/setup/dev-bypass`, answer
   `403 FORBIDDEN` outside `astro dev` (`src/astro/routes/api/auth/dev-bypass.ts`,
   `src/astro/routes/api/setup/dev-bypass.ts`), which is how the production image runs.
+- With no email provider one route still signs a user in without a passkey:
+  `POST /_emdash/api/auth/magic-link/verify`, public under `/_emdash/api/auth/magic-link/`
+  (`src/astro/middleware/auth.ts` `PUBLIC_API_PREFIXES`), consumes a `magic_link` or `recovery` row
+  of the `auth_tokens` table and sets the session to that row's `user_id`; it reads no email setting
+  (`src/astro/routes/api/auth/magic-link/verify.ts`, `@emdash-cms/auth/src/magic-link/index.ts`
+  `verifyMagicLink`). Its `GET` sends the link to the Admin's `/_emdash/admin/login/magic-link`,
+  which asks for a press of Continue ("The link works only once."), so a mail scanner's fetch does not
+  use the link up. The row is deleted as it is read, and refused after its `expires_at`. EmDash writes
+  such a row only through `sendMagicLink`, which needs an email sender and lives 15 minutes
+  (`@emdash-cms/auth/src/magic-link/index.ts`). A row stores the token's hash: the SHA-256 of the
+  token's bytes, base64url without padding, the token 32 random bytes in the same encoding
+  (`@emdash-cms/auth/src/tokens.ts` `generateToken`, `hashToken`; `./tests/node/admin-recovery.test.ts`
+  calls `hashToken`). `auth_tokens` holds `hash`, `user_id`, `email`, `type`, `role`, `invited_by`,
+  `expires_at` and `created_at`, the two dates as ISO text (`src/database/migrations/008_auth.ts`).
+  `./scripts/admin-recovery.ts` writes one `recovery` row this way for the day no Administrator can
+  sign in (#457 comment 7184244548).
+- A session whose user is disabled is refused (`src/astro/middleware/auth.ts`), so a recovery row for
+  a disabled account lets nobody in.
+- `setup_complete` with no user left is a half-state setup resumes: both admin steps refuse only
+  while a user exists (`ADMIN_EXISTS`, or `SETUP_COMPLETE` once the flag is set), and check the body
+  after that count, before writing the setup state, so an empty body changes nothing
+  (`src/astro/routes/api/setup/admin.ts`, `src/astro/routes/api/setup/admin-verify.ts`). The verify
+  step takes only the browser that started the admin step, by a nonce cookie set then.
 - An API token is checked by its hash alone, with no regard to the request's `Host`, so it
   works against the application's loopback address whatever name the request carries
   (`src/astro/middleware/auth.ts` `handleBearerAuth`, `src/api/handlers/api-tokens.ts` `resolveApiToken`).
