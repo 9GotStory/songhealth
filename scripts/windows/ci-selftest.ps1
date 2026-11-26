@@ -67,6 +67,15 @@ Step 'the channel runs only the certificate check, and forwards only to the brow
 $ssh = @('-i', $key, '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=NUL', '-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR')
 $answer = Invoke-Ssh ($ssh + @('songhealth-test@127.0.0.1', 'whoami'))
 Write-Output $answer
+if ($answer -match 'Permission denied') {
+    # What the run needs to tell a key problem from a server one.
+    $ErrorActionPreference = 'Continue'
+    Write-Output '-- ssh -v (tail)'; Invoke-Ssh (@('-v') + $ssh + @('songhealth-test@127.0.0.1', 'whoami')) -split "`n" | Select-Object -Last 25
+    Write-Output '-- the key loads without a passphrase'; & ssh-keygen -y -P '' -f $key 2>&1 | ForEach-Object { "$_" }
+    Write-Output '-- authorized keys file'; icacls (Join-Path $env:ProgramData 'ssh\songhealth-test_authorized_keys')
+    Write-Output '-- OpenSSH events'; Get-WinEvent -LogName 'OpenSSH/Operational' -MaxEvents 15 -ErrorAction SilentlyContinue | ForEach-Object { $_.Message }
+    Write-Output '-- sshd_config (non-comment)'; Get-Content (Join-Path $env:ProgramData 'ssh\sshd_config') | Where-Object { $_ -and $_ -notmatch '^\s*#' }
+}
 Assert ($answer -match 'songhealth\.moph\.go\.th:') 'any command runs check-tls.ps1 (ForceCommand)'
 Assert ($answer -notmatch '\\songhealth-test\s*$') 'whoami itself did not run'
 $forward = Invoke-Ssh ($ssh + @('-W', '127.0.0.1:445', 'songhealth-test@127.0.0.1'))
