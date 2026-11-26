@@ -64,7 +64,8 @@ $config = Get-Content (Join-Path $env:ProgramData 'ssh\sshd_config')
 Assert (@($config | Where-Object { $_ -eq '# songhealth-test-channel begin' }).Count -eq 2) 'the channel blocks are written once, not added again'
 
 Step 'the channel runs only the certificate check, and forwards only to the browsers'
-$ssh = @('-i', $key, '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=NUL', '-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR')
+$sshBase = @('-i', $key, '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=NUL', '-o', 'BatchMode=yes')
+$ssh = $sshBase + @('-o', 'LogLevel=ERROR')
 $answer = Invoke-Ssh ($ssh + @('songhealth-test@127.0.0.1', 'whoami'))
 Write-Output $answer
 if ($answer -match 'Permission denied') {
@@ -78,7 +79,8 @@ if ($answer -match 'Permission denied') {
 }
 Assert ($answer -match 'songhealth\.moph\.go\.th:') 'any command runs check-tls.ps1 (ForceCommand)'
 Assert ($answer -notmatch '\\songhealth-test\s*$') 'whoami itself did not run'
-$forward = Invoke-Ssh ($ssh + @('-W', '127.0.0.1:445', 'songhealth-test@127.0.0.1'))
+# At ssh's default log level, which prints the server's reason for refusing the channel.
+$forward = Invoke-Ssh ($sshBase + @('-W', '127.0.0.1:445', 'songhealth-test@127.0.0.1'))
 Write-Output $forward
 Assert ($forward -match 'administratively prohibited') 'a forward outside PermitOpen is refused'
 
