@@ -126,13 +126,26 @@ name on the rehearsal machine (#457).
 Claude Code runs each check in Chrome and in Edge through the channel and records PASS or FAIL
 with its evidence; the Product Owner certifies the result.
 
+**Before W5,** the computer has a Windows Hello PIN (Settings > Accounts > Sign-in options > PIN;
+an account without a password sets one first), and each test browser, opened after the PIN was
+set, reports `PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()` as `true` on
+the site. Without a PIN, Edge refuses every passkey request at once and Chrome offers only its own
+dialog (#456). The browser asks only from the focused window: the Product Owner brings the one
+under test to the front.
+
 | # | Check | Pass when |
 |---|---|---|
 | W1 | Windows' own verification (`check-tls.ps1`) | `songhealth.moph.go.th` is `TRUSTED`, issued by the test authority; `name-check.invalid` is `REFUSED` |
 | W2 | The browser refuses a name outside the constraint | `https://name-check.invalid/` ends in a certificate error, in Chrome and in Edge |
 | W3 | The site under its real name | `https://songhealth.moph.go.th/` opens with no certificate warning, and the certificate the browser shows is the test authority's, in Chrome and in Edge |
 | W4 | The Admin under its real name | `https://songhealth.moph.go.th/_emdash/admin` opens with no certificate warning, and the certificate the browser shows is the test authority's, in Chrome and in Edge; its setup screen is left untouched (the first Administrator is #457's) |
-| W5 | Windows Hello reaches the desktop | while the script drives the page, a WebAuthn request for `songhealth.moph.go.th` brings up the Windows Hello prompt on the Product Owner's desktop; the Product Owner cancels it, so no passkey is made |
+| W5 | Windows Hello reaches the desktop | while the script drives the page, a passkey request for `songhealth.moph.go.th` brings up Windows Hello's PIN prompt on the Product Owner's desktop; the Product Owner cancels it, so no passkey is made |
+
+W5's request makes a passkey (`navigator.credentials.create`, Windows' own authenticator, a
+throwaway user such as `w5-feasibility-check`): until a passkey exists for the name, a request to
+use one (`get`) offers only a phone and a security key, never the PIN (#456). A PIN entered by
+mistake makes that throwaway passkey; the site never registers it, and the Product Owner deletes
+it in Settings > Accounts > Passkeys.
 
 The feasibility of the channel itself is recorded with these results in #456: Playwright attaching
 to each browser through the tunnel, the Windows Hello prompt, and whether recent Chrome and Edge
