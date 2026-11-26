@@ -24,6 +24,7 @@
 	"ignoreUnresolved": ["^/src/"],
 	// Accepted Feature 002 evidence drivers: records, not maintained code.
 	"ignore": ["specs/**"],
-	// The host's own command, which scripts/dev-runtime-opened.ts runs to read the app's log.
-	"ignoreBinaries": ["podman"],
+	// The host's own commands: podman, which scripts/dev-runtime-opened.ts runs to read the app's
+	// log, and NSS's certutil, which scripts/rehearsal-admins/browser.ts runs to trust the test CA.
+	"ignoreBinaries": ["podman", "certutil"],
 }

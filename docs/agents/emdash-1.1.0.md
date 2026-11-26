@@ -729,7 +729,11 @@ What production sign-in rests on, read for spec #450 on 2026-11-25.
   which asks for a press of Continue ("The link works only once."), so a mail scanner's fetch does not
   use the link up. The row is deleted as it is read, and refused after its `expires_at`. EmDash writes
   such a row only through `sendMagicLink`, which needs an email sender and lives 15 minutes
-  (`@emdash-cms/auth/src/magic-link/index.ts`). A row stores the token's hash: the SHA-256 of the
+  (`@emdash-cms/auth/src/magic-link/index.ts`). The Admin's sign-in screen still offers "Sign in
+  with email link"; its route, `POST /_emdash/api/auth/magic-link/send`, answers
+  `503 EMAIL_NOT_CONFIGURED` when no provider is active, after the body's check and its rate limit
+  of three a client in five minutes, and writes no row (`src/astro/routes/api/auth/magic-link/send.ts`;
+  read on the rehearsal machine, #457). A row stores the token's hash: the SHA-256 of the
   token's bytes, base64url without padding, the token 32 random bytes in the same encoding
   (`@emdash-cms/auth/src/tokens.ts` `generateToken`, `hashToken`; `./tests/node/admin-recovery.test.ts`
   calls `hashToken`). `auth_tokens` holds `hash`, `user_id`, `email`, `type`, `role`, `invited_by`,
