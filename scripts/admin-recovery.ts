@@ -101,6 +101,8 @@ FROM users u WHERE u.email = :'email';`;
 const INSERT_SQL = `INSERT INTO auth_tokens (hash, user_id, email, type, expires_at, created_at)
 VALUES (:'hash', :'user_id', :'email', :'type', :'expires_at', :'created_at');`;
 
+const DELETE_SQL = `DELETE FROM auth_tokens WHERE hash = :'hash' AND type = 'recovery';`;
+
 async function ask(question: string): Promise<string> {
 	const rl = createInterface({ input: process.stdin, output: process.stdout });
 	const answer = await new Promise<string>((done) => {
@@ -155,13 +157,17 @@ async function main(): Promise<void> {
 	const { token, hash } = tokenAndHash(randomBytes(32));
 	const row = recoveryRow(account, email, hash, new Date());
 	const fd = openSync(file, "wx", 0o600);
+	let inserted = false;
 	try {
 		psql(db, INSERT_SQL, "writing the recovery row", row);
+		inserted = true;
 		writeSync(fd, `${recoveryLink(siteUrl, token)}\n`);
 		fsyncSync(fd);
 	} catch (error) {
 		closeSync(fd);
 		unlinkSync(file);
+		// A row whose link was never kept is deleted again, so that nothing is left written.
+		if (inserted) psql(db, DELETE_SQL, "deleting the unkept recovery row", { hash });
 		throw error;
 	}
 	closeSync(fd);

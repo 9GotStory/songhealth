@@ -742,6 +742,27 @@ What production sign-in rests on, read for spec #450 on 2026-11-25.
   sign in (#457 comment 7184244548).
 - A session whose user is disabled is refused (`src/astro/middleware/auth.ts`), so a recovery row for
   a disabled account lets nobody in.
+- One account holds several passkeys, each its own row of `credentials`, and signs in with any of
+  them. The Admin's Security Settings (`/_emdash/admin/settings/security`, also "Security Settings"
+  in the user menu) lists them, adds one with "Add Passkey", a name and "Register Passkey", and
+  removes one with "Remove <name>" and a "Remove passkey?" confirmation; the Remove button shows only
+  while more than one is listed (`@emdash-cms/admin/dist/index.js` `PasskeyList`, `PasskeyItem`;
+  `src/astro/routes/api/auth/passkey/index.ts` answers `{ items }`). A removed passkey no longer
+  signs in. Read on the rehearsal machine with two devices' passkeys on one account (#457).
+- A sign-in is refused when the passkey's signature counter is not above the one stored at its last
+  use, unless both are 0 ("possible cloned authenticator", `@emdash-cms/auth/src/passkey/authenticate.ts`
+  `invalid_signature_counter`); the sign-in screen then stays as it was.
+- The Admin's invitation dialog, with no email provider, says "No email provider configured. Share
+  this link manually." and "This link expires in 7 days and can only be used once." The accept page
+  (`/_emdash/admin/invite/accept?token=…`) shows the invited email, read-only, and the role ("You'll be
+  joining as ADMIN"), takes an optional name and makes the passkey with "Create passkey"; the
+  session is set by `POST …/auth/invite/complete`, and the page then waits on a success step. The
+  same link again shows "Invalid or expired invite link" (`@emdash-cms/admin/dist/index.js`
+  `InviteUserModal`, `RegisterStep`; read on the rehearsal machine, #457). An account's first visit
+  to the Admin opens a "Welcome to EmDash" dialog closed by "Get Started".
+- The user list's detail panel offers "Send Recovery Link", which posts to
+  `…/admin/users/{id}/send-recovery` (`@emdash-cms/admin/dist/index.js`), the route that answers
+  `EMAIL_NOT_CONFIGURED` with no email provider (above).
 - `setup_complete` with no user left is a half-state setup resumes: both admin steps refuse only
   while a user exists (`ADMIN_EXISTS`, or `SETUP_COMPLETE` once the flag is set), and check the body
   after that count, before writing the setup state, so an empty body changes nothing
