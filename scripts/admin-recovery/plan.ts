@@ -2,8 +2,7 @@
 // what the command takes, whom it refuses, the row it writes into EmDash's token table and the link
 // that row answers. Nothing here runs a command or touches a file, so node:test covers it
 // (tests/node/admin-recovery.test.ts). Decision: #457 comment 7184244548. Read from EmDash 1.1.0
-// and
-// @emdash-cms/auth 1.1.0, the versions package.json pins.
+// and @emdash-cms/auth 1.1.0, the versions package.json pins.
 
 import { createHash } from "node:crypto";
 

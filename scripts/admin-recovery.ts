@@ -17,7 +17,9 @@
 // layout, on the Node `package.json` pins. It reads the database's and its administrator's names
 // from the db container and the site URL by a `grep` of the app's environment file, so no
 // credential is read, asked for or printed. The link goes into a new owner-only file and is never
-// printed. Exits: 0 done; 1 refused or failed, with nothing written to the database.
+// printed. Exits: 0 done; 1 refused or failed, with nothing written to the database (or, if even
+// the clean-up fails, a row whose link was never kept, which the message names and which expires
+// unused).
 
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -157,18 +159,22 @@ async function main(): Promise<void> {
 	const { token, hash } = tokenAndHash(randomBytes(32));
 	const row = recoveryRow(account, email, hash, new Date());
 	const fd = openSync(file, "wx", 0o600);
-	let inserted = false;
 	try {
 		psql(db, INSERT_SQL, "writing the recovery row", row);
-		inserted = true;
 		writeSync(fd, `${recoveryLink(siteUrl, token)}\n`);
 		fsyncSync(fd);
 	} catch (error) {
+		// A row whose link was never kept is deleted again, also after an insert psql reported as
+		// failed, so that nothing is left written; the first error is the one reported.
+		let left = "";
+		try {
+			psql(db, DELETE_SQL, "deleting the unkept recovery row", { hash });
+		} catch {
+			left = `; a recovery row may be left in auth_tokens, unusable (its link was not kept), until it expires at ${row.expires_at}`;
+		}
 		closeSync(fd);
 		unlinkSync(file);
-		// A row whose link was never kept is deleted again, so that nothing is left written.
-		if (inserted) psql(db, DELETE_SQL, "deleting the unkept recovery row", { hash });
-		throw error;
+		throw new Refusal(`${error instanceof Error ? error.message : String(error)}${left}`);
 	}
 	closeSync(fd);
 	say(`the link is in ${file} (owner-only); it signs ${email} in once, until ${row.expires_at}.`);
