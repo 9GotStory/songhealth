@@ -55,10 +55,20 @@ function Set-ReadOnlyAcl([string]$Path, [string]$Reader) {
     if ($LASTEXITCODE -ne 0) { throw "icacls could not set the permissions of $Path (exit $LASTEXITCODE)" }
 }
 
+# Writes a whole file in one call, retrying for a few seconds: Set-Content in Windows PowerShell 5.1
+# fails with "Stream was not readable" on the hosts file while another process holds it (seen on
+# the Product Owner's computer, #456).
+function Write-Lines([string]$Path, [string[]]$Lines) {
+    for ($try = 1; ; $try++) {
+        try { [IO.File]::WriteAllLines($Path, [string[]]@($Lines), [Text.Encoding]::ASCII); return }
+        catch { if ($try -ge 10) { throw "could not write ${Path}: $($_.Exception.Message)" }; Start-Sleep -Milliseconds 500 }
+    }
+}
+
 function Remove-MarkedLines([string]$Path, [string]$Tag) {
     if (Test-Path $Path) {
         $kept = Get-Content $Path | Where-Object { $_ -notmatch [regex]::Escape($Tag) }
-        Set-Content -Path $Path -Value $kept -Encoding ASCII
+        Write-Lines $Path $kept
     }
 }
 
@@ -72,7 +82,7 @@ function Remove-MarkedBlocks([string]$Path, [string]$Tag) {
             if ($line -eq "$Tag end") { $inside = $false; continue }
             if (-not $inside) { $line }
         }
-        Set-Content -Path $Path -Value $kept -Encoding ASCII
+        Write-Lines $Path $kept
     }
 }
 
@@ -88,10 +98,10 @@ function Open-Channel {
         [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
         $password = ConvertTo-SecureString ([Convert]::ToBase64String($bytes) + 'aA1!') -AsPlainText -Force
         New-LocalUser -Name $Account -Password $password -PasswordNeverExpires -UserMayNotChangePassword `
-            -Description 'Songhealth acceptance tests: SSH tunnel to the test browsers only (removable)' | Out-Null
+            -Description 'Songhealth tests: SSH tunnel only (removable)' | Out-Null
         Add-LocalGroupMember -SID 'S-1-5-32-545' -Member $Account -ErrorAction SilentlyContinue
     }
-    Set-Content -Path $KeyFile -Value $PublicKey -Encoding ASCII
+    Write-Lines $KeyFile @($PublicKey)
     Set-ReadOnlyAcl $KeyFile "${Account}:R"
     $source = Join-Path $PSScriptRoot 'check-tls.ps1'
     if (-not (Test-Path $source)) { throw "check-tls.ps1 must be in the same folder as this script" }
@@ -114,11 +124,11 @@ function Open-Channel {
         "    ForceCommand powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$CheckFile`"",
         "$Marker end"
     )
-    Set-Content -Path $SshdConfig -Value ($top + $config + $match) -Encoding ASCII
+    Write-Lines $SshdConfig ($top + $config + $match)
     # sshd's own test mode reads the new file; one it refuses is put back as it was.
     & (Join-Path $env:SystemRoot 'System32\OpenSSH\sshd.exe') -t
     if ($LASTEXITCODE -ne 0) {
-        Set-Content -Path $SshdConfig -Value $previous -Encoding ASCII
+        Write-Lines $SshdConfig $previous
         throw "sshd refuses the new sshd_config (exit $LASTEXITCODE); the previous one was put back"
     }
     $rule = Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue
@@ -157,9 +167,9 @@ function Add-Rehearsal {
     $certificate = New-Object Security.Cryptography.X509Certificates.X509Certificate2((Resolve-Path $CaFile).Path)
     if ($certificate.Subject -ne $CaSubject) { throw "The file is not the rehearsal's test CA ($($certificate.Subject))" }
     if ($certificate.HasPrivateKey) { throw 'The file holds a private key; only the certificate may come here.' }
-    Remove-MarkedLines $HostsFile $HostsMarker
+    $kept = @(Get-Content $HostsFile | Where-Object { $_ -notmatch [regex]::Escape($HostsMarker) })
     $lines = $Names | ForEach-Object { "$MachineAddress $_ $HostsMarker" }
-    Add-Content -Path $HostsFile -Value $lines -Encoding ASCII
+    Write-Lines $HostsFile ($kept + $lines)
     Import-Certificate -FilePath $CaFile -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
     ipconfig /flushdns | Out-Null
     Write-Output "Hosts entries added for $($Names -join ', '); test CA trusted until $($certificate.NotAfter.ToString('yyyy-MM-dd'))."
