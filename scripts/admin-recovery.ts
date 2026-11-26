@@ -170,10 +170,14 @@ async function main(): Promise<void> {
 		try {
 			psql(db, DELETE_SQL, "deleting the unkept recovery row", { hash });
 		} catch {
-			left = `; a recovery row may be left in auth_tokens, unusable (its link was not kept), until it expires at ${row.expires_at}`;
+			left = `; a recovery row for ${email} may be left in auth_tokens, unusable (its link was not kept), until it expires at ${row.expires_at}`;
 		}
-		closeSync(fd);
-		unlinkSync(file);
+		try {
+			closeSync(fd);
+			unlinkSync(file);
+		} catch {
+			left += `; delete ${file} by hand: it may hold the link`;
+		}
 		throw new Refusal(`${error instanceof Error ? error.message : String(error)}${left}`);
 	}
 	closeSync(fd);
