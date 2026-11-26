@@ -82,10 +82,12 @@ own startup sequence performs every gate before the server process starts (§6.2
   unit runs it first in the container (`RunInit=true`, §7.1). Ubuntu 26.04's `podman` 5.7.0
   recommends the `catatonit` package, which installs that path (packages.ubuntu.com, read on
   2026-11-25 for #453); a host installed without recommends needs it installed by name.
-- **GNU coreutils `/usr/bin/stat`** at that absolute path: the database unit's existing-store
-  guard relies on its exact output contract (§6.1). Its availability, version, and behavior on
+- **A `/usr/bin/stat` that prints GNU coreutils' records** at that absolute path: the database
+  unit's existing-store guard relies on that exact output contract (§6.1). Its availability, version, and behavior on
   the target host are **mandatory pre-adoption runtime evidence** — verify and record them
-  before adopting a host (T022 records them; they are unverified until then).
+  before adopting a host (T022 records them; they are unverified until then). On Ubuntu 26.04
+  that path is the uutils `stat` 0.10.0, which printed the guard's exact records on the rehearsal
+  machine; the unit keeps `/usr/bin/stat` (§4.7).
 - A non-root user account that will own the deployment, with the Quadlet units, environment
   files, and Podman objects created under that account (§4).
 - The **accepted application image artifact** available in that user's rootless Podman storage
@@ -357,6 +359,77 @@ boot-time enablement policy** of their own:
   does not start it now — combine with §7.1, and note both decisions are deployment choices this
   baseline documents but does not prescribe.
 
+### 4.7 An Ubuntu Server 26.04 host (Feature 016)
+
+What an Ubuntu Server 26.04 host needs, as it was done on the rehearsal machine (#456: Ubuntu
+26.04.1 LTS from the official cloud image, kernel 7.0.0-43, Podman 5.7.0, 4 vCPU and 6 GB;
+rehearsal evidence only, spec #450 "The rehearsal"). The host's own part (Caddy, the private
+network, the certificate files and the two snippets Songhealth's site imports) is the host's
+project ([`production-host-contract.md`](production-host-contract.md)); the rehearsal used a
+throwaway stand-in, `scripts/rehearsal/stand-in.sh`.
+
+1. **Root steps, by the Operator.** From a checkout at the Release record's
+   `deploymentConfigCommit` (§7.7), with Songhealth's site file and the public key Claude Code
+   will use copied to the host (the Operator's own copy, by their own means):
+
+   ```bash
+   sudo bash root-setup.sh --account <deployment account> --authorized-key <public key file> \
+     --site-config songhealth.caddy --caddy-sites-dir <directory the host's Caddyfile imports> \
+     [--caddyfile <the host's Caddyfile, when not /etc/caddy/Caddyfile>]
+   ```
+
+   [`scripts/host/root-setup.sh`](../../scripts/host/root-setup.sh) explains each step and waits
+   for a yes: the packages below, the account without sudo and its subordinate ranges, lingering
+   (§4.6), the account's SSH key, the secrets and both environment files (§4.3, §4.4) with a
+   root-only recovery copy the Operator moves to their protected store
+   ([`runtime-secret-recovery.md`](runtime-secret-recovery.md) §5), and the site file placed and
+   Caddy reloaded; a site file Caddy refuses is taken out again before any reload. It prints no
+   secret and replaces none that exists.
+   From here on Claude Code works as the account over SSH, and copies `install-node.sh`,
+   `provision-stores.sh`, the Release's folder and the units from the same checkout to the
+   account's home with `scp`.
+2. **Node, as the account.** `bash install-node.sh <version>` with the version `package.json`
+   pins (`engines.node`): [`scripts/host/install-node.sh`](../../scripts/host/install-node.sh)
+   downloads the official Linux x64 archive, checks it against the release's `SHASUMS256.txt`
+   and unpacks it under `~/.local/opt`, then removes the `npm`, `npx`, `corepack` and C headers
+   the archive carries, so `node` alone stays. Nothing else is installed: no package, dependency
+   or toolchain.
+3. **The Release's image, as the account.** Copy the Release's folder (§7.7) to the host, then
+   `sha256sum -c songhealth-app-<version>.oci.tar.sha256`,
+   `podman load --input songhealth-app-<version>.oci.tar`, and compare
+   `podman image inspect localhost/songhealth-app:<version> --format '{{.Digest}}'` with the
+   record's `digest`. Nothing is built on the host; the startup build runs inside the
+   application's container at every start (§6.2).
+4. **The units.** Copy the five files of `deploy/quadlet/` at `deploymentConfigCommit` into
+   `~/.config/containers/systemd/` (§4.1), add the boot drop-in for the application unit (§4.6) and
+   run `systemctl --user daemon-reload`.
+5. **The stores, once.** `bash provision-stores.sh`
+   ([`scripts/host/provision-stores.sh`](../../scripts/host/provision-stores.sh)): Phase A (§5.1),
+   the application role (§5.2) and the media store with its marker (§5.3). It refuses a store
+   that is not empty.
+6. **Start.** `systemctl --user start songhealth-app.service` returns once the container is
+   healthy (§6.2); `podman exec systemd-songhealth-app node scripts/verify-readiness.mjs` reports
+   `ready`. Then request `https://songhealth.moph.go.th/` through the proxy from an allowed
+   device, and from a source outside the allowed network, which gets no page.
+
+**Where Ubuntu differs** (each seen on the rehearsal machine; Product Owner, #456 comments
+7164993353 and 7166769976):
+
+| Difference | Seen | Done |
+|---|---|---|
+| Podman 5.7.0, where the units were written on Fedora's 6.x | The generator produced the five services; every key the units use started as written, `Notify=healthy`, `HealthCmd`, `Secret` and `PublishPort` included | Nothing changed |
+| Packages Podman only recommends | The cloud image has no `uidmap`; without recommends there is no `catatonit`, and `netavark` lacks `aardvark-dns`, so the application's gate failed with `EAI_AGAIN` resolving the database's name | `root-setup.sh` installs `podman uidmap passt catatonit dbus-user-session aardvark-dns nftables` by name, without recommends. A database started before `aardvark-dns` existed must be restarted once |
+| `/usr/bin/stat` is uutils 0.10.0 (GNU's is `/usr/bin/gnustat`) | The guard's command under `podman unshare` printed the same records as GNU's on the real store, and matched on an empty file, a symbolic link and a missing path; only standard error differs | The unit keeps `/usr/bin/stat`; T022 records it again |
+| AppArmor and `pasta` (Launchpad 2154379) | Each stop logs one denial: profile `pasta` refuses `SIGTERM` from `podman`. The rootless network's teardown still completed in three stop/start cycles | No safeguard changed; the denial is recorded as known |
+| PostgreSQL under Linux 7.0 (release notes, known issues) | `huge_pages` is `try`, its status `off`: the host reserves no huge pages | Recorded; #464 measures with and without before anything is proposed |
+| `sudo` is sudo-rs | The Deployment account is refused | Nothing changed |
+
+**Measured on the rehearsal machine** (4 vCPU, 6 GB, no swap used): the first start, with 90
+migrations applied, 35.7 s from `systemctl --user start` to healthy; later starts 34 to 42 s; the
+application healthy 68 s after boot with nobody logged in. The application service's peak memory
+2,469 MiB and the whole machine's 2,549 MiB used during the first start. The comparison of host
+sizes is #464's.
+
 ## 5. One-time store provisioning
 
 Initialization is always an explicit, operator-executed act. Neither unit contains an
@@ -452,8 +525,9 @@ administrator). Required end state, exactly:
   `SELECT`/`USAGE`/`UPDATE`), and ownership or inherited ownership of the EmDash objects it
   creates.
 
-Provisioning commands and their evidence are disposable operator material and are intentionally
-not committed. The application unit enforces this end state itself **before every start**, before
+The commands are [`scripts/host/provision-stores.sh`](../../scripts/host/provision-stores.sh), run
+once as the Deployment account with §5.1 and §5.3 (Feature 016, #456; Product Owner, #456 comment
+7166769976); their evidence stays out of the repository. The application unit enforces this end state itself **before every start**, before
 any migration mutation, by connecting exactly as the configured `PG*` identity through the
 application's pinned `pg` client and verifying every condition above, plus the **public-only
 schema contract on both connection paths** (the `PG*` application connection and the migration

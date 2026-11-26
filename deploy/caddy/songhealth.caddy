@@ -1,0 +1,16 @@
+# Songhealth's site configuration for the host's Caddy (Feature 016; production-host-contract.md §1).
+# The host's Caddyfile imports this file from a path the host chooses, and defines the two
+# snippets it imports, so that no address and no certificate path enters this repository:
+#   songhealth_private  who may reach the site before the cutover (spec #450, "Access before the
+#                       cutover"): it closes the connection for every other source
+#   songhealth_tls      the certificate and key for the site's name, from files the Operator places
+# The site answers songhealth.moph.go.th alone and forwards to the application's loopback
+# publication (production-foundation.md §2), passing that name as a fixed Host. #456 places it;
+# #458 completes it (the request body's limit, /_image, the 503 notice and #218's checks).
+songhealth.moph.go.th {
+	import songhealth_tls
+	import songhealth_private
+	reverse_proxy 127.0.0.1:4321 {
+		header_up Host songhealth.moph.go.th
+	}
+}
