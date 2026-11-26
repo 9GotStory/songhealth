@@ -96,10 +96,19 @@ function Open-Channel {
         # A long random password nobody sees: the account signs in by its key alone.
         $bytes = New-Object byte[] 32
         [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-        $password = ConvertTo-SecureString ([Convert]::ToBase64String($bytes) + 'aA1!') -AsPlainText -Force
+        $password = New-Object Security.SecureString
+        foreach ($character in ([Convert]::ToBase64String($bytes) + 'aA1!').ToCharArray()) { $password.AppendChar($character) }
         New-LocalUser -Name $Account -Password $password -PasswordNeverExpires -UserMayNotChangePassword `
             -Description 'Songhealth tests: SSH tunnel only (removable)' | Out-Null
         Add-LocalGroupMember -SID 'S-1-5-32-545' -Member $Account -ErrorAction SilentlyContinue
+    }
+    # Newer OpenSSH Server installs ship sshd_config with `AllowGroups administrators "openssh users"`
+    # and make that group (seen on the Windows Server 2025 CI runner, OpenSSH_for_Windows_9.5, #456
+    # retro); the account joins it, so sshd lets it in there too.
+    if (Get-LocalGroup -Name 'OpenSSH Users' -ErrorAction SilentlyContinue) {
+        if (-not (Get-LocalGroupMember -Group 'OpenSSH Users' | Where-Object { $_.Name -like "*\$Account" })) {
+            Add-LocalGroupMember -Group 'OpenSSH Users' -Member $Account
+        }
     }
     Write-Lines $KeyFile @($PublicKey)
     Set-ReadOnlyAcl $KeyFile "${Account}:R"
@@ -153,7 +162,8 @@ function Remove-Channel {
     foreach ($file in @($KeyFile, $CheckFile)) { if (Test-Path $file) { Remove-Item $file -Force } }
     if (Get-LocalUser -Name $Account -ErrorAction SilentlyContinue) { Remove-LocalUser -Name $Account }
     $profileDir = Join-Path $env:SystemDrive "Users\$Account"
-    Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -eq $profileDir } | Remove-CimInstance
+    try { Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -eq $profileDir } | Remove-CimInstance }
+    catch { Write-Output "The account's profile is still in use; delete $profileDir after a restart." }
     if (Get-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -ErrorAction SilentlyContinue) {
         Set-NetFirewallRule -Name 'OpenSSH-Server-In-TCP' -Enabled False
     }

@@ -61,7 +61,8 @@ The feedback loop for `/implement` and `/tdd` (Node 26.13.0, npm 12.2.1, as `pac
   (`README.md`); the public-read suite runs through `tests/browser/run-cms-public-reads.mjs`.
 
 CI (`.github/workflows/checks.yml`) runs the build, typecheck, node tests, the T016 harness's
-`--self-test`, `format:check`, `knip`, `jscpd` and `lint:shell` on every pull request; the browser
+`--self-test`, `format:check`, `knip`, `jscpd`, `lint:shell` and, on a Windows runner, the
+Windows client's self-test (`scripts/windows/ci-selftest.ps1`) on every pull request; the browser
 suites stay local to the development runtime.
 
 `/tdd`'s agreed seams are the public browser suites on the development runtime, node:test on a
