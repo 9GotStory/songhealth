@@ -159,6 +159,8 @@ Owner gives only the PIN; Claude Code drives every page.
 | W8 | Sign-in in the other browser | the same, in the other browser, with the passkey the first one made |
 | W9 | The passkey is Windows' | Settings > Accounts > Passkeys lists it for `songhealth.moph.go.th` |
 
+The results of W6–W9 on the rehearsal machine are recorded with their evidence in #457.
+
 The feasibility of the channel itself is recorded with these results in #456: Playwright attaching
 to each browser through the tunnel, the Windows Hello prompt, and whether recent Chrome and Edge
 need the separate profile for remote debugging.
@@ -177,12 +179,13 @@ straight to Windows Hello's PIN prompt.
 
 **Signing in, in Chrome and in Edge.** "Sign in with Passkey" on the Admin's sign-in screen (Edge
 in Thai: "เข้าสู่ระบบด้วย Passkey"); Windows Hello names the account and "Passkey for
-songhealth.moph.go.th" and asks for the PIN. A passkey made in Chrome signs in in Edge and the
-other way round: both use Windows Hello (#457, W8). Signing out is the user menu's "Log out".
+songhealth.moph.go.th" and asks for the PIN. A passkey made in Chrome signs in in Edge, since both
+use Windows Hello (#457, W8); the other way round, a passkey made in Edge used in Chrome, was not
+tried. Signing out is the user menu's "Log out".
 
 **Where Windows keeps them.** Settings > Accounts > Passkeys lists each passkey with its site and
-account. A passkey stays there until it is removed there, whatever happens to the browsers' test
-profiles.
+account; the rehearsal's first Administrator's passkey was listed there (#457, W9). That it stays
+after the browsers' test profiles are deleted is checked at #466 (§6, step 11).
 
 ### Removing the rehearsal's passkeys
 
@@ -207,13 +210,14 @@ production, and the rehearsal's evidence scripts refuse the Production host's ce
 | 2 | Remove the rehearsal's passkeys (§5, "Removing the rehearsal's passkeys") | **PO** |
 | 3 | The hosts-file entry for `songhealth.moph.go.th` pointing at `<Production host address>`, tagged like the rehearsal's (#466 gives the action); no test authority: the site shows the Ministry's certificate | **PO** (administrator prompt) |
 | 4 | Check that it took effect: `Resolve-DnsName songhealth.moph.go.th` answers the Production host's address, and the site and the Admin open in Chrome and Edge with the Ministry's certificate and no warning (W3, W4 with the Ministry's issuer) | Claude Code |
+| 4a | Before the setup, the site is private: from outside the private network, the site and its setup routes give no answer (#466) | Claude Code |
 | 5 | The setup: the site title, then the first Administrator's name and email as the Product Owner gives them | Claude Code drives; **PO** gives the details |
 | 6 | The setup's "Create passkey", with the setup screen and Windows Hello's prompt captured for the Ministry (`docs/operations/admin-sign-in-evidence/`) | **PO** (Windows Hello, Win+Shift+S) |
 | 7 | Sign in, sign out and sign in again in Chrome and in Edge (W7, W8), and the passkey in Windows' list (W9) | Claude Code drives; **PO** (Windows Hello, each sign-in) |
 | 8 | The second passkey, on another device the Product Owner names: on that device, signed in, Security Settings, "Add Passkey" | **PO** (a real sign-in, that device's own approval) |
 | 9 | The invitation: Users, "Invite User", the second Administrator's email, role Admin, "Send Invite"; the link is copied from the dialog (7 days, once) and handed to that person privately, never in an issue or chat | Claude Code drives; **PO** hands the link over |
 | 10 | The second Administrator opens the link on their own computer, makes their passkey, and adds a second one on another device (step 8) | **the second Administrator** (their own Windows Hello, a real sign-in) |
-| 11 | Sign out of the Admin in both test browsers, close them, delete `%LOCALAPPDATA%\songhealth-test` | Claude Code signs out; **PO** closes and deletes |
+| 11 | Sign out of the Admin in both test browsers, close them, delete `%LOCALAPPDATA%\songhealth-test`; then check that Settings > Accounts > Passkeys still lists the Administrator's passkey | Claude Code signs out; **PO** closes, deletes and looks |
 | 12 | Remove the control channel: `.\client.ps1 -Action RemoveChannel` (§2) | **PO** (administrator prompt) |
 
 The emergency procedure for the day no Administrator can sign in is

@@ -8,7 +8,7 @@
 // included, which the command keeps in an owner-only file of the rehearsal's own keys folder.
 
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -53,7 +53,7 @@ export async function openBrowser(
 ): Promise<{ browser: Browser; close(): Promise<void> }> {
 	const home = mkdtempSync(join(tmpdir(), "rehearsal-admins-"));
 	const nss = `sql:${join(home, ".pki/nssdb")}`;
-	spawnSync("mkdir", ["-p", join(home, ".pki/nssdb")]);
+	mkdirSync(join(home, ".pki/nssdb"), { recursive: true });
 	for (const args of [
 		["-d", nss, "-N", "--empty-password"],
 		["-d", nss, "-A", "-t", "C,,", "-n", "rehearsal-test-ca", "-i", caFile],

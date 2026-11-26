@@ -15,8 +15,15 @@ no supported recovery: an Administrator's "Send Recovery Link" answers that emai
 and no route resets another user's passkey. EmDash's own sign-in-link route
 (`/_emdash/api/auth/magic-link/verify`) still signs in the account of a `recovery` row of its
 `auth_tokens` table. [`scripts/admin-recovery.ts`](../../scripts/admin-recovery.ts) writes one
-such row, as EmDash itself writes it: valid for 15 minutes and used once. It adds no sign-in method,
-changes no configuration, and touches nothing else in the database.
+such row, as EmDash itself writes it: valid for 15 minutes and used once. It changes no configuration
+and touches nothing else in the database.
+
+**What it is.** It is a way in without a passkey: a recovery sign-in link, which #457's criteria
+otherwise rule out ("No email sign-in, magic link, custom authentication or second factor is
+added"). The Product Owner chose it as the one exception, for this day only (#457 comment
+7184244548). It is not on the sign-in screen and nobody can ask for it from the site: only someone
+working on the Production host as the Deployment account, over the private network, can make one,
+and only with the Operator's approval.
 
 ## The rules
 
@@ -89,7 +96,7 @@ another Administrator if only one is left.
 | `… is disabled` | a disabled account cannot sign in; the Operator decides what comes first |
 | `the auth_tokens table has the columns […], not EmDash 1.1.0's […]` | the deployed EmDash is not 1.1.0: stop, and check the script against the new version first |
 | `not approved: nothing was written` | nothing happened; run again once approved |
-| `… failed: …` | nothing was written: a row whose link could not be kept is deleted again |
+| `… failed: …` | nothing was written: a row whose link could not be kept is deleted again. If that delete fails too, the message says so: the row stays, unusable since nobody holds its link, until it expires 15 minutes later |
 
 The exit code is 0 when the link is written and 1 for every refusal.
 

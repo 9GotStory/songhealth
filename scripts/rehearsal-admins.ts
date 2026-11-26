@@ -83,6 +83,8 @@ interface Answer {
 	status?: number;
 	body?: string;
 	error?: string;
+	/** Whether the TLS handshake with the site's certificate completed before the answer or error. */
+	secured?: boolean;
 }
 
 /** One request at the site's name, sent to the given address; an error is the failure's code. */
@@ -93,7 +95,9 @@ function ask(
 	path: string,
 	body?: string,
 ): Promise<Answer> {
-	return new Promise((done) => {
+	return new Promise((resolve) => {
+		let secured = false;
+		const done = (answer: Answer) => resolve({ ...answer, secured });
 		const req = request(
 			{
 				host: at.address,
@@ -116,6 +120,7 @@ function ask(
 				res.on("end", () => done({ status: res.statusCode, body: text }));
 			},
 		);
+		req.on("socket", (socket) => socket.once("secureConnect", () => (secured = true)));
 		req.on("timeout", () => req.destroy(Object.assign(new Error("timeout"), { code: "TIMEOUT" })));
 		req.on("error", (error: NodeJS.ErrnoException) => done({ error: error.code ?? error.message }));
 		req.end(body);
@@ -123,7 +128,9 @@ function ask(
 }
 
 function shown(answer: Answer): string {
-	if (answer.error) return `no answer (${answer.error})`;
+	if (answer.error) {
+		return `no answer (${answer.error}${answer.secured ? ", after the TLS handshake" : ", no TLS handshake"})`;
+	}
 	const code = /"code":"([A-Z_]+)"/.exec(answer.body ?? "")?.[1];
 	return `HTTP ${answer.status}${code ? ` ${code}` : ""}`;
 }
@@ -151,8 +158,10 @@ async function preflight(address: string, ca: string): Promise<void> {
 	];
 	for (const [method, path, body] of routes) {
 		const outside = await ask(OUTSIDE, ca, method, path, body);
+		// The site's own refusal (the proxy's `abort`) closes the connection after the TLS handshake
+		// with the site's certificate; a forward that is down or a TLS failure is no such proof.
 		record(
-			outside.error !== undefined,
+			outside.secured === true && outside.error === "ECONNRESET",
 			"P3",
 			`${method} ${path} from outside the allowed network`,
 			shown(outside),
@@ -521,7 +530,7 @@ async function recovery(command: Command): Promise<void> {
 		record(
 			before !== "signed in",
 			"R1",
-			"with the lost passkey gone, the device cannot sign in",
+			"the starting point: the Administrator's device holds no passkey that works, so it cannot sign in",
 			before,
 		);
 

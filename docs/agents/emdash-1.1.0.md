@@ -732,7 +732,8 @@ What production sign-in rests on, read for spec #450 on 2026-11-25.
   (`@emdash-cms/auth/src/magic-link/index.ts`). The Admin's sign-in screen still offers "Sign in
   with email link"; its route, `POST /_emdash/api/auth/magic-link/send`, answers
   `503 EMAIL_NOT_CONFIGURED` when no provider is active, after the body's check and its rate limit
-  of three a client in five minutes, and writes no row (`src/astro/routes/api/auth/magic-link/send.ts`;
+  of three a client in five minutes (past it, a success-shaped `200` whatever the provider), and
+  writes no row (`src/astro/routes/api/auth/magic-link/send.ts`;
   read on the rehearsal machine, #457). A row stores the token's hash: the SHA-256 of the
   token's bytes, base64url without padding, the token 32 random bytes in the same encoding
   (`@emdash-cms/auth/src/tokens.ts` `generateToken`, `hashToken`; `./tests/node/admin-recovery.test.ts`
