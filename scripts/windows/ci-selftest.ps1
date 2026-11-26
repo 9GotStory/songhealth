@@ -71,7 +71,7 @@ if ($answer -match 'Permission denied') {
     # What the run needs to tell a key problem from a server one.
     $ErrorActionPreference = 'Continue'
     Write-Output '-- ssh -v (tail)'; Invoke-Ssh (@('-v') + $ssh + @('songhealth-test@127.0.0.1', 'whoami')) -split "`n" | Select-Object -Last 25
-    Write-Output '-- the key loads without a passphrase'; & ssh-keygen -y -P '' -f $key 2>&1 | ForEach-Object { "$_" }
+    Write-Output '-- the key loads without a passphrase'; & ssh-keygen -y -P '""' -f $key 2>&1 | ForEach-Object { "$_" }
     Write-Output '-- authorized keys file'; icacls (Join-Path $env:ProgramData 'ssh\songhealth-test_authorized_keys')
     Write-Output '-- OpenSSH events'; Get-WinEvent -LogName 'OpenSSH/Operational' -MaxEvents 15 -ErrorAction SilentlyContinue | ForEach-Object { $_.Message }
     Write-Output '-- sshd_config (non-comment)'; Get-Content (Join-Path $env:ProgramData 'ssh\sshd_config') | Where-Object { $_ -and $_ -notmatch '^\s*#' }

@@ -102,6 +102,14 @@ function Open-Channel {
             -Description 'Songhealth tests: SSH tunnel only (removable)' | Out-Null
         Add-LocalGroupMember -SID 'S-1-5-32-545' -Member $Account -ErrorAction SilentlyContinue
     }
+    # Newer OpenSSH Server installs ship sshd_config with `AllowGroups administrators "openssh users"`
+    # and make that group (seen on the Windows Server 2025 CI runner, OpenSSH_for_Windows_9.5, #456
+    # retro); the account joins it, so sshd lets it in there too.
+    if (Get-LocalGroup -Name 'OpenSSH Users' -ErrorAction SilentlyContinue) {
+        if (-not (Get-LocalGroupMember -Group 'OpenSSH Users' | Where-Object { $_.Name -like "*\$Account" })) {
+            Add-LocalGroupMember -Group 'OpenSSH Users' -Member $Account
+        }
+    }
     Write-Lines $KeyFile @($PublicKey)
     Set-ReadOnlyAcl $KeyFile "${Account}:R"
     $source = Join-Path $PSScriptRoot 'check-tls.ps1'
