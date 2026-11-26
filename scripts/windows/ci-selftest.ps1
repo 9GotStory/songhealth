@@ -25,6 +25,12 @@ function Invoke-Client([string[]]$Arguments) {
     $output | ForEach-Object { Write-Host "   $_" } # the host, so the function returns one string
     return ($output | Out-String)
 }
+# A native command's standard error, captured with 2>&1, is an error record in Windows PowerShell
+# 5.1 and stops the script under 'Stop'; ssh's output is read as text here instead.
+function Invoke-Ssh([string[]]$Arguments) {
+    $ErrorActionPreference = 'Continue'
+    return (& ssh @Arguments 2>&1 | ForEach-Object { "$_" } | Out-String)
+}
 function New-TestCertificateFile([string]$Subject, [string]$Path) {
     $certificate = New-SelfSignedCertificate -Subject $Subject -CertStoreLocation Cert:\CurrentUser\My `
         -KeyUsage CertSign, CRLSign -TextExtension @('2.5.29.19={critical}{text}ca=true&pathlength=0') -NotAfter (Get-Date).AddDays(2)
@@ -58,12 +64,13 @@ $config = Get-Content (Join-Path $env:ProgramData 'ssh\sshd_config')
 Assert (@($config | Where-Object { $_ -eq '# songhealth-test-channel begin' }).Count -eq 2) 'the channel blocks are written once, not added again'
 
 Step 'the channel runs only the certificate check, and forwards only to the browsers'
-$ssh = @('-i', $key, '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=NUL', '-o', 'BatchMode=yes')
-$answer = (& ssh @ssh 'songhealth-test@127.0.0.1' whoami 2>&1 | Out-String)
+$ssh = @('-i', $key, '-o', 'IdentitiesOnly=yes', '-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=NUL', '-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR')
+$answer = Invoke-Ssh ($ssh + @('songhealth-test@127.0.0.1', 'whoami'))
 Write-Output $answer
 Assert ($answer -match 'songhealth\.moph\.go\.th:') 'any command runs check-tls.ps1 (ForceCommand)'
 Assert ($answer -notmatch '\\songhealth-test\s*$') 'whoami itself did not run'
-$forward = (& ssh @ssh -W 127.0.0.1:445 'songhealth-test@127.0.0.1' 2>&1 | Out-String)
+$forward = Invoke-Ssh ($ssh + @('-W', '127.0.0.1:445', 'songhealth-test@127.0.0.1'))
+Write-Output $forward
 Assert ($forward -match 'administratively prohibited') 'a forward outside PermitOpen is refused'
 
 Step 'AddRehearsal'
