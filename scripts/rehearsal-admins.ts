@@ -49,6 +49,9 @@ import { closedAfterHandshake } from "./stack-check/plan.ts";
  * (scripts/rehearsal/vm.sh HTTPS_PORT), which reaches the proxy from QEMU's user network. */
 const OUTSIDE = { address: "127.0.0.1", port: 8443 };
 
+/** An Administrator's role (@emdash-cms/auth 1.1.0, src/types.ts `Role.ADMIN`). */
+const ADMIN_ROLE = 50;
+
 const results: string[] = [];
 
 function record(pass: boolean, id: string, what: string, evidence: string): void {
@@ -372,7 +375,7 @@ async function admins(command: Command): Promise<void> {
 		await dismissWelcome(a.page);
 		const joined = await whoAmI(a.page);
 		record(
-			typeof joined !== "number" && joined.email === email && joined.role === 50,
+			typeof joined !== "number" && joined.email === email && joined.role === ADMIN_ROLE,
 			"A1",
 			"an invitation copied from the Admin makes an Administrator with a passkey under the site's name",
 			typeof joined === "number"
@@ -501,7 +504,7 @@ async function recovery(command: Command): Promise<void> {
 		await dismissWelcome(device.page);
 		const who = await whoAmI(device.page);
 		record(
-			typeof who !== "number" && who.role === 50,
+			typeof who !== "number" && who.role === ADMIN_ROLE,
 			"R2",
 			"the recovery link signs the locked-out Administrator in, once they press Continue",
 			typeof who === "number"
@@ -555,12 +558,16 @@ async function signin(command: Command): Promise<void> {
 		for (const [name, passkeys] of Object.entries(state.devices)) {
 			const device = await openDevice(browser, passkeys);
 			const result = await signIn(device.page);
-			const who = result === "signed in" ? await whoAmI(device.page) : 401;
+			const who = result === "signed in" ? await whoAmI(device.page) : undefined;
 			record(
-				typeof who !== "number" && who.email === state.email && who.role === 50,
+				typeof who === "object" && who.email === state.email && who.role === ADMIN_ROLE,
 				`S-${name}`,
 				`the stored Administrator signs in with device ${name}'s passkey, unchanged`,
-				typeof who === "number" ? `${result} (HTTP ${who})` : `${who.email}, role ${who.role}`,
+				who === undefined
+					? result
+					: typeof who === "number"
+						? `${result} (HTTP ${who})`
+						: `${who.email}, role ${who.role}`,
 			);
 			await shot(device.page, command.out, `signin-${name}`);
 			await device.context.close();

@@ -33,7 +33,9 @@ every behavior claimed below:
 **Verification status**: this document is a documentation-only deliverable (T023). It records no
 runtime evidence and fabricates none: every evidence row below ships as **pending**. Runtime
 secret recovery is exercised only by the separately authorized recovery drill (T028), which
-requires the T022 runtime PASS plus Codex-accepted sources for all of T023–T027. See §11.
+requires the T022 runtime PASS plus Codex-accepted sources for all of T023–T027. See §11. The
+rehearsal machine ran the recovery once in T028's order (#461, `production-foundation.md` §7.10):
+a rehearsal, which fills no evidence row here.
 
 ## 1. Scope, authority, and verification status
 

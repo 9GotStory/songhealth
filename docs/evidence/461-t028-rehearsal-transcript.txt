@@ -271,3 +271,25 @@ active
 2026-11-27T100102Z
 2026-11-27T123632Z
 2026-11-27T124846Z
+
+########## run-12-after
+== 2026-11-27T13:20:28Z the account: what the drill left in its home
+ls: cannot access '/home/songhealth/recovery-fetched': No such file or directory
+ls: cannot access '/home/songhealth/t461-*.bundle': No such file or directory
+2026-11-26T200000Z
+2026-11-27T094219Z
+2026-11-27T094722Z
+2026-11-27T094927Z
+2026-11-27T100102Z
+2026-11-27T123632Z
+2026-11-27T124846Z
+== 2026-11-27T13:20:28Z root: the fetch folders
+0
+
+########## run-13-dev-runtime
+== 2026-11-27T13:20:28Z the workstation: the development runtime after the drill
+PASS: runtime source is the promoted commit, clean
+VERIFY: PASS
+songhealth-qdev-db-data created 2026-10-28 23:51:27.801310956 +0700 +07
+songhealth-qdev-media created 2026-10-28 23:51:27.883354232 +0700 +07
+the promoted commit: 31b4ca145777851dd51d05257decd65ef7d4b191

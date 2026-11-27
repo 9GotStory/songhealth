@@ -754,7 +754,8 @@ killed-conmon stop), per the reference v6.1.3 generator. Consequences:
   clears any same-name leftover from an abnormal shutdown);
 - both named volumes — `songhealth-db-data` and `songhealth-media`, with their identities and
   contents — are never deleted or recreated by any lifecycle operation: stop/start/recreate
-  touches only the ephemeral container.
+  touches only the ephemeral container. The recovery drill (§7.10) is no lifecycle operation: on
+  the Operator's approval it removes both volumes and recreates them before a restore.
 
 **Application-only recreation** (the database unit is never stopped and stays active/healthy):
 
@@ -810,7 +811,10 @@ Deliberately absent, and not to be improvised as "maintenance":
   stores' content is the Recovery Set's restore (§7.6): it runs only while the application is
   stopped, only from a set of this runtime taken while it served the same image, and only after
   the Operator types `yes` for the database and again for the media. It keeps the volumes, the
-  cluster, the roles and the media store's marker.
+  cluster, the roles and the media store's marker. The one `podman volume rm` is the recovery
+  drill's (§7.10): on the Operator's approval it removes both volumes, recreates them with
+  `provision-stores.sh` and restores a set brought back from off the host; a drill, never
+  maintenance.
 - **No automatic repair.** Neither unit repairs, grants, initializes, or provisions anything.
 - **No broad cleanup procedures.** This document intentionally documents none; ordinary
   lifecycle creates no residue to clean (the media probe removes its own file with a no-residue
@@ -1284,7 +1288,10 @@ step noting its UTC time (`date -u +%FT%TZ`):
 2. **A Recovery Set, the application stopped.** The nightly run by hand, which stops the
    application, takes the set, checks it, starts the application and publishes the set where the
    host's backup takes it (§7.9; a set taken by §7.6 alone stays outside that folder). Then stop
-   the application at once, so that nothing is written after the set:
+   the application at once. The run starts it again after the set, so what is written between
+   that start and this stop is not in the set: the announced window (item 2 above) already holds,
+   and on the rehearsal machine the gap was 23 s at most (the run's start at 12:36:58, the stop at
+   12:37:21, #461):
 
    ```bash
    systemctl --user start songhealth-recovery-set.service
@@ -1304,15 +1311,29 @@ step noting its UTC time (`date -u +%FT%TZ`):
    ```
 5. **The set brought back** from the off-site copy into a folder the account owns, mode 0700,
    outside both volumes: a root step of the Operator's (contract item 3). On the rehearsal
-   machine, from the stand-in's Restic repository (its snapshot of the set is tagged
-   `set=<set>`):
+   machine, from the stand-in's Restic repository, whose snapshot of the set is tagged
+   `set=<set>`. The rehearsal ran these lines as root, as one script under `set -euo pipefail`
+   (`sudo bash -s <set>`), which also refused when no single snapshot carried the tag, when the
+   restored folder lacked the set and when the set was already fetched:
 
    ```bash
-   sudo env RESTIC_REPOSITORY=/root/songhealth-backup-stand-in/repo \
-     RESTIC_PASSWORD_FILE=/root/songhealth-backup-stand-in/password \
-     restic restore <snapshot> --target <a new root-only folder>
-   # then move <that folder>/<set> to ~songhealth/recovery-fetched/<set>, owned by the account, 0700
+   export RESTIC_REPOSITORY=/root/songhealth-backup-stand-in/repo
+   export RESTIC_PASSWORD_FILE=/root/songhealth-backup-stand-in/password
+   export RESTIC_CACHE_DIR=/root/songhealth-backup-stand-in/cache
+   name=<set>
+   snap=$(restic snapshots --json --tag "set=$name" | jq -r 'if length == 1 then .[0].short_id else empty end')
+   target=$(mktemp -d /root/t028-fetch.XXXXXX)
+   restic restore "$snap" --target "$target"
+   install -d -m 0700 -o songhealth -g songhealth /home/songhealth/recovery-fetched
+   mv "$target/$name" "/home/songhealth/recovery-fetched/$name"
+   rmdir "$target"
+   chown -R songhealth:songhealth "/home/songhealth/recovery-fetched/$name"
+   chmod 0700 "/home/songhealth/recovery-fetched/$name"
+   chmod 0600 "/home/songhealth/recovery-fetched/$name"/*
    ```
+
+   Then the account compares each file's SHA-256 with the set's on the host (`sha256sum` of both
+   folders' three files; the record's transcript part `run-4-fetch`).
 6. **The stores recreated and provisioned**: `bash scripts/host/provision-stores.sh`, which creates
    both volumes, runs Phase A, makes the application role and marks the media store (§5.1–§5.3),
    and leaves the database running. T028's "let Quadlet recreate them" is done through it: it
@@ -1354,12 +1375,32 @@ step noting its UTC time (`date -u +%FT%TZ`):
     "ready" against the target of one hour on the same host (spec #450). Then remove
     `~/recovery-fetched/<set>`: the set stays on the host and off it.
 
-**After T028 only**, the validation content goes (#470 on the Production host): an Administrator
-empties the tagline, its value before the validation state (EmDash's settings take a string, so
-the Admin and the API can only empty it, `src/api/schemas/settings.ts`), and deletes the
-validation picture, through a token with "Settings Manage" and "Media Write" made and revoked as
-§7.8 does (`POST /_emdash/api/settings` with `{"tagline": ""}`, `DELETE
-/_emdash/api/media/<id>`). The next set, the night's or a run by hand, is then checked:
+**After T028 only**, the validation content goes; on the Production host in #469, right after the
+drill (Product Owner, #461 comment 7219369742). The tagline takes a value without the validation
+state: on the Production host the site's real tagline (spec #450: "…T028; the real tagline set and
+the validation picture removed"), on the rehearsal machine `""`, its value before #459 (Product
+Owner, #461 comment 7217954182 item 4). EmDash's settings take a string, so the API can empty the
+tagline but not unset it (`src/api/schemas/settings.ts`). The picture is deleted by its media id,
+which the T022 record names from its upload (#459's: `01M8DZSZFGZ5AJA48G71QDRD9A`), once a read of
+that item shows the picture's key as its `storageKey`; the delete answers
+`{"deleted":true,"storageDeleted":true}`, and the item and its file then answer 404. One token does
+it, made and revoked as §7.8's tokens are, with "Settings Read", "Settings Manage", "Media Read"
+and "Media Write"; once revoked, its read answers 401. The rehearsal sent these requests from the
+workstation through `scripts/rehearsal/vm.sh tunnel`, with a script kept outside the repository
+whose output is the record's transcript part `run-10-remove`. The `curl` form below follows §7.8's
+and is untried for these requests: #469 tries it.
+
+```bash
+auth() { printf 'Authorization: Bearer %s\n' "$(cat ~/.config/songhealth-t028/removal-token)"; }
+curl -sS -H @<(auth) http://127.0.0.1:4321/_emdash/api/media/<id>   # its storageKey is <key>
+curl -sS -H @<(auth) -H 'Content-Type: application/json' -X POST \
+  --data '{"tagline":"<the real tagline>"}' http://127.0.0.1:4321/_emdash/api/settings
+curl -sS -H @<(auth) -X DELETE http://127.0.0.1:4321/_emdash/api/media/<id>
+```
+
+The next Recovery Set is then checked: on the Production host the night's, with no extra stop,
+and #469 closes after that night (#461 comment 7219369742); on the rehearsal machine a run of the
+nightly set by hand (#461 comment 7217954182 item 4):
 
 ```bash
 node scripts/validation-content.ts ~/recovery-sets/<that set> /_emdash/api/media/file/<key>

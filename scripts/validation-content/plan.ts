@@ -36,7 +36,8 @@ export function parseCheckArgs(
 	const [set, mediaPath, ...rest] = argv;
 	if (!set || !mediaPath?.startsWith(MEDIA_ROUTE) || rest.length > 0) return { error: USAGE };
 	const key = mediaPath.slice(MEDIA_ROUTE.length);
-	// A storage key is one file name of the media store: a ULID and its extension.
+	// A storage key is one file name of the media store: a ULID and its file name's extension
+	// (emdash 1.1.0, src/astro/routes/api/media.ts).
 	if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(key)) return { error: USAGE };
 	return { set, key };
 }
@@ -53,9 +54,9 @@ const COPY = /^COPY (?:public\.)?("?)([^\s"(]+)\1 \(.*\) FROM stdin;$/;
 
 /**
  * Reads the data-only SQL `pg_restore` writes for a set's database.dump, one line at a time: each
- * table's rows follow its `COPY … FROM stdin;` line until `\.`, one row a line (COPY's text format
- * escapes a newline inside a value). It counts, per table, the rows that hold the tagline or the
- * key, and keeps no row's content.
+ * table's rows follow its `COPY … FROM stdin;` line until `\.`, one row a line: COPY's text format
+ * writes a newline inside a value as `\n` (PostgreSQL 18, sql-copy.html "Text Format"). It
+ * counts, per table, the rows that hold the tagline or the key, and keeps no row's content.
  */
 export function dumpScan(key: string): {
 	line(text: string): void;

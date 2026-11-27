@@ -25,7 +25,8 @@ Owner's acceptance. The procedure it followed is
 - **The off-site copy:** the backup stand-in's Restic repository on the machine
   (`scripts/rehearsal/stand-in.sh backup`, #460): no production data and no off-site store.
 - **The transcript:** [`461-t028-rehearsal-transcript.txt`](461-t028-rehearsal-transcript.txt),
-  each step's whole output as it ran (SHA-256 `c49cbb7b…a120`). It holds no secret value, token or
+  each step's whole output as it ran, then two read-backs at 13:20 (parts `run-12-after` and
+  `run-13-dev-runtime`) (SHA-256 `bd84c653…feb8`). It holds no secret value, token or
   key; the machine's private-network address was replaced by `<addr>` as the output was captured.
 
 ## The drill (AC1, AC2)
@@ -39,20 +40,21 @@ In T028's order. Times are UTC, from the transcript.
 | 3 | What the set holds | `database.dump` 389,561 bytes, SHA-256 `526aeaf3beaed5dc2749add71a31fc8eb8e8ce5bf774b7c2b388a9f4dd6202e0`; `media.tar` 1,005,230,080 bytes, `d1b4235e03cba00164c439e61104c7547263ee5b59bf5b48e440b18332669ef6`; `manifest.json` `e03192ad7ba1ebe2d5a9e8072b4fc7b08b203aca1c04d40eb7777096ee553959`; pg_dump and server 18.6 (Debian 18.6-1.pgdg13+2), EmDash 1.1.0, taken 12:36:33Z. `scripts/validation-content.ts` on it: three findings (the tagline in `options`, the picture's key in `media`, the picture's file), exit 1: the validation state is in the set |
 | 4 | Off the machine: the stand-in's backup by hand (12:37:34) | `backup-run: took 2026-11-27T123632Z` (and four earlier sets it had not held); status `result` ok, `newestSet` `2026-11-27T123632Z` |
 | 5 | The Product Owner's word to remove the volumes, asked at this step (the ticket) | given in the chat at 12:45 |
-| 6 | Both units stopped, both volumes removed | `podman volume rm songhealth-db-data songhealth-media`, exit 0; `podman volume ls` empty: **stores gone 12:45:43Z**. The database unit ended `failed`, the AppArmor `pasta` denial §7.8 records for every stop |
+| 6 | Both units stopped, both volumes removed | `podman volume rm songhealth-db-data songhealth-media`, exit 0; `podman volume ls` empty: **stores gone 12:45:43Z**. The database unit ended `failed`, as §7.8 records for every stop of it on this machine |
 | 7 | The set brought back from the off-site copy (root, 12:45:48) | the one snapshot tagged `set=2026-11-27T123632Z` (`92f50213`, 959.084 MiB) restored in 5 s, moved to `~songhealth/recovery-fetched/2026-11-27T123632Z`, the account's, mode 0700, its files 0600; their SHA-256 equal the set's on the machine (12:46:11) |
 | 8 | The stores recreated and provisioned: `scripts/host/provision-stores.sh` (12:46:15) | both volumes created; Phase A on the empty store, the final server ready, identity `songhealth` / `songhealth_admin`; the role `songhealth_app` without superuser, CREATEDB or CREATEROLE, with CONNECT, USAGE and CREATE; the media store marked; the database running (12:46:29). Through the script, as the Product Owner decided (#461 comment 7218322292 item 6) |
 | 9 | The runtime secrets recovered (12:46:36) | see "The runtime secrets" below: every entry passed |
 | 10 | The restore of the set brought back (12:46:49) | admitted as production's, taken while it served the same image; "yes" twice; `PASS: restored the production runtime from /home/songhealth/recovery-fetched/2026-11-27T123632Z, and the integrity check passed: 82 tables, 887 rows, 247 media files, 90 migrations` (12:47:04): **zero differences** |
 | 11 | The application started and ready (12:47:08) | `systemctl --user start` returned at 12:47:31; `songhealth readiness: ready`, **ready 12:47:31Z** |
-| 12 | The state after the restore | the picture HTTP 200, 9,316 bytes, `2c7b5116…f396`; the Homepage's tagline; the tagline read with a new `settings:read` token: 44 bytes, SHA-256 `84753035…4415`; `scripts/rehearsal/vm.sh stack-check`: all passed |
+| 12 | The state after the restore | the picture HTTP 200, 9,316 bytes, `2c7b5116…f396`; the Homepage's tagline; the tagline read through the API just before the removal (part `run-10-remove`): 44 bytes, SHA-256 `84753035…4415`; `scripts/rehearsal/vm.sh stack-check`: all passed |
 
 The set was restored from the copy brought back, not from the folder on the machine: the restore
 read `~/recovery-fetched/2026-11-27T123632Z`, which the snapshot made, and the set in
 `~/recovery-sets` was left untouched as the way back. That is the contract's recovery step:
 "Bringing a set back from off the host places its three files in a folder the account can read,
 from which Songhealth's restore runs" (`production-host-contract.md` item 3). `~/recovery-fetched`
-was removed after the drill (§7.10 step 11).
+was removed after the drill (§7.10 step 11): at 13:20 it is gone, and so are root's fetch folders
+(part `run-12-after`).
 
 T028 says "let Quadlet recreate them"; the volumes were made by `provision-stores.sh`, which
 refuses a media volume that exists, and Quadlet's `.volume` units carry no option beyond
@@ -97,7 +99,8 @@ A rehearsal measurement, not the Production host's: **108 s from "stores gone" (
 Within it: the set brought back, 23 s (5 s of it Restic's restore of 959 MiB, the rest the move and
 the checksums); provisioning, 14 s; the secrets, 8 s; the restore and its check, 15 s; the start
 to ready, 23 s; the rest is the pauses between commands sent over SSH. The set held the demo
-dataset and 247 media files of 1,005,087,132 bytes, most of them #460's synthetic pictures.
+dataset and 247 media files in a media archive of 1,005,230,080 bytes, most of them #460's
+synthetic pictures.
 
 The site did not answer from 12:37:21 to 12:47:31 (10 min 10 s), of which 8 min 22 s came before
 the stores were removed: the stand-in's upload and the wait for the Product Owner's word. The
@@ -128,5 +131,6 @@ check reads what the site holds now, through the newest set.
 
 - No file under `specs/001-platform-foundation/evidence/` changed (`git diff --stat` of the branch).
 - Every volume command ran on the rehearsal machine as its Deployment account. The development
-  runtime afterwards: `dev-runtime-verify.sh` `VERIFY: PASS` at `31b4ca1`, its volumes
-  `songhealth-qdev-db-data` and `songhealth-qdev-media` the ones made on 2026-10-28.
+  runtime afterwards (part `run-13-dev-runtime`, 13:20): `dev-runtime-verify.sh` `VERIFY: PASS`,
+  its source the promoted commit `31b4ca1`, clean; its volumes `songhealth-qdev-db-data` and
+  `songhealth-qdev-media` the ones created on 2026-10-28.

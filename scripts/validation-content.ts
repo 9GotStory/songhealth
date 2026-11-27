@@ -63,7 +63,8 @@ if (size !== recorded.size || (await sha256Of(dumpPath)) !== recorded.sha256) {
 	refuse(`${DATABASE_FILE} is not the one the manifest records (size or SHA-256 differs)`);
 }
 
-// pg_restore writes the rows as SQL to its standard output and connects to no database.
+// Given no database, pg_restore connects to none and writes the SQL to the file -f names, here
+// its standard output (PostgreSQL 18, app-pgrestore.html).
 const restore = spawn(
 	"podman",
 	["exec", "-i", RUNTIMES[manifest.runtime].dbContainer, "pg_restore", "--data-only", "-f", "-"],
