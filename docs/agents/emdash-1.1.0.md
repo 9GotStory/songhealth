@@ -940,7 +940,21 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
   `DELETE …/api-tokens/{id}` revokes one (`src/astro/routes/api/admin/api-tokens/index.ts`
   `unwrapResult(result, 201)`, `src/astro/routes/api/admin/api-tokens/[id].ts`). A script that
   makes one revokes its earlier namesakes first (`./scripts/rehearsal-pictures.ts` `token`, #458: a
-  check for 200 left a made token unkept).
+  check for 200 left a made token unkept). The route takes an Administrator, signed in or by an
+  `admin`-scoped token, which the `/_emdash/api/admin` rule asks for
+  (`src/astro/routes/api/admin/api-tokens/index.ts` `Role.ADMIN`, `src/astro/middleware/auth.ts`
+  `SCOPE_RULES`), so one `admin` token can make narrower ones (#459). In the Admin the same page is
+  `/_emdash/admin/settings/api-tokens`: each scope is a choice, such as "Settings Read"
+  (`settings:read`), "Settings Manage" (`settings:manage`) and "Media Write" (`media:write`,
+  "Upload and delete media"), and the expiry is "No expiry", "7 days", "30 days", "90 days" or "1
+  year" (`@emdash-cms/admin/dist/index.js` 1.1.0 `API_TOKEN_SCOPE_VALUES`, `EXPIRY_OPTIONS`).
+- `GET /_emdash/api/settings` needs `settings:read` and `POST` needs `settings:manage`, by a token's
+  scope and by the user's permission; the `POST` body takes `tagline` among the site's settings
+  (`src/astro/routes/api/settings.ts`, `src/api/schemas/settings.ts` `settingsUpdateBody`,
+  `src/astro/middleware/auth.ts` `SCOPE_RULES`). `POST /_emdash/api/media` takes a multipart `file`
+  with the `media:write` scope and the `media:upload` permission (`src/astro/routes/api/media.ts`).
+  #459 set T022's validation tagline and uploaded its picture this way on the rehearsal machine; a
+  `settings:read` token's `POST` answered 403.
 - The Media Library, for a browser script (`@emdash-cms/admin/dist/index.js` 1.1.0, its `Tabs` from
   `@cloudflare/kumo`; read in #458's runs): the grid/list switch is a group "View mode" of **tabs**
   "Grid view" and "List view", not buttons; each item is a button named by its filename
