@@ -51,4 +51,33 @@ songhealth.moph.go.th {
 		header Content-Type "application/json; charset=utf-8"
 		respond `{"success":false,"error":{"code":"REQUEST_BODY_TOO_LARGE","message":"คำขอมีขนาดเกิน 51 MiB ที่เว็บไซต์รับได้ (the request body is larger than the site accepts: 51 MiB)"}}` 413
 	}
+	# While the application is stopped for the night's Recovery Set (#460; spec #450 "Recovery Sets,
+	# every night"), reverse_proxy cannot connect and Caddy raises a 502 of its own; every address
+	# that reaches the application then answers this static notice with 503 instead. A 502 the
+	# application sends itself is passed on as it is. /_image keeps its answers above, and a source
+	# outside the allowed network still gets none (Product Owner, #460 comment 7214747287). The
+	# notice needs nothing the stopped application serves: no font, picture or script.
+	handle_errors 502 {
+		header Content-Type "text/html; charset=utf-8"
+		header Retry-After 300
+		header Cache-Control no-store
+		respond <<HTML
+		<!doctype html>
+		<html lang="th">
+		<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta name="songhealth-notice" content="nightly-recovery-set">
+		<title>สำรองข้อมูลประจำวัน | สำนักงานสาธารณสุขอำเภอสอง</title>
+		</head>
+		<body style="margin: 0; background: #eaf5f0; color: #16211d; font-family: system-ui, sans-serif; line-height: 1.7">
+		<main style="max-width: 36rem; margin: 0 auto; padding: 4rem 1.25rem">
+		<p style="margin: 0; color: #0b6b57; font-weight: 700">สำนักงานสาธารณสุขอำเภอสอง</p>
+		<h1 style="margin: 0.5rem 0 1rem; font-size: 1.75rem; line-height: 1.4">ขณะนี้เว็บไซต์กำลังสำรองข้อมูลประจำวัน</h1>
+		<p style="margin: 0">เว็บไซต์ปิดชั่วคราวเพียงไม่กี่นาที กรุณากลับมาใหม่อีกครั้งในอีกสักครู่</p>
+		</main>
+		</body>
+		</html>
+		HTML 503
+	}
 }

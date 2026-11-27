@@ -13,6 +13,7 @@ import {
 	type Check,
 	IMAGE_REFUSAL_MARK,
 	judge,
+	NOTICE_MARK,
 	parseOptions,
 	plan,
 	SITE_NAME,
@@ -389,6 +390,107 @@ describe("each answer's verdict", () => {
 		assert.doesNotMatch(
 			judge(at({ kind: "answered" }), { status: 200, body: "", secured: true }).evidence,
 			/100\.64|127\.0/,
+		);
+	});
+});
+
+describe("while the application is stopped for the night's Recovery Set (#460)", () => {
+	const stopped = plan({ ...OPTIONS, stopped: true });
+	const site = readFileSync(
+		new URL("../../deploy/caddy/songhealth.caddy", import.meta.url),
+		"utf8",
+	);
+
+	it("takes --stopped, a flag with no value, beside the addresses", () => {
+		const options = parseOptions([
+			"--inside",
+			"192.0.2.9",
+			"--stopped",
+			"--outside",
+			"127.0.0.1:8443",
+		]);
+		assert.deepEqual(options, { ...OPTIONS, stopped: true });
+		assert.equal("error" in parseOptions(["--inside", "a", "--outside", "b"]) ? 1 : 0, 0);
+		assert.equal(
+			(parseOptions(["--inside", "a", "--outside", "b"]) as { stopped?: boolean }).stopped,
+			undefined,
+		);
+	});
+
+	it("asks each kind of address that reaches the application, and expects the notice from each", () => {
+		const notice = stopped.filter((each) => each.expect.kind === "notice");
+		assert.deepEqual(
+			notice.map(({ method, path }) => `${method} ${path}`),
+			[
+				"GET /",
+				"GET /news",
+				"GET /_emdash/admin/login",
+				"GET /_emdash/api/settings",
+				`GET /_emdash/api/media/file/stack-check.png`,
+				"POST /_emdash/api/media",
+			],
+		);
+		for (const check of notice) {
+			assert.equal(check.from, "inside", check.id);
+			assert.equal(check.host, SITE_NAME, check.id);
+			assert.equal(check.verifyCertificate, true, check.id);
+		}
+		assert.equal(byId(stopped, "N6").contentLength, 1024);
+	});
+
+	it("keeps the proxy's own answers to /_image and the outside's refusal (PO, #460 answer 4)", () => {
+		assert.deepEqual(byId(stopped, "I1").expect, { kind: "imageRefused" });
+		assert.equal(byId(stopped, "I1").path, "/_image");
+		assert.deepEqual(byId(stopped, "R1").expect, {
+			kind: "redirect",
+			location: `${MEDIA}stack-check.png`,
+		});
+		assert.deepEqual(byId(stopped, "P1").expect, { kind: "closedAfterTls" });
+		assert.equal(byId(stopped, "P1").from, "outside");
+	});
+
+	it("sends none of the running site's checks, and its ids are its own", () => {
+		assert.deepEqual(
+			stopped.map(({ id }) => id),
+			["N1", "N2", "N3", "N4", "N5", "N6", "I1", "R1", "P1"],
+		);
+		assert.ok(plan(OPTIONS).every((each) => each.expect.kind !== "notice"));
+	});
+
+	it("the notice's verdict: 503, the notice's mark, and the site's certificate", () => {
+		const check = byId(stopped, "N1");
+		const verdict = (answer: Answer) => judge(check, answer).pass;
+		const body = `<html>${NOTICE_MARK}</html>`;
+		assert.equal(verdict({ status: 503, body, secured: true }), true);
+		assert.equal(verdict({ status: 502, body, secured: true }), false);
+		assert.equal(verdict({ status: 200, body, secured: true }), false);
+		assert.equal(
+			verdict({ status: 503, body: "<html>Service Unavailable</html>", secured: true }),
+			false,
+		);
+		assert.equal(verdict({ status: 503, body, secured: false }), false);
+		assert.equal(verdict({ error: "ECONNRESET", secured: true }), false);
+	});
+
+	it("the site file answers Caddy's 502, when it cannot reach the application, with the Thai notice and 503", () => {
+		const block = /handle_errors 502 \{([\s\S]*?)\n\t\}/.exec(site)?.[1];
+		assert.ok(block, "no handle_errors 502 block");
+		assert.ok(block.includes(NOTICE_MARK), "the notice lacks its mark");
+		assert.match(block, /<html lang="th">/);
+		assert.match(block, /ขณะนี้เว็บไซต์กำลังสำรองข้อมูลประจำวัน/);
+		assert.match(block, /\n\t\tHTML 503$/);
+		assert.match(block, /header Content-Type "text\/html; charset=utf-8"/);
+		assert.match(block, /header Retry-After 300/);
+		assert.match(block, /header Cache-Control no-store/);
+		assert.doesNotMatch(block, /<(script|link|img)\b|https?:\/\//, "the notice needs nothing else");
+	});
+
+	it("keeps the private-network rule first, and the 413 block as #458 left it", () => {
+		const route = /route \{([\s\S]*?)\n\t\}/.exec(site)?.[1] ?? "";
+		assert.match(route, /^\s*(#[^\n]*\n\s*)*import songhealth_private\n/);
+		assert.match(
+			site,
+			/handle_errors 413 \{\n\t\theader Content-Type "application\/json; charset=utf-8"\n\t\trespond `\{"success":false,"error":\{"code":"REQUEST_BODY_TOO_LARGE"/,
 		);
 	});
 });

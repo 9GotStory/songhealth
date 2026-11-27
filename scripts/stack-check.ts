@@ -5,14 +5,15 @@
 // both sides. The requests and their verdicts are planned in scripts/stack-check/plan.ts.
 //
 //   node scripts/stack-check.ts --inside <address[:port]> --outside <address[:port]> \
-//     [--ca <file>] [--other-site <name>]
+//     [--ca <file>] [--other-site <name>] [--stopped]
 //
 // --inside is the host as a device on the private network reaches it; --outside the host as a
 // source outside it reaches it (on the rehearsal machine, the workstation's loopback forward,
 // scripts/rehearsal/vm.sh). --ca names the certificate of the authority that issued the site's when
-// it is not publicly trusted (the rehearsal's Internal Test CA). No address is printed: each check
-// prints one PASS or FAIL line, and the command exits 1 when any fails. It writes nothing on the
-// host, and no request body is ever sent.
+// it is not publicly trusted (the rehearsal's Internal Test CA). --stopped reads the proxy's notice
+// while the application is stopped for the night's Recovery Set (#460). No address is printed:
+// each check prints one PASS or FAIL line, and the command exits 1 when any fails. It writes
+// nothing on the host, and no request body is ever sent.
 
 import { readFileSync } from "node:fs";
 import { request } from "node:https";

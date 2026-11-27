@@ -13,7 +13,11 @@
 // - that the homepage and the Admin's sign-in page answer (S1, S2), and the private-network
 //   restriction from both sides (S1 from inside, P1 the same request from outside), with the
 //   redirect and the body limit closed from outside too (P2, P3);
-// - that both development bypasses still answer 403 (D1, D2; #456).
+// - that both development bypasses still answer 403 (D1, D2; #456);
+// - with --stopped, while the application is stopped for the night's Recovery Set (#460): that
+//   each kind of address that reaches the application answers the proxy's Thai notice with 503
+//   (N*), while /_image keeps the proxy's own answers and a source outside still gets none (I1,
+//   R1, P1; Product Owner, #460 comment 7214747287).
 
 /** The name the site answers, and the only one the proxy passes to the application. */
 export const SITE_NAME = "songhealth.moph.go.th";
@@ -35,6 +39,10 @@ export const IMAGE_REFUSAL_MARK = "Songhealth: /_image is refused at the proxy";
  * (emdash 1.1.0 src/api/parse.ts). */
 const BODY_REFUSAL_CODE = "REQUEST_BODY_TOO_LARGE";
 
+/** The mark the proxy's notice carries while the application is stopped (the `handle_errors 502`
+ * block of deploy/caddy/songhealth.caddy). */
+export const NOTICE_MARK = '<meta name="songhealth-notice" content="nightly-recovery-set">';
+
 const HOME_MARK = '<meta name="songhealth-foundation" content="public-runtime"';
 const OTHER_NAME = "stack-check.invalid";
 const MEDIA = `https://${SITE_NAME}/_emdash/api/media/file/`;
@@ -55,6 +63,8 @@ export interface Options {
 	ca?: string;
 	/** Another system's site on the same proxy, which must keep answering. */
 	otherSite?: string;
+	/** The application is stopped: ask for the notice instead of the running site's checks. */
+	stopped?: true;
 }
 
 type Expect =
@@ -71,6 +81,8 @@ type Expect =
 	| { kind: "bodyRefused" }
 	/** Answered by the application, in EmDash's error shape, not refused by the proxy. */
 	| { kind: "passedToApp" }
+	/** The proxy's notice while the application is stopped: 503 with its mark. */
+	| { kind: "notice" }
 	| { kind: "answered" };
 
 export interface Check {
@@ -122,11 +134,12 @@ function closedName(answer: Ending): boolean {
 	return answer.status === undefined && (answer.error === "EPROTO" || closedAfterHandshake(answer));
 }
 
-const USAGE = `usage: node scripts/stack-check.ts --inside <address[:port]> --outside <address[:port]> [--ca <file>] [--other-site <name>]
+const USAGE = `usage: node scripts/stack-check.ts --inside <address[:port]> --outside <address[:port]> [--ca <file>] [--other-site <name>] [--stopped]
   --inside      the host as a device on the private network reaches it
   --outside     the host as a source outside the private network reaches it
   --ca          the certificate of the authority that issued the site's, when not public
   --other-site  another system's site on the same proxy, which must keep answering
+  --stopped     the application is stopped: read the proxy's notice instead
 An IPv6 address with a port is written in brackets: [2001:db8::9]:443.`;
 
 function parseTarget(text: string): Target | null {
@@ -147,8 +160,10 @@ function parseTarget(text: string): Target | null {
 
 export function parseOptions(argv: readonly string[]): Options | { error: string } {
 	const values = new Map<string, string>();
-	for (let i = 0; i < argv.length; i += 2) {
-		const [name, value] = [argv[i]!, argv[i + 1]];
+	const stopped = argv.includes("--stopped");
+	const pairs = argv.filter((word) => word !== "--stopped");
+	for (let i = 0; i < pairs.length; i += 2) {
+		const [name, value] = [pairs[i]!, pairs[i + 1]];
 		if (!["--inside", "--outside", "--ca", "--other-site"].includes(name) || value === undefined) {
 			return { error: USAGE };
 		}
@@ -164,6 +179,7 @@ export function parseOptions(argv: readonly string[]): Options | { error: string
 		outside,
 		...(ca === undefined ? {} : { ca }),
 		...(otherSite === undefined ? {} : { otherSite }),
+		...(stopped ? { stopped: true as const } : {}),
 	};
 }
 
@@ -221,17 +237,51 @@ export function plan(options: Options): Check[] {
 		],
 	];
 	const hashed = `${STACK_CHECK_FILE}?_emdash_media=sha1%3A0123abcd`;
+	const thumbnailRedirect = get("R1", "a thumbnail of a site media file", thumbnail, {
+		kind: "redirect",
+		location: STACK_CHECK_FILE,
+	});
+	const outsideClosed = get(
+		"P1",
+		"the homepage from outside the private network",
+		"/",
+		{ kind: "closedAfterTls" },
+		"outside",
+	);
+
+	if (options.stopped) {
+		const notice: Expect = { kind: "notice" };
+		return [
+			get("N1", "the homepage while the application is stopped", "/", notice),
+			get("N2", "a public list while it is stopped", "/news", notice),
+			get("N3", "the Admin's sign-in page while it is stopped", "/_emdash/admin/login", notice),
+			get("N4", "an API address while it is stopped", "/_emdash/api/settings", notice),
+			get(
+				"N5",
+				"a media file while it is stopped",
+				"/_emdash/api/media/file/stack-check.png",
+				notice,
+			),
+			{
+				id: "N6",
+				what: "an upload while it is stopped",
+				from: "inside",
+				method: "POST",
+				path: "/_emdash/api/media",
+				contentLength: 1024,
+				...site,
+				expect: notice,
+			},
+			get("I1", "/_image with no query while it is stopped", "/_image", { kind: "imageRefused" }),
+			thumbnailRedirect,
+			outsideClosed,
+		];
+	}
 
 	return [
 		get("S1", "the homepage from inside the private network", "/", home),
 		get("S2", "the Admin's sign-in page", "/_emdash/admin/login", { kind: "status", status: 200 }),
-		get(
-			"P1",
-			"the homepage from outside the private network",
-			"/",
-			{ kind: "closedAfterTls" },
-			"outside",
-		),
+		outsideClosed,
 		get(
 			"P2",
 			"a picture's redirect from outside",
@@ -276,10 +326,7 @@ export function plan(options: Options): Check[] {
 		...refusedImages.map(([path, what], index) =>
 			get(`I${index + 1}`, `/_image ${what}`, path, { kind: "imageRefused" }),
 		),
-		get("R1", "a thumbnail of a site media file", thumbnail, {
-			kind: "redirect",
-			location: STACK_CHECK_FILE,
-		}),
+		thumbnailRedirect,
 		get("R2", "a thumbnail with its content hash", `/_image${imageQuery(hashed)}`, {
 			kind: "redirect",
 			location: hashed,
@@ -362,6 +409,12 @@ export function judge(check: Check, answer: Answer): { pass: boolean; evidence: 
 		}
 		case "answered":
 			pass = answered;
+			break;
+		case "notice":
+			pass =
+				answer.status === 503 &&
+				answer.secured === true &&
+				(answer.body ?? "").includes(NOTICE_MARK);
 			break;
 	}
 	return { pass, evidence: shown(answer) };
