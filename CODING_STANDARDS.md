@@ -242,6 +242,11 @@ more over 5 lines; `.jscpd.json` lists the clones that stay and why, and `.jscpd
   classes held in a constant, a list or a prop, a component imported under another name (#298
   retro: `tests/node/public-media.test.ts` first read only a tag's own text, so a cropped picture
   whose classes sat in a constant would have passed).
+- An evidence check that passes on a refusal, such as "unreachable from outside", asserts the
+  refusal's own sign, such as the proxy resetting the connection after the TLS handshake with the
+  site's certificate. A probe that never reached the target then fails. A condition the run sets up
+  for itself, such as a device that holds no passkey, is recorded as the starting point, never as a
+  check (#457 retro: P3 passed on any error, and R1 could not fail).
 - A test that reads a committed file reads what the ticket holds fixed, and sets for itself a value
   the repository's own flow rewrites, such as the image the application unit pins or the package's
   version (#455 retro: `tests/node/release.test.ts` took the unit's `Image=` line for Feature
@@ -391,3 +396,11 @@ tells the Operator what to do, and each step's end state is read from the script
 In #221 a review fix told dev to create a lost media marker by hand, which
 `production-foundation.md` §5.3 forbids, and the corrected steps left out that the installer
 starts the app.
+
+A runbook or an evidence page in `docs/operations/` that says how a system behaves names the run
+that showed it: the ticket and its check, such as #457's W8. What no run showed is written as
+untried, with the ticket that will try it. A way of working the Product Owner approved as an
+exception to a ticket's criteria is called that exception, with the decision's comment. In #457
+the review found three statements wider than their runs: a passkey working across both browsers
+in both directions, a passkey kept after the test profiles are deleted, and the recovery link
+described as adding no way in.

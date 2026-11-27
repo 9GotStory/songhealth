@@ -42,16 +42,33 @@ SIGNING_KEY=D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81
 
 die() { echo "rehearsal-vm: $*" >&2; exit 1; }
 
+# When ssh cannot connect (status 255), says whether the machine's unit is down and why: the host's
+# OOM killer can stop it silently, and ssh alone shows only "Connection refused" (#457 retro).
+explain_down() {
+  local state result
+  state=$(systemctl --user show -p ActiveState --value "$UNIT" 2>/dev/null || true)
+  [[ $state == active ]] && return 0
+  result=$(systemctl --user show -p Result --value "$UNIT" 2>/dev/null || true)
+  echo "rehearsal-vm: $UNIT is ${state:-unknown} (result: ${result:-unknown}); start it again with scripts/rehearsal/vm.sh start" >&2
+}
+
 ssh_admin() {
-  local tty=()
+  local tty=() status=0
   [[ -t 0 && -t 1 ]] && tty=(-t) # a person at a terminal answers the guided script's questions
   ssh "${tty[@]}" -i "$KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
-    -o UserKnownHostsFile="$DIR/known_hosts" -o ConnectTimeout=10 "$ADMIN@127.0.0.1" "$@"
+    -o UserKnownHostsFile="$DIR/known_hosts" -o ConnectTimeout=10 "$ADMIN@127.0.0.1" "$@" ||
+    status=$?
+  ((status == 255)) && explain_down
+  return "$status"
 }
 
 ssh_account() {
+  local status=0
   ssh -i "$DEPLOY_KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
-    -o UserKnownHostsFile="$DIR/known_hosts" -o ConnectTimeout=10 "$ACCOUNT@127.0.0.1" "$@"
+    -o UserKnownHostsFile="$DIR/known_hosts" -o ConnectTimeout=10 "$ACCOUNT@127.0.0.1" "$@" ||
+    status=$?
+  ((status == 255)) && explain_down
+  return "$status"
 }
 
 verify_image() {

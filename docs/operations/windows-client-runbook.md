@@ -69,12 +69,22 @@ the firewall rule for port 22 to the workstation, and starts the server.
    & "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe" --remote-debugging-port=9223 --user-data-dir="$env:LOCALAPPDATA\songhealth-test\edge"
    ```
 
-3. Claude Code opens the tunnel from the workstation and attaches its Playwright to both
-   browsers (`chromium.connectOverCDP`):
+3. Claude Code opens the tunnel from the workstation and drives both browsers through it with
+   `scripts/windows-drive.ts`, which finds this computer in the private network and keeps its
+   address and name out of what it prints:
 
    ```bash
-   ssh -N -L 9222:127.0.0.1:9222 -L 9223:127.0.0.1:9223 songhealth-test@<computer address>
+   node scripts/windows-drive.ts tunnel   # in the background, until the channel closes
+   node scripts/windows-drive.ts probe    # each browser's version, or why it does not answer
    ```
+
+   `node scripts/windows-drive.ts` alone lists the page actions (`snap`, `fill`, `click`, `shot`,
+   `eval`). A `click` that opens Windows Hello waits until the Product Owner brings that browser's
+   window to the front, since Windows Hello answers only the focused window.
+
+   The computer stays awake for the whole session: sleep closes the tunnel and the test browsers
+   (#457, 2026-11-27). When `probe` reports no answer, the Product Owner wakes it, reopens the test
+   browsers (step 2) and Claude Code opens the tunnel again.
 
 4. At the end, close the test browsers and close the channel: `.\client.ps1 -Action CloseChannel`.
 
