@@ -322,10 +322,19 @@ review rounds found these one at a time.
 
 A command whose output must carry no row content and no secret writes a failed tool's own text
 whole to an owner-only file beside the data it came from, and prints that file's path and the
-tool's exit status. Only where no such file can be written does it print the tool's text through a
-filter, and that filter names every message shape the tool writes, each with its source. In #221
-a filter of `pg_restore`'s standard error met a new shape in each of four review rounds and still
-lets two through (`scripts/recovery-set/plan.ts` `errorTail`).
+tool's exit status. Where another process reads the data's folder, as the nightly run's prune and
+the host's backup read a Recovery Set's, the file goes into a new private folder under the
+temporary directory instead (`scripts/validation-content.ts`, #461). Only where no such file can be
+written does it print the tool's text through a filter, and that filter names every message shape
+the tool writes, each with its source. In #221 a filter of `pg_restore`'s standard error met a new
+shape in each of four review rounds and still lets two through (`scripts/recovery-set/plan.ts`
+`errorTail`).
+
+The command's exit status keeps its documented meaning on every failure path: the tool not
+starting, the tool ending before it has read all its input (a broken pipe into it), and the file
+not being written each end in the command's own refusal. In #461 a database container that was not
+running ended `podman exec` first, and the uncaught `EPIPE` exited 1, the code for "validation
+content remains"; the first review read the success path only.
 
 ## Documents
 
