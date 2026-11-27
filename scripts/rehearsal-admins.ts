@@ -5,6 +5,7 @@
 //   node scripts/rehearsal-admins.ts preflight <address> <ca> <out>
 //   node scripts/rehearsal-admins.ts admins    <address> <ca> <out> [<invitation file>]
 //   node scripts/rehearsal-admins.ts recovery  <address> <ca> <out> <recovery link file>
+//   node scripts/rehearsal-admins.ts signin    <address> <ca> <out>
 //
 // <address> is the rehearsal machine's on the private network; <ca> its Internal Test CA's
 // certificate (public: /usr/local/share/songhealth-test-ca.crt there); <out> the evidence folder.
@@ -16,6 +17,9 @@
 // - preflight: both development bypasses answer 403; the setup routes answer from inside the
 //   allowed network and give no answer from outside it (the workstation's loopback forward to the
 //   machine, scripts/rehearsal/vm.sh); once an Administrator exists, setup refuses another.
+// - signin: the stored Administrator signs in with each device's passkey they have, unchanged:
+//   after T028's restore on the rehearsal machine, the passkeys the restored database holds still
+//   work (#461).
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:https";
@@ -543,6 +547,29 @@ async function recovery(command: Command): Promise<void> {
 	}
 }
 
+async function signin(command: Command): Promise<void> {
+	const state = loadState();
+	if (!state) throw new Error(`no stored Administrator at ${STATE}: run the admins step first`);
+	const { browser, close } = await openBrowser(command.address, command.ca);
+	try {
+		for (const [name, passkeys] of Object.entries(state.devices)) {
+			const device = await openDevice(browser, passkeys);
+			const result = await signIn(device.page);
+			const who = result === "signed in" ? await whoAmI(device.page) : 401;
+			record(
+				typeof who !== "number" && who.email === state.email && who.role === 50,
+				`S-${name}`,
+				`the stored Administrator signs in with device ${name}'s passkey, unchanged`,
+				typeof who === "number" ? `${result} (HTTP ${who})` : `${who.email}, role ${who.role}`,
+			);
+			await shot(device.page, command.out, `signin-${name}`);
+			await device.context.close();
+		}
+	} finally {
+		await close();
+	}
+}
+
 async function main(): Promise<void> {
 	const command = parseCommand(process.argv.slice(2));
 	if ("error" in command) throw new Error(command.error);
@@ -558,6 +585,7 @@ async function main(): Promise<void> {
 	mkdirSync(command.out, { recursive: true });
 	if (command.step === "preflight") await preflight(command.address, ca);
 	else if (command.step === "admins") await admins(command);
+	else if (command.step === "signin") await signin(command);
 	else await recovery(command);
 
 	const file = join(command.out, `${command.step}-results.txt`);
