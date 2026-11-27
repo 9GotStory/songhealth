@@ -56,7 +56,9 @@ export interface Options {
 
 type Expect =
 	| { kind: "status"; status: number; mark?: string }
-	/** No HTTP answer at all, before or after a TLS handshake. */
+	/** The proxy's abort, with no HTTP answer: the connection reset, or the TLS handshake refused
+	 * with an alert (EPROTO). A refused or timed-out connection, or a certificate the check does
+	 * not trust, never got there, and proves nothing. */
 	| { kind: "closed" }
 	/** The site's own refusal of a source: the connection closed after a handshake with the site's
 	 * certificate. A forward that is down or a TLS failure is no such proof. */
@@ -222,7 +224,9 @@ export function plan(options: Options): Check[] {
 			expect: { kind: "closedAfterTls" },
 		},
 		{
-			...get("H1", "another host name under the site's certificate", "/", { kind: "closed" }),
+			...get("H1", "another host name under the site's certificate", "/", {
+				kind: "closedAfterTls",
+			}),
 			host: OTHER_NAME,
 		},
 		{
@@ -318,7 +322,7 @@ export function judge(check: Check, answer: Answer): { pass: boolean; evidence: 
 				(expect.mark === undefined || (answer.body ?? "").includes(expect.mark));
 			break;
 		case "closed":
-			pass = !answered;
+			pass = !answered && (answer.error === "ECONNRESET" || answer.error === "EPROTO");
 			break;
 		case "closedAfterTls":
 			pass = !answered && answer.secured === true && answer.error === "ECONNRESET";

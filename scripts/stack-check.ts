@@ -84,7 +84,7 @@ function send(check: Check, at: Target): Promise<Answer> {
 			res.on("close", () => done(answer()));
 		});
 		req.on("timeout", () => req.destroy(Object.assign(new Error("timeout"), { code: "TIMEOUT" })));
-		req.on("error", (error: NodeJS.ErrnoException) => done({ error: error.code ?? error.message }));
+		req.on("error", (error: NodeJS.ErrnoException) => done({ error: error.code ?? error.name }));
 		// A declared body is never sent: the headers go out, and the answer is read without it.
 		if (check.contentLength === undefined) req.end();
 		else req.flushHeaders();

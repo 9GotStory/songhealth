@@ -140,7 +140,7 @@ describe("the requests the check sends", () => {
 		const forged = byId(checks, "H1");
 		assert.deepEqual(
 			[forged.sni, forged.host, forged.expect],
-			[SITE_NAME, "stack-check.invalid", { kind: "closed" }],
+			[SITE_NAME, "stack-check.invalid", { kind: "closedAfterTls" }],
 		);
 		const unknown = byId(checks, "H2");
 		assert.deepEqual(
@@ -300,10 +300,18 @@ describe("each answer's verdict", () => {
 		);
 	});
 
-	it("closed: no HTTP answer, before or after a handshake", () => {
+	it("closed: the proxy's own abort, before or after a handshake, never a probe that did not get there", () => {
 		assert.equal(pass({ kind: "closed" }, { error: "ECONNRESET", secured: true }), true);
 		assert.equal(pass({ kind: "closed" }, { error: "EPROTO", secured: false }), true);
 		assert.equal(pass({ kind: "closed" }, { status: 200, body: "", secured: true }), false);
+		for (const error of [
+			"ECONNREFUSED",
+			"TIMEOUT",
+			"EHOSTUNREACH",
+			"DEPTH_ZERO_SELF_SIGNED_CERT",
+		]) {
+			assert.equal(pass({ kind: "closed" }, { error, secured: false }), false, error);
+		}
 	});
 
 	it("closed after the TLS handshake: the site's own refusal, never a forward that is down or a TLS failure", () => {
