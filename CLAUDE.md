@@ -122,7 +122,9 @@ rules. Product Owner decisions and the current documents rank above both (Author
 3. On the promoted commit: `/impeccable critique` and `audit`, `/web-design-guidelines` on the
    changed files, Playwright MCP on the rendered pages. Done when the pull request's review
    section gives each of the four its result; a tool the ticket would leave unrun is a Product
-   Owner ask before `/code-review` (#313 retro).
+   Owner ask before `/code-review` (#313 retro). For a page the development runtime cannot
+   serve, such as the proxy's notice, that ask comes before the first commit and names the
+   evidence that stands in for each tool (#460 retro).
 4. Sort every finding: a provable defect inside the ticket's scope (accessibility, contrast,
    overflow, a broken interaction) gets its fix and test; a taste suggestion or out-of-scope change
    becomes a pending confirmation for the Product Owner, unless a recorded Product Owner decision

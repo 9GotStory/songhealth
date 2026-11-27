@@ -1409,7 +1409,8 @@ name is closed (H1, H2) and that the site's name in another spelling still reach
 and the rehearsal machine's loopback showed the fixed name on every request that reached the
 application (#458). On the rehearsal machine `--outside` is the workstation's loopback forward
 (`scripts/rehearsal/vm.sh`), `--ca` the Internal Test CA's certificate and `--other-site` the
-stand-in's `other-system.invalid`. With `--stopped`, run while the application is stopped, it
+stand-in's `other-system.invalid`; `scripts/rehearsal/vm.sh stack-check [option...]` passes the
+first two with the machine's tailnet address as `--inside`, read there and never printed. With `--stopped`, run while the application is stopped, it
 reads the notice instead (N1–N6: the homepage, a public list, the Admin's sign-in page, an API
 address, a media file and an upload) with `/_image`'s refusal and redirect (I1, R1) and the
 outside's refusal (P1). The pictures themselves, in the Admin and on the public pages
