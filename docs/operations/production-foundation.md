@@ -1409,7 +1409,9 @@ node scripts/validation-content.ts ~/recovery-sets/<that set> /_emdash/api/media
 It searches every row of the set's database for the validation tagline and the picture's key,
 and its media files for the picture's SHA-256 and key, naming each finding's table or file and
 never a row's content; it exits 0 with `PASS: no validation content and no validation media
-remain …`, 1 when some remains, and 2 when it could not read the set (Product Owner, #461 comment
+remain …`, 1 when some remains, and 2 when it could not read the set; when pg_restore fails, it
+prints only the path of a new owner-only file under the temporary folder that holds pg_restore's
+own text (CODING_STANDARDS "Exposure") (Product Owner, #461 comment
 7217954182 item 4).
 
 **Measured on the rehearsal machine** (#461; a rehearsal measurement, not the Production host's):

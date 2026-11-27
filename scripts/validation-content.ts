@@ -14,7 +14,9 @@
 //
 // Exits: 0 PASS; 1 FAIL, validation content remains; 2 refused, nothing was read to the end. Run it
 // on the host as the Deployment account, from the deployed checkout, while the database runs; it
-// changes nothing and needs no credential (production-foundation.md §7.10).
+// changes nothing in the set or the runtime and needs no credential (production-foundation.md
+// §7.10). When pg_restore fails, its own text goes into a new owner-only file under the temporary
+// folder, and only that file's path is printed.
 
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -65,32 +67,45 @@ if (size !== recorded.size || (await sha256Of(dumpPath)) !== recorded.sha256) {
 
 // Given no database, pg_restore connects to none and writes the SQL to the file -f names, here
 // its standard output (PostgreSQL 18, app-pgrestore.html).
-const restore = spawn(
-	"podman",
-	["exec", "-i", RUNTIMES[manifest.runtime].dbContainer, "pg_restore", "--data-only", "-f", "-"],
-	{ stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, LC_ALL: "C" } },
-);
+const container = RUNTIMES[manifest.runtime].dbContainer;
+const restore = spawn("podman", ["exec", "-i", container, "pg_restore", "--data-only", "-f", "-"], {
+	stdio: ["pipe", "pipe", "pipe"],
+	env: { ...process.env, LC_ALL: "C" },
+});
+// Node's own message when podman cannot be started names the program, never the dump.
+restore.on("error", (error) => refuse(`podman could not run pg_restore: ${error.message}`));
+// When podman ends first, as with a database container that is not running, the rest of the dump
+// has nowhere to go: the exit status below reports that, not the write it breaks.
+restore.stdin.on("error", () => {});
 createReadStream(dumpPath).pipe(restore.stdin);
 const errors: Buffer[] = [];
 restore.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
-const exited = new Promise<number | null>((done) => restore.on("close", done));
+const exited = new Promise<string | undefined>((done) =>
+	restore.on("close", (code, signal) =>
+		done(code === 0 ? undefined : signal ? `signal ${signal}` : `exit ${code}`),
+	),
+);
 
 const scan = dumpScan(args.key);
 for await (const line of createInterface({ input: restore.stdout, crlfDelay: Infinity })) {
 	scan.line(line);
 }
-const status = await exited;
-if (status !== 0) {
+const failure = await exited;
+if (failure !== undefined) {
 	// pg_restore's own text goes whole into an owner-only file and is never printed
 	// (CODING_STANDARDS "Exposure"). Not beside the set: the nightly run's prune and the host's
 	// backup read the set's folder and the folder of sets, and this check writes nothing there.
-	const file = join(
-		mkdtempSync(join(tmpdir(), "songhealth-validation-content-")),
-		"pg_restore.txt",
-	);
-	writeFileSync(file, Buffer.concat(errors), { mode: 0o600, flag: "wx" });
+	let file: string;
+	try {
+		file = join(mkdtempSync(join(tmpdir(), "songhealth-validation-content-")), "pg_restore.txt");
+		writeFileSync(file, Buffer.concat(errors), { mode: 0o600, flag: "wx" });
+	} catch (error) {
+		refuse(
+			`pg_restore in ${container} failed (${failure}), and its standard error could not be kept (${(error as NodeJS.ErrnoException).code ?? "unknown error"})`,
+		);
+	}
 	refuse(
-		`pg_restore in ${RUNTIMES[manifest.runtime].dbContainer} failed (exit ${status}); its standard error is in ${file}, owner-only`,
+		`pg_restore in ${container} failed (${failure}); its standard error is in ${file}, owner-only`,
 	);
 }
 
