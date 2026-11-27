@@ -304,12 +304,9 @@ describe("each answer's verdict", () => {
 		assert.equal(pass({ kind: "closed" }, { error: "ECONNRESET", secured: true }), true);
 		assert.equal(pass({ kind: "closed" }, { error: "EPROTO", secured: false }), true);
 		assert.equal(pass({ kind: "closed" }, { status: 200, body: "", secured: true }), false);
-		for (const error of [
-			"ECONNREFUSED",
-			"TIMEOUT",
-			"EHOSTUNREACH",
-			"DEPTH_ZERO_SELF_SIGNED_CERT",
-		]) {
+		// A reset with no handshake is what a forward that is down gives.
+		assert.equal(pass({ kind: "closed" }, { error: "ECONNRESET", secured: false }), false);
+		for (const error of ["ECONNREFUSED", "TIMEOUT", "EHOSTUNREACH"]) {
 			assert.equal(pass({ kind: "closed" }, { error, secured: false }), false, error);
 		}
 	});
