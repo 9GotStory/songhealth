@@ -38,7 +38,7 @@ export function targetRefusal(peer: Peer): string | null {
 	return null;
 }
 
-const STEPS = ["preflight", "admins", "recovery"] as const;
+const STEPS = ["preflight", "admins", "recovery", "signin"] as const;
 type Step = (typeof STEPS)[number];
 
 export interface Command {
@@ -54,13 +54,13 @@ const USAGE = `usage: node scripts/rehearsal-admins.ts <step> <machine address> 
   admins     the invitation, two passkeys, other names and addresses; the link file holds an
              invitation copied from the Admin, or is left out when a stored Administrator makes one
   recovery   the locked-out Administrator signs in with the link file's recovery link
-             (scripts/admin-recovery.ts) and replaces their passkey`;
+             (scripts/admin-recovery.ts) and replaces their passkey
+  signin     the stored Administrator signs in with the passkey they have, as after a restore (#461)`;
 
 export function parseCommand(argv: readonly string[]): Command | { error: string } {
 	const [step, address, ca, out, link, ...rest] = argv;
 	const known = (STEPS as readonly string[]).includes(step ?? "");
-	const linkOk =
-		step === "recovery" ? link !== undefined : step !== "preflight" || link === undefined;
+	const linkOk = step === "recovery" ? link !== undefined : step === "admins" || link === undefined;
 	if (!known || !address || isIP(address) === 0 || !ca || !out || !linkOk || rest.length > 0) {
 		return { error: USAGE };
 	}

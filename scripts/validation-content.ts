@@ -1,0 +1,118 @@
+// The check that no validation content remains (#461; spec #450 "T022, T028 and the validation
+// fixture"), run after T022 and T028 once the validation tagline and picture have been removed:
+//
+//   node scripts/validation-content.ts <a Recovery Set's directory> /_emdash/api/media/file/<key>
+//
+// It reads a Recovery Set taken after the removal (Product Owner, #461 comment 7217954182 item 4):
+// on the Production host the night's set, on the rehearsal machine a run of the nightly set by
+// hand. The set's database.dump, admitted by its size and SHA-256 against the manifest, is turned
+// back into SQL by pg_restore inside the database container, from standard input; every row is
+// searched for the validation tagline and the picture's storage key. The manifest's media list,
+// which the nightly run's check compared with the stopped runtime, is searched for the picture by
+// its SHA-256 and by its key. Each finding names its table or file path, never a row's content; the
+// rules are in scripts/validation-content/plan.ts.
+//
+// Exits: 0 PASS; 1 FAIL, validation content remains; 2 refused, nothing was read to the end. Run it
+// on the host as the Deployment account, from the deployed checkout, while the database runs; it
+// changes nothing in the set or the runtime and needs no credential (production-foundation.md
+// §7.10). When pg_restore fails, its own text goes into a new owner-only file under the temporary
+// folder, and only that file's path is printed.
+
+import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { createReadStream, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, join, resolve } from "node:path";
+import { createInterface } from "node:readline";
+
+import { DATABASE_FILE, MANIFEST_FILE, parseManifest, RUNTIMES } from "./recovery-set/plan.ts";
+import { dumpScan, mediaFindings, parseCheckArgs, report } from "./validation-content/plan.ts";
+
+function refuse(message: string): never {
+	process.stderr.write(`validation-content: ${message}\n`);
+	process.exit(2);
+}
+
+async function sha256Of(path: string): Promise<string> {
+	const hash = createHash("sha256");
+	for await (const chunk of createReadStream(path)) hash.update(chunk as Buffer);
+	return hash.digest("hex");
+}
+
+const args = parseCheckArgs(process.argv.slice(2));
+if ("error" in args) refuse(args.error);
+const dir = resolve(args.set);
+
+let manifestText: string;
+try {
+	manifestText = readFileSync(join(dir, MANIFEST_FILE), "utf8");
+} catch {
+	refuse(`${dir} has no readable ${MANIFEST_FILE}: not a Recovery Set`);
+}
+const parsed = parseManifest(manifestText);
+if ("error" in parsed) refuse(parsed.error);
+const { manifest } = parsed;
+
+const dumpPath = join(dir, DATABASE_FILE);
+const recorded = manifest.archives.database;
+let size: number;
+try {
+	size = statSync(dumpPath).size;
+} catch {
+	refuse(`${dir} has no readable ${DATABASE_FILE}`);
+}
+if (size !== recorded.size || (await sha256Of(dumpPath)) !== recorded.sha256) {
+	refuse(`${DATABASE_FILE} is not the one the manifest records (size or SHA-256 differs)`);
+}
+
+// Given no database, pg_restore connects to none and writes the SQL to the file -f names, here
+// its standard output (PostgreSQL 18, app-pgrestore.html).
+const container = RUNTIMES[manifest.runtime].dbContainer;
+const restore = spawn("podman", ["exec", "-i", container, "pg_restore", "--data-only", "-f", "-"], {
+	stdio: ["pipe", "pipe", "pipe"],
+	env: { ...process.env, LC_ALL: "C" },
+});
+// Node's own message when podman cannot be started names the program, never the dump.
+restore.on("error", (error) => refuse(`podman could not run pg_restore: ${error.message}`));
+// When podman ends first, as with a database container that is not running, the rest of the dump
+// has nowhere to go: the exit status below reports that, not the write it breaks.
+restore.stdin.on("error", () => {});
+createReadStream(dumpPath).pipe(restore.stdin);
+const errors: Buffer[] = [];
+restore.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
+const exited = new Promise<string | undefined>((done) =>
+	restore.on("close", (code, signal) =>
+		done(code === 0 ? undefined : signal ? `signal ${signal}` : `exit ${code}`),
+	),
+);
+
+const scan = dumpScan(args.key);
+for await (const line of createInterface({ input: restore.stdout, crlfDelay: Infinity })) {
+	scan.line(line);
+}
+const failure = await exited;
+if (failure !== undefined) {
+	// pg_restore's own text goes whole into an owner-only file and is never printed
+	// (CODING_STANDARDS "Exposure"). Not beside the set: the nightly run's prune and the host's
+	// backup read the set's folder and the folder of sets, and this check writes nothing there.
+	let file: string;
+	try {
+		file = join(mkdtempSync(join(tmpdir(), "songhealth-validation-content-")), "pg_restore.txt");
+		writeFileSync(file, Buffer.concat(errors), { mode: 0o600, flag: "wx" });
+	} catch (error) {
+		refuse(
+			`pg_restore in ${container} failed (${failure}), and its standard error could not be kept (${(error as NodeJS.ErrnoException).code ?? "unknown error"})`,
+		);
+	}
+	refuse(
+		`pg_restore in ${container} failed (${failure}); its standard error is in ${file}, owner-only`,
+	);
+}
+
+const result = report(
+	{ name: basename(dir), createdUtc: manifest.createdUtc, mediaFiles: manifest.media.length },
+	scan.findings(),
+	mediaFindings(manifest.media, args.key),
+);
+for (const line of result.lines) process.stdout.write(`${line}\n`);
+process.exit(result.pass ? 0 : 1);

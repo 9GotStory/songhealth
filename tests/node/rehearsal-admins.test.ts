@@ -72,6 +72,16 @@ describe("the command", () => {
 		assert.ok("error" in parseCommand(["recovery", ...machine]));
 	});
 
+	it("takes the sign-in after a restore without a link file, and refuses one (#461)", () => {
+		assert.deepEqual(parseCommand(["signin", ...machine]), {
+			step: "signin",
+			address: "192.0.2.7",
+			ca: "/s/test-ca.crt",
+			out: "/e/out",
+		});
+		assert.ok("error" in parseCommand(["signin", ...machine, "/s/link"]));
+	});
+
 	it("refuses an unknown step, a missing argument or a name in place of the address", () => {
 		for (const argv of [
 			[],

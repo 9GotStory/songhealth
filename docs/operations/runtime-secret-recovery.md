@@ -33,7 +33,9 @@ every behavior claimed below:
 **Verification status**: this document is a documentation-only deliverable (T023). It records no
 runtime evidence and fabricates none: every evidence row below ships as **pending**. Runtime
 secret recovery is exercised only by the separately authorized recovery drill (T028), which
-requires the T022 runtime PASS plus Codex-accepted sources for all of T023–T027. See §11.
+requires the T022 runtime PASS plus Codex-accepted sources for all of T023–T027. See §11. The
+rehearsal machine ran the recovery once in T028's order (#461, `production-foundation.md` §7.10):
+a rehearsal, which fills no evidence row here.
 
 ## 1. Scope, authority, and verification status
 
@@ -253,6 +255,11 @@ values are never displayed.
    systemctl --user stop songhealth-app.service songhealth-db.service
    systemctl --user start songhealth-app.service
    ```
+
+   In the recovery drill's order (T028, `production-foundation.md` §7.10) the database is freshly
+   provisioned and still empty here, so only `songhealth-db.service` starts; the application
+   starts after the Recovery Set's restore, and stage C reads the restored state (Product Owner,
+   #461 comment 7218322292 item 5).
 
 6. **Run the stage-C usability checks (§8.3) with the staging files still in place.** K3
    compares the container's mounted secret against the retained staging file, and the bootstrap

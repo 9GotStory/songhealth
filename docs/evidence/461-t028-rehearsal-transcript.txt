@@ -1,0 +1,324 @@
+# #461: T028 rehearsed on the rehearsal machine, 2026-11-27. Each part is one command's whole output,
+# captured as it ran; the machine's private-network address was replaced by <addr> at capture.
+
+########## run-1-before
+## 2026-11-27T12:36:31Z read-back, as the account
+f69d8573009826ac20dacdd93b6f31a8a216a7d4
+songhealth-app:1.0.0-rc.1@sha256:316d4f748127ad1314d48190b7e2baaac3063a3eaecdad6678b9076138eca1c7
+postgres:18.6@sha256:fc973eb97c9fd04bfa1840e0f510719a584ccb3be8debfe6a4144637a9dfe8cf
+picture: HTTP 200 image/png 9316 bytes
+2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396
+homepage tagline: Songhealth Feature 001 foundation validation
+== 2026-11-27T12:36:31Z the nightly run by hand
+unit exit 0
+{
+	"time": "2026-11-27T12:36:32.462Z",
+	"set": "2026-11-27T123632Z",
+	"result": "ok",
+	"complete": true,
+	"appRunning": true,
+	"downtimeSeconds": 48.9,
+	"setBytes": 1005672742
+}
+
+2026-11-27T12:37:21Z app stopped: inactive
+2026-11-25T200000Z
+2026-11-26T200000Z
+2026-11-27T094219Z
+2026-11-27T094722Z
+2026-11-27T094927Z
+2026-11-27T100102Z
+2026-11-27T123632Z
+
+########## run-2-offsite
+## 2026-11-27T12:37:34Z the stand-in backup by hand (root)
+backup-run: took 2026-11-26T200000Z
+backup-run: took 2026-11-27T094219Z
+backup-run: took 2026-11-27T094722Z
+backup-run: took 2026-11-27T094927Z
+backup-run: took 2026-11-27T123632Z
+{
+  "time": "2026-11-27T12:37:59Z",
+  "result": "ok",
+  "newestSet": "2026-11-27T123632Z"
+}
+backup-run exit 0
+## 2026-11-27T12:37:59Z the set, as the account
+  database.dump  389561 bytes  sha256 526aeaf3beaed5dc2749add71a31fc8eb8e8ce5bf774b7c2b388a9f4dd6202e0
+  media.tar      1005230080 bytes  sha256 d1b4235e03cba00164c439e61104c7547263ee5b59bf5b48e440b18332669ef6
+  82 tables, 887 rows, 247 media files, 90 migrations
+  serves localhost/songhealth-app:1.0.0-rc.1@sha256:316d4f748127ad1314d48190b7e2baaac3063a3eaecdad6678b9076138eca1c7; pg_dump (PostgreSQL) 18.6 (Debian 18.6-1.pgdg13+2); server 18.6 (Debian 18.6-1.pgdg13+2); EmDash 1.1.0; 2026-11-27T12:36:33Z
+recovery-set: start the app again: systemctl --user start songhealth-app.service
+recovery-set: only a set in ~/recovery-sets reaches the host's backup, which the nightly run keeps (production-foundation.md §7.9)
+nightly-recovery-set: check: 2026-11-27T12:36:54.327Z
+recovery-set: PASS: the production runtime holds the set /home/songhealth/.local/share/songhealth/recovery-staging/2026-11-27T123632Z: 82 tables, 887 rows, 247 media files, 90 migrations
+nightly-recovery-set: start: 2026-11-27T12:36:58.495Z
+nightly-recovery-set: prune: 2026-11-27T12:37:21.382Z
+nightly-recovery-set: publish: 2026-11-27T12:37:21.387Z
+nightly-recovery-set: ok: the set 2026-11-27T123632Z is kept in /home/songhealth/recovery-sets (1005672742 bytes); the application was stopped for 48.9 s
+526aeaf3beaed5dc2749add71a31fc8eb8e8ce5bf774b7c2b388a9f4dd6202e0  /home/songhealth/recovery-sets/2026-11-27T123632Z/database.dump
+e03192ad7ba1ebe2d5a9e8072b4fc7b08b203aca1c04d40eb7777096ee553959  /home/songhealth/recovery-sets/2026-11-27T123632Z/manifest.json
+d1b4235e03cba00164c439e61104c7547263ee5b59bf5b48e440b18332669ef6  /home/songhealth/recovery-sets/2026-11-27T123632Z/media.tar
+{"createdUtc":"2026-11-27T12:36:33Z","serves":"localhost/songhealth-app:1.0.0-rc.1@sha256:316d4f748127ad1314d48190b7e2baaac3063a3eaecdad6678b9076138eca1c7","versions":{"pgDump":"pg_dump (PostgreSQL) 18.6 (Debian 18.6-1.pgdg13+2)","server":"18.6 (Debian 18.6-1.pgdg13+2)","emdash":"1.1.0"},"archives":{"database":{"file":"database.dump","size":389561,"sha256":"526aeaf3beaed5dc2749add71a31fc8eb8e8ce5bf774b7c2b388a9f4dd6202e0"},"media":{"file":"media.tar","size":1005230080,"sha256":"d1b4235e03cba00164c439e61104c7547263ee5b59bf5b48e440b18332669ef6"}},"tables":82,"rows":887,"migrations":90,"media":247}
+== the validation state in the set (expected: FAIL, 3 findings)
+FAIL: the picture's key is in 1 row of the table media
+FAIL: the validation tagline is in 1 row of the table options
+FAIL: the media file 01M8DZSZFEWR0CK7CA11E16S20.png is the validation picture (the picture's SHA-256)
+FAIL: validation content remains in the Recovery Set 2026-11-27T123632Z (taken 2026-11-27T12:36:33Z): 3 findings
+validation-content exit 1
+inactive
+active
+
+########## run-3-gone
+== 2026-11-27T12:45:43Z stop both units
+inactive
+failed
+== 2026-11-27T12:45:43Z remove both volumes
+songhealth-db-data
+songhealth-media
+rm exit 0
+DRIVER      VOLUME NAME
+STORES GONE 2026-11-27T12:45:43Z
+
+########## run-4-fetch
+== 2026-11-27T12:45:48Z fetch back (root)
+ID        Time                 Host        Tags                    Size
+------------------------------------------------------------------------------
+92f50213  2026-11-27 19:36:32  songhealth  songhealth-set          959.084 MiB
+                                           set=2026-11-27T123632Z
+restoring snapshot 92f50213 of [/home/songhealth/recovery-sets/2026-11-27T123632Z] at 2026-11-27 19:36:32 +0700 +07 by root@songhealth to /root/t028-fetch.NRFZzi
+Summary: Restored 4 files/dirs (959.084 MiB) in 0:05
+/home/songhealth/recovery-fetched/2026-11-27T123632Z songhealth:songhealth 700 4096
+/home/songhealth/recovery-fetched/2026-11-27T123632Z/database.dump songhealth:songhealth 600 389561
+/home/songhealth/recovery-fetched/2026-11-27T123632Z/manifest.json songhealth:songhealth 600 53101
+/home/songhealth/recovery-fetched/2026-11-27T123632Z/media.tar songhealth:songhealth 600 1005230080
+fetched snapshot 92f50213 as /home/songhealth/recovery-fetched/2026-11-27T123632Z
+fetch exit 0
+== 2026-11-27T12:45:57Z the fetched files against the set kept on the machine
+526aeaf3beaed5dc2749add71a31fc8eb8e8ce5bf774b7c2b388a9f4dd6202e0  recovery-fetched/2026-11-27T123632Z/database.dump
+e03192ad7ba1ebe2d5a9e8072b4fc7b08b203aca1c04d40eb7777096ee553959  recovery-fetched/2026-11-27T123632Z/manifest.json
+d1b4235e03cba00164c439e61104c7547263ee5b59bf5b48e440b18332669ef6  recovery-fetched/2026-11-27T123632Z/media.tar
+526aeaf3beaed5dc2749add71a31fc8eb8e8ce5bf774b7c2b388a9f4dd6202e0  recovery-sets/2026-11-27T123632Z/database.dump
+e03192ad7ba1ebe2d5a9e8072b4fc7b08b203aca1c04d40eb7777096ee553959  recovery-sets/2026-11-27T123632Z/manifest.json
+d1b4235e03cba00164c439e61104c7547263ee5b59bf5b48e440b18332669ef6  recovery-sets/2026-11-27T123632Z/media.tar
+FETCHED 2026-11-27T12:46:11Z
+
+########## run-5-provision
+== 2026-11-27T12:46:15Z provision-stores.sh
+== Phase A 1: volume and secret
+== Phase A 2: the store is genuinely empty
+empty
+== Phase A 3: strict parser
+POSTGRES_USER=songhealth_admin POSTGRES_DB=songhealth
+== Phase A 4: one-shot initialization
+== Phase A 5: final-server verification
+final server ready
+/var/run/postgresql:5432 - accepting connections
+identity: database=songhealth user=songhealth_admin
+== Phase A 6: hand over to normal startup
+active
+== §5.2 the least-privilege application role
+songhealth_app|f|f|f|t|t|t
+== §5.3 the media store and its marker
+total 12
+drwxr-x---  2 1000 1000 4096 Nov 27 12:46 .
+drwxr-xr-x 10 1000 1000 4096 Nov 25 13:39 ..
+-rw-r--r--  1 1000 1000   33 Nov 27 12:46 .songhealth-media-store
+== done
+provision exit 0
+DRIVER      VOLUME NAME
+local       songhealth-db-data
+local       songhealth-media
+active
+inactive
+PROVISIONED 2026-11-27T12:46:29Z
+
+########## run-6-secrets
+== 2026-11-27T12:46:36Z stage A, staging, K2 (root)
+== stage A: the protected copy
+versions in /root/songhealth-recovery-copy: 1 (20261125T142859Z)
+/root/songhealth-recovery-copy root:root 700
+/root/songhealth-recovery-copy/20261125T142859Z root:root 700
+/root/songhealth-recovery-copy/20261125T142859Z/1-PGPASSWORD root:root 600 65 bytes
+/root/songhealth-recovery-copy/20261125T142859Z/2-songhealth-migration-database-url root:root 600 129 bytes
+/root/songhealth-recovery-copy/20261125T142859Z/3-songhealth-encryption-key root:root 600 58 bytes
+/root/songhealth-recovery-copy/20261125T142859Z/4-songhealth-db-password root:root 600 65 bytes
+stage A PASS: one version (20261125T142859Z), four entries, root-only, outside the account
+== stage B step 1: staging (no value shown)
+/home/songhealth/.local/state/songhealth-t028-staging songhealth:songhealth 700 4096 bytes
+/home/songhealth/.local/state/songhealth-t028-staging/1-PGPASSWORD songhealth:songhealth 600 65 bytes
+/home/songhealth/.local/state/songhealth-t028-staging/2-songhealth-migration-database-url songhealth:songhealth 600 129 bytes
+/home/songhealth/.local/state/songhealth-t028-staging/3-songhealth-encryption-key songhealth:songhealth 600 58 bytes
+/home/songhealth/.local/state/songhealth-t028-staging/4-songhealth-db-password songhealth:songhealth 600 65 bytes
+== stage B step 2: K2, the staged material against the protected copy (cmp exit status)
+K2 1-PGPASSWORD: identical
+K2 2-songhealth-migration-database-url: identical
+K2 3-songhealth-encryption-key: identical
+K2 4-songhealth-db-password: identical
+root-stage exit 0
+2026-11-27T12:46:36Z == step 2: K1 (the encryption key's staged material), as runtime-secret-recovery.md §8.3.3 gives it
+2026-11-27T12:46:36Z K1 exit 0
+2026-11-27T12:46:36Z == step 2: each staged file is one line (the bootstrap credential: no embedded newline)
+2026-11-27T12:46:36Z 1-PGPASSWORD: 1 line(s)
+2026-11-27T12:46:36Z 2-songhealth-migration-database-url: 1 line(s)
+2026-11-27T12:46:36Z 3-songhealth-encryption-key: 1 line(s)
+2026-11-27T12:46:36Z 4-songhealth-db-password: 1 line(s)
+2026-11-27T12:46:36Z == step 3: the three Podman secrets replaced from the staging files
+songhealth-migration-database-url Less than a second ago
+songhealth-encryption-key Less than a second ago
+songhealth-db-password Less than a second ago
+2026-11-27T12:46:37Z == step 4: PGPASSWORD written back into songhealth-app.env (the value read by awk from its file)
+2026-11-27T12:46:37Z songhealth-app.env: byte-identical with the recovered PGPASSWORD (the live value was the copy's)
+/home/songhealth/.config/containers/systemd/songhealth-app.env 600
+2026-11-27T12:46:37Z == step 5 (T028's order): both units stopped, the database alone started
+active
+inactive
+2026-11-27T12:46:44Z == §8.3.4: the bootstrap credential's probe, password-authenticated over the private network
+songhealth_admin
+2026-11-27T12:46:44Z probe exit 0
+acct-secrets exit 0
+SECRETS 2026-11-27T12:46:44Z
+
+########## run-7-restore
+== 2026-11-27T12:46:49Z restore production from the fetched set
+recovery-set: the set /home/songhealth/recovery-fetched/2026-11-27T123632Z was admitted: production's, taken 2026-11-27T12:36:33Z while it served localhost/songhealth-app:1.0.0-rc.1@sha256:316d4f748127ad1314d48190b7e2baaac3063a3eaecdad6678b9076138eca1c7
+recovery-set: replace the whole songhealth database of the production runtime with the set's? [type yes]: recovery-set: replace every file of the songhealth-media volume, but its marker, with the set's? [type yes]: recovery-set: resetting the public schema of songhealth, owned by songhealth_app
+recovery-set: emptying the songhealth-media volume but for .songhealth-media-store, then extracting the set's media
+recovery-set: PASS: restored the production runtime from /home/songhealth/recovery-fetched/2026-11-27T123632Z, and the integrity check passed: 82 tables, 887 rows, 247 media files, 90 migrations
+recovery-set: start the app: systemctl --user start songhealth-app.service
+restore exit 0
+RESTORED 2026-11-27T12:47:04Z
+
+########## run-8-ready
+2026-11-27T12:47:08Z == the application started
+2026-11-27T12:47:31Z started: active
+songhealth readiness: ready
+timestamp: 2026-11-27T12:47:31.568Z
+2026-11-27T12:47:31Z readiness exit 0
+2026-11-27T12:47:31Z READY
+2026-11-27T12:47:31Z == the gates of this start (journal since 2026-11-27 19:47:08)
+songhealth-app: least-privilege application-role and public-only schema prerequisites verified: both connections create into public (current_schema) with effective lookup exactly public beyond the doc
+t013: [S1] PASS inputs valid and PG*/migration-URL identity agreement proven (non-secret components only)
+t013: [S2] PASS exact application built (npm run build)
+t013: [S2] PASS native .emdash/migrations.json emitted by the exact build; identity, checksum, and secret safety verified
+t013: [S3] PASS target inspected with emdash migrate --status (no mutation); fingerprint derived from the inspected target; no unknown state
+t013: [S4] PASS native emdash migrate applied with --expected-target-fingerprint from the inspected target; nothing pending, nothing unknown
+t013: [S5] PASS migration state verified with emdash migrate --check
+t013: [S6] PASS bounded disposable media write/read/remove probe passed against the stable media mount (exclusive claim, no clobber, no symlink follow)
+t013: T013 startup acceptance gate: PASS
+2026-11-27T12:47:32Z == a key diagnostic in this start's journal (none expected)
+0
+2026-11-27T12:47:32Z == K3: the running container's mounted key against the staging file (cmp over stdin)
+2026-11-27T12:47:32Z K3 exit 0
+2026-11-27T12:47:32Z == §6.2 step 7: the staging files removed
+2026-11-27T12:47:32Z staging removed
+acct-after exit 0
+
+########## run-9-after
+== 2026-11-27T12:47:45Z read-back after the restore
+picture: HTTP 200 image/png 9316 bytes
+2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396
+homepage tagline: Songhealth Feature 001 foundation validation
+== 2026-11-27T12:47:46Z the virtual Administrator signs in
+rehearsal-admins: the machine is the rehearsal machine (songhealth.moph.go.th, Internal Test CA)
+PASS S-R the stored Administrator signs in with device R's passkey, unchanged: second-admin@songhealth.invalid, role 50
+== 2026-11-27T12:47:54Z stack-check
+PASS R1 a thumbnail of a site media file: HTTP 302 to https://songhealth.moph.go.th/_emdash/api/media/file/stack-check.png
+PASS R2 a thumbnail with its content hash: HTTP 302 to https://songhealth.moph.go.th/_emdash/api/media/file/stack-check.png?_emdash_media=sha1%3A0123abcd
+PASS R3 a thumbnail asked at an encoded path: HTTP 302 to https://songhealth.moph.go.th/_emdash/api/media/file/stack-check.png
+PASS B1 a body over the limit: HTTP 413 REQUEST_BODY_TOO_LARGE
+PASS B2 a body of the Admin's largest upload: HTTP 403 CSRF_REJECTED
+PASS D1 the development sign-in bypass: HTTP 403 FORBIDDEN
+PASS D2 the development setup bypass: HTTP 403 FORBIDDEN
+stack-check: all passed
+
+########## run-10-remove
+2026-11-27T12:48:38.265Z token "T028 rehearsal validation removal (#461)" made: HTTP 201, scopes settings:read settings:manage media:read media:write, expires in 24 h
+2026-11-27T12:48:38.281Z media 01M8DZSZFGZ5AJA48G71QDRD9A: HTTP 200, filename validation-picture.png, storageKey 01M8DZSZFEWR0CK7CA11E16S20.png, image/png, 9316 bytes
+2026-11-27T12:48:38.292Z before: HTTP 200 tagline "Songhealth Feature 001 foundation validation" (44 bytes, sha256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415)
+2026-11-27T12:48:38.310Z settings POST {"tagline": ""}: HTTP 200
+2026-11-27T12:48:38.317Z after: HTTP 200 tagline "" (0 bytes, sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855)
+2026-11-27T12:48:38.359Z media DELETE 01M8DZSZFGZ5AJA48G71QDRD9A: HTTP 200 {"deleted":true,"storageDeleted":true}
+2026-11-27T12:48:38.366Z media item after: HTTP 404
+2026-11-27T12:48:38.370Z the picture's file, no token: HTTP 404
+2026-11-27T12:48:38.391Z token revoked: HTTP 200
+2026-11-27T12:48:38.395Z the revoked token's settings GET: HTTP 401
+exit=0
+
+########## run-11-check
+== 2026-11-27T12:48:45Z the nightly run by hand, after the removal
+unit exit 0
+{
+	"time": "2026-11-27T12:48:46.136Z",
+	"set": "2026-11-27T124846Z",
+	"result": "ok",
+	"complete": true,
+	"appRunning": true,
+	"downtimeSeconds": 53.4,
+	"setBytes": 1005663148
+}
+
+== 2026-11-27T12:49:39Z the check on 2026-11-27T124846Z
+PASS: no validation content and no validation media remain in the Recovery Set 2026-11-27T124846Z (taken 2026-11-27T12:48:46Z): the validation tagline and the picture's key are in no row of its database, and none of its 246 media files is the validation picture
+validation-content exit 0
+0
+active
+active
+2026-11-26T200000Z
+2026-11-27T094219Z
+2026-11-27T094722Z
+2026-11-27T094927Z
+2026-11-27T100102Z
+2026-11-27T123632Z
+2026-11-27T124846Z
+
+########## run-12-after
+== 2026-11-27T13:20:28Z the account: what the drill left in its home
+ls: cannot access '/home/songhealth/recovery-fetched': No such file or directory
+ls: cannot access '/home/songhealth/t461-*.bundle': No such file or directory
+2026-11-26T200000Z
+2026-11-27T094219Z
+2026-11-27T094722Z
+2026-11-27T094927Z
+2026-11-27T100102Z
+2026-11-27T123632Z
+2026-11-27T124846Z
+== 2026-11-27T13:20:28Z root: the fetch folders
+0
+
+########## run-13-dev-runtime
+== 2026-11-27T13:20:28Z the workstation: the development runtime after the drill
+PASS: runtime source is the promoted commit, clean
+VERIFY: PASS
+songhealth-qdev-db-data created 2026-10-28 23:51:27.801310956 +0700 +07
+songhealth-qdev-media created 2026-10-28 23:51:27.883354232 +0700 +07
+the promoted commit: 31b4ca145777851dd51d05257decd65ef7d4b191
+
+########## run-14-windows-signin
+== the Product Owner's test Chrome on their Windows computer, through scripts/windows-drive.ts (windows-client-runbook.md §2)
+-- probe
+chrome: Chrome/158.0.8127.38
+edge: no answer through the tunnel: the Product Owner opens the test browser (runbook §2, step 2), or the computer is asleep
+-- chrome snap /_emdash/admin
+158.0.8127.38 /_emdash/admin/login
+- img "EmDash"
+- heading "Sign in to your site" [level=1]
+- button "Sign in with Passkey"
+- paragraph: Use your device's biometric authentication, security key, or PIN to sign in.
+- text: Or continue with
+- button "Sign in with email link"
+- paragraph: Use your registered passkey to sign in securely.
+- combobox "Language": English
+- region "Notifications"
+-- chrome eval: /_emdash/api/auth/me before
+401
+-- chrome click button "Sign in with Passkey" (the Product Owner brought the window up and approved Windows Hello)
+2026-11-27T13:39:28Z
+clicked button "Sign in with Passkey"
+exit 0
+-- chrome eval: /_emdash/api/auth/me, before the PIN
+2026-11-27T13:39:33Z
+{"status":401,"path":"/_emdash/admin/login"}
+-- chrome eval: /_emdash/api/auth/me, after the Product Owner's "done"
+2026-11-27T13:40:47Z
+{"status":200,"email":"po-rehearsal@songhealth.invalid","role":50,"path":"/_emdash/admin"}
