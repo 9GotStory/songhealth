@@ -18,6 +18,16 @@
 #                                      Operator's scripts/host/root-setup.sh step 6 does: on the
 #                                      rehearsal machine only, Claude Code installs it (Product
 #                                      Owner, #458 comment 7209607314); it prints the file's SHA-256
+#   sudo bash stand-in.sh alert        the contract's alert command (§4), songhealth-alert in
+#                                      /usr/local/bin: it sends no email and drops each message
+#                                      into /var/spool/songhealth-alerts instead (#460; #462 makes
+#                                      it a mail sink)
+#   sudo bash stand-in.sh backup       the central backup's stand-in (§3, #460): Restic from Ubuntu
+#                                      into a throwaway repository on this machine, a root timer at
+#                                      04:00 Asia/Bangkok, and its status file
+#   sudo bash stand-in.sh backup-run   one run of that backup now (what its timer runs)
+#   sudo bash stand-in.sh host-env     write the account's ~/.config/songhealth/host.env, naming the
+#                                      alert command and the status file, as the host would (§3, §4)
 #
 # The Internal Test CA (spec #450, Product Owner, Windows client, 2026-11-25): short-lived,
 # constrained to songhealth.moph.go.th, made on this machine, and its private key never leaves
@@ -32,6 +42,13 @@ CA_DAYS=30
 CA_DIR=/root/songhealth-test-ca
 CERT_DIR=/etc/caddy/certs
 SITES_DIR=/etc/caddy/sites
+ACCOUNT=songhealth
+SETS=/home/$ACCOUNT/recovery-sets
+ALERT_COMMAND=/usr/local/bin/songhealth-alert
+ALERT_SPOOL=/var/spool/songhealth-alerts
+BACKUP_DIR=/root/songhealth-backup-stand-in
+STATUS_DIR=/var/lib/songhealth-backup-stand-in
+STATUS=$STATUS_DIR/status.json
 
 [[ $(id -u) == 0 ]] || { echo "stand-in: run as root" >&2; exit 1; }
 
@@ -170,6 +187,111 @@ SITE
   echo "name-check $1"
 }
 
+alert_install() {
+  install -d -m 1733 "$ALERT_SPOOL"
+  cat >"$ALERT_COMMAND" <<'ALERT'
+#!/usr/bin/env bash
+# Rehearsal stand-in for the host contract's alert command (production-host-contract.md §4;
+# Songhealth #460): `songhealth-alert <subject>`, the message's body on standard input, run
+# without sudo. It sends no email: each message becomes one file in /var/spool/songhealth-alerts,
+# which only root can list.
+set -euo pipefail
+[[ $# == 1 && -n $1 ]] || { echo "usage: songhealth-alert <subject>  (the body on standard input)" >&2; exit 2; }
+umask 077
+file=/var/spool/songhealth-alerts/$(date -u +%Y%m%dT%H%M%SZ)-$$.txt
+{ printf 'Subject: %s\nFrom-account: %s\nAt: %s\n\n' "$1" "$(id -un)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"; cat; } >"$file"
+ALERT
+  chmod 0755 "$ALERT_COMMAND"
+  echo "alert command $ALERT_COMMAND, messages in $ALERT_SPOOL"
+}
+
+host_env() {
+  install -d -m 0700 -o "$ACCOUNT" -g "$ACCOUNT" "/home/$ACCOUNT/.config/songhealth"
+  printf '%s\n' "# The host's names for Songhealth's side of the contract (rehearsal stand-in, #460)." \
+    "SONGHEALTH_ALERT_COMMAND=$ALERT_COMMAND" "SONGHEALTH_BACKUP_STATUS=$STATUS" |
+    install -m 0600 -o "$ACCOUNT" -g "$ACCOUNT" /dev/stdin "/home/$ACCOUNT/.config/songhealth/host.env"
+  cat "/home/$ACCOUNT/.config/songhealth/host.env"
+}
+
+# The central backup's stand-in (contract §3): it only reads Songhealth's folder of finished sets,
+# takes each complete set it does not hold yet into a Restic repository on this machine, keeps 30
+# daily and 12 monthly by each set's own time, and writes its status where the account can read it.
+# The repository's password is made here and never leaves /root; the repository is thrown away with
+# the machine. No production data and no Google Drive are involved (#460).
+backup_install() {
+  apt-get install -y -qq restic >/dev/null
+  install -d -m 0700 "$BACKUP_DIR"
+  install -d -m 0755 "$STATUS_DIR"
+  if [[ ! -f $BACKUP_DIR/password ]]; then
+    (umask 077 && head -c 32 /dev/urandom | base64 >"$BACKUP_DIR/password")
+    RESTIC_REPOSITORY=$BACKUP_DIR/repo RESTIC_PASSWORD_FILE=$BACKUP_DIR/password restic init --quiet
+  fi
+  install -m 0755 "$0" /usr/local/sbin/songhealth-stand-in.sh
+  cat >/etc/systemd/system/songhealth-backup-stand-in.service <<UNIT
+[Unit]
+Description=Rehearsal stand-in for the central backup (Songhealth #460)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash /usr/local/sbin/songhealth-stand-in.sh backup-run
+UNIT
+  cat >/etc/systemd/system/songhealth-backup-stand-in.timer <<UNIT
+[Unit]
+Description=Rehearsal stand-in for the central backup, at 04:00 Asia/Bangkok
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 Asia/Bangkok
+
+[Install]
+WantedBy=timers.target
+UNIT
+  systemctl daemon-reload
+  systemctl enable --now songhealth-backup-stand-in.timer
+  restic version
+  systemctl list-timers songhealth-backup-stand-in.timer --no-pager
+}
+
+backup_run() {
+  export RESTIC_REPOSITORY=$BACKUP_DIR/repo RESTIC_PASSWORD_FILE=$BACKUP_DIR/password \
+    RESTIC_CACHE_DIR=$BACKUP_DIR/cache
+  local result=ok dir name files held newest partial
+  held=$(restic snapshots --json --tag songhealth-set | jq -r '.[].tags[]' | sed -n 's/^set=//p') ||
+    result=failed
+  shopt -s nullglob
+  for dir in "$SETS"/*; do
+    name=${dir##*/}
+    if [[ ! $name =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z$ || -L $dir || ! -d $dir ]]; then
+      echo "backup-run: skipped $name: not one of Songhealth's sets"
+      continue
+    fi
+    files=$(find "$dir" -mindepth 1 -maxdepth 1 -type f -printf '%f\n' | sort | paste -sd' ')
+    if [[ $files != 'database.dump manifest.json media.tar' || $(find "$dir" -mindepth 1 | wc -l) != 3 ]]; then
+      echo "backup-run: skipped $name: not a complete set ($files)"
+      continue
+    fi
+    grep -qx "$name" <<<"$held" && continue
+    # The snapshot carries the set's own time, read in this machine's zone as Restic reads --time.
+    if (cd "$SETS" && restic backup --quiet --host songhealth --tag songhealth-set --tag "set=$name" \
+      --time "$(date -d "${name:0:13}:${name:13:2}:${name:15:2}Z" '+%Y-%m-%d %H:%M:%S')" "$name"); then
+      echo "backup-run: took $name"
+    else
+      result=failed
+    fi
+  done
+  restic forget --quiet --host songhealth --tag songhealth-set --group-by host \
+    --keep-daily 30 --keep-monthly 12 --prune || result=failed
+  newest=$(restic snapshots --json --tag songhealth-set |
+    jq -r '[.[].tags[] | select(startswith("set=")) | ltrimstr("set=")] | sort | last // ""') ||
+    result=failed
+  partial=$STATUS.partial
+  jq -n --arg time "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg result "$result" --arg newest "$newest" \
+    '{time: $time, result: $result, newestSet: (if $newest == "" then null else $newest end)}' >"$partial"
+  chmod 0644 "$partial"
+  mv "$partial" "$STATUS"
+  cat "$STATUS"
+  [[ $result == ok ]]
+}
+
 case ${1:-} in
   caddy) caddy_install ;;
   tailscale) tailscale_install ;;
@@ -177,5 +299,9 @@ case ${1:-} in
   name-check) name_check "${2:-}" ;;
   caddyfile) write_caddyfile && reload && echo "Caddyfile written, Caddy reloaded" ;;
   site) site "${2:-}" ;;
+  alert) alert_install ;;
+  backup) backup_install ;;
+  backup-run) backup_run ;;
+  host-env) host_env ;;
   *) sed -n '2,/^set -euo/p' "$0" | sed '$d'; exit 2 ;;
 esac

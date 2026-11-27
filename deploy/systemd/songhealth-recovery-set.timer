@@ -1,0 +1,16 @@
+# When Songhealth's nightly Recovery Set runs (#460; spec #450 "Recovery Sets, every night"):
+# 03:00 every day, Asia/Bangkok, whatever time zone the host keeps. Enabled once by the Deployment
+# account: systemctl --user enable --now songhealth-recovery-set.timer.
+[Unit]
+Description=Songhealth nightly Recovery Set at 03:00 Asia/Bangkok
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 Asia/Bangkok
+# A night the machine or the user manager missed is not caught up, since a late run would stop the
+# site in office hours (Product Owner, #460 comment 7214747287); the earlier sets stay.
+Persistent=false
+AccuracySec=1min
+Unit=songhealth-recovery-set.service
+
+[Install]
+WantedBy=timers.target

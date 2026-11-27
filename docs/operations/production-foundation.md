@@ -34,7 +34,8 @@ T028, waits for T022. See §11.
 ## 1. Scope, authority, and verification status
 
 In scope here: installation, one-time provisioning, startup, start/stop/restart/recreation,
-the Recovery Set's backup and restore (§7.6), cutting a Release (§7.7, Feature 016), readiness
+the Recovery Set's backup and restore (§7.6), cutting a Release (§7.7, Feature 016), the nightly
+Recovery Set (§7.9, Feature 016), readiness
 interpretation, the private database boundary, and the external HTTPS/reverse-proxy boundary of the
 Feature 001 production baseline.
 
@@ -49,8 +50,8 @@ Recovery Set is taken every night and kept off the host, and monitoring is split
 Songhealth's watch and the host's (`10` §3.1, §17, §18).
 [`production-host-contract.md`](production-host-contract.md) states what Songhealth needs from the
 host for each. §2 and §10 already name the proxy's place and the split watch; §7.6 describes the
-Recovery Set taken by hand until the nightly set's ticket (#460) lands, and each Feature 016 ticket
-brings this document to what it builds.
+Recovery Set's commands and §7.9 the nightly run that takes one every night (#460), and each
+Feature 016 ticket brings this document to what it builds.
 
 ## 2. Production topology
 
@@ -422,7 +423,7 @@ throwaway stand-in, `scripts/rehearsal/stand-in.sh`.
 | Packages Podman only recommends | The cloud image has no `uidmap`; without recommends there is no `catatonit`, and `netavark` lacks `aardvark-dns`, so the application's gate failed with `EAI_AGAIN` resolving the database's name | `root-setup.sh` installs `podman uidmap passt catatonit dbus-user-session aardvark-dns nftables` by name, without recommends. A database started before `aardvark-dns` existed must be restarted once |
 | `/usr/bin/stat` is uutils 0.10.0 (GNU's is `/usr/bin/gnustat`) | The guard's command under `podman unshare` printed the same records as GNU's on the real store, and matched on an empty file, a symbolic link and a missing path; only standard error differs | The unit keeps `/usr/bin/stat`; T022 records it again |
 | AppArmor and `pasta` (Launchpad 2154379) | Each stop logs one denial: profile `pasta` refuses `SIGTERM` from `podman`. The rootless network's teardown still completed in three stop/start cycles | No safeguard changed; the denial is recorded as known |
-| The same denial, on the database unit (#459) | When the database, the last container on the rootless network, stops, its `ExecStop` (`podman rm`) exits 125 on `rootless netns: kill network process: permission denied`, so `songhealth-db.service` ends a planned stop `failed`, result `exit-code`: nine stops of nine in the T016 run. No `pasta` is left running, and the next start leaves the unit `active`, result `success`. A Recovery Set's commands (§7.6) stop the application alone, so the set should not meet it; untried, the nightly set's ticket (#460) runs it | No safeguard and no unit changed (Product Owner, #459 comment 7213181563). The watch is to raise no alert for it after a planned stop, which #462 builds and tries; the Production host is read again in #466 and #467 |
+| The same denial, on the database unit (#459) | When the database, the last container on the rootless network, stops, its `ExecStop` (`podman rm`) exits 125 on `rootless netns: kill network process: permission denied`, so `songhealth-db.service` ends a planned stop `failed`, result `exit-code`: nine stops of nine in the T016 run. No `pasta` is left running, and the next start leaves the unit `active`, result `success`. A Recovery Set's commands (§7.6) stop the application alone, and the nightly run (§7.9) left `songhealth-db.service` `active` through each of its runs on the rehearsal machine (#460) | No safeguard and no unit changed (Product Owner, #459 comment 7213181563). The watch is to raise no alert for it after a planned stop, which #462 builds and tries; the Production host is read again in #466 and #467 |
 | PostgreSQL under Linux 7.0 (release notes, known issues) | `huge_pages` is `try`, its status `off`: the host reserves no huge pages | Recorded; #464 measures with and without before anything is proposed |
 | `sudo` is sudo-rs | The Deployment account is refused | Nothing changed |
 
@@ -908,8 +909,11 @@ The manifest records the runtime, the image `songhealth-app.container` pins, the
 `pg_dump`, server and EmDash versions, both archives' sizes and SHA-256, every table's row count
 and the SHA-256 of its rows in primary-key order, EmDash's applied migrations, and every media
 file's path, size and SHA-256. It prints the totals and the three files' SHA-256 for the
-Operator's record. Then copy the set off the host over a private channel, since a set on the host
-dies with the host; keeping several sets and a schedule are not part of this baseline.
+Operator's record. A set on the host dies with the host, and none leaves it before the
+data-governance approval exists (§7.9 "Off the host"). Besides such a set, the nightly run takes
+one every night, keeps seven on the host and leaves them to the host's backup, which takes them off
+it once that approval exists (§7.9; `production-host-contract.md` item 3); a set taken by hand
+stays outside that folder.
 
 The database's name and its administrator's come from the database container's own
 `POSTGRES_DB` and `POSTGRES_USER` (`songhealth-db.env`), and the application role from the
@@ -1056,7 +1060,8 @@ below are the ones run there.
    application is refused once on purpose without its media volume, so the site does not answer
    for most of the run: on the rehearsal machine the application served no request for
    301.0 s of the 323.3 s run, at most 31.8 s at a time. Nobody may rely on
-   the site during the run; the proxy has no page of its own for it before #460's notice.
+   the site during the run; while the application is down the proxy answers the nightly set's
+   notice with 503 (§10, #460).
 3. **The checkout**: a git checkout at the Release record's `buildCommit` (§7.7) in the account's
    home, made from a bundle Claude Code copies over SSH, so that the host needs no access to
    GitHub (`git bundle create <file> <branch>` on the workstation; on the host
@@ -1134,6 +1139,115 @@ self-test's npm case needs an npm. It runs on the workstation and in CI at the b
 **After the run**: revoke both tokens on the API Tokens page and remove their files. The validation
 tagline and picture stay for T028 (§7.6; #469 on the Production host, #461 on the rehearsal
 machine) and are removed after it (#470).
+
+### 7.9 The nightly Recovery Set (Feature 016)
+
+Every night at 03:00 Asia/Bangkok the Deployment account's user manager, which lingers (§4.6),
+starts `songhealth-recovery-set.service` from `songhealth-recovery-set.timer`
+([`deploy/systemd/`](../../deploy/systemd/)), with nobody logged in. A night the machine or the
+user manager missed is not caught up, so the site is never stopped in office hours by a late run
+(Product Owner, #460 comment 7214747287). The service runs
+[`scripts/nightly-recovery-set.ts`](../../scripts/nightly-recovery-set.ts), whose rules are in its
+planning module, in this order:
+
+1. **Before it stops anything**, it refuses when another run holds its lock, when the host's
+   `~/.config/songhealth/host.env` names no alert command (`production-host-contract.md` items 3
+   and 4), or when the application is not running: someone stopped it, for a restore perhaps, or it
+   failed. That night has no set, the application is left as it was, and the refusal is reported
+   (a lock held by another run is only written to the journal).
+2. **stop:** `systemctl --user stop songhealth-app.service`. The database stays up; from here the
+   proxy answers every address that reaches the application with its notice (§10).
+3. **take:** `recovery-set.ts backup production` (§7.6) into
+   `~/.local/share/songhealth/recovery-staging/<UTC time>`, where the host's backup cannot see it.
+4. **check:** `recovery-set.ts check production` of that set against the stopped runtime.
+5. **start:** `systemctl --user start songhealth-app.service`, as soon as the check passes; it
+   returns once the application is healthy (§6.2). The run waits for no copy off the host.
+6. **prune:** the oldest complete sets in `~/recovery-sets` beyond the newest six are removed. Only
+   a plain directory with a set's name and exactly its three files counts or goes; anything else in
+   the folder is left as it is and named in the journal.
+7. **publish:** the night's set is renamed into `~/recovery-sets/<UTC time>`, which makes seven.
+
+A failure at stop, take or check still leads to the start, which is tried once. A failure at any
+step keeps nothing of the night: its set is removed and never reaches `~/recovery-sets`, so the
+host's backup never sees it, and the earlier sets stay; a failure at the publication comes after
+the prune has made room, so at most six then remain. Every night that does not keep its set
+sends one message through the host's alert command, `<command> "<subject>"` with the body on
+standard input (contract item 4), which says which step failed, how it ended, and whether the
+application is running; a failed command's own errors are only in the journal, since the message
+leaves the host. A hung run is stopped by the unit after 30 minutes; the stop's signal ends the
+step it is in, which counts as a failure, so the run still starts the application and reports (on
+the rehearsal machine a `systemctl --user stop` of the unit during the take did so, #460). The run
+copies nothing off the host: taking the sets off it is the host's backup's (contract item 3).
+
+**Installing it**, once, as the account, after §4.7:
+
+1. The checkout the unit runs, at `~/songhealth-checkout`, at the Release record's
+   `deploymentConfigCommit` (§7.7), from a bundle copied over SSH as §7.8 step 3 does
+   (`git bundle create <file> <branch>` on the workstation), and moved to the new record's commit
+   after each Release. Node is `~/.local/bin/node` (§4.7 step 2).
+
+   ```bash
+   git clone --no-checkout <bundle> ~/songhealth-checkout          # the first time
+   git -C ~/songhealth-checkout fetch <bundle> <branch>              # after a Release
+   git -C ~/songhealth-checkout checkout --detach <deploymentConfigCommit>
+   git -C ~/songhealth-checkout rev-parse HEAD                       # names that commit
+   ```
+2. The host's `~/.config/songhealth/host.env`, which the Operator writes (contract item 3): the
+   alert command and the backup's status file, one `NAME=/absolute/path` a line.
+3. The units, then the timer:
+
+   ```bash
+   install -d -m 0700 ~/.config/systemd/user
+   cp ~/songhealth-checkout/deploy/systemd/songhealth-recovery-set.{service,timer} ~/.config/systemd/user/
+   systemctl --user daemon-reload
+   systemctl --user enable --now songhealth-recovery-set.timer
+   systemctl --user list-timers songhealth-recovery-set.timer    # NEXT names the coming 03:00
+   ```
+
+**Reading a night's result**, as the account:
+
+- `cat ~/.local/state/songhealth/nightly-recovery-set.json`: the night's `time` (UTC), its `set`,
+  `result` (`ok`, `failed` or `refused`), `complete` (whether the set reached `~/recovery-sets`),
+  `failedStep` and `reason` when it did not, `appRunning` at the end, and, on a kept night,
+  `downtimeSeconds` (from the stop to the application healthy again) and `setBytes`.
+- `journalctl --user -u songhealth-recovery-set.service -t node -o short-iso`: the run's own
+  lines, one a step with its time, then `ok: the set <name> is kept …` or `failed: …` with the
+  message sent; the unit is `failed` after a night that did not keep its set
+  (`systemctl --user status songhealth-recovery-set.service`).
+- `ls ~/recovery-sets`: up to seven sets, newest last.
+- The host's backup's status, at the path `SONGHEALTH_BACKUP_STATUS` names: its last run's `time`,
+  `result` and `newestSet`, which the night's set reaches after the backup's own next run.
+
+**Running it by hand**: `systemctl --user start songhealth-recovery-set.service` runs the same
+night, with the same lock, and returns when it ends; it stops the site for its length, so it is
+announced first. Its set is one of the seven, so it pushes the oldest night's set out. A drill of
+a failure runs the command itself from the checkout,
+`cd ~/songhealth-checkout && ~/.local/bin/node scripts/nightly-recovery-set.ts --fail-at <step>`,
+where `<step>` is `stop`, `take`, `check`, `start`, `prune` or `publish`: the step does its work and
+then counts as failed, so the night's set is not kept and the alert is sent. The publication fails
+before its rename, so the drill's set never enters `~/recovery-sets`, where the host's backup could
+take a set the run then removed (contract item 3): the Product Owner's exception to their answer
+that each step does its work first (#460 comments 7214747287 and 7216031111). The timer's unit
+never passes it.
+
+**Off the host.** No production set leaves the host before the data-governance approval exists:
+the office's rules for keeping a set, which holds staff email addresses and passkey records, off
+the host, even encrypted (spec #450, contract item 3). That approval is also a dependency of T028
+on the Production host, which restores from the off-site copy.
+
+**On the rehearsal machine** (#460), the host's side is the stand-in's
+(`scripts/rehearsal/stand-in.sh`): `alert` drops each message into `/var/spool/songhealth-alerts`
+instead of sending an email, `backup` keeps a throwaway Restic repository on the machine and writes
+the status file, `host-env` writes the account's `host.env`. No production data and no off-site
+store are involved.
+
+**Measured on the rehearsal machine** (#460; rehearsal figures, not the Production host's): the demo
+dataset with 201 synthetic pictures of about 5 MB each, a media volume of 1,005,087,179 bytes. Three
+whole runs: by hand 53.7 s, by the unit 44.0 s, and started by the timer with nobody logged in
+42.7 s, from the stop to the application healthy again. The stop took under a second, the take
+about 15 s, the check about 4 s, and the start about 23–34 s, most of the downtime. Each set held
+about 1,005,672,750 bytes: a `database.dump` of 389,568 bytes and a `media.tar` of 1,005,230,080.
+Seven such sets keep about 7 GB in `~/recovery-sets`.
 
 ## 8. Readiness interpretation
 
@@ -1267,6 +1381,16 @@ closes #218's two findings (#458; rehearsal evidence on #218, and the Production
   before it reaches the application. Under the limit, EmDash's own limits answer.
 - **The order.** The private-network snippet runs first, so a source outside the allowed network
   gets no answer of any kind, a redirect or a 413 included.
+- **The notice.** While the application is stopped for the night's Recovery Set (§7.9),
+  `reverse_proxy` cannot connect and raises a 502 error; the site answers it with one static Thai
+  notice (`handle_errors 502`), HTTP 503, `Retry-After: 300` and `Cache-Control: no-store`, at
+  every address that reaches the application. The notice needs nothing the stopped application
+  serves. A response the application writes, a 502 included, never reaches the error routes
+  (Caddy's `handle_errors` documentation; the rehearsal machine's `stack-check --stopped` read the
+  notice on Caddy 2.11.9, #460);
+  `/_image` keeps its 403 and its redirect, and a source outside still gets no answer (Product
+  Owner, #460 comment 7214747287). No maintenance mode or switch is added: the notice answers
+  whenever the application does not, a failed start included.
 
 The deployed-stack check reads all of it from outside, through the proxy at the site's real name,
 on the rehearsal machine and on the Production host alike:
@@ -1274,7 +1398,7 @@ on the rehearsal machine and on the Production host alike:
 ```bash
 node scripts/stack-check.ts --inside <address on the private network> \
   --outside <address a source outside it reaches> [--ca <the authority's certificate, when not public>] \
-  [--other-site <another system's site on the same proxy>]
+  [--other-site <another system's site on the same proxy>] [--stopped]
 ```
 
 It prints one PASS or FAIL line a check and no address, sends no request body, and exits 1 when
@@ -1285,7 +1409,10 @@ name is closed (H1, H2) and that the site's name in another spelling still reach
 and the rehearsal machine's loopback showed the fixed name on every request that reached the
 application (#458). On the rehearsal machine `--outside` is the workstation's loopback forward
 (`scripts/rehearsal/vm.sh`), `--ca` the Internal Test CA's certificate and `--other-site` the
-stand-in's `other-system.invalid`. The pictures themselves, in the Admin and on the public pages
+stand-in's `other-system.invalid`. With `--stopped`, run while the application is stopped, it
+reads the notice instead (N1–N6: the homepage, a public list, the Admin's sign-in page, an API
+address, a media file and an upload) with `/_image`'s refusal and redirect (I1, R1) and the
+outside's refusal (P1). The pictures themselves, in the Admin and on the public pages
 at phone and desktop widths, are read by `scripts/rehearsal-pictures.ts` on the rehearsal machine
 only.
 

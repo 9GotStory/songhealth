@@ -54,8 +54,12 @@ Out of scope, unchanged:
   (`scripts/recovery-set.ts`, `production-foundation.md` §7.6; #221 replaced the T025–T027
   sources); this document treats them only as a separate, independently required dependency
   (data-model §6–§7).
-- **Any RTO/RPO, schedule, retention, or rating policy** — no time or rating threshold applies
-  (spec clarification 2026-10-06); none is invented here.
+- **Any RTO/RPO, schedule, retention, or rating policy for secret recovery** — no time or rating
+  threshold applies (spec clarification 2026-10-06); none is invented here. The Recovery Set's own
+  schedule and retention, which Feature 016 sets (every night at 03:00 Asia/Bangkok, seven sets on
+  the host, the off-site retention the host's backup keeps; `production-foundation.md` §7.9, spec
+  #450), cover the database and the media only: a set holds no runtime secret, and its schedule
+  changes nothing here.
 - **Destructive reset of any store, and any unsupported key-rotation procedure** (§9).
 - **Executing the drill** — T028, gated on T022 PASS and accepted T023–T027 sources (§11).
 

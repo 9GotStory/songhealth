@@ -1,0 +1,21 @@
+# Songhealth's nightly Recovery Set (#460; docs/operations/production-foundation.md §7.9): a user
+# unit of the Deployment account, started by songhealth-recovery-set.timer under the account's
+# lingering user manager, so no session needs to be open. The command stops the application, takes
+# and checks the set, starts the application again, keeps seven sets and publishes the night's into
+# ~/recovery-sets, where the host's backup takes it (production-host-contract.md §3).
+#
+# Placed in ~/.config/systemd/user/ with the timer, from the checkout it runs: a checkout at the
+# Release record's deploymentConfigCommit at ~/songhealth-checkout (production-foundation.md
+# §7.9), and Node at ~/.local/bin/node (scripts/host/install-node.sh). A run by hand is
+# `systemctl --user start songhealth-recovery-set.service`.
+[Unit]
+Description=Songhealth nightly Recovery Set
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/songhealth-checkout
+ExecStart=%h/.local/bin/node scripts/nightly-recovery-set.ts
+# A run that hangs is stopped after 30 minutes. The stop's signal ends the step it is in, which the
+# command counts as failed, so it starts the application again and reports before it exits.
+TimeoutStartSec=30min
+TimeoutStopSec=5min

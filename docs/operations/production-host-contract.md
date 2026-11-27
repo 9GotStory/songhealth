@@ -108,21 +108,32 @@ Each item gives:
 ## 3. The central backup
 
 - **Interface:** Songhealth takes a Recovery Set every night at 03:00 Asia/Bangkok with the
-  application stopped (`10` §18) and keeps seven on the host. It writes each set where the backup
-  cannot see it, checks it, and only then moves it by a rename into its folder of finished sets, a
-  path under the account's home that the host is told once; a set there is therefore always
-  complete: its own directory, named by its UTC time, holding `database.dump`, `media.tar` and
-  `manifest.json` (`production-foundation.md` §7.6). The central backup takes each set from that
-  folder, encrypts it and keeps it off the host, 30 daily and 12 monthly. It writes its status to a
-  file the account can read, at a path the host names: a JSON object with the time of its last run
-  (`"time"`, UTC), its result (`"result"`, `"ok"` or `"failed"`) and the name of the newest set it
-  holds off the host (`"newestSet"`). Bringing a set back from off the host places its three files
-  in a folder the account can read, from which Songhealth's restore runs.
+  application stopped (`10` §18) and keeps seven on the host (#460, `production-foundation.md`
+  §7.9). It writes each set where the backup cannot see it
+  (`~/.local/share/songhealth/recovery-staging/`), checks it, and only then moves it by a rename
+  into its folder of finished sets, `~/recovery-sets/` under the account's home, the path the host
+  is told once; a set there is therefore always complete: its own directory, named by its UTC time
+  to the second (`2026-11-27T200000Z`), holding `database.dump`, `media.tar` and `manifest.json`
+  and nothing else (`production-foundation.md` §7.6). The central backup takes each complete set
+  from that folder, encrypts it and keeps it off the host. How long it keeps them is the central
+  backup's own setting, which the host sets and Songhealth does not: 30 daily and 12 monthly to
+  start (spec #450, "Recovery Sets, every night"). It writes its status to a file the account can
+  read, at a path the host names: a JSON object with the time of its last run (`"time"`, UTC), its
+  result (`"result"`, `"ok"` or `"failed"`) and the name of the newest set it holds off the host
+  (`"newestSet"`). Bringing a set back from off the host places its three files in a folder the
+  account can read, from which Songhealth's restore runs.
+- **The account's configuration:** the host names its paths for Songhealth in one file the account
+  reads, `~/.config/songhealth/host.env`, one `NAME=/absolute/path` a line:
+  `SONGHEALTH_BACKUP_STATUS` for this status file and `SONGHEALTH_ALERT_COMMAND` for the alert
+  command (§4). The Operator writes it; it holds no secret.
 - **Permission:** the backup reads the folder of finished sets and never writes or deletes there;
-  Songhealth removes its own sets beyond seven. The account reads the status file and cannot read
-  the backup's credentials or its encryption key. Bringing a set back is a root step of the
-  Operator's, and a restore that can lose data waits for the Operator's approval each time. No
-  production set leaves the host before the data-governance approval (spec #450).
+  Songhealth removes its own sets beyond seven, and only its nightly run does. The account reads
+  the status file and cannot read the backup's credentials or its encryption key. Bringing a set
+  back is a root step of the Operator's, and a restore that can lose data waits for the Operator's
+  approval each time. **No production set leaves the host before the data-governance approval**
+  exists: the office's rules for keeping a set, which holds staff email addresses and passkey
+  records, in the off-site store, even encrypted (spec #450, "Open questions"). Until then the
+  central backup is not pointed at the Production host's folder.
 - **Status:** the status file. Songhealth's watch reads it and reports a run that failed, and a
   newest set off the host older than the night's (§4).
 - **On failure:** a failed upload leaves the sets on the host as they are, and the status says
@@ -137,8 +148,10 @@ Each item gives:
 ## 4. The alert command
 
 - **Interface:** one command the account can run, at an absolute path the host names in the
-  account's configuration, as `<alert command> <subject>` with the message's body on standard
-  input. It sends an email to the recipients the host has set. Songhealth's watch calls it when its
+  account's configuration (`SONGHEALTH_ALERT_COMMAND` in `~/.config/songhealth/host.env`, §3), as
+  `<alert command> <subject>` with the message's body on standard
+  input. It sends an email to the recipients the host has set. The nightly run calls it for a night
+  that did not keep its set (#460); Songhealth's watch calls it when its
   service fails or restarts in a loop, when its readiness or its container's health fails, when the
   night's Recovery Set or the copy off the host fails (§3), and when application errors or HTTP 5xx
   answers appear in its access log (§5); it also sends the weekly health report through it.
@@ -199,8 +212,10 @@ states.
 
 Some details here go beyond what spec #450 decided, so that both sides can be built against them,
 and the Product Owner reviews them with this document: the snippet the site imports for the
-private-network rule and the one naming the certificate files (§1), the rename into the folder of finished sets and the status file's three
-keys (§3), the alert command's arguments (§4), the access log's JSON lines (§5), and the
-announcement of a Podman upgrade on the host before it is applied (§2). The tickets
-that build each side (#456, #458, #460, #462) confirm them against the stand-in, and a change goes
-into this document first.
+private-network rule and the one naming the certificate files (§1), the rename into the folder of
+finished sets and the status file's three keys (§3), the folder's and the configuration file's
+paths, a set's name and that its folder holds its three files and nothing else, and that the central
+backup is not pointed at the folder before the data-governance approval (§3, #460), the alert
+command's arguments (§4), the access log's JSON lines (§5), and the announcement of a Podman upgrade
+on the host before it is applied (§2). The tickets that build each side (#456, #458, #460, #462)
+confirm them against the stand-in, and a change goes into this document first.
