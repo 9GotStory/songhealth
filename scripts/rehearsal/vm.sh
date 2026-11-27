@@ -14,6 +14,9 @@
 #   scripts/rehearsal/vm.sh ssh [cmd] the administrator account, with Claude Code's key
 #   scripts/rehearsal/vm.sh account [cmd]  the Deployment account, with its own key (made here; the
 #                                     Operator authorizes it through scripts/host/root-setup.sh)
+#   scripts/rehearsal/vm.sh tunnel [port]  forward the workstation's loopback port (default 14321) to
+#                                     the application's loopback publication on the machine, until
+#                                     stopped: the demo dataset's way in (#458)
 #   scripts/rehearsal/vm.sh remove    stop it and delete its folder and keys (asks first)
 #
 # Size: 4 vCPU and 6 GB (Product Owner, #456 comment 7164993353); REHEARSAL_CPUS and
@@ -60,6 +63,13 @@ ssh_admin() {
     status=$?
   ((status == 255)) && explain_down
   return "$status"
+}
+
+tunnel() { # the application's 127.0.0.1:4321 on the machine, at the workstation's 127.0.0.1:<port>
+  local port=${1:-14321}
+  ssh -N -i "$KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new -o ExitOnForwardFailure=yes \
+    -o UserKnownHostsFile="$DIR/known_hosts" -o ConnectTimeout=10 \
+    -L "127.0.0.1:$port:127.0.0.1:4321" "$ADMIN@127.0.0.1"
 }
 
 ssh_account() {
@@ -181,6 +191,7 @@ case ${1:-} in
   status) status ;;
   ssh) shift; ssh_admin "$@" ;;
   account) shift; ssh_account "$@" ;;
+  tunnel) shift; tunnel "$@" ;;
   remove) remove ;;
   *) sed -n '2,/^set -euo/p' "$0" | sed '$d'; exit 2 ;;
 esac

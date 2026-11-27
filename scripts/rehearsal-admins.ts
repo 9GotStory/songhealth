@@ -17,11 +17,9 @@
 //   allowed network and give no answer from outside it (the workstation's loopback forward to the
 //   machine, scripts/rehearsal/vm.sh); once an Administrator exists, setup refuses another.
 
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:https";
-import { homedir } from "node:os";
 import { join } from "node:path";
-import { connect } from "node:tls";
 
 import type { Page } from "@playwright/test";
 
@@ -29,19 +27,18 @@ import {
 	type Credential,
 	type Device,
 	dismissWelcome,
+	loadState,
 	openBrowser,
 	openDevice,
 	ORIGIN,
+	peer,
+	saveState,
+	STATE,
+	type State,
 	signIn,
 	whoAmI,
 } from "./rehearsal-admins/browser.ts";
-import {
-	type Command,
-	parseCommand,
-	type Peer,
-	SITE_NAME,
-	targetRefusal,
-} from "./rehearsal-admins/plan.ts";
+import { type Command, parseCommand, SITE_NAME, targetRefusal } from "./rehearsal-admins/plan.ts";
 
 /** A source outside the allowed network: the workstation's loopback forward to the machine's 443
  * (scripts/rehearsal/vm.sh HTTPS_PORT), which reaches the proxy from QEMU's user network. */
@@ -53,30 +50,6 @@ function record(pass: boolean, id: string, what: string, evidence: string): void
 	const line = `${pass ? "PASS" : "FAIL"} ${id} ${what}: ${evidence}`;
 	results.push(line);
 	process.stdout.write(`${line}\n`);
-}
-
-function peer(address: string, ca: string): Promise<Peer> {
-	return new Promise((done, fail) => {
-		const socket = connect(
-			{ host: address, port: 443, servername: SITE_NAME, ca, rejectUnauthorized: false },
-			() => {
-				const cert = socket.getPeerCertificate();
-				const names = (cert.subjectaltname ?? "")
-					.split(", ")
-					.flatMap((entry) => (entry.startsWith("DNS:") ? [entry.slice(4)] : []));
-				const issuer = cert.issuer?.CN;
-				done({
-					authorized: socket.authorized,
-					error: socket.authorizationError?.message,
-					issuer: Array.isArray(issuer) ? issuer.join(", ") : (issuer ?? ""),
-					names,
-				});
-				socket.end();
-			},
-		);
-		socket.setTimeout(10_000, () => socket.destroy(new Error("no TLS answer in 10 s")));
-		socket.on("error", fail);
-	});
 }
 
 interface Answer {
@@ -204,24 +177,6 @@ async function preflight(address: string, ca: string): Promise<void> {
 }
 
 // ------------------------------------------------------------------ the browser steps
-
-/** The rehearsal's virtual Administrator: their email and the passkeys of each device, private keys
- * included, in the rehearsal's own keys folder (scripts/rehearsal/vm.sh `remove` deletes it). */
-const STATE = join(homedir(), ".local/state/songhealth-rehearsal/virtual-admin.json");
-
-interface State {
-	email: string;
-	name: string;
-	devices: Record<string, Credential[]>;
-}
-
-function loadState(): State | null {
-	return existsSync(STATE) ? (JSON.parse(readFileSync(STATE, "utf8")) as State) : null;
-}
-
-function saveState(state: State): void {
-	writeFileSync(STATE, `${JSON.stringify(state, null, "\t")}\n`, { mode: 0o600 });
-}
 
 function readLink(file: string): string {
 	const link = readFileSync(file, "utf8").trim();

@@ -238,8 +238,12 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
     rows and the detail and focal-point previews swap to the original once
     (`fallbackToOriginalThumbnail`), so a proxy that refuses `/_image` costs each of those pictures
     one refused request before its original shows. The selection tray's 80 px thumbnail has no
-    such fallback and stays broken (`MediaSelectionTrayItem`, which the picker shows) (spec #450;
-    #458 tests it).
+    such fallback and stays broken (`MediaSelectionTrayItem`). Only a picker that takes several
+    pictures shows the tray: the rich-text editor's gallery block and the gallery's detail panel
+    (`PortableTextEditor`, `GalleryDetailPanel`, `multiple: true`). The tray's broken icon was seen
+    on the development runtime with every `/_image` request answered 403 (#458 comment 7209607314);
+    Songhealth's proxy therefore redirects a thumbnail of the site's own media file to that file
+    instead of refusing it (`./deploy/caddy/songhealth.caddy`).
   - The middleware gives `/_image` its storage with no runtime init and no setup probe, so a
     container with no database and no media volume still has storage: a safe key answers 404 with
     nothing fetched (`src/astro/middleware.ts` `isImageEndpointRequest`, `tryGetStorage`; #183
@@ -306,9 +310,12 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - The frontend media-provider loader creates providers with an empty context, and the local provider
   needs a database, so public pages cannot use it (`src/media/provider-loader.ts`,
   `src/media/local-runtime.ts`).
-- An upload larger than the `maxUploadSize` option is refused; the default is 50 MB
-  (`src/api/schemas/media.ts` `DEFAULT_MAX_UPLOAD_SIZE`, `src/astro/routes/api/media.ts`), and
-  `./astro.config.mjs` sets no other.
+- An upload larger than the `maxUploadSize` option is refused; the default is 50 MiB, 52,428,800
+  bytes (`src/api/schemas/media.ts` `DEFAULT_MAX_UPLOAD_SIZE`, `src/astro/routes/api/media.ts`),
+  and `./astro.config.mjs` sets no other. A JSON body whose `Content-Length` is over 10 MiB is
+  refused with 413 `PAYLOAD_TOO_LARGE` before it is read (`src/api/parse.ts` `MAX_BODY_SIZE`,
+  `parseBody`). Songhealth's proxy refuses any body over 51 MiB with its own code,
+  `REQUEST_BODY_TOO_LARGE` (`./deploy/caddy/songhealth.caddy`, #458).
 - An upload whose form gives no usable type takes it from the file name's extension
   (`src/media/mime.ts` `resolveUploadMimeType`).
 - An upload of a file the library already holds answers that item with `deduplicated: true`

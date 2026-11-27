@@ -8,9 +8,10 @@
 // included, which the command keeps in an owner-only file of the rehearsal's own keys folder.
 
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { connect } from "node:tls";
 
 import {
 	type Browser,
@@ -20,7 +21,7 @@ import {
 	type Page,
 } from "@playwright/test";
 
-import { SITE_NAME } from "./plan.ts";
+import { type Peer, SITE_NAME } from "./plan.ts";
 
 export const ORIGIN = `https://${SITE_NAME}`;
 
@@ -162,4 +163,48 @@ export async function signIn(page: Page): Promise<string> {
 		.innerText()
 		.catch(() => "");
 	return alert.trim() || "stayed on the sign-in screen";
+}
+
+/** The rehearsal's virtual Administrator: their email and the passkeys of each device, private keys
+ * included, in the rehearsal's own keys folder (scripts/rehearsal/vm.sh `remove` deletes it). */
+export const STATE = join(homedir(), ".local/state/songhealth-rehearsal/virtual-admin.json");
+
+export interface State {
+	email: string;
+	name: string;
+	devices: Record<string, Credential[]>;
+}
+
+export function loadState(): State | null {
+	return existsSync(STATE) ? (JSON.parse(readFileSync(STATE, "utf8")) as State) : null;
+}
+
+export function saveState(state: State): void {
+	writeFileSync(STATE, `${JSON.stringify(state, null, "\t")}\n`, { mode: 0o600 });
+}
+
+/** What the machine's TLS answer shows for the site's name, against the test authority's
+ * certificate (plan.ts targetRefusal reads it). */
+export function peer(address: string, ca: string): Promise<Peer> {
+	return new Promise((done, fail) => {
+		const socket = connect(
+			{ host: address, port: 443, servername: SITE_NAME, ca, rejectUnauthorized: false },
+			() => {
+				const cert = socket.getPeerCertificate();
+				const names = (cert.subjectaltname ?? "")
+					.split(", ")
+					.flatMap((entry) => (entry.startsWith("DNS:") ? [entry.slice(4)] : []));
+				const issuer = cert.issuer?.CN;
+				done({
+					authorized: socket.authorized,
+					error: socket.authorizationError?.message,
+					issuer: Array.isArray(issuer) ? issuer.join(", ") : (issuer ?? ""),
+					names,
+				});
+				socket.end();
+			},
+		);
+		socket.setTimeout(10_000, () => socket.destroy(new Error("no TLS answer in 10 s")));
+		socket.on("error", fail);
+	});
 }

@@ -30,10 +30,12 @@ Each item gives:
 ## 1. The proxy and the certificate
 
 - **Interface:** Caddy runs at the host's level for every system on it. Its configuration imports
-  Songhealth's site configuration, a file this repository provides (#456 places it, #458 completes
-  it), from a path the host chooses. That site answers `songhealth.moph.go.th` alone, forwards to
+  Songhealth's site configuration, a file this repository provides (#456 placed it; #458 added the
+  body limit and the `/_image` rule; #460 adds the notice), from a path the host chooses. That site
+  answers `songhealth.moph.go.th` alone, forwards to
   Songhealth's loopback publication (`127.0.0.1:4321`, `production-foundation.md` §2, §10), passes the
-  name to the application as a fixed `Host`, limits the request body, and answers with a static HTML
+  name to the application as a fixed `Host`, limits the request body to 51 MiB, refuses `/_image`
+  except a thumbnail of the site's own media file, which it redirects to that file (#458, `production-foundation.md` §10), and answers with a static HTML
   notice and HTTP 503 while the application is stopped for the night's Recovery Set (§3). Where the
   site must refer to something private, such as which addresses may reach it before the cutover, it
   imports a named snippet the host defines, so no address enters the repository: `songhealth_private`
@@ -41,13 +43,16 @@ Each item gives:
   certificate and key for the site's name from files the Operator places, named in a second
   snippet the host defines, `songhealth_tls` (#456: [`deploy/caddy/songhealth.caddy`](../../deploy/caddy/songhealth.caddy)
   imports both), and requests no ACME certificate for a name they cover. A request for a host name no system serves is closed at the
-  host's level, and closing it leaves every other system's site as it is.
+  host's level, and closing it leaves every other system's site as it is: the connection ends with
+  no HTTP answer, whether the name arrives in the TLS handshake or only in `Host` under the site's
+  certificate. The rehearsal's stand-in does it with a catch-all `https://` site that aborts
+  (`scripts/rehearsal/stand-in.sh`, #458).
 - **Permission:** the Deployment account cannot read the certificate's key, change Caddy's
   configuration or reload it. A change to Songhealth's site configuration is reviewed in this
   repository and installed and reloaded by the Operator. Until the Operator says otherwise, only
   Songhealth's site is restricted to the private network (spec #450, "Access before the cutover").
 - **Status:** Songhealth reads its side through its access log (§5) and its own checks through the
-  proxy at the site's real name. Caddy's own state and the certificate's expiry are the host's to
+  proxy at the site's real name (`scripts/stack-check.ts`, `production-foundation.md` §10). Caddy's own state and the certificate's expiry are the host's to
   watch.
 - **On failure:** if Caddy is down or refuses Songhealth's site, the site is unreachable while the
   application stays healthy behind it; the host's watch alerts. A configuration that does not load
