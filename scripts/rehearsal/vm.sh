@@ -17,6 +17,10 @@
 #   scripts/rehearsal/vm.sh tunnel [port]  forward a workstation loopback port (default 14321) to
 #                                     the application's loopback publication on the machine, until
 #                                     stopped: the demo dataset's way in (#458)
+#   scripts/rehearsal/vm.sh stack-check [--stopped] [option...]
+#                                     scripts/stack-check.ts against the machine: --inside its
+#                                     tailnet address (read here, never printed), --outside the
+#                                     https forward, --ca the Internal Test CA
 #   scripts/rehearsal/vm.sh remove    stop it and delete its folder and keys (asks first)
 #
 # Size: 4 vCPU and 6 GB (Product Owner, #456 comment 7164993353); REHEARSAL_CPUS and
@@ -70,6 +74,17 @@ tunnel() { # the application's 127.0.0.1:4321 on the machine, at the workstation
   ssh -N -i "$KEY" -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new -o ExitOnForwardFailure=yes \
     -o UserKnownHostsFile="$DIR/known_hosts" -o ConnectTimeout=10 \
     -L "127.0.0.1:$port:127.0.0.1:4321" "$ADMIN@127.0.0.1"
+}
+
+# The deployed-stack check (production-foundation.md §10) from the workstation: the address a device
+# on the private network uses is the machine's tailnet one, and the source outside it is the https
+# forward above (#458, #460 retro).
+stack_check() {
+  local inside
+  inside=$(ssh_admin tailscale ip -4 2>/dev/null | head -1) || true
+  [[ $inside =~ ^[0-9]+([.][0-9]+){3}$ ]] || die "no tailnet address from the machine (is it up and on the tailnet?)"
+  node "$(dirname "$0")/../stack-check.ts" --inside "$inside" --outside "127.0.0.1:$HTTPS_PORT" \
+    --ca "$KEY_DIR/test-ca.crt" "$@"
 }
 
 ssh_account() {
@@ -192,6 +207,7 @@ case ${1:-} in
   ssh) shift; ssh_admin "$@" ;;
   account) shift; ssh_account "$@" ;;
   tunnel) shift; tunnel "$@" ;;
+  stack-check) shift; stack_check "$@" ;;
   remove) remove ;;
   *) sed -n '2,/^set -euo/p' "$0" | sed '$d'; exit 2 ;;
 esac
