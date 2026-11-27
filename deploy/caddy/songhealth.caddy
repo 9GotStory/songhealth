@@ -4,13 +4,45 @@
 #   songhealth_private  who may reach the site before the cutover (spec #450, "Access before the
 #                       cutover"): it closes the connection for every other source
 #   songhealth_tls      the certificate and key for the site's name, from files the Operator places
-# The site answers songhealth.moph.go.th alone and forwards to the application's loopback
-# publication (production-foundation.md §2), passing that name as a fixed Host. #456 places it;
-# #458 completes it (the request body's limit, /_image, the 503 notice and #218's checks).
+# The site answers songhealth.moph.go.th alone; closing every other name is the host's rule, kept
+# outside this file. It forwards to the application's loopback publication (production-foundation.md
+# §2), passing that name as a fixed Host, so the application never builds a request from a name a
+# client sent (#218's first finding). #456 placed it; #458 added the request body's limit and
+# the /_image rule; #460 adds the notice the site answers while the application is stopped.
+# scripts/stack-check.ts checks all of it through the proxy at the site's name.
 songhealth.moph.go.th {
 	import songhealth_tls
-	import songhealth_private
-	reverse_proxy 127.0.0.1:4321 {
-		header_up Host songhealth.moph.go.th
+	# `route` keeps the order written here: the source is checked before anything else answers.
+	route {
+		import songhealth_private
+		# 51 MiB: the Admin's largest upload, 50 MiB (EmDash 1.1.0's default `maxUploadSize`,
+		# which astro.config.mjs keeps), with 1 MiB for a multipart form's framing. A larger body is
+		# refused before it reaches the application; under it, EmDash's own limits answer.
+		request_body {
+			max_size 51MiB
+		}
+		# /_image would make a rendition at any size a request names, and its stock endpoint fetches
+		# what the request points at (#218's second finding). Public pages never ask for it in
+		# production (ADR 0003). The Admin asks it for thumbnails of the site's own media files: such
+		# a request is redirected to that original file, so no rendition is made and the picker's
+		# selection tray, which has no fallback of its own, still shows the picture (Product Owner,
+		# #458 comment 7209607314). The key is the form EmDash stores. Every other /_image request is
+		# refused here. Caddy's path matcher compares the decoded, cleaned path without regard to case,
+		# so the encoded, doubled-slash and dot-segment spellings that reach Astro's endpoint are matched.
+		@image_original {
+			path /_image*
+			expression `{query.href}.matches("^https://songhealth[.]moph[.]go[.]th/_emdash/api/media/file/[A-Za-z0-9_-][A-Za-z0-9._-]*([?]_emdash_media=[A-Za-z0-9%._-]*)?$")`
+		}
+		redir @image_original {query.href} 302
+		@image path /_image*
+		respond @image "Songhealth: /_image is refused at the proxy (#218)." 403
+		reverse_proxy 127.0.0.1:4321 {
+			header_up Host songhealth.moph.go.th
+		}
+	}
+	# The body limit's refusal, in EmDash's own error shape, so the Admin shows its message.
+	handle_errors 413 {
+		header Content-Type "application/json; charset=utf-8"
+		respond `{"success":false,"error":{"code":"REQUEST_BODY_TOO_LARGE","message":"คำขอมีขนาดเกิน 51 MiB ที่เว็บไซต์รับได้ (the request body is larger than the site accepts: 51 MiB)"}}` 413
 	}
 }

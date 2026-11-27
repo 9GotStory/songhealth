@@ -306,9 +306,12 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
 - The frontend media-provider loader creates providers with an empty context, and the local provider
   needs a database, so public pages cannot use it (`src/media/provider-loader.ts`,
   `src/media/local-runtime.ts`).
-- An upload larger than the `maxUploadSize` option is refused; the default is 50 MB
-  (`src/api/schemas/media.ts` `DEFAULT_MAX_UPLOAD_SIZE`, `src/astro/routes/api/media.ts`), and
-  `./astro.config.mjs` sets no other.
+- An upload larger than the `maxUploadSize` option is refused; the default is 50 MiB, 52,428,800
+  bytes (`src/api/schemas/media.ts` `DEFAULT_MAX_UPLOAD_SIZE`, `src/astro/routes/api/media.ts`),
+  and `./astro.config.mjs` sets no other. A JSON body whose `Content-Length` is over 10 MiB is
+  refused with 413 `PAYLOAD_TOO_LARGE` before it is read (`src/api/parse.ts` `MAX_BODY_SIZE`,
+  `parseBody`). Songhealth's proxy refuses any body over 51 MiB with its own code,
+  `REQUEST_BODY_TOO_LARGE` (`./deploy/caddy/songhealth.caddy`, #458).
 - An upload whose form gives no usable type takes it from the file name's extension
   (`src/media/mime.ts` `resolveUploadMimeType`).
 - An upload of a file the library already holds answers that item with `deduplicated: true`

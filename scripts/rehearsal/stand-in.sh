@@ -13,6 +13,11 @@
 #   sudo bash stand-in.sh name-check on|off
 #                                      serve, or stop serving, the certificate issued for a name
 #                                      outside the constraint, for the browsers' refusal check
+#   sudo bash stand-in.sh caddyfile    write the host's Caddyfile again and reload Caddy (#458)
+#   sudo bash stand-in.sh site <file>  place Songhealth's site file and reload Caddy, as the
+#                                      Operator's scripts/host/root-setup.sh step 6 does: on the
+#                                      rehearsal machine only, Claude Code installs it (Product
+#                                      Owner, #458 comment 7209607314); it prints the file's SHA-256
 #
 # The Internal Test CA (spec #450, Product Owner, Windows client, 2026-11-25): short-lived,
 # constrained to songhealth.moph.go.th, made on this machine, and its private key never leaves
@@ -22,6 +27,7 @@ set -euo pipefail
 
 SITE_NAME=songhealth.moph.go.th
 OUTSIDE_NAME='name-check.invalid'
+OTHER_SITE='other-system.invalid'
 CA_DAYS=30
 CA_DIR=/root/songhealth-test-ca
 CERT_DIR=/etc/caddy/certs
@@ -38,14 +44,22 @@ caddy_install() {
   apt-get update -qq && apt-get install -y -qq caddy >/dev/null
   install -d -m 0755 "$SITES_DIR"
   install -d -m 0750 -o root -g caddy "$CERT_DIR"
+  write_caddyfile
+  caddy version
+}
+
+write_caddyfile() {
   # The host's Caddyfile. Songhealth's site imports two snippets the host defines, so that no
   # address and no certificate path enters Songhealth's repository (contract §1):
   # songhealth_private (who may reach the site before the cutover: here the tailnet's address
-  # range and the machine's own loopback) and songhealth_tls (the certificate files).
+  # range and the machine's own loopback) and songhealth_tls (the certificate files). The host
+  # closes every name no system serves, and a second site stands in for another system on a shared
+  # host, which that rule must leave answering (#458).
   cat >/etc/caddy/Caddyfile <<EOF
-# Rehearsal stand-in (Songhealth #456). Thrown away with the machine.
+# Rehearsal stand-in (Songhealth #456, #458). Thrown away with the machine.
 {
 	auto_https disable_redirects
+	skip_install_trust
 }
 
 (songhealth_private) {
@@ -57,10 +71,41 @@ caddy_install() {
 	tls $CERT_DIR/$SITE_NAME.crt $CERT_DIR/$SITE_NAME.key
 }
 
+# Another system's site on the shared host, under Caddy's own internal authority.
+$OTHER_SITE {
+	tls internal
+	respond "Rehearsal stand-in: another system's site." 200
+}
+
+# The host's rule for a name no system serves: its requests are closed. A name with no certificate
+# here fails at the TLS handshake; another name sent under a site's certificate reaches this block.
+https:// {
+	abort
+}
+
 import $SITES_DIR/*.caddy
 import /etc/caddy/name-check*.caddy
 EOF
-  caddy version
+}
+
+reload() {
+  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
+  systemctl reload caddy
+}
+
+site() { # site <file>: Songhealth's site file, validated in place before the reload
+  local file=${1:-} target=$SITES_DIR/songhealth.caddy previous=''
+  [[ -f $file ]] || { echo "stand-in: site <songhealth.caddy>" >&2; exit 2; }
+  [[ -f $target ]] && previous=$(mktemp) && cp -p "$target" "$previous"
+  install -m 0644 "$file" "$target"
+  if ! caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null; then
+    if [[ -n $previous ]]; then mv "$previous" "$target"; else rm -f "$target"; fi
+    echo "stand-in: Caddy refuses the site file; the previous one is back and Caddy not reloaded" >&2
+    exit 1
+  fi
+  [[ -n $previous ]] && rm -f "$previous"
+  systemctl reload caddy
+  sha256sum "$target"
 }
 
 tailscale_install() {
@@ -121,8 +166,7 @@ SITE
     off) rm -f "$file" "$CERT_DIR/$OUTSIDE_NAME.crt" "$CERT_DIR/$OUTSIDE_NAME.key" ;;
     *) echo "stand-in: name-check on|off" >&2; exit 2 ;;
   esac
-  caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
-  systemctl reload caddy
+  reload
   echo "name-check $1"
 }
 
@@ -131,5 +175,7 @@ case ${1:-} in
   tailscale) tailscale_install ;;
   test-ca) test_ca ;;
   name-check) name_check "${2:-}" ;;
+  caddyfile) write_caddyfile && reload && echo "Caddyfile written, Caddy reloaded" ;;
+  site) site "${2:-}" ;;
   *) sed -n '2,/^set -euo/p' "$0" | sed '$d'; exit 2 ;;
 esac
