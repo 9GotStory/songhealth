@@ -1371,6 +1371,15 @@ never a row's content; it exits 0 with `PASS: no validation content and no valid
 remain …`, 1 when some remains, and 2 when it could not read the set (Product Owner, #461 comment
 7217954182 item 4).
 
+**Measured on the rehearsal machine** (#461; a rehearsal measurement, not the Production host's):
+the demo dataset and 247 media files of about 1 GB. **108 s from "stores gone" to "ready"**,
+against the target of one hour on the same host: the set brought back 23 s, provisioning 14 s, the
+secrets 8 s, the restore with its check 15 s, the start to ready 23 s, and the pauses between
+commands sent over SSH. The site did not answer for 10 min 10 s from the stop after the set to
+"ready", 8 min 22 s of it before the stores were removed (the stand-in's upload and the wait for
+the approval), after the nightly run's own stop of 48.9 s. The integrity check found zero
+differences, and the virtual Administrator signed in with the passkey it had.
+
 ## 8. Readiness interpretation
 
 ### 8.1 What each observable signal proves — and does not
