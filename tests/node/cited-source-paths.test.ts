@@ -178,7 +178,15 @@ describe("cited source paths", () => {
 		const missing = (await citedPaths())
 			.filter(({ path, roots }) => !roots.some((root) => existsSync(new URL(root + path, ROOT))))
 			.map(({ at, path }) => `${at} ${path}`);
-		assert.deepEqual(missing, []);
+		// dist/ is the build's output, so a new worktree has none until it builds (#459 retro).
+		const unbuilt = !existsSync(new URL("dist/", ROOT));
+		assert.deepEqual(
+			missing,
+			[],
+			unbuilt
+				? "dist/ is the build's output: run `npm run build:check` first"
+				: "each cited path exists",
+		);
 	});
 
 	it("found only in EmDash are recorded in docs/agents/emdash-1.1.0.md, for the site's code", async () => {
