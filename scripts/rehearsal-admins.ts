@@ -17,7 +17,7 @@
 //   allowed network and give no answer from outside it (the workstation's loopback forward to the
 //   machine, scripts/rehearsal/vm.sh); once an Administrator exists, setup refuses another.
 
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:https";
 import { join } from "node:path";
 
@@ -39,6 +39,7 @@ import {
 	whoAmI,
 } from "./rehearsal-admins/browser.ts";
 import { type Command, parseCommand, SITE_NAME, targetRefusal } from "./rehearsal-admins/plan.ts";
+import { closedAfterHandshake } from "./stack-check/plan.ts";
 
 /** A source outside the allowed network: the workstation's loopback forward to the machine's 443
  * (scripts/rehearsal/vm.sh HTTPS_PORT), which reaches the proxy from QEMU's user network. */
@@ -131,10 +132,9 @@ async function preflight(address: string, ca: string): Promise<void> {
 	];
 	for (const [method, path, body] of routes) {
 		const outside = await ask(OUTSIDE, ca, method, path, body);
-		// The site's own refusal (the proxy's `abort`) closes the connection after the TLS handshake
-		// with the site's certificate; a forward that is down or a TLS failure is no such proof.
+		// The site's own refusal, as the deployed-stack check reads its P1–P3.
 		record(
-			outside.secured === true && outside.error === "ECONNRESET",
+			closedAfterHandshake(outside),
 			"P3",
 			`${method} ${path} from outside the allowed network`,
 			shown(outside),
@@ -553,6 +553,9 @@ async function main(): Promise<void> {
 		`rehearsal-admins: the machine is the rehearsal machine (${SITE_NAME}, Internal Test CA)\n`,
 	);
 
+	// The evidence folder is made here, so that a run whose checks all passed is not lost writing
+	// them (#458 retro).
+	mkdirSync(command.out, { recursive: true });
 	if (command.step === "preflight") await preflight(command.address, ca);
 	else if (command.step === "admins") await admins(command);
 	else await recovery(command);

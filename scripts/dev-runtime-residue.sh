@@ -11,15 +11,15 @@
 # a task run, and no Office Contact value or social handle may hold the mark: any that remain are
 # listed and the exit status is 1. A fixture writes every Office Contact key at once, so a marked
 # value means its unmarked neighbours are a test's too, and `demo-dataset.ts add` replaces them all
-# with the dataset's (#316 retro: a full suite failed on /contact while the count read NONE). EmDash's 404 log keeps the tests'
-# misses too, but they can be removed only by clearing the log or pruning it by age, not one by one,
-# so those are counted without failing (docs/operations/development-quadlet.md). A miss without the
-# synthetic marks, such as one a person met while browsing, is counted, 0 included, so an evidence
-# record can quote an empty log, and listed by its path and time (#151 retro).
-# The demo dataset's entries (slugs that start with demo-, scripts/demo-dataset/plan.ts) are all
-# published while it is installed. One that is not, such as an entry a browser suite returned to
-# draft and failed to give back, is listed and the exit status is 1:
-# `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` publishes it again (#244 retro).
+# with the dataset's (#316 retro: a full suite failed on /contact while the count read NONE).
+# EmDash's 404 log keeps the tests' misses too, but they can be removed only by clearing the log or
+# pruning it by age, not one by one, so those are counted without failing
+# (docs/operations/development-quadlet.md). A miss without the synthetic marks, such as one a person
+# met while browsing, is counted, 0 included, so an evidence record can quote an empty log, and
+# listed by its path and time (#151 retro). The demo dataset's entries (slugs that start with demo-,
+# scripts/demo-dataset/plan.ts) are all published while it is installed. One that is not, such as an
+# entry a browser suite returned to draft and failed to give back, is listed and the exit status is
+# 1: `scripts/dev-runtime-env.sh node scripts/demo-dataset.ts add` publishes it again (#244 retro).
 # The RESIDUE line reads FOUND whenever the exit status is 1, naming an incomplete demo dataset
 # (#367 retro: "RESIDUE: NONE" above "DEMO DATASET: INCOMPLETE" read as clean in a `tail -2`).
 # --clear-404-log first clears that log through the native API, just before the Product Owner's

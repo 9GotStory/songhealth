@@ -38,6 +38,16 @@ const CODE = /\.(ts|mjs|astro|css)$/;
 /** A comment line: one that starts with `//`, or a line of a `/* … *\/` block. */
 const COMMENT = /^\s*(\/\/|\/\*|\*)/;
 
+/**
+ * The files whose comments start with `#`: the shell scripts, the git hooks, PowerShell and the
+ * site file for Caddy. Prettier leaves them alone, so their comments are rewrapped by hand (#458
+ * retro: the site file's comments reached review unchecked).
+ */
+export const HASH_CODE = /\.(sh|caddy|ps1)$|^\.githooks\//;
+
+/** A `#` comment line; a script's `#!` line is not one. */
+const HASH_COMMENT = /^\s*#(?!!)/;
+
 /** The ignore files Prettier reads, so a file it leaves alone is left alone here too. */
 const IGNORE_PATH = [".gitignore", ".prettierignore"].map((name) =>
 	fileURLToPath(new URL(name, ROOT)),
@@ -64,18 +74,31 @@ export function widthOf(line: string): number {
 	return [...line.replaceAll("\t", "  ").replace(/\p{Mn}/gu, "")].length;
 }
 
+/** The files git tracks or would track whose comments start with `#`. */
+export function hashCommented(): string[] {
+	return execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
+		cwd: ROOT,
+		encoding: "utf8",
+	})
+		.split("\0")
+		.filter((name) => HASH_CODE.test(name));
+}
+
 /** Whether a comment line is wider than `width` and holds more than one word, so it can wrap. */
-function tooWide(line: string, width: number): boolean {
-	const words = line.replace(COMMENT, "").trim();
-	return COMMENT.test(line) && widthOf(line) > width && /\s/.test(words);
+function tooWide(line: string, width: number, comment = COMMENT): boolean {
+	const words = line.replace(comment, "").trim();
+	return comment.test(line) && widthOf(line) > width && /\s/.test(words);
 }
 
 /** Each comment line wider than WIDTH that could wrap, as `path:line (columns)`. */
 export async function wideComments(files: string[]): Promise<string[]> {
 	const found: string[] = [];
 	for (const file of files) {
+		const comment = HASH_CODE.test(file) ? HASH_COMMENT : COMMENT;
 		(await readFile(new URL(file, ROOT), "utf8")).split("\n").forEach((line, index) => {
-			if (tooWide(line, WIDTH)) found.push(`${file}:${index + 1} (${widthOf(line)} columns)`);
+			if (tooWide(line, WIDTH, comment)) {
+				found.push(`${file}:${index + 1} (${widthOf(line)} columns)`);
+			}
 		});
 	}
 	return found;

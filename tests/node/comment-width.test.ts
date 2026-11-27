@@ -8,6 +8,7 @@ import { describe, it } from "node:test";
 import {
 	formattedCode,
 	givenCode,
+	hashCommented,
 	wideComments,
 	widthOf,
 	wrapComments,
@@ -34,6 +35,16 @@ describe("comment width", () => {
 			[],
 			`npm run format:files -- ${files.join(" ")} rewraps these comment lines:\n${wide.join("\n")}`,
 		);
+	});
+
+	it("keeps every # comment line of the shell scripts, hooks, PowerShell and the site file within 100 columns", async () => {
+		const files = hashCommented();
+		assert.ok(files.includes("deploy/caddy/songhealth.caddy"));
+		assert.ok(files.includes(".githooks/pre-commit"));
+		// Prettier does not format these files, so no command rewraps them: the lines are rewrapped
+		// by hand (#458 retro).
+		const wide = await wideComments(files);
+		assert.deepEqual(wide, [], `rewrap these # comment lines by hand:\n${wide.join("\n")}`);
 	});
 });
 

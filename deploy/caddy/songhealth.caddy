@@ -1,5 +1,5 @@
-# Songhealth's site configuration for the host's Caddy (Feature 016; production-host-contract.md §1).
-# The host's Caddyfile imports this file from a path the host chooses, and defines the two
+# Songhealth's site configuration for the host's Caddy (Feature 016; production-host-contract.md
+# §1). The host's Caddyfile imports this file from a path the host chooses, and defines the two
 # snippets it imports, so that no address and no certificate path enters this repository:
 #   songhealth_private  who may reach the site before the cutover (spec #450, "Access before the
 #                       cutover"): it closes the connection for every other source

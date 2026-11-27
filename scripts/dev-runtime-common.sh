@@ -59,7 +59,8 @@ log_event() { # log_event TEXT — a line in RUNTIME_EVENTS, so another session 
 }
 running_suites() { # running_suites — "pid directory" of each Songhealth browser suite's process
   # A Playwright process that runs from the workspace, one of its worktrees or SRC. The Playwright
-  # MCP servers and another project's suites match the same pgrep, so they are left out (#221 retro).
+  # MCP servers and another project's suites match the same pgrep, so they are left out (#221
+  # retro).
   local pid cmd cwd
   for pid in $(pgrep -f '^node .*playwright' || true); do
     cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null) || continue
@@ -95,8 +96,8 @@ setup_needed() { # prints true or false from EmDash's native setup status endpoi
 }
 require_sha() { [[ ${1:-} =~ ^[0-9a-f]{40}$ ]] || die "--sha must name a full 40-hex commit"; }
 backup_runtime() { # a Recovery Set of the runtime, whose app the caller stopped (scripts/recovery-set.ts,
-  # #221), into a new $STATE_DIR/backups/<UTC> directory named in BACKUP_DIR; when it fails, it starts
-  # the app again and dies, with nothing changed
+  # #221), into a new $STATE_DIR/backups/<UTC> directory named in BACKUP_DIR; when it fails, it
+  # starts the app again and dies, with nothing changed
   BACKUP_DIR=$STATE_DIR/backups/$(date -u +%Y%m%dT%H%M%SZ)
   if install -d -m 0700 -- "$STATE_DIR/backups" "$BACKUP_DIR" \
     && node "$SRC/scripts/recovery-set.ts" backup dev "$BACKUP_DIR"; then

@@ -65,7 +65,8 @@ as_account() { # run a command as the account inside its user manager's environm
   local uid
   uid=$(id -u "$account")
   # from the account's home: Podman refuses to start in a directory the account cannot enter
-  # ("cannot chdir to /home/<admin>: Permission denied", Podman 5.7.0 on the rehearsal machine, #456)
+  # ("cannot chdir to /home/<admin>: Permission denied", Podman 5.7.0 on the rehearsal machine,
+  # #456)
   (cd "$(getent passwd "$account" | cut -d: -f6)" && runuser -u "$account" -- env \
     XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" "$@")
 }
