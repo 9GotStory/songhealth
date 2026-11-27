@@ -11,6 +11,14 @@
 // (cms.helpers.ts devAdminActor). Only the development-only setup/dev-bypass makes that account, so
 // the commands cannot run against production. The PAT is never printed. The origin is
 // PLAYWRIGHT_BASE_URL, else http://127.0.0.1:4324.
+//
+// On the rehearsal machine (#458; Product Owner, #458 comment 7209607314), the PAT file
+// SONGHEALTH_REHEARSAL_ACCESS names acts instead: one of the machine's own Administrators, under
+// songhealth.invalid (plan.ts rehearsalActorRefusal), reached through the tunnel to its
+// application (scripts/rehearsal/vm.sh tunnel; scripts/rehearsal-pictures.ts token makes the PAT):
+//
+//   SONGHEALTH_REHEARSAL_ACCESS=<PAT file> PLAYWRIGHT_BASE_URL=http://127.0.0.1:14321 \
+//     node scripts/demo-dataset.ts add
 
 import { readFile } from "node:fs/promises";
 
@@ -27,6 +35,7 @@ import {
 	menuItemFields,
 	planAdd,
 	planRemove,
+	rehearsalActorRefusal,
 	removeSteps,
 	type DemoMedia,
 	type OnePageContent,
@@ -468,6 +477,23 @@ async function remove(admin: helpers.CmsActor): Promise<boolean> {
 
 const COMMANDS: Record<string, (admin: helpers.CmsActor) => Promise<boolean>> = { add, remove };
 
+/** The environment variable naming a rehearsal Administrator's PAT file. */
+const REHEARSAL_ACCESS_ENV = "SONGHEALTH_REHEARSAL_ACCESS";
+
+/** The development Administrator, or on the rehearsal machine one of its own Administrators. */
+async function actor(): Promise<helpers.CmsActor> {
+	const rehearsal = process.env[REHEARSAL_ACCESS_ENV]?.trim();
+	if (!rehearsal) return helpers.devAdminActor(ORIGIN);
+	const admin = await helpers.createPatActor({
+		baseUrl: ORIGIN,
+		token: await helpers.loadDevAccessToken(rehearsal),
+		expected: { role: helpers.NATIVE_ROLES.administrator },
+	});
+	const refusal = rehearsalActorRefusal(admin.email);
+	if (refusal !== null) throw new Error(refusal);
+	return admin;
+}
+
 async function main(args: string[]): Promise<number> {
 	const command =
 		args.length === 1 && Object.hasOwn(COMMANDS, args[0]!) ? COMMANDS[args[0]!] : undefined;
@@ -476,7 +502,7 @@ async function main(args: string[]): Promise<number> {
 		return 2;
 	}
 	try {
-		const admin = await helpers.devAdminActor(ORIGIN);
+		const admin = await actor();
 		return (await command(admin)) ? 0 : 1;
 	} catch (error) {
 		console.log(

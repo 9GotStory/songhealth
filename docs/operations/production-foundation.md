@@ -409,8 +409,9 @@ throwaway stand-in, `scripts/rehearsal/stand-in.sh`.
    that is not empty.
 6. **Start.** `systemctl --user start songhealth-app.service` returns once the container is
    healthy (§6.2); `podman exec systemd-songhealth-app node scripts/verify-readiness.mjs` reports
-   `ready`. Then request `https://songhealth.moph.go.th/` through the proxy from an allowed
-   device, and from a source outside the allowed network, which gets no page.
+   `ready`. Then run the deployed-stack check through the proxy (§10, `scripts/stack-check.ts`),
+   which asks the site from an allowed device and from a source outside the allowed network, which
+   gets no page.
 
 **Where Ubuntu differs** (each seen on the rehearsal machine; Product Owner, #456 comments
 7164993353 and 7166769976):
@@ -1118,6 +1119,43 @@ item 1). The proxy's responsibilities at this boundary:
   database and all operational surfaces are private);
 - serve the public origin that `EMDASH_SITE_URL` must exactly equal (absolute HTTPS origin,
   matching the proxy boundary).
+
+Songhealth's site configuration, [`deploy/caddy/songhealth.caddy`](../../deploy/caddy/songhealth.caddy),
+closes #218's two findings (#458; rehearsal evidence on #218, and the Production host's record is
+#466's):
+
+- **The name.** The site answers `songhealth.moph.go.th` alone and passes that name to the
+  application as a fixed `Host`, so a server-side request is never built from a name a client sent.
+  The host closes every other name (`production-host-contract.md` item 1).
+- **`/_image`.** Production pages never ask for a rendition (ADR 0003), and the endpoint would make
+  one at any size a request names, or fetch what the request points at. The proxy refuses it with
+  403, in every spelling Astro routes to it. The one exception is a thumbnail the Admin asks for,
+  whose `href` is one of the site's own media files: it is redirected to that original file, so no
+  rendition is made and every Admin thumbnail shows the original (Product Owner, #458 comment
+  7209607314). The gallery picker's selection tray has no fallback of its own, and showed broken
+  thumbnails under a plain refusal.
+- **The request body.** At most 51 MiB: the Admin's largest upload, 50 MiB (EmDash 1.1.0's default
+  `maxUploadSize`, which `astro.config.mjs` keeps), with 1 MiB for a multipart form's framing. A
+  larger body is refused with 413 and EmDash's own error shape, code `REQUEST_BODY_TOO_LARGE`,
+  before it reaches the application. Under the limit, EmDash's own limits answer.
+- **The order.** The private-network snippet runs first, so a source outside the allowed network
+  gets no answer of any kind, a redirect or a 413 included.
+
+The deployed-stack check reads all of it from outside, through the proxy at the site's real name,
+on the rehearsal machine and on the Production host alike:
+
+```bash
+node scripts/stack-check.ts --inside <address on the private network> \
+  --outside <address a source outside it reaches> [--ca <the authority's certificate, when not public>] \
+  [--other-site <another system's site on the same proxy>]
+```
+
+It prints one PASS or FAIL line a check and no address, sends no request body, and exits 1 when
+any check fails. On the rehearsal machine `--outside` is the workstation's loopback forward
+(`scripts/rehearsal/vm.sh`), `--ca` the Internal Test CA's certificate and `--other-site` the
+stand-in's `other-system.invalid`. The pictures themselves, in the Admin and on the public pages
+at phone and desktop widths, are read by `scripts/rehearsal-pictures.ts` on the rehearsal machine
+only.
 
 Native Admin and passkey availability: the CMS administration capability is the native EmDash
 Admin at `/_emdash/admin/` on the same application — no separate admin surface is deployed. The

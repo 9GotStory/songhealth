@@ -1,8 +1,9 @@
 // What the demo dataset's commands change (#66; spec #51 "Demo dataset"). scripts/demo-dataset.ts
 // reads the development runtime into a LiveState, plans with these functions, applies the plan, and
-// plans again to confirm. The dataset is development-only, so this module lives in scripts/ rather
-// than src/lib. It imports nothing at run time, so node:test checks it directly
-// (tests/node/demo-dataset.test.ts; Product Owner, 2026-10-31: #66 comment 6539906996).
+// plans again to confirm. The dataset is for the development runtime and the rehearsal machine
+// (#458), so this module lives in scripts/ rather than src/lib. It imports nothing at run time, so
+// node:test checks it directly (tests/node/demo-dataset.test.ts; Product Owner, 2026-10-31: #66
+// comment 6539906996).
 
 /** What starts the slug of everything the dataset makes, the reserved Basic Pages aside. */
 export const DEMO_PREFIX = "demo-";
@@ -22,6 +23,18 @@ export const FIXTURE_MARK = "songhealth-f002-synthetic";
  * (src/lib/homepage-curation.ts).
  */
 export const DEMO_MENU_CLASS = "demo-dataset";
+
+/**
+ * Why the commands will not act as this account on the rehearsal machine, or null. The rehearsal's
+ * Administrators are made under songhealth.invalid, a name no mailbox can have
+ * (scripts/rehearsal-admins.ts), and the Production host's never are, so the dataset never reaches
+ * it (#458; Product Owner, #458 comment 7209607314).
+ */
+export function rehearsalActorRefusal(email: string): string | null {
+	return /^[^@\s]+@songhealth\.invalid$/i.test(email)
+		? null
+		: `the access belongs to ${email || "no address"}: the demo dataset acts on the rehearsal machine as one of the rehearsal machine's own Administrators (…@songhealth.invalid) only`;
+}
 
 /** A taxonomy term, as the native taxonomy API creates it. */
 export interface DemoTerm {

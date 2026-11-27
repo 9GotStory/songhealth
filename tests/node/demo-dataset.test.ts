@@ -19,6 +19,7 @@ import {
 	menuItemFields,
 	planAdd,
 	planRemove,
+	rehearsalActorRefusal,
 	removeSteps,
 	type DemoDataset,
 	type DemoEntry,
@@ -154,6 +155,27 @@ function liveEntry(
 /** Each entry as `collection/slug`. */
 const names = (entries: ReadonlyArray<{ collection: string; slug: string | null }>) =>
 	entries.map(({ collection, slug }) => `${collection}/${slug}`);
+
+describe("demo dataset: the rehearsal machine's Administrator (#458)", () => {
+	it("acts as a rehearsal account, whose address is under songhealth.invalid", () => {
+		assert.equal(rehearsalActorRefusal("second-admin@songhealth.invalid"), null);
+		assert.equal(rehearsalActorRefusal("Rehearsal-1@SONGHEALTH.INVALID"), null);
+	});
+
+	it("refuses any other account, so that the dataset never reaches the Production host", () => {
+		for (const email of [
+			"admin@songhealth.moph.go.th",
+			"someone@gmail.com",
+			"x@songhealth.invalid.example",
+			"x@other.songhealth.invalid",
+			"songhealth.invalid",
+			"",
+		]) {
+			const refusal = rehearsalActorRefusal(email);
+			assert.match(refusal ?? "", /rehearsal machine's own Administrators/, email);
+		}
+	});
+});
 
 describe("demo dataset: add", () => {
 	it("creates and publishes every entry on a runtime without the dataset", () => {

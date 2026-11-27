@@ -81,6 +81,18 @@ forged `Host` header reaches the image endpoint's same-origin fetch, with no lim
 that an anonymous rendition can cost about 20 s of server time. #218, open, tracks both for before
 deployment.
 
+## The proxy, 2026-11-27
+
+Read again with #218's decision (#458). The decision stands: production pages serve original files
+and never ask for a rendition. The host's proxy now enforces it at the boundary
+(`deploy/caddy/songhealth.caddy`, `production-foundation.md` §10). It passes the site's own name to
+the application as a fixed `Host`, and it refuses `/_image`, except a thumbnail the Admin asks for of
+one of the site's own media files, which it redirects to that original file (Product Owner, #458
+comment 7209607314). No rendition is made in production, so neither the forged `Host` nor the
+anonymous rendition that #183's check found can reach the endpoint. On the rehearsal machine every
+kind of public page with a picture asked for no `/_image` at 390 and 1440 px, and every Admin
+thumbnail, the gallery picker's selection tray included, showed the original through the redirect.
+
 ## Consequences
 
 - Image evidence from the development runtime shows renditions that production does not serve.
@@ -89,4 +101,6 @@ deployment.
 - Staff guidance asks for pictures uploaded at a sensible size.
 - Revisit this decision when page weight at real content becomes a problem. The revisit starts from
   the host-agnostic pattern above and its security check, run with
-  `scripts/production-image-check.sh` and `scripts/measure-page-weight.ts`.
+  `scripts/production-image-check.sh` and `scripts/measure-page-weight.ts`. Adopting option 4 also
+  changes the proxy's `/_image` rule, which today lets no rendition through, and its check
+  (`scripts/stack-check.ts`).

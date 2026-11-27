@@ -238,8 +238,12 @@ ugrep, which refuses a long context pattern such as `.{0,200}x.{0,200}`: search 
     rows and the detail and focal-point previews swap to the original once
     (`fallbackToOriginalThumbnail`), so a proxy that refuses `/_image` costs each of those pictures
     one refused request before its original shows. The selection tray's 80 px thumbnail has no
-    such fallback and stays broken (`MediaSelectionTrayItem`, which the picker shows) (spec #450;
-    #458 tests it).
+    such fallback and stays broken (`MediaSelectionTrayItem`). Only a picker that takes several
+    pictures shows the tray: the rich-text editor's gallery block and the gallery's detail panel
+    (`PortableTextEditor`, `GalleryDetailPanel`, `multiple: true`). The tray's broken icon was seen
+    on the development runtime with every `/_image` request answered 403 (#458 comment 7209607314);
+    Songhealth's proxy therefore redirects a thumbnail of the site's own media file to that file
+    instead of refusing it (`./deploy/caddy/songhealth.caddy`).
   - The middleware gives `/_image` its storage with no runtime init and no setup probe, so a
     container with no database and no media volume still has storage: a safe key answers 404 with
     nothing fetched (`src/astro/middleware.ts` `isImageEndpointRequest`, `tryGetStorage`; #183
