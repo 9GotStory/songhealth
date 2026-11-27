@@ -248,7 +248,7 @@ UNIT
   systemctl daemon-reload
   systemctl enable --now songhealth-backup-stand-in.timer
   restic version
-  systemctl list-timers songhealth-backup-stand-in.timer --no-pager | head -2
+  systemctl list-timers songhealth-backup-stand-in.timer --no-pager
 }
 
 backup_run() {

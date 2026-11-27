@@ -249,15 +249,25 @@ function main(argv: readonly string[]): number {
 		}
 		if (args.failAt !== undefined) say(`a drill: the ${args.failAt} step will count as failed`);
 
-		// What an earlier run that was killed left in staging is never a set: remove it.
-		mkdirSync(AT.staging, { recursive: true, mode: 0o700 });
-		mkdirSync(AT.finished, { recursive: true, mode: 0o700 });
-		for (const name of readdirSync(AT.staging).filter(isSetName)) {
-			rmSync(join(AT.staging, name), { recursive: true, force: true });
-			say(`removed ${name}, left in staging by an earlier run`);
-		}
 		const staged = join(AT.staging, set);
-		mkdirSync(staged, { mode: 0o700 });
+		try {
+			// What an earlier run that was killed left in staging is never a set: remove it.
+			mkdirSync(AT.staging, { recursive: true, mode: 0o700 });
+			mkdirSync(AT.finished, { recursive: true, mode: 0o700 });
+			for (const name of readdirSync(AT.staging).filter(isSetName)) {
+				rmSync(join(AT.staging, name), { recursive: true, force: true });
+				say(`removed ${name}, left in staging by an earlier run`);
+			}
+			mkdirSync(staged, { mode: 0o700 });
+		} catch (error) {
+			return finish(alertCommand, {
+				startedAt,
+				set,
+				done: [],
+				appRunning: true,
+				reason: `the run could not prepare its folders, so nothing was stopped: ${(error as Error).message}`,
+			});
+		}
 
 		const done: Done[] = [];
 		let reason: string | undefined;

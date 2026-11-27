@@ -575,7 +575,9 @@ function report(runtime: Runtime, dir: string, manifest: Manifest, text: string)
 	);
 	say(`start the app again: systemctl --user start ${runtime.appService}`);
 	if (runtime.name === "production")
-		say("copy the set off the host over a private channel: it holds no runtime secret");
+		say(
+			"only a set in ~/recovery-sets reaches the host's backup, which the nightly run keeps (production-foundation.md §7.9)",
+		);
 }
 
 // ----------------------------------------------------------------------------- restore and check
