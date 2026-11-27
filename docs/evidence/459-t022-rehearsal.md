@@ -60,8 +60,13 @@ the machine for T028's rehearsal (#461).
 `SONGHEALTH_APP_ORIGIN=http://127.0.0.1:4321`, `SONGHEALTH_VALIDATION_MEDIA_PATH` the picture's
 path above, `SONGHEALTH_APP_IMAGE=localhost/songhealth-app:1.0.0-rc.1`, the harness token read
 into `SONGHEALTH_VALIDATION_TOKEN` from its file; run as the transient user unit
-`t016-rehearsal-run` from 2026-11-27T08:17:37.979Z to 08:23:00.431Z: **323.3 s, exit 0**, 43 `PASS`
-lines and no `FAIL`. The transcript's closing lines:
+`t016-rehearsal-run`: **323.3 s, exit 0**, 43 `PASS` lines and no `FAIL`. The 323.3 s is the
+run's script's own clock (`date +%s.%N` before and after the harness); the journal shows the unit
+from 2026-11-27T08:17:37.059Z to 08:23:00.437Z, and systemd counted "5min 23.378s wall clock
+time", the script's start and end inside it. The start time the script also wrote as text
+(`date +%3N`, 08:17:37.979Z, in `times.txt`) disagrees with both clocks by about 0.85 s, which a
+retry on the machine did not reproduce; the times here are the journal's. The transcript's
+closing lines:
 
 ```text
 t016: three lifecycle cycles + missing-attachment negative passed with full integrity retention
@@ -102,8 +107,8 @@ every second through the run (311 samples):
 | The application's stop | 0.36 to 0.53 s, ten stops, each ending `inactive` |
 | The database's stop | 0.51 to 0.63 s, nine stops, each ending `failed` (below) |
 | The application not serving | 301.0 s of the run, in ten stretches, the longest 31.8 s |
-| The application service's peak memory | 2,526 MiB at most (`memory.peak`); 2.4G at each start by systemd's count |
-| The database service's peak memory | 86.8 to 88.8 MiB a start by systemd's count |
+| The application service's peak memory | 2,526 MiB at most (`memory.peak`); 2.4G for each invocation by systemd's count |
+| The database service's peak memory | 86.8 to 88.8 MiB for each invocation by systemd's count |
 | The whole machine | at most 3,023 MiB used of 5,919 MiB |
 
 The first sample's reading, 2,497 MiB, and systemd's first figures belong to the invocation the run

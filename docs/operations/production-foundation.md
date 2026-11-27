@@ -422,7 +422,7 @@ throwaway stand-in, `scripts/rehearsal/stand-in.sh`.
 | Packages Podman only recommends | The cloud image has no `uidmap`; without recommends there is no `catatonit`, and `netavark` lacks `aardvark-dns`, so the application's gate failed with `EAI_AGAIN` resolving the database's name | `root-setup.sh` installs `podman uidmap passt catatonit dbus-user-session aardvark-dns nftables` by name, without recommends. A database started before `aardvark-dns` existed must be restarted once |
 | `/usr/bin/stat` is uutils 0.10.0 (GNU's is `/usr/bin/gnustat`) | The guard's command under `podman unshare` printed the same records as GNU's on the real store, and matched on an empty file, a symbolic link and a missing path; only standard error differs | The unit keeps `/usr/bin/stat`; T022 records it again |
 | AppArmor and `pasta` (Launchpad 2154379) | Each stop logs one denial: profile `pasta` refuses `SIGTERM` from `podman`. The rootless network's teardown still completed in three stop/start cycles | No safeguard changed; the denial is recorded as known |
-| The same denial, on the database unit (#459) | When the database, the last container on the rootless network, stops, its `ExecStop` (`podman rm`) exits 125 on `rootless netns: kill network process: permission denied`, so `songhealth-db.service` ends a planned stop `failed`, result `exit-code`: nine stops of nine in the T016 run. No `pasta` is left running, and the next start leaves the unit `active`, result `success`. Taking a Recovery Set (§7.6) stops the application alone and does not meet it | No safeguard and no unit changed (Product Owner, #459 comment 7213181563); the watch (#462) does not alert on it after a planned stop, and the Production host is read again (#466, #467) |
+| The same denial, on the database unit (#459) | When the database, the last container on the rootless network, stops, its `ExecStop` (`podman rm`) exits 125 on `rootless netns: kill network process: permission denied`, so `songhealth-db.service` ends a planned stop `failed`, result `exit-code`: nine stops of nine in the T016 run. No `pasta` is left running, and the next start leaves the unit `active`, result `success`. A Recovery Set's commands (§7.6) stop the application alone, so the set should not meet it; untried, the nightly set's ticket (#460) runs it | No safeguard and no unit changed (Product Owner, #459 comment 7213181563). The watch is to raise no alert for it after a planned stop, which #462 builds and tries; the Production host is read again in #466 and #467 |
 | PostgreSQL under Linux 7.0 (release notes, known issues) | `huge_pages` is `try`, its status `off`: the host reserves no huge pages | Recorded; #464 measures with and without before anything is proposed |
 | `sudo` is sudo-rs | The Deployment account is refused | Nothing changed |
 
@@ -438,9 +438,9 @@ journal's `Starting`/`Started` and `Stopping`/`Stopped` lines: the whole run 323
 application unit's start, with the database already healthy, 22.5 to 24.2 s (ten starts); the
 database's start 6.0 to 6.5 s (nine); the application's stop 0.36 to 0.53 s, ending `inactive`
 (ten); the database's stop 0.51 to 0.63 s (nine, each ending `failed`, above). The application
-service's peak memory, read from its cgroup's `memory.peak` every second, 2,526 MiB (2.4G at each
-start by systemd's own count), the database service's 87 to 89 MiB, and the whole machine's at most
-3,023 MiB used of 5,919 MiB.
+service's peak memory, read from its cgroup's `memory.peak` every second, 2,526 MiB (2.4G for each
+invocation by systemd's own count); the database service's, 87 to 89 MiB for each invocation by
+systemd's count; and the whole machine's, at most 3,023 MiB used of 5,919 MiB.
 
 ## 5. One-time store provisioning
 
@@ -1076,21 +1076,32 @@ curl -sS -H @<(auth setup-token) -H 'Content-Type: application/json' -X POST \
   http://127.0.0.1:4321/_emdash/api/settings
 curl -sS -H @<(auth setup-token) \
   -F 'file=@<checkout>/tests/operations/fixtures/validation-picture.png;type=image/png' \
-  http://127.0.0.1:4321/_emdash/api/media      # data.item.url is the picture's path
+  http://127.0.0.1:4321/_emdash/api/media      # its data.item.url is the picture's path
 ```
 
 The picture is the committed fixture, unchanged (SHA-256 `2c7b5116…f396`, #454); its
-`/_emdash/api/media/file/<key>` is the harness's media path. Read the tagline back with the
-harness token and compare it with T015's value and SHA-256 `84753035…4415` before the run.
+`/_emdash/api/media/file/<key>` is the harness's media path: the upload answers
+`{ data: { item } }`, the item with its `url` (EmDash's `src/api/handlers/media.ts` and
+`src/astro/routes/api/media.ts`). Before the run, read the tagline back with the harness token and
+the picture without one, and compare each with its value and SHA-256:
 
-**The inputs**, in the environment of the shell that runs the harness:
+```bash
+curl -sS -H @<(auth harness-token) http://127.0.0.1:4321/_emdash/api/settings |
+  node -e 'let s = ""; process.stdin.on("data", (c) => (s += c)).on("end", () => {
+    const t = JSON.parse(s).data.tagline;
+    console.log(JSON.stringify(t), require("crypto").createHash("sha256").update(t).digest("hex"));
+  })'   # "Songhealth Feature 001 foundation validation" 84753035…4415
+curl -sS http://127.0.0.1:4321/_emdash/api/media/file/<key> | sha256sum   # 2c7b5116…f396
+```
+
+**The inputs**, each exported (`export`) in the shell that runs the harness:
 
 | Input | Value |
 |---|---|
 | `PATH` | Node first, `~/.local/opt/node-v<version>-linux-x64/bin` (§4.7 step 2): the harness needs `node`, `podman`, `systemctl`, `journalctl`, `sha256sum`, `timeout` and `mktemp` |
 | `XDG_RUNTIME_DIR` | `/run/user/<the account's UID>`, for `systemctl --user` over SSH |
 | `SONGHEALTH_APP_ORIGIN` | `http://127.0.0.1:4321`, the application's loopback publication |
-| `SONGHEALTH_VALIDATION_TOKEN` | the harness token, read from its file into the variable inside the shell (`SONGHEALTH_VALIDATION_TOKEN=$(cat …)`), never typed on a command line |
+| `SONGHEALTH_VALIDATION_TOKEN` | the harness token, read from its file inside the shell, `SONGHEALTH_VALIDATION_TOKEN=$(cat …)` then `export SONGHEALTH_VALIDATION_TOKEN`, never typed on a command line |
 | `SONGHEALTH_VALIDATION_MEDIA_PATH` | `/_emdash/api/media/file/<key>` of the uploaded picture |
 | `SONGHEALTH_APP_IMAGE` | `localhost/songhealth-app:<version>`, without the digest: the harness reads the pin from the unit's `Image=` line and requires the running image to carry this tag |
 
@@ -1107,7 +1118,7 @@ C8). Its `--self-test` does not run on the host: the host has `node` alone (§4.
 self-test's npm case needs an npm. It runs on the workstation and in CI at the build commit
 (Product Owner, #459 comment 7213181563).
 
-**Seen on the rehearsal machine, and expected on Ubuntu** (#459):
+**Seen on the rehearsal machine** (#459), and to be read again on the Production host (#467):
 
 - `songhealth-db.service` ends each stop `failed`, result `exit-code`: the database is the last
   container on the rootless network, and its `ExecStop`'s `podman rm` exits 125 on

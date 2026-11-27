@@ -3,208 +3,64 @@
 # shell-expanded.
 # shellcheck disable=SC2016
 #
-# Songhealth production smoke/lifecycle verification harness (Feature 001,
-# T016 — RED verification harness for US2).
+# Songhealth's lifecycle harness (Feature 001 T016; T022 runs it on the
+# Production host). Run on a host with both units active, from a git checkout
+# whose package.json and tests/operations/verify-startup.sh equal the running
+# image's; production-foundation.md §7.8 is the procedure, and
+# docs/evidence/459-t022-rehearsal.md a whole run on Ubuntu (#459).
 #
-# This harness is the FAILING-first verification contract for the production
-# implementation that T017–T020 will later deliver (OCI image + five Quadlet
-# definitions). At any baseline where those artifacts are absent it must exit
-# nonzero with one bounded, secret-free prerequisite failure that is
-# attributable ONLY to that intentionally absent downstream implementation —
-# never to a syntax error, an unchecked variable, an unbounded wait, secret
-# leakage, or destructive probing (stage P0 runs before anything else and
-# before any environment input is even required, so a bare run at the RED
-# baseline always reports the missing deployment, not missing inputs).
+# Stages:
+#   P0  the Containerfile, the five Quadlet units and the T013 gate exist.
+#   R1  the units, containers, network and volumes resolve to the expected
+#       targets before any change; the development resources are never one.
+#   C1  the current start of the application ran the T013 gate: the unit's
+#       generated definition invokes it (host form, or the container form with
+#       the image digest-pinned and bound to the container that runs it), and
+#       that invocation's journal (_SYSTEMD_INVOCATION_ID) holds every stage
+#       marker and the banner. Readiness is private and changes nothing.
+#   C2  both containers on the private network; the application reaches the
+#       database through it.
+#   C3  no published database port, and the host's connect to the database's
+#       private address refused.
+#   C4  the database volume at /var/lib/postgresql (the PostgreSQL 18 image's
+#       PGDATA parent) and the media volume at the media target, both named
+#       volumes.
+#   C5  the baseline: the tagline (value, then SHA-256 of its bytes) through
+#       GET /_emdash/api/settings with a settings:read token, and the
+#       validation picture's bytes through its public media file path.
+#   C6  exactly three consecutive cycles of start, stop, restart and
+#       recreate, readiness probed after each and both integrity checks at
+#       every checkpoint where the platform serves.
+#   C7  the media volume left out of the application's Quadlet source: the
+#       start must be refused for that cause (STARTUP REFUSAL, scoped to the
+#       invocation; systemd 259 reports ExecMainCode as an integer), or the
+#       readiness helper must report media not-ready; never a healthy empty
+#       replacement. The source is restored, checksum-verified, on every exit
+#       path; a restore that cannot be verified keeps the backup and fails.
+#   C8  the final integrity checkpoint, the volumes retained and no new one.
+# The platform claims above were checked again on EmDash 1.1.0, PostgreSQL
+# 18.6 and systemd 259 by #459's run.
 #
-# Contract coverage (delegation items map 1:1 to stage groups):
+# Its only changes: the lifecycle of the two production units, removing their
+# two containers (each after its unit stops) to recreate them, and C7's
+# guarded edit of the application's Quadlet source. It never touches the
+# development database, its volume or the host's ./media, never deletes or
+# recreates a volume, and never runs the application itself.
 #
-#   P0   RED prerequisite: the repository deployment definitions exist
-#        (deploy/Containerfile + the five deploy/quadlet/* units from the
-#        approved plan structure) and the T013 authority script is present.
-#   R1   resolve and validate the EXACT task-owned runtime targets (units,
-#        containers, network, volumes) BEFORE any lifecycle mutation; the
-#        documented T015 development resources (songhealth-dev-db,
-#        songhealth-dev-db-data, host ./media) are never targets and any
-#        collision with them fails closed.
-#   C1  (1) T013's startup-acceptance contract — status -> inspected-target
-#        fingerprint-guarded apply -> check over the exact-build manifest,
-#        plus the bounded media write/read/remove probe — completed for the
-#        current start of the application unit before it is treated as READY.
-#        Execution is tied to the accepted authority by TWO combined live
-#        proofs: (a) WIRING — the unit's effective startup definition
-#        (systemctl --user cat, i.e. the generated unit the manager actually
-#        executes) must invoke the accepted T013 authority with PROVEN
-#        EXECUTABLE IDENTITY in one of two approved forms. HOST FORM: an
-#        absolute executable token whose realpath equals the repository
-#        checkout's tests/operations/verify-startup.sh (a symlink resolving
-#        to it is the authority; bare basenames and same-suffix paths in
-#        unrelated trees are rejected), optionally behind a system
-#        interpreter under /usr, or the trusted npm runner — the npm this
-#        verification environment itself resolves — running the committed
-#        verify:startup mapping, where that mapping is itself validated to
-#        resolve to the authority against the package root. CONTAINER FORM
-#        (Product Owner decision 2026-10-09): the approved in-container
-#        startup gate invocation — the trusted podman runner (the podman
-#        this verification environment resolves; bare `podman` is rejected)
-#        executing a container run that names the expected application
-#        container, references the intended application image identity as
-#        the DIGEST-PINNED form SONGHEALTH_APP_IMAGE@sha256:<64 hex> (a
-#        bare tag cannot prove which image was accepted; `latest` and other
-#        repositories are rejected), mounts NOTHING whose destination is
-#        not the expected media mount target (an overmounted /app/tests or
-#        /app/package.json would shadow the accepted in-container gate
-#        identity), and passes ONE sh -c startup payload whose COMPLETE
-#        control flow is validated: the committed verify:startup mapping
-#        invoked exactly once in command position, immediately followed by
-#        the strict success separator `&&`, the accepted standalone server
-#        (node dist/server/entry.mjs) exactly once with only `exec` and
-#        KEY=VALUE assignments between, and NOTHING after the server entry
-#        token — duplicate gate/server occurrences, missing separators,
-#        failure bypasses (`;`, `||`, trailing commands), alternate server
-#        launches, and command shadowing are rejected; the committed
-#        package.json mapping is validated against the package root
-#        exactly as for the host npm form; occurrences of the gate names
-#        inside quoted strings are inert decoy text and are rejected; and
-#        the COMPLETE payload prefix is controlled — shell function
-#        definitions (name() tokens), unquoted command substitution
-#        (backticks or $( )), and cd commands are rejected anywhere outside
-#        quoted strings, so the validated gate/server suffix cannot be
-#        reached through a redirected prefix. The structural shape alone
-#        is not acceptance: the runtime identity binding
-#        (require_container_gate_identity_for_unit, dispatched by the
-#        caller WITHOUT command substitution so the accepted form
-#        propagates) then ties the pinned digest to the deployed
-#        container's ACTUAL image identity and proves the container's gate
-#        script and package.json are byte-identical to the accepted
-#        repository sources. Unprovable or untrusted
-#        executables fail closed; occurrences of the names inside arbitrary
-#        arguments, quoted shell payloads, or comments are rejected; and
-#        (b) COMPLETION — the
-#        journal of the unit's CURRENT systemd invocation (matched by
-#        _SYSTEMD_INVOCATION_ID, never a wall-clock window, so pre-start
-#        gates are covered and earlier invocations can never be reused)
-#        must contain the gate's full derived marker sequence — every
-#        `t013: [S<n>] PASS` stage marker plus the final PASS banner, all
-#        derived at runtime from tests/operations/verify-startup.sh, in
-#        ascending stage order. Journal text alone (a fabricated marker
-#        sequence) is rejected by the wiring proof; a wired unit that did
-#        not complete the gate is rejected by the ordered completion
-#        evidence. Recurring readiness stays private (obtained only through
-#        the container boundary) and non-mutating (the media snapshot hashes
-#        directory metadata INCLUDING the media root and subdirectories plus
-#        per-file CONTENT digests, so a create/read/remove probe or an
-#        in-place byte change is detected, and the tagline digest is
-#        captured on BOTH sides of the probe and compared).
-#   C2  (2) both containers are attached to the approved private application
-#        network; the required application-to-database access succeeds
-#        through that private path only; the defined unintended host/public
-#        PostgreSQL paths (any published host-port mapping, and the host to
-#        the database container's private address) are evaluated in C3.
-#   C3  (3) PostgreSQL publishes NO host port — proven from runtime/container
-#        metadata (empty PortBindings, empty `podman port` mapping registry)
-#        AND from the applicable host boundary by an actual bounded TCP
-#        connect from the host to the database container's private address
-#        (must be refused), never inferred from a successful private
-#        connection.
-#   C4  (4) the two expected separate persistent volumes exist and are
-#        attached at their approved targets (database data at
-#        /var/lib/postgresql — the official PostgreSQL 18 image's persistent
-#        parent of PGDATA, researched in scripts/dev-db.sh — and media at the
-#        stable in-container ./media mount path), as named-volume mounts
-#        outside the ephemeral container layers.
-#   C5  (7+8) integrity baseline: the canonical native EmDash Site Setting
-#        `tagline` is retrieved through its intended native platform boundary
-#        and compared EXACT VALUE FIRST, then its exact UTF-8 bytes are
-#        hashed and compared with the canonical SHA-256; the designated
-#        validation media is retrieved through its intended native public
-#        media boundary and its bytes compared with the canonical media
-#        SHA-256.
-#   C6  (5) exactly three consecutive lifecycle cycles, each exercising
-#        start, stop, restart, and replace/recreate of the ephemeral runtime
-#        containers while retaining the named volumes; after every operation
-#        the readiness state is re-probed, and both integrity checks are
-#        rerun at every operational checkpoint (a stopped platform must
-#        report not-ready, and integrity is asserted wherever the platform
-#        is expected to serve it — every checkpoint where the unit runs).
-#   C7  (6) a deliberately missing expected persistence attachment (the
-#        media volume omitted from the application unit's Quadlet source)
-#        must produce the REQUIRED EXPLICIT operational not-ready result
-#        identifying the affected media dependency by its safe dependency
-#        name (spec US2 scenario 3; data-model sections 4-5), in one of two
-#        PO-approved evidence classes. T012 CLASS: when the container runs,
-#        the recurring readiness helper itself reports `not-ready` naming
-#        media. STARTUP REFUSAL CLASS (Product Owner decision 2026-10-09):
-#        when the application container cannot start because the required
-#        persistent media attachment is absent — so the helper cannot
-#        execute — not-ready may instead be demonstrated by an
-#        invocation-scoped, media-specific startup refusal, valid only when
-#        ALL supporting conditions are established: the effective
-#        attachment omission is verified from the GENERATED service's
-#        execution argv (the podman run -v/--volume/--mount options —
-#        absent, malformed, or unprovable execution definitions are
-#        rejected evidence, and an attached service never qualifies); the
-#        refusal belongs to the current attempted start (scoped by
-#        _SYSTEMD_INVOCATION_ID, with the manager's current InvocationID
-#        still equal to it); ONE refusal record names the required media
-#        attachment as the startup-blocking cause in the approved guard
-#        structure — the literal volume name, an attachment negation, and
-#        the literal mount target in that order on the same line — so a
-#        generic failure that merely co-occurs with the media identifiers
-#        is rejected; the application never reaches Healthy/Ready — the
-#        same invocation shows NO T013 gate output at all (stage markers
-#        OR the completion banner) and its main process exited nonzero
-#        (native state read as NAMED Key=Value properties in any order,
-#        with the systemd 259 INTEGER ExecMainCode semantics — a
-#        successful or still-running attempt is not refusal evidence, and
-#        the nonzero exit is one component of the combined evidence set,
-#        not a standalone no-healthy proof); every captured unit and
-#        journal slice is secret-checked like the C1 collections; generic
-#        failures, split or same-line unrelated mentions, stale logs, and
-#        simple unreachability are rejected; and the original media volume
-#        remains intact. This evidence is classified
-#        STARTUP REFUSAL, never as a T012 readiness-helper result. Any
-#        ready result (a healthy empty replacement) fails the stage in
-#        either class. The omission is simulated WITHOUT deleting or
-#        reinitializing persistent state, and the original attachment is
-#        restored — verified by checksum — on every exit path, including
-#        interruption (traps); when a byte-exact restore cannot be verified,
-#        restoration fails closed: the recovery copy is preserved next to
-#        the source AND the scratch directory holding the original backup is
-#        kept (never deleted), with an actionable nonzero result.
-#   C8   final integrity checkpoint, retained-volume/no-new-volume proof, and
-#        the no-residue wrap-up.
+# `--self-test` runs the failure paths and dispatches against scratch files
+# and shimmed podman and systemctl; it touches no deployment.
 #
-# The harness never starts or stops the T005 development database, never
-# touches songhealth-dev-db / songhealth-dev-db-data or the host ./media
-# tree, never deletes or recreates a volume, and never runs the production
-# application itself. Its mutations are exactly: user-systemd unit lifecycle
-# operations on the two validated production units, removal of their two
-# validated ephemeral containers (only after the owning unit is stopped) for
-# the recreate exercise, and the guarded, checksum-verified transient edit of
-# the application Quadlet source during C7.
+# Inputs (environment; nothing host-specific is hard-coded). Required:
 #
-# `--self-test` runs isolated failure-path demonstrations of the guarded
-# restore/cleanup branches, the missing-attachment readiness acceptance, and
-# the non-mutation detector, entirely against scratch files under a shimmed
-# systemctl; it touches no real deployment, unit, or Quadlet.
-#
-# Inputs are external and environment-appropriate (no host-specific paths,
-# credentials, or public endpoints are hard-coded). Required:
-#
-#   SONGHEALTH_APP_ORIGIN          proxy-facing loopback origin of the
-#                                  production application publication,
-#                                  e.g. http://127.0.0.1:8080
-#   SONGHEALTH_VALIDATION_TOKEN    scoped EmDash personal access token with
-#                                  settings:read, provisioned by the operator
-#                                  for validation; read in-process by node
-#                                  and NEVER printed or logged
+#   SONGHEALTH_APP_ORIGIN          the application's loopback origin,
+#                                  e.g. http://127.0.0.1:4321
+#   SONGHEALTH_VALIDATION_TOKEN    an EmDash API token with settings:read only;
+#                                  read in-process by node, never printed
 #   SONGHEALTH_VALIDATION_MEDIA_PATH
-#                                  URL path of the designated validation media
-#                                  asset on the native public media file
-#                                  boundary, e.g. /_emdash/api/media/file/<key>
+#                                  the validation picture's public path,
+#                                  /_emdash/api/media/file/<key>
 #
-# Optional topology overrides (defaults come from the approved plan
-# structure; override only to match the deployed environment):
+# Optional topology overrides (defaults match deploy/quadlet):
 #
 #   SONGHEALTH_APP_UNIT (songhealth-app.service)
 #   SONGHEALTH_DB_UNIT (songhealth-db.service)
@@ -225,19 +81,13 @@
 #                          <repository>:<tag>@sha256:<64 hex>, and the image
 #                          the container runs must carry that tag (#459))
 #
-# Secret safety: this harness holds no database credentials (all
-# application-to-database probes execute inside the application container
-# through `podman exec`, consuming only the container's own configured
-# environment). It never prints credentials, secret values, bearer tokens,
-# EMDASH_ENCRYPTION_KEY, PGPASSWORD, or a full credential-bearing migration
-# URL; any captured command output is scrubbed of the known secret values
-# before it is printed, and readiness output is additionally asserted to be
-# secret-free. Only safe unit/container/network/volume/dependency names,
-# non-secret digests, and HTTP status codes appear in output.
+# Secrets: the harness holds no database credential (its database probes run
+# inside the application container through `podman exec`), prints no token or
+# secret value, scrubs the known secret values from captured output, and
+# asserts readiness output secret-free.
 #
-# Exit codes: 0 PASS | 1 FAIL (any stage, including the expected RED
-# prerequisite failure) | 2 environment error | 4 missing or invalid input |
-# 64 usage error.
+# Exit codes: 0 PASS | 1 FAIL (any stage) | 2 environment error | 4 missing or
+# invalid input | 64 usage error.
 
 set -euo pipefail
 
