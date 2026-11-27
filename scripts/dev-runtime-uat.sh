@@ -6,8 +6,8 @@
 # configuration stays untouched. Both run as rootless Podman containers on the host network while
 # the UAT lasts; stop removes them and the node. The steps are in
 # docs/operations/development-quadlet.md "Thai search UAT through a Tailscale Funnel".
-#   scripts/dev-runtime-uat.sh start            # the proxy, its check, the node's login link, the URL
-#   scripts/dev-runtime-uat.sh check [<origin>] # the proxy's rules at <origin>, by default the proxy
+#   scripts/dev-runtime-uat.sh start            # the proxy, its check, the login link, the URL
+#   scripts/dev-runtime-uat.sh check [<origin>] # the proxy's rules at <origin>, or at the proxy
 #   scripts/dev-runtime-uat.sh stop             # the node leaves the tailnet; both containers go
 #   scripts/dev-runtime-uat.sh status
 set -Eeuo pipefail
@@ -147,15 +147,16 @@ start() {
     || { stop_all; die "the proxy listens beyond loopback"; }
   check "$PROXY" || { stop_all; die "the proxy failed its check: nothing is public"; }
 
-  # shellcheck disable=SC2016  # ${TS_CERT_DOMAIN} is containerboot's placeholder for the node's name
+  # ${TS_CERT_DOMAIN} is containerboot's placeholder for the node's name.
+  # shellcheck disable=SC2016
   printf '%s\n' '{"TCP":{"443":{"HTTPS":true}},"Web":{"${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"'"$PROXY"'"}}}},"AllowFunnel":{"${TS_CERT_DOMAIN}:443":true}}' \
     > "$UAT_DIR/serve/serve.json"
   # No TS_STATE_DIR: containerboot then runs tailscaled with --state=mem:, which registers the node
   # as ephemeral, an interactive login included (tailscale v1.104.4 cmd/containerboot/tailscaled.go,
   # cmd/tailscaled/tailscaled.go). With no TS_AUTHKEY the node waits for someone to open its login
   # link and approve it in the tailnet's account (the Product Owner's decision, #238 comment
-  # 6763361252, item 1). TS_BOOT_TIMEOUT, 60 s by default (cmd/containerboot/settings.go), gives that
-  # approval the same ten minutes the loop below waits.
+  # 6763361252, item 1). TS_BOOT_TIMEOUT, 60 s by default (cmd/containerboot/settings.go), gives
+  # that approval the same ten minutes the loop below waits.
   podman run -d --name "$NODE_CTR" --label "$UAT_LABEL" --network host --read-only --cap-drop all \
     --security-opt no-new-privileges --security-opt label=disable \
     -e TS_HOSTNAME="$NODE_NAME" -e TS_USERSPACE=true -e TS_BOOT_TIMEOUT=10m \

@@ -14,7 +14,7 @@
 #   scripts/rehearsal/vm.sh ssh [cmd] the administrator account, with Claude Code's key
 #   scripts/rehearsal/vm.sh account [cmd]  the Deployment account, with its own key (made here; the
 #                                     Operator authorizes it through scripts/host/root-setup.sh)
-#   scripts/rehearsal/vm.sh tunnel [port]  forward the workstation's loopback port (default 14321) to
+#   scripts/rehearsal/vm.sh tunnel [port]  forward a workstation loopback port (default 14321) to
 #                                     the application's loopback publication on the machine, until
 #                                     stopped: the demo dataset's way in (#458)
 #   scripts/rehearsal/vm.sh remove    stop it and delete its folder and keys (asks first)

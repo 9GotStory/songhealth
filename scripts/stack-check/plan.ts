@@ -101,6 +101,27 @@ export interface Answer {
 	secured?: boolean;
 }
 
+/** What a refusal verdict reads of an answer, so another script's answer serves too. */
+type Ending = Pick<Answer, "status" | "error" | "secured">;
+
+/**
+ * The site's own refusal of a source: no HTTP answer, and the connection reset after a handshake
+ * with the site's certificate. A forward that is down, a refused or timed-out connection, or a TLS
+ * failure never got there, and proves nothing (CODING_STANDARDS "Tests", #457 retro).
+ * scripts/rehearsal-admins.ts reads its P3 with it too.
+ */
+export function closedAfterHandshake(answer: Ending): boolean {
+	return answer.status === undefined && answer.secured === true && answer.error === "ECONNRESET";
+}
+
+/**
+ * The proxy's abort of a name it does not serve: no HTTP answer, and the handshake refused with an
+ * alert (EPROTO) or the connection reset after one.
+ */
+function closedName(answer: Ending): boolean {
+	return answer.status === undefined && (answer.error === "EPROTO" || closedAfterHandshake(answer));
+}
+
 const USAGE = `usage: node scripts/stack-check.ts --inside <address[:port]> --outside <address[:port]> [--ca <file>] [--other-site <name>]
   --inside      the host as a device on the private network reaches it
   --outside     the host as a source outside the private network reaches it
@@ -320,12 +341,10 @@ export function judge(check: Check, answer: Answer): { pass: boolean; evidence: 
 				(expect.mark === undefined || (answer.body ?? "").includes(expect.mark));
 			break;
 		case "closed":
-			pass =
-				!answered &&
-				(answer.error === "EPROTO" || (answer.error === "ECONNRESET" && answer.secured === true));
+			pass = closedName(answer);
 			break;
 		case "closedAfterTls":
-			pass = !answered && answer.secured === true && answer.error === "ECONNRESET";
+			pass = closedAfterHandshake(answer);
 			break;
 		case "imageRefused":
 			pass = answer.status === 403 && (answer.body ?? "").includes(IMAGE_REFUSAL_MARK);

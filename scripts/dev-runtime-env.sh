@@ -4,7 +4,8 @@
 # (dev-runtime-common.sh STATE_DIR). Only paths are set; the tests read the files, and nothing is
 # printed. A variable already set in the environment, even to empty, wins. The command runs only on
 # the Node package.json engines pins (scripts/check-node.sh, #65 retro). It refuses while a window
-# holds the runtime (scripts/dev-runtime-window.sh), unless given --in-window by the window's holder.
+# holds the runtime (scripts/dev-runtime-window.sh), unless given --in-window by the window's
+# holder.
 #   scripts/dev-runtime-env.sh npm run test:browser -- tests/browser/<suite>.spec.ts
 #   scripts/dev-runtime-env.sh node tests/browser/run-cms-public-reads.mjs
 #   scripts/dev-runtime-env.sh node scripts/capture-with-fixtures.ts <fixtures-module> <out-dir>

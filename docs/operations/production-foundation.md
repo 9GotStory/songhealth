@@ -811,10 +811,15 @@ Deliberately absent, and not to be improvised as "maintenance":
 
 EmDash applies `seed/seed.json` only when it sets up a fresh database. A database set up from an
 earlier seed gets a later content model from the model-update step, `scripts/model-update.mjs`
-(`10` §4). The step uses only EmDash's native schema, taxonomy and menu APIs:
+(`10` §4). A fresh database needs it too, before any content: setup leaves the seed's taxonomy
+terms out unless it installs sample content, and keeps the core Categories and Tags. On the
+rehearsal machine the check found 10 changes pending, and the first entry written was refused with
+`400 VALIDATION_ERROR` until the step ran (#458). The step uses only EmDash's native schema,
+taxonomy and menu APIs:
 
 1. Take a Recovery Set of the database and its media (`10` §18; §7.6): stop the application,
-   back up, and start it again before step 2, which needs it serving.
+   back up, and start it again before step 2, which needs it serving. A fresh database with no
+   content has nothing to back up, and starts at step 2.
 2. Use a checkout at the deployed commit, the Node its `package.json` engines pins, and an API
    token of an Administrator with the `schema:read`, `schema:write`, `content:read`,
    `taxonomies:manage` and `menus:manage` scopes (emdash 1.1.0 `src/astro/middleware/auth.ts`).

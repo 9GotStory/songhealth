@@ -20,6 +20,8 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 
+import { HASH_CODE } from "../../scripts/wrap-comments.ts";
+
 const ROOT = new URL("../../", import.meta.url);
 
 /** A cited source path: relative, under src/, dist/ or lib/, with a code file's extension. */
@@ -39,19 +41,28 @@ const SPLIT_PATH = /(?<![\w./@-])\(?(?:src|dist|lib)\/[\w.[\]/-]*\/$/;
 /** A word that may name a package, such as `playwright-core` or `@emdash-cms/admin`. */
 const PACKAGE_NAME = /(?:@[\w.-]+\/)?[\w.-]+/g;
 
-/** The code files git tracks or would track, outside the Feature 001 and 002 records in specs/. */
+/**
+ * The code files git tracks or would track, outside the Feature 001 and 002 records in specs/, and
+ * the files whose comments start with `#`: the shell scripts, hooks, PowerShell and the site file
+ * for Caddy (#458 retro: the site file's platform claims reached review without their versions).
+ */
 function codeFiles(): string[] {
 	return execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
 		cwd: ROOT,
 		encoding: "utf8",
 	})
 		.split("\0")
-		.filter((file) => /\.(?:ts|tsx|mts|js|mjs|astro)$/.test(file) && !file.startsWith("specs/"));
+		.filter(
+			(file) =>
+				(/\.(?:ts|tsx|mts|js|mjs|astro)$/.test(file) || HASH_CODE.test(file)) &&
+				!file.startsWith("specs/"),
+		);
 }
 
-/** A comment line: once trimmed, it starts with //, /* or *. */
-function isComment(line: string): boolean {
+/** A comment line: once trimmed, it starts with //, /* or *, or in `file` of HASH_CODE with #. */
+function isComment(line: string, file: string): boolean {
 	const text = line.trimStart();
+	if (HASH_CODE.test(file)) return text.startsWith("#") && !text.startsWith("#!");
 	return text.startsWith("//") || text.startsWith("/*") || text.startsWith("*");
 }
 
@@ -65,7 +76,7 @@ function namedPackages(line: string): string[] {
 /** A comment block's words, without its comment markers and line breaks. */
 function prose(block: string[]): string {
 	return block
-		.map((line) => line.trimStart().replace(/^(?:\/\/|\/\*+|\*\/?)/, ""))
+		.map((line) => line.trimStart().replace(/^(?:\/\/|\/\*+|\*\/?|#)/, ""))
 		.join(" ")
 		.replace(/\s+/g, " ");
 }
@@ -93,7 +104,7 @@ async function citedPaths(): Promise<
 			blockPackages = new Set();
 		};
 		lines.forEach((line, index) => {
-			if (!isComment(line)) {
+			if (!isComment(line, file)) {
 				endBlock();
 				return;
 			}
@@ -138,6 +149,7 @@ describe("cited source paths", () => {
 	it("are found in the code comments", async () => {
 		const cited = await citedPaths();
 		assert.ok(cited.some(({ path }) => path === "src/loader.ts"));
+		assert.ok(cited.some(({ at }) => at.startsWith("deploy/caddy/songhealth.caddy:")));
 	});
 
 	it("stay whole on one comment line", async () => {
@@ -149,7 +161,12 @@ describe("cited source paths", () => {
 			const lines = (await readFile(new URL(file, ROOT), "utf8")).split("\n");
 			lines.forEach((line, index) => {
 				const next = lines[index + 1];
-				if (isComment(line) && next !== undefined && isComment(next) && SPLIT_PATH.test(line)) {
+				if (
+					isComment(line, file) &&
+					next !== undefined &&
+					isComment(next, file) &&
+					SPLIT_PATH.test(line)
+				) {
 					broken.push(`${file}:${index + 1}`);
 				}
 			});
@@ -167,13 +184,13 @@ describe("cited source paths", () => {
 	it("found only in EmDash are recorded in docs/agents/emdash-1.1.0.md, for the site's code", async () => {
 		// CLAUDE.md asks for each EmDash fact the code relies on to be added to the facts file with
 		// its source path, so a new EmDash version has one list to verify again (#64 retro). The
-		// check covers EmDash's own source, src/, as src/ and scripts/ cite it: the code the site and
-		// its operations run. A test cites the platform to explain what it checks, and an accepted
-		// Feature 001 or 002 file's claims, such as a bundle name under EmDash's dist/, are checked
-		// again when a change touches it (CODING_STANDARDS "Comments").
+		// check covers EmDash's own source, src/, as src/, scripts/ and deploy/ cite it: the code the
+		// site and its operations run. A test cites the platform to explain what it checks, and an
+		// accepted Feature 001 or 002 file's claims, such as a bundle name under EmDash's dist/, are
+		// checked again when a change touches it (CODING_STANDARDS "Comments").
 		const facts = await readFile(new URL("docs/agents/emdash-1.1.0.md", ROOT), "utf8");
 		const unrecorded = (await citedPaths())
-			.filter(({ at, path }) => /^(?:src|scripts)\//.test(at) && path.startsWith("src/"))
+			.filter(({ at, path }) => /^(?:src|scripts|deploy)\//.test(at) && path.startsWith("src/"))
 			.filter(onlyInEmDash)
 			.filter(({ path }) => !facts.includes(path))
 			.map(({ at, path }) => `${at} ${path}`);

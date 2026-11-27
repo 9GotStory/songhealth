@@ -935,6 +935,18 @@ Read on 2026-11-06 for Feature 005, the WordPress migration (`09`).
 
 ## Native API for tests
 
+- `POST /_emdash/api/admin/api-tokens` with `{name, scopes, expiresAt?}` answers **201**, the token
+  in `data.token` and shown only then; `GET` lists `data.items` (`id`, `name`, …), and
+  `DELETE …/api-tokens/{id}` revokes one (`src/astro/routes/api/admin/api-tokens/index.ts`
+  `unwrapResult(result, 201)`, `src/astro/routes/api/admin/api-tokens/[id].ts`). A script that
+  makes one revokes its earlier namesakes first (`./scripts/rehearsal-pictures.ts` `token`, #458: a
+  check for 200 left a made token unkept).
+- The Media Library, for a browser script (`@emdash-cms/admin/dist/index.js` 1.1.0, its `Tabs` from
+  `@cloudflare/kumo`; read in #458's runs): the grid/list switch is a group "View mode" of **tabs**
+  "Grid view" and "List view", not buttons; each item is a button named by its filename
+  (`"aria-label": item.filename`); an item opens a dialog "Media details" whose tabs are "Details",
+  "Edit image" (the focal point) and "Used in". The gallery block's picker (multiple) shows the
+  selection tray as `section[aria-labelledby="media-picker-selection"]`.
 - A native list answers one page of at most 100 items (`limit`), with `nextCursor` while more remain
   (`src/api/schemas/common.ts` `cursorPaginationQuery`).
 - `POST …/content/{collection}/{id}/publish` accepts `publishedAt` to backdate a publication

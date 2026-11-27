@@ -4,7 +4,8 @@
 # image's own user (#453), run the image once against the development runtime's data, show how a
 # News picture is served, stop it the way the commit's application unit would, and remove the
 # container and the image.
-#   scripts/production-image-check.sh --sha <commit> [--image <ref>] [<news-path>] [-- <command> [<arg>...]]
+#   scripts/production-image-check.sh --sha <commit> [--image <ref>] [<news-path>]
+#                                     [-- <command> [<arg>...]]
 # With --image (#455; Product Owner, #455 comment 7163433918) it checks that image, a Release's,
 # instead of building one, reads the commit's unit all the same, and leaves the image in place:
 # scripts/release.ts runs it on the image it cut from <commit>.
