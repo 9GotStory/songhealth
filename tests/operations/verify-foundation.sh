@@ -220,9 +220,10 @@
 #   songhealth-app.container, derived from SONGHEALTH_APP_UNIT)
 #   SONGHEALTH_APP_IMAGE (localhost/songhealth-app:0.0.1 — the intended
 #                          application image identity for the C1 container
-#                          wiring form; the exact token is required and may
-#                          carry the deployment's digest pin
-#                          <image>@sha256:<64 hex>)
+#                          wiring form, as <repository>:<tag> without the
+#                          digest: the unit's Image= token must read
+#                          <repository>:<tag>@sha256:<64 hex>, and the image
+#                          the container runs must carry that tag (#459))
 #
 # Secret safety: this harness holds no database credentials (all
 # application-to-database probes execute inside the application container
@@ -1272,25 +1273,48 @@ require_container_gate_identity_for_unit() {
 	# reasoner proved the unit's shape; this proves, secret-free, that (a)
 	# the unit's digest-pinned image token equals the deployed container's
 	# actual image identity (an arbitrary digest under the expected tag, or
-	# a different image, fails closed), and (b) the container's in-container
+	# a different image, fails closed): Podman reports a container run from
+	# <repository>:<tag>@sha256:<digest> as <repository>@sha256:<digest>
+	# (Podman 5.7.0 and 6.2.0, #459), so that form or the pinned token itself
+	# is the identity, and the image the container runs must carry the
+	# <repository>:<tag> of SONGHEALTH_APP_IMAGE among its tags; and (b) the
+	# container's in-container
 	# T013 gate script and package mapping are byte-identical (SHA-256) to
 	# the accepted repository sources this harness anchors on — so no
 	# overmounted or replaced /app/tests or /app/package.json can satisfy
 	# the wiring. Digests and identities only; no secret values.
 	local label="$1" unit_file="$2"
 	local pinned='' actual='' cont_sums='' host_sums='' line='' f='' c='' h=''
+	local repository='' reported='' image_id='' tags=''
 	pinned="$(grep -oE "${APP_IMAGE}@sha256:[0-9a-f]{64}" "$unit_file" | head -1 || true)"
 	if [ -z "$pinned" ]; then
 		fail_stage "$label" 'the container-form wiring carries no digest-pinned application image token to bind to the actual container'
 	fi
+	# <repository>:<tag> -> <repository>; a tag never holds a slash.
+	repository="${APP_IMAGE%:*}"
+	case ${APP_IMAGE##*:} in
+	*/* | '') repository="$APP_IMAGE" ;;
+	esac
+	reported="${repository}@${pinned##*@}"
 	if ! actual="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
 		podman container inspect "$APP_CONTAINER" --format '{{.ImageName}}' 2>/dev/null)" || [ -z "$actual" ]; then
 		fail_stage "$label" 'could not inspect the actual image identity of container %s for the container-form identity binding' \
 			"$APP_CONTAINER"
 	fi
-	if [ "$actual" != "$pinned" ]; then
+	if [ "$actual" != "$pinned" ] && [ "$actual" != "$reported" ]; then
 		fail_stage "$label" 'the deployed container image identity %s does not equal the effective unit pinned identity %s — the wiring is not bound to the accepted image' \
 			"$actual" "$pinned"
+	fi
+	if ! image_id="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
+		podman container inspect "$APP_CONTAINER" --format '{{.Image}}' 2>/dev/null)" || [ -z "$image_id" ] ||
+		! tags="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
+			podman image inspect "$image_id" --format '{{range .RepoTags}}{{println .}}{{end}}' 2>/dev/null)"; then
+		fail_stage "$label" 'could not read the tags of the image container %s runs for the container-form identity binding' \
+			"$APP_CONTAINER"
+	fi
+	if ! printf '%s\n' "$tags" | grep -Fxq "$APP_IMAGE"; then
+		fail_stage "$label" 'the image container %s runs does not carry the intended tag %s — the wiring is not bound to the accepted image' \
+			"$APP_CONTAINER" "$APP_IMAGE"
 	fi
 	if ! cont_sums="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
 		podman exec "$APP_CONTAINER" sha256sum /app/tests/operations/verify-startup.sh /app/package.json 2>/dev/null)"; then
@@ -2628,8 +2652,16 @@ case " \$* " in
 	[ -f '$ST_ROOT/fx-podman-cgroup-error' ] && exit 125
 	exit 0
 	;;
+*' --format {{.Image}} '*)
+	[ -f '$ST_ROOT/fx-podman-image-id' ] && cat '$ST_ROOT/fx-podman-image-id'
+	exit 0
+	;;
 *' container inspect '*)
 	[ -f '$ST_ROOT/fx-podman-image' ] && cat '$ST_ROOT/fx-podman-image'
+	exit 0
+	;;
+*' image inspect '*)
+	[ -f '$ST_ROOT/fx-podman-tags' ] && cat '$ST_ROOT/fx-podman-tags'
 	exit 0
 	;;
 *' sha256sum '*)
@@ -3395,7 +3427,11 @@ UNIT
 	# completes, mismatching identity fails closed — through the shimmed
 	# podman, never a real engine.
 	cp "$wdir/container-ok.unit" "$ST_ROOT/fx-unit"
-	printf '%s\n' 'localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	# What Podman reports for a container run from a tag@digest reference: the repository and the
+	# digest, without the tag (Podman 5.7.0 and 6.2.0, #459).
+	printf '%s\n' 'localhost/songhealth-app@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	printf '%s\n' 'f1e2d3c4b5a6f1e2d3c4b5a6f1e2d3c4b5a6f1e2d3c4b5a6f1e2d3c4b5a6f1e2' >"$ST_ROOT/fx-podman-image-id"
+	printf '%s\n' 'localhost/songhealth-app:0.0.1' >"$ST_ROOT/fx-podman-tags"
 	sha256sum "$ROOT/tests/operations/verify-startup.sh" | awk '{print $1 "  /app/tests/operations/verify-startup.sh"}' >"$ST_ROOT/fx-podman-sums"
 	sha256sum "$ROOT/package.json" | awk '{print $1 "  /app/package.json"}' >>"$ST_ROOT/fx-podman-sums"
 	: >"$ST_ROOT/podman.log"
@@ -3420,6 +3456,35 @@ UNIT
 	else
 		st_fail dispatch-container-identity-mismatch "the dispatch must fail closed on identity mismatch (rc=$dispatch_rc)"
 	fi
+	# (#459) The digest under another repository is another image; an image
+	# without the intended tag is not the one the deployment named; the pinned
+	# token itself, should Podman report it so, is the identity.
+	printf '%s\n' 'localhost/other-app@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	dispatch_rc=0
+	( require_gate_wiring_for_unit C1-other-repository >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -ne 0 ] && grep -q 'does not equal the effective unit pinned identity' "$ST_ROOT/dispatch.err"; then
+		st_case dispatch-container-identity-other-repository 'PASS the pinned digest reported under another repository fails the stage closed'
+	else
+		st_fail dispatch-container-identity-other-repository "another repository must fail closed (rc=$dispatch_rc)"
+	fi
+	printf '%s\n' 'localhost/songhealth-app@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	printf '%s\n' 'localhost/songhealth-app:0.0.2' 'localhost/songhealth-app:0.0.1-rc' >"$ST_ROOT/fx-podman-tags"
+	dispatch_rc=0
+	( require_gate_wiring_for_unit C1-untagged-image >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -ne 0 ] && grep -q 'does not carry the intended tag' "$ST_ROOT/dispatch.err"; then
+		st_case dispatch-container-identity-untagged-image 'PASS an image that does not carry the intended tag fails the stage closed'
+	else
+		st_fail dispatch-container-identity-untagged-image "an image without the intended tag must fail closed (rc=$dispatch_rc)"
+	fi
+	printf '%s\n' 'localhost/songhealth-app:0.0.1' >"$ST_ROOT/fx-podman-tags"
+	printf '%s\n' 'localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	dispatch_rc=0
+	( require_gate_wiring_for_unit C1-pinned-form >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -eq 0 ]; then
+		st_case dispatch-container-identity-pinned-form 'PASS the pinned tag@digest token itself, reported as the identity, accepted'
+	else
+		st_fail dispatch-container-identity-pinned-form "the pinned token as the reported identity must be accepted (rc=$dispatch_rc)"
+	fi
 	# A host-form unit must NOT trigger the container identity dispatch.
 	cp "$wdir/direct.unit" "$ST_ROOT/fx-unit"
 	: >"$ST_ROOT/podman.log"
@@ -3430,7 +3495,8 @@ UNIT
 	else
 		st_fail dispatch-host-form-no-binding 'the identity binding must not run for host-form wiring'
 	fi
-	rm -f "$ST_ROOT/fx-unit" "$ST_ROOT/fx-podman-image" "$ST_ROOT/fx-podman-sums"
+	rm -f "$ST_ROOT/fx-unit" "$ST_ROOT/fx-podman-image" "$ST_ROOT/fx-podman-sums" \
+		"$ST_ROOT/fx-podman-image-id" "$ST_ROOT/fx-podman-tags"
 		cat >"$wdir/container-overmount.unit" <<UNIT
 [Service]
 ExecStart=${trusted_podman_path} run --name systemd-%N --rm -v songhealth-media:/app/media -v decoy-gate:/app/tests localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "npm run verify:startup && exec node dist/server/entry.mjs"
