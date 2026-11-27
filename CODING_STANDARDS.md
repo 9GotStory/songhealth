@@ -251,6 +251,12 @@ more over 5 lines; `.jscpd.json` lists the clones that stay and why, and `.jscpd
   the repository's own flow rewrites, such as the image the application unit pins or the package's
   version (#455 retro: `tests/node/release.test.ts` took the unit's `Image=` line for Feature
   001's, and the first pin, PR #480, needed a commit to keep it passing).
+- A shim's canned output for a tool's state, such as `podman inspect`, `systemctl show` or
+  `journalctl`, is copied from a run of the real tool at the version the host runs, and the fixture
+  names that run; a form no run has shown is written as untried. #459 retro: the T016 harness's
+  podman shim gave `.ImageName` as the unit's `<repository>:<tag>@sha256:<digest>`, Podman 5.7.0
+  and 6.2.0 report `<repository>@sha256:<digest>`, and C1 could not pass on any host while its
+  self-test passed.
 - A rule with an edge is tested on both sides of the edge: a count such as "the first eight" or
   "eight or fewer" with eight and nine items, a breakpoint such as "from `lg`" at 1023 and 1024 px,
   and a place where something stops or starts with a fixture that reaches it. The spec's coverage
@@ -393,7 +399,9 @@ redirect counts with an inventory that holds none. A step that creates, removes 
 guard (a store's marker, the window's lock, the database's first-initialization authorization)
 cites the rule that owns the guard and keeps it, in the runbook and in a script's message that
 tells the Operator what to do, and each step's end state is read from the script the step runs.
-In #221 a review fix told dev to create a lost media marker by hand, which
+A step's commands are copied from the script or transcript of the run that showed them, and a
+command that run did not execute is written as untried: #459's §7.8, written again by hand, left
+out the inputs' `export` and the read-back's command, which the run's script had. In #221 a review fix told dev to create a lost media marker by hand, which
 `production-foundation.md` §5.3 forbids, and the corrected steps left out that the installer
 starts the app.
 
