@@ -887,8 +887,8 @@ gate_wiring_reason() {
 	#   IMAGE/CONTAINER ANCHOR: the run must name the expected application
 	#     container (the Quadlet-generated systemd-%N specifier form or the
 	#     configured APP_CONTAINER literal) and reference the intended
-	#     application image identity as the exact token SONGHEALTH_APP_IMAGE
-	#     or that identity digest-pinned as <image>@sha256:<64 hex> — never
+	#     application image identity SONGHEALTH_APP_IMAGE digest-pinned, as
+	#     <repository>:<tag>@sha256:<64 hex> — never a bare tag, never
 	#     `latest`, never a different repository or floating tag.
 	#   STRUCTURAL PAYLOAD PROOF: the container command must be ONE sh -c
 	#     startup payload whose quote-aware token stream (a) invokes the
@@ -1275,7 +1275,8 @@ require_container_gate_identity_for_unit() {
 	# actual image identity (an arbitrary digest under the expected tag, or
 	# a different image, fails closed): Podman reports a container run from
 	# <repository>:<tag>@sha256:<digest> as <repository>@sha256:<digest>
-	# (Podman 5.7.0 and 6.2.0, #459), so that form or the pinned token itself
+	# (Podman 5.7.0 and 6.2.0: docs/evidence/459-t022-rehearsal.md, "What the
+	# runs found", item 2), so that form or the pinned token itself
 	# is the identity, and the image the container runs must carry the
 	# <repository>:<tag> of SONGHEALTH_APP_IMAGE among its tags; and (b) the
 	# container's in-container
@@ -1290,11 +1291,10 @@ require_container_gate_identity_for_unit() {
 	if [ -z "$pinned" ]; then
 		fail_stage "$label" 'the container-form wiring carries no digest-pinned application image token to bind to the actual container'
 	fi
-	# <repository>:<tag> -> <repository>; a tag never holds a slash.
+	# <repository>:<tag> -> <repository>, cut at the last colon, so a
+	# registry's port stays. An identity without a tag is pinned in the form
+	# Podman reports, and the tag check below refuses it.
 	repository="${APP_IMAGE%:*}"
-	case ${APP_IMAGE##*:} in
-	*/* | '') repository="$APP_IMAGE" ;;
-	esac
 	reported="${repository}@${pinned##*@}"
 	if ! actual="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
 		podman container inspect "$APP_CONTAINER" --format '{{.ImageName}}' 2>/dev/null)" || [ -z "$actual" ]; then
@@ -2661,6 +2661,7 @@ case " \$* " in
 	exit 0
 	;;
 *' image inspect '*)
+	[ -f '$ST_ROOT/fx-podman-tags-error' ] && exit 125
 	[ -f '$ST_ROOT/fx-podman-tags' ] && cat '$ST_ROOT/fx-podman-tags'
 	exit 0
 	;;
@@ -3485,6 +3486,47 @@ UNIT
 	else
 		st_fail dispatch-container-identity-pinned-form "the pinned token as the reported identity must be accepted (rc=$dispatch_rc)"
 	fi
+	printf '%s\n' 'localhost/songhealth-app:0.0.2' >"$ST_ROOT/fx-podman-tags"
+	dispatch_rc=0
+	( require_gate_wiring_for_unit C1-pinned-form-untagged >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -ne 0 ] && grep -q 'does not carry the intended tag' "$ST_ROOT/dispatch.err"; then
+		st_case dispatch-container-identity-pinned-form-untagged 'PASS the pinned token reported, on an image without the intended tag, fails the stage closed'
+	else
+		st_fail dispatch-container-identity-pinned-form-untagged "the pinned form on an image without the tag must fail closed (rc=$dispatch_rc)"
+	fi
+	printf '%s\n' 'localhost/songhealth-app:0.0.1' >"$ST_ROOT/fx-podman-tags"
+	: >"$ST_ROOT/fx-podman-tags-error"
+	dispatch_rc=0
+	( require_gate_wiring_for_unit C1-tags-unreadable >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -ne 0 ] && grep -q 'could not read the tags' "$ST_ROOT/dispatch.err"; then
+		st_case dispatch-container-identity-tags-unreadable 'PASS an image whose tags cannot be read fails the stage closed'
+	else
+		st_fail dispatch-container-identity-tags-unreadable "unreadable tags must fail closed (rc=$dispatch_rc)"
+	fi
+	rm -f "$ST_ROOT/fx-podman-tags-error"
+	# A registry with a port: the repository is everything before the tag's
+	# colon, not before the first colon. An intended identity without a tag
+	# is never carried as a tag, so it fails closed.
+	sed 's|localhost/songhealth-app:0.0.1@|localhost:5000/songhealth-app:0.0.1@|' "$wdir/container-ok.unit" >"$ST_ROOT/fx-unit"
+	printf '%s\n' 'localhost:5000/songhealth-app@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	printf '%s\n' 'localhost:5000/songhealth-app:0.0.1' >"$ST_ROOT/fx-podman-tags"
+	dispatch_rc=0
+	( APP_IMAGE='localhost:5000/songhealth-app:0.0.1'
+		require_gate_wiring_for_unit C1-registry-port >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -eq 0 ]; then
+		st_case dispatch-container-identity-registry-port 'PASS an image of a registry with a port, reported as <host:port/repository>@<digest>, accepted'
+	else
+		st_fail dispatch-container-identity-registry-port "a registry with a port must be accepted (rc=$dispatch_rc): $(head -c 300 "$ST_ROOT/dispatch.err")"
+	fi
+	sed 's|localhost/songhealth-app:0.0.1@|localhost:5000/songhealth-app@|' "$wdir/container-ok.unit" >"$ST_ROOT/fx-unit"
+	dispatch_rc=0
+	( APP_IMAGE='localhost:5000/songhealth-app'
+		require_gate_wiring_for_unit C1-untagged-identity >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -ne 0 ] && grep -q 'does not carry the intended tag' "$ST_ROOT/dispatch.err"; then
+		st_case dispatch-container-identity-untagged-identity 'PASS an intended identity without a tag fails the stage closed'
+	else
+		st_fail dispatch-container-identity-untagged-identity "an intended identity without a tag must fail closed (rc=$dispatch_rc)"
+	fi
 	# A host-form unit must NOT trigger the container identity dispatch.
 	cp "$wdir/direct.unit" "$ST_ROOT/fx-unit"
 	: >"$ST_ROOT/podman.log"
@@ -3496,7 +3538,7 @@ UNIT
 		st_fail dispatch-host-form-no-binding 'the identity binding must not run for host-form wiring'
 	fi
 	rm -f "$ST_ROOT/fx-unit" "$ST_ROOT/fx-podman-image" "$ST_ROOT/fx-podman-sums" \
-		"$ST_ROOT/fx-podman-image-id" "$ST_ROOT/fx-podman-tags"
+		"$ST_ROOT/fx-podman-image-id" "$ST_ROOT/fx-podman-tags" "$ST_ROOT/fx-podman-tags-error"
 		cat >"$wdir/container-overmount.unit" <<UNIT
 [Service]
 ExecStart=${trusted_podman_path} run --name systemd-%N --rm -v songhealth-media:/app/media -v decoy-gate:/app/tests localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "npm run verify:startup && exec node dist/server/entry.mjs"
