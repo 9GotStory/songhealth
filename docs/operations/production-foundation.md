@@ -1170,7 +1170,7 @@ planning module, in this order:
 A failure at stop, take or check still leads to the start, which is tried once. A failure at any
 step keeps nothing of the night: its set is removed and never reaches `~/recovery-sets`, so the
 host's backup never sees it, and the earlier sets stay; a failure at the publication comes after
-the prune has made room, so six then remain. Every night that does not keep its set
+the prune has made room, so at most six then remain. Every night that does not keep its set
 sends one message through the host's alert command, `<command> "<subject>"` with the body on
 standard input (contract item 4), which says which step failed, how it ended, and whether the
 application is running; a failed command's own errors are only in the journal, since the message
@@ -1220,11 +1220,14 @@ copies nothing off the host: taking the sets off it is the host's backup's (cont
 
 **Running it by hand**: `systemctl --user start songhealth-recovery-set.service` runs the same
 night, with the same lock, and returns when it ends; it stops the site for its length, so it is
-announced first. Its set is one of the seven, so it pushes the oldest night's set out. A drill of a failure runs the command itself from the checkout,
+announced first. Its set is one of the seven, so it pushes the oldest night's set out. A drill of
+a failure runs the command itself from the checkout,
 `cd ~/songhealth-checkout && ~/.local/bin/node scripts/nightly-recovery-set.ts --fail-at <step>`,
 where `<step>` is `stop`, `take`, `check`, `start`, `prune` or `publish`: the step does its work and
 then counts as failed, so the night's set is not kept and the alert is sent. The publication fails
-before its rename, so the drill's set never enters `~/recovery-sets`. The timer's unit never
+before its rename, so the drill's set never enters `~/recovery-sets`, where the host's backup could
+take a set the run then removed (contract item 3); the Product Owner's answer had each step do its
+work first (#460 comment 7214747287), and this one step is put to them in #460's pull request. The timer's unit never
 passes it.
 
 **Off the host.** No production set leaves the host before the data-governance approval exists:

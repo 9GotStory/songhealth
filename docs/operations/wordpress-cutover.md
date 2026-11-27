@@ -109,8 +109,9 @@ All of them stay outside the repository. A record of this run holds counts, chec
       systemctl --user start songhealth-app.service
       ```
 
-      The backup refuses while the app runs. Copy the set off the host over a private channel, and
-      put the totals and the three SHA-256 it prints in the run's record. The set holds no runtime
+      The backup refuses while the app runs. The set stays on the host until the data-governance
+      approval exists (`production-foundation.md` §7.9 "Off the host"); put the totals and the
+      three SHA-256 it prints in the run's record. The set holds no runtime
       secret (`runtime-secret-recovery.md`).
     - **WordPress database and files (Product Owner):** with the WordPress host's own tools, just
       before the freeze. `wp-content.zip` holds no database, so it is not this backup.

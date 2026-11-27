@@ -299,7 +299,9 @@ function main(argv: readonly string[]): number {
 			say(`${step}: ${new Date().toISOString()}`);
 			const drill = `the ${step} step was made to fail by --fail-at (a drill)`;
 			// A drill's publication fails before its rename: a set the run then took back out of the
-			// folder could already be in the host's backup.
+			// folder could already be in the host's backup (contract §3). The Product Owner's answer
+			// has a drilled step do its work first (#460 comment 7214747287); this one step departs
+			// from it, and #460's pull request puts that to them.
 			let failed = args.failAt === "publish" && step === "publish" ? drill : steps[step]();
 			if (failed === undefined && args.failAt === step) failed = drill;
 			if (failed !== undefined) {
