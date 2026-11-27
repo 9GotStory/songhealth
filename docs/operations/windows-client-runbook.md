@@ -2,7 +2,8 @@
 
 How the Product Owner's Windows 11 computer reaches the machine under test before the DNS switch,
 and how Claude Code runs the acceptance checks there in the real Chrome and Edge. Started in #456
-for the rehearsal machine; #466 completes it for the Production host.
+for the rehearsal machine, with the Windows Hello passkeys and the production steps added in #457;
+#466 follows §5 on the Production host and completes it.
 
 **Authority:** spec #450, "Access before the cutover, and the Administrators" and "The rehearsal"
 (Product Owner, Windows client, 2026-11-25: #450 comments 7160648899, 7160891011 and 7161099448);
@@ -119,9 +120,9 @@ certificate store, also with Secure DNS on; checks W3 and W4 below confirm it pe
 **Remove** (administrator prompt): `.\client.ps1 -Action RemoveRehearsal` removes both hosts lines
 and the authority, and empties the DNS cache. Before the production tests (#466) only what was
 made for the rehearsal is removed: these two, and the Windows Hello passkeys made under the real
-name on the rehearsal machine (#457).
+name on the rehearsal machine (§5, "Removing the rehearsal's passkeys").
 
-## 4. The acceptance checks on the rehearsal machine (#456)
+## 4. The acceptance checks on the rehearsal machine (#456, #457)
 
 Claude Code runs each check in Chrome and in Edge through the channel and records PASS or FAIL
 with its evidence; the Product Owner certifies the result.
@@ -147,12 +148,90 @@ use one (`get`) offers only a phone and a security key, never the PIN (#456). A 
 mistake makes that throwaway passkey; the site never registers it, and the Product Owner deletes
 it in Settings > Accounts > Passkeys.
 
+**The Administrator's passkey (#457).** The first Administrator is made through the Admin's own
+setup in one browser, with a passkey kept by Windows Hello (§5), and used in both. The Product
+Owner gives only the PIN; Claude Code drives every page.
+
+| # | Check | Pass when |
+|---|---|---|
+| W6 | A passkey made with Windows Hello | the setup's "Create passkey" brings up Windows Hello's PIN prompt (not a browser's own password manager), and after the PIN the setup ends on the sign-in screen |
+| W7 | Sign-in in the browser that made it | "Sign in with Passkey" and the PIN sign the Administrator in (`/_emdash/api/auth/me` answers role 50); after "Log out" it answers 401; signing in again works |
+| W8 | Sign-in in the other browser | the same, in the other browser, with the passkey the first one made |
+| W9 | The passkey is Windows' | Settings > Accounts > Passkeys lists it for `songhealth.moph.go.th` |
+
+The results of W6–W9 on the rehearsal machine are recorded with their evidence in #457.
+
 The feasibility of the channel itself is recorded with these results in #456: Playwright attaching
 to each browser through the tunnel, the Windows Hello prompt, and whether recent Chrome and Edge
 need the separate profile for remote debugging.
 
-## 5. Production (#466)
+## 5. Windows Hello passkeys
 
-#466 completes this runbook for the Production host: the hosts entry pointing at it, the Ministry's
-certificate in place of the test authority, the Windows Hello passkeys, signing out of the Admin
-and deleting the test profiles afterwards, and removing the control channel.
+A passkey for the site is made and kept by Windows Hello, the computer's own authenticator,
+unlocked by its PIN (or face or fingerprint where the computer has them). It is bound to
+`songhealth.moph.go.th` and works only there.
+
+**Making one.** In the Admin's setup, an invitation's page or Security Settings ("Add Passkey"),
+press the button that makes the passkey. Windows Hello asks for the PIN. If a browser offers its
+own password manager instead (Chrome can offer Google Password Manager), choose Windows Hello, so
+that the passkey stays on this computer and both browsers can use it. In #457, Chrome 158 went
+straight to Windows Hello's PIN prompt.
+
+**One per account on this computer.** Windows Hello keeps one passkey for an account on this site:
+when the account already has one here, the site asks for no second one (it lists the account's
+passkeys as ones not to make again), and the browser saves the new passkey in its own password
+manager instead. In #457 Edge 158 saved one in Microsoft Password Manager, which Edge alone offers
+and Chrome never sees. So an account's second passkey is made on another device (§6, step 8), and
+a passkey a browser saved for itself is removed (below).
+
+**Signing in, in Chrome and in Edge.** "Sign in with Passkey" on the Admin's sign-in screen (Edge
+in Thai: "เข้าสู่ระบบด้วย Passkey"); Windows Hello names the account and "Passkey for
+songhealth.moph.go.th" and asks for the PIN. A passkey made in Chrome signs in in Edge, since both
+use Windows Hello (#457, W8). When Edge also holds a passkey of its own for the site, it first
+asks which one, "From Microsoft Password Manager" or "From Windows Hello": choose Windows Hello. A
+Windows Hello passkey made in Edge and used in Chrome was not tried, since the account's one
+Windows Hello passkey was made in Chrome; it is the same store either way. Signing out is the user
+menu's "Log out".
+
+**Where Windows keeps them.** Settings > Accounts > Passkeys lists each passkey with its site and
+account; the rehearsal's first Administrator's passkey was listed there (#457, W9). That it stays
+after the browsers' test profiles are deleted is checked at #466 (§6, step 11).
+
+### Removing the rehearsal's passkeys
+
+Before the production checks, remove only the passkeys made on the rehearsal machine: Windows would
+otherwise offer them on the Production host, under the same name, for accounts that do not exist
+there. In Settings > Accounts > Passkeys, search for `songhealth.moph.go.th`, and remove each
+entry whose account is a rehearsal name (`…@songhealth.invalid`, such as
+`po-rehearsal@songhealth.invalid`) from its "…" menu. Leave every other passkey
+untouched. Check: the search finds no `@songhealth.invalid` account. Then, in each test browser's
+own password manager (Edge: Settings > Passwords, Microsoft Password Manager; Chrome: Google
+Password Manager), remove any passkey saved for `songhealth.moph.go.th`. The rehearsal's virtual
+authenticator never reaches this computer, so it left nothing here.
+
+## 6. Production (#466)
+
+The steps on the Production host before the DNS switch, in order. **PO** marks the Product Owner's
+own steps: Windows' administrator prompt, Windows Hello, and a real sign-in. Claude Code drives the
+browsers through the control channel and records each check; nothing automates a passkey on
+production, and the rehearsal's evidence scripts refuse the Production host's certificate.
+
+| # | Step | Who |
+|---|---|---|
+| 1 | Remove the rehearsal's hosts entries and test authority (`.\client.ps1 -Action RemoveRehearsal`, §3) | **PO** (administrator prompt) |
+| 2 | Remove the rehearsal's passkeys (§5, "Removing the rehearsal's passkeys") | **PO** |
+| 3 | The hosts-file entry for `songhealth.moph.go.th` pointing at `<Production host address>`, tagged like the rehearsal's (#466 gives the action); no test authority: the site shows the Ministry's certificate | **PO** (administrator prompt) |
+| 4 | Check that it took effect: `Resolve-DnsName songhealth.moph.go.th` answers the Production host's address, and the site and the Admin open in Chrome and Edge with the Ministry's certificate and no warning (W3, W4 with the Ministry's issuer) | Claude Code |
+| 4a | Before the setup, the site is private: from outside the private network, the site and its setup routes give no answer (#466) | Claude Code |
+| 5 | The setup: the site title, then the first Administrator's name and email as the Product Owner gives them | Claude Code drives; **PO** gives the details |
+| 6 | The setup's "Create passkey", with the setup screen and Windows Hello's prompt captured for the Ministry (`docs/operations/admin-sign-in-evidence/`) | **PO** (Windows Hello, Win+Shift+S) |
+| 7 | Sign in, sign out and sign in again in Chrome and in Edge (W7, W8), and the passkey in Windows' list (W9) | Claude Code drives; **PO** (Windows Hello, each sign-in) |
+| 8 | The second passkey, on another device the Product Owner names: on that device, signed in, Security Settings, "Add Passkey" | **PO** (a real sign-in, that device's own approval) |
+| 9 | The invitation: Users, "Invite User", the second Administrator's email, role Admin, "Send Invite"; the link is copied from the dialog (7 days, once) and handed to that person privately, never in an issue or chat | Claude Code drives; **PO** hands the link over |
+| 10 | The second Administrator opens the link on their own computer, makes their passkey, and adds a second one on another device (step 8) | **the second Administrator** (their own Windows Hello, a real sign-in) |
+| 11 | Sign out of the Admin in both test browsers, close them, delete `%LOCALAPPDATA%\songhealth-test`; then check that Settings > Accounts > Passkeys still lists the Administrator's passkey | Claude Code signs out; **PO** closes, deletes and looks |
+| 12 | Remove the control channel: `.\client.ps1 -Action RemoveChannel` (§2) | **PO** (administrator prompt) |
+
+The emergency procedure for the day no Administrator can sign in is
+[`administrator-recovery.md`](administrator-recovery.md); on production it is never run without the
+Operator's approval.
