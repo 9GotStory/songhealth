@@ -909,10 +909,11 @@ The manifest records the runtime, the image `songhealth-app.container` pins, the
 `pg_dump`, server and EmDash versions, both archives' sizes and SHA-256, every table's row count
 and the SHA-256 of its rows in primary-key order, EmDash's applied migrations, and every media
 file's path, size and SHA-256. It prints the totals and the three files' SHA-256 for the
-Operator's record. Then copy the set off the host over a private channel, since a set on the host
-dies with the host. Besides such a set, the nightly run takes one every night, keeps seven on the
-host and leaves them to the host's backup, which takes them off it (§7.9;
-`production-host-contract.md` item 3); a set taken by hand stays outside that folder.
+Operator's record. A set on the host dies with the host, and none leaves it before the
+data-governance approval exists (§7.9 "Off the host"). Besides such a set, the nightly run takes
+one every night, keeps seven on the host and leaves them to the host's backup, which takes them off
+it once that approval exists (§7.9; `production-host-contract.md` item 3); a set taken by hand
+stays outside that folder.
 
 The database's name and its administrator's come from the database container's own
 `POSTGRES_DB` and `POSTGRES_USER` (`songhealth-db.env`), and the application role from the
@@ -1170,16 +1171,26 @@ A failure at stop, take or check still leads to the start, which is tried once. 
 step keeps nothing of the night: its set is removed and never reaches `~/recovery-sets`, so the
 host's backup never sees it, and the earlier sets stay. Every night that does not keep its set
 sends one message through the host's alert command, `<command> "<subject>"` with the body on
-standard input (contract item 4), which says which step failed, why, and whether the application
-is running. A hung run is stopped by the unit after 30 minutes; the stop's signal ends the step it
-is in, which counts as a failure, so the run still starts the application and reports. The run
+standard input (contract item 4), which says which step failed, how it ended, and whether the
+application is running; a failed command's own errors are only in the journal, since the message
+leaves the host. A hung run is stopped by the unit after 30 minutes; the stop's signal ends the
+step it is in, which counts as a failure, so the run still starts the application and reports (on
+the rehearsal machine a `systemctl --user stop` of the unit during the take did so, #460). The run
 copies nothing off the host: taking the sets off it is the host's backup's (contract item 3).
 
 **Installing it**, once, as the account, after §4.7:
 
 1. The checkout the unit runs, at `~/songhealth-checkout`, at the Release record's
-   `deploymentConfigCommit` (§7.7), made from a bundle the way §7.8 makes the harness's, and made
-   again at the new record's commit after each Release. Node is `~/.local/bin/node` (§4.7 step 2).
+   `deploymentConfigCommit` (§7.7), from a bundle copied over SSH as §7.8 step 3 does
+   (`git bundle create <file> <branch>` on the workstation), and moved to the new record's commit
+   after each Release. Node is `~/.local/bin/node` (§4.7 step 2).
+
+   ```bash
+   git clone --no-checkout <bundle> ~/songhealth-checkout          # the first time
+   git -C ~/songhealth-checkout fetch <bundle> <branch>              # after a Release
+   git -C ~/songhealth-checkout checkout --detach <deploymentConfigCommit>
+   git -C ~/songhealth-checkout rev-parse HEAD                       # names that commit
+   ```
 2. The host's `~/.config/songhealth/host.env`, which the Operator writes (contract item 3): the
    alert command and the backup's status file, one `NAME=/absolute/path` a line.
 3. The units, then the timer:
@@ -1208,10 +1219,11 @@ copies nothing off the host: taking the sets off it is the host's backup's (cont
 
 **Running it by hand**: `systemctl --user start songhealth-recovery-set.service` runs the same
 night, with the same lock, and returns when it ends; it stops the site for its length, so it is
-announced first. A drill of a failure runs the command itself from the checkout,
+announced first. Its set is one of the seven, so it pushes the oldest night's set out. A drill of a failure runs the command itself from the checkout,
 `cd ~/songhealth-checkout && ~/.local/bin/node scripts/nightly-recovery-set.ts --fail-at <step>`,
 where `<step>` is `stop`, `take`, `check`, `start`, `prune` or `publish`: the step does its work and
-then counts as failed, so the night's set is not kept and the alert is sent. The timer's unit never
+then counts as failed, so the night's set is not kept and the alert is sent. The publication fails
+before its rename, so the drill's set never enters `~/recovery-sets`. The timer's unit never
 passes it.
 
 **Off the host.** No production set leaves the host before the data-governance approval exists:
@@ -1225,7 +1237,13 @@ instead of sending an email, `backup` keeps a throwaway Restic repository on the
 the status file, `host-env` writes the account's `host.env`. No production data and no off-site
 store are involved.
 
-MEASURED-PLACEHOLDER
+**Measured on the rehearsal machine** (#460; rehearsal figures, not the Production host's): the demo
+dataset with 201 synthetic pictures of about 5 MB each, a media volume of 1,005,087,179 bytes. Three
+whole runs: by hand 53.7 s, by the unit 44.0 s, and started by the timer with nobody logged in
+42.7 s, from the stop to the application healthy again. The stop took under a second, the take
+about 15 s, the check about 4 s, and the start about 23–34 s, most of the downtime. Each set held
+about 1,005,672,750 bytes: a `database.dump` of 389,568 bytes and a `media.tar` of 1,005,230,080.
+Seven such sets keep about 7 GB in `~/recovery-sets`.
 
 ## 8. Readiness interpretation
 
@@ -1360,10 +1378,12 @@ closes #218's two findings (#458; rehearsal evidence on #218, and the Production
 - **The order.** The private-network snippet runs first, so a source outside the allowed network
   gets no answer of any kind, a redirect or a 413 included.
 - **The notice.** While the application is stopped for the night's Recovery Set (§7.9),
-  `reverse_proxy` cannot connect and Caddy raises a 502 of its own; the site answers it with one
-  static Thai notice (`handle_errors 502`), HTTP 503, `Retry-After: 300` and
-  `Cache-Control: no-store`, at every address that reaches the application. The notice needs
-  nothing the stopped application serves. A 502 the application sends itself passes as it is;
+  `reverse_proxy` cannot connect and raises a 502 error; the site answers it with one static Thai
+  notice (`handle_errors 502`), HTTP 503, `Retry-After: 300` and `Cache-Control: no-store`, at
+  every address that reaches the application. The notice needs nothing the stopped application
+  serves. A response the application writes, a 502 included, never reaches the error routes
+  (Caddy's `handle_errors` documentation; the rehearsal machine's `stack-check --stopped` read the
+  notice on Caddy 2.11.9, #460);
   `/_image` keeps its 403 and its redirect, and a source outside still gets no answer (Product
   Owner, #460 comment 7214747287). No maintenance mode or switch is added: the notice answers
   whenever the application does not, a failed start included.

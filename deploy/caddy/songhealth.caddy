@@ -52,11 +52,15 @@ songhealth.moph.go.th {
 		respond `{"success":false,"error":{"code":"REQUEST_BODY_TOO_LARGE","message":"คำขอมีขนาดเกิน 51 MiB ที่เว็บไซต์รับได้ (the request body is larger than the site accepts: 51 MiB)"}}` 413
 	}
 	# While the application is stopped for the night's Recovery Set (#460; spec #450 "Recovery Sets,
-	# every night"), reverse_proxy cannot connect and Caddy raises a 502 of its own; every address
-	# that reaches the application then answers this static notice with 503 instead. A 502 the
-	# application sends itself is passed on as it is. /_image keeps its answers above, and a source
-	# outside the allowed network still gets none (Product Owner, #460 comment 7214747287). The
-	# notice needs nothing the stopped application serves: no font, picture or script.
+	# every night"), reverse_proxy cannot connect and raises a 502 error, which error routes handle;
+	# a response the application writes, a 502 included, does not reach them
+	# (https://caddyserver.com/docs/caddyfile/directives/handle_errors and caddyfile/patterns
+	# "Reverse proxy"; on Caddy 2.11.9 the rehearsal machine's `stack-check --stopped` read the
+	# notice with the application stopped, #460). Every address that reaches the application then
+	# answers this static notice with 503. /_image keeps its answers above, and a source outside the
+	# allowed network still gets none (Product Owner, #460 comment 7214747287). The notice needs
+	# nothing the stopped application serves: no font, picture or script. Its colours are DESIGN.md's
+	# surface-soft, text-primary and brand-primary, written out.
 	handle_errors 502 {
 		header Content-Type "text/html; charset=utf-8"
 		header Retry-After 300

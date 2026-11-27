@@ -4,7 +4,8 @@
 //
 //   node scripts/nightly-recovery-set.ts                      the night's run (the timer's unit)
 //   node scripts/nightly-recovery-set.ts --fail-at <step>     a drill by hand: <step> does its work
-//                                                             and is then counted as failed
+//                                                             and is then counted as failed; the
+//                                                             publication fails before its rename
 //
 // It stops the application, takes a Recovery Set into a staging folder the host's backup cannot
 // see (scripts/recovery-set.ts backup), checks it against the stopped runtime (recovery-set.ts
@@ -16,9 +17,11 @@
 // A failure at stop, take or check still starts the application; a failure at any step leaves the
 // night's set out of the folder and removes it. It refuses before it stops anything when another
 // run holds its lock, when the host names no alert command, or when the application is not
-// running, which it then leaves as it is. Every night writes its result to
+// running, which it then leaves as it is. Every night past the lock writes its result to
 // ~/.local/state/songhealth/nightly-recovery-set.json; one that did not end with its set is
 // reported through the host's alert command (contract §4), named in ~/.config/songhealth/host.env.
+// A night refused at the lock writes nothing: the run that holds it reports. A failed command's own
+// errors go to the journal only; the result and the alert, which leaves the host, name the step.
 // The rules are scripts/nightly-recovery-set/plan.ts's. Exits 0 when the night's set is kept, 1
 // otherwise, 2 on a wrong command line. It reads no secret and prints none.
 
@@ -67,7 +70,9 @@ const ENV = { ...process.env, LC_ALL: "C" };
 // The unit's timeout or a `systemctl --user stop` sends SIGTERM to every process of the run; a
 // Ctrl-C by hand sends SIGINT. With a listener Node does not exit on either: the step's own child
 // ends on the signal and counts as failed, so the run starts the application again and reports
-// before it exits (plan.ts nextStep).
+// before it exits (plan.ts nextStep). Seen on the rehearsal machine (#460): a `systemctl --user
+// stop` during the take ended the backup by SIGTERM, and the run started the application and
+// sent its alert.
 process.on("SIGTERM", () => undefined);
 process.on("SIGINT", () => undefined);
 
@@ -75,15 +80,16 @@ function say(line: string): void {
 	process.stdout.write(`nightly-recovery-set: ${line}\n`);
 }
 
-/** Runs a command, its output to the journal; the last lines of its errors are the reason. */
+/**
+ * Runs a command, its output and errors to the journal. The reason it returns names how it ended
+ * and never quotes the errors: the reason reaches the alert, and recovery-set.ts's errors can carry
+ * a row's text (CODING_STANDARDS.md "Exposure").
+ */
 function command(file: string, args: readonly string[], what: string): string | undefined {
 	const result = spawnSync(file, args, {
-		stdio: ["ignore", "inherit", "pipe"],
-		encoding: "utf8",
+		stdio: ["ignore", "inherit", "inherit"],
 		env: ENV,
 	});
-	const errors = (result.stderr ?? "").trim();
-	if (errors !== "") process.stderr.write(`${errors}\n`);
 	if (result.status === 0) return undefined;
 	const ended =
 		result.signal !== null
@@ -91,8 +97,7 @@ function command(file: string, args: readonly string[], what: string): string | 
 			: result.error !== undefined
 				? `could not run (${result.error.message})`
 				: `exited ${result.status}`;
-	const tail = errors.split("\n").slice(-3).join(" / ");
-	return `${what} ${ended}${tail === "" ? "" : `: ${tail}`}`;
+	return `${what} ${ended}; its errors are in the journal`;
 }
 
 function appState(): string {
@@ -165,15 +170,11 @@ function prune(): string | undefined {
 	}
 }
 
-/** Whether this run's rename put the night's set into the folder. */
-let published = false;
-
 function publish(staged: string, set: string): string | undefined {
 	const target = join(AT.finished, set);
 	if (existsSync(target)) return `${target} exists already`;
 	try {
 		renameSync(staged, target);
-		published = true;
 		return undefined;
 	} catch (error) {
 		return `the publication failed: ${(error as Error).message}`;
@@ -296,10 +297,11 @@ function main(argv: readonly string[]): number {
 		};
 		for (let step = nextStep(done); step !== undefined; step = nextStep(done)) {
 			say(`${step}: ${new Date().toISOString()}`);
-			let failed = steps[step]();
-			if (failed === undefined && args.failAt === step) {
-				failed = `the ${step} step was made to fail by --fail-at (a drill)`;
-			}
+			const drill = `the ${step} step was made to fail by --fail-at (a drill)`;
+			// A drill's publication fails before its rename: a set the run then took back out of the
+			// folder could already be in the host's backup.
+			let failed = args.failAt === "publish" && step === "publish" ? drill : steps[step]();
+			if (failed === undefined && args.failAt === step) failed = drill;
 			if (failed !== undefined) {
 				say(`${step} FAILED: ${failed}`);
 				reason = reason === undefined ? failed : `${reason}; then ${failed}`;
@@ -307,12 +309,9 @@ function main(argv: readonly string[]): number {
 			done.push({ step, ok: failed === undefined });
 		}
 
-		const kept = published && done.every(({ ok }) => ok);
-		if (!kept) {
-			rmSync(staged, { recursive: true, force: true });
-			// A drill's failed publication has done its rename: the set leaves the folder again.
-			if (published) rmSync(join(AT.finished, set), { recursive: true });
-		}
+		// The publication runs only when every step before it passed, and it is the last.
+		const kept = done.at(-1)?.step === "publish" && done.every(({ ok }) => ok);
+		if (!kept) rmSync(staged, { recursive: true, force: true });
 		return finish(alertCommand, {
 			startedAt,
 			set,

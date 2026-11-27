@@ -65,6 +65,7 @@ describe("the command line", () => {
 			["--fail-at"],
 			["--fail-at", ""],
 			["--keep", "3"],
+			["--keep", "take"],
 			["--fail-at", "take", "now"],
 			["take"],
 		]) {
@@ -88,7 +89,7 @@ describe("when it runs", () => {
 		assert.ok(keys.includes("Persistent=false"), keys.join("\n"));
 	});
 
-	it("is started by the account's user manager, which lingers, with no session open", () => {
+	it("is a timer of the account's user manager that starts the nightly service", () => {
 		assert.ok(keys.includes("WantedBy=timers.target"), keys.join("\n"));
 		assert.ok(keys.includes("Unit=songhealth-recovery-set.service"), keys.join("\n"));
 	});
@@ -204,11 +205,16 @@ describe("the host's names in the account's configuration", () => {
 		assert.deepEqual(parseHostConfig(""), {});
 	});
 
-	it("refuses a relative path, an unknown name, a quoted or spaced value and a line without =", () => {
+	it("refuses a relative path, an unknown name, a quoted, escaped, expanded or spaced value and a line without =", () => {
 		for (const text of [
 			"SONGHEALTH_ALERT_COMMAND=songhealth-alert",
 			"SONGHEALTH_ALERT=/usr/local/bin/x",
 			'SONGHEALTH_ALERT_COMMAND="/usr/local/bin/x"',
+			'SONGHEALTH_ALERT_COMMAND=/usr/local/bin/x"',
+			"SONGHEALTH_ALERT_COMMAND=/usr/local/bin/x'",
+			"SONGHEALTH_ALERT_COMMAND=/usr/local/bin/`x`",
+			"SONGHEALTH_ALERT_COMMAND=/usr/bin/$x",
+			"SONGHEALTH_ALERT_COMMAND=/usr/local/bin/x\\y",
 			"SONGHEALTH_ALERT_COMMAND=/usr/local/bin/x --to me",
 			"SONGHEALTH_ALERT_COMMAND",
 		]) {
@@ -245,8 +251,8 @@ describe("the sets it keeps", () => {
 	it("removes only its own complete sets: never a link, a file, another name or a set with other files", () => {
 		const names = nights(7);
 		const others: FolderEntry[] = [
-			{ name: "2026-10-01T200000Z", kind: "symlink", files: [] },
-			{ name: "2026-10-02T200000Z", kind: "file", files: [] },
+			{ name: "2026-10-01T200000Z", kind: "symlink", files: SET_FILES },
+			{ name: "2026-10-02T200000Z", kind: "file", files: SET_FILES },
 			{ name: "notes", kind: "directory", files: SET_FILES },
 			{ name: "2026-10-03T200000Z", kind: "directory", files: [...SET_FILES, "extra"] },
 			{ name: "2026-10-04T200000Z", kind: "directory", files: ["database.dump", "media.tar"] },
@@ -283,6 +289,15 @@ describe("the night's result and its report", () => {
 			setBytes: 1_073_741_824,
 		});
 		assert.equal(alertMessage(result), undefined);
+		const withReason = nightResult({
+			startedAt,
+			set: "2026-11-27T200000Z",
+			done: walk([]),
+			appRunning: true,
+			reason: "a note",
+			...timing,
+		});
+		assert.equal(withReason.reason, undefined);
 	});
 
 	it("a failure at each step: not complete, the step named, and an alert that says the site's state", () => {
@@ -293,9 +308,11 @@ describe("the night's result and its report", () => {
 				done: walk([step]),
 				appRunning: step !== "start",
 				reason: `${step} went wrong`,
-				...timing,
+				// A failed start leaves no time the application ran again.
+				...(step === "start" ? { stoppedAt: timing.stoppedAt } : timing),
 			});
 			assert.equal(result.result, "failed", step);
+			assert.equal(result.downtimeSeconds, step === "start" ? undefined : 150.5, step);
 			assert.equal(result.complete, false, step);
 			assert.equal(result.failedStep, step, step);
 			const alert = alertMessage(result);

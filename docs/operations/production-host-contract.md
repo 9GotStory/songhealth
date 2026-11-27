@@ -213,7 +213,7 @@ states.
 Some details here go beyond what spec #450 decided, so that both sides can be built against them,
 and the Product Owner reviews them with this document: the snippet the site imports for the
 private-network rule and the one naming the certificate files (§1), the rename into the folder of finished sets and the status file's three
-keys (§3), the folder's and the configuration file's paths (§3, #460), the alert command's arguments (§4), the access log's JSON lines (§5), and the
+keys (§3), the folder's and the configuration file's paths, a set's name and that its folder holds its three files and nothing else, and that the central backup is not pointed at the folder before the data-governance approval (§3, #460), the alert command's arguments (§4), the access log's JSON lines (§5), and the
 announcement of a Podman upgrade on the host before it is applied (§2). The tickets
 that build each side (#456, #458, #460, #462) confirm them against the stand-in, and a change goes
 into this document first.
