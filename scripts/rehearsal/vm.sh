@@ -8,7 +8,8 @@
 # whole. The development runtime is never touched.
 #
 #   scripts/rehearsal/vm.sh create    download and check the image, make the disk and the seed
-#   scripts/rehearsal/vm.sh start     boot it as the user unit songhealth-rehearsal-vm
+#   scripts/rehearsal/vm.sh start     boot it as the user unit songhealth-rehearsal-vm, then wait
+#                                     until the Deployment account's units have started (#461)
 #   scripts/rehearsal/vm.sh stop      shut it down (ACPI), waiting up to two minutes
 #   scripts/rehearsal/vm.sh status    the unit's state and the forwards
 #   scripts/rehearsal/vm.sh ssh [cmd] the administrator account, with Claude Code's key
@@ -24,7 +25,9 @@
 #   scripts/rehearsal/vm.sh remove    stop it and delete its folder and keys (asks first)
 #
 # Size: 4 vCPU and 6 GB (Product Owner, #456 comment 7164993353); REHEARSAL_CPUS and
-# REHEARSAL_MEMORY_MB change it for a later measurement (#464).
+# REHEARSAL_MEMORY_MB change it for a later measurement (#464). The workstation runs
+# `npm run test:node`, knip and jscpd while the machine is stopped: together with it up they hung
+# the workstation until it restarted (#461).
 set -euo pipefail
 
 DIR=${REHEARSAL_DIR:-$HOME/.local/share/songhealth/rehearsal-vm}
@@ -165,10 +168,22 @@ start() {
     -qmp "unix:$DIR/qmp.sock,server=on,wait=off"
   echo "rehearsal-vm: waiting for SSH on 127.0.0.1:$SSH_PORT"
   for _ in $(seq 1 60); do
-    ssh_admin -o BatchMode=yes true 2>/dev/null && { echo "rehearsal-vm: up"; return; }
+    ssh_admin -o BatchMode=yes true 2>/dev/null && { echo "rehearsal-vm: up"; settle; return; }
     sleep 5
   done
   die "no SSH after five minutes; see $DIR/console.log"
+}
+
+# The account's units start with its user manager at boot, the application's start job ending once
+# it is healthy or has failed: a check run before that meets an application still activating (#461,
+# twice). This waits, reading only, until the manager's start is over, and says how it ended.
+settle() {
+  local state units
+  state=$(ssh_account 'timeout 300 systemctl --user is-system-running --wait' 2>/dev/null) || true
+  units=$(ssh_account 'systemctl --user is-active songhealth-db.service songhealth-app.service' \
+    2>/dev/null | paste -sd ' ') || true
+  echo "rehearsal-vm: the account's start: ${state:-no answer}; database and application: ${units:-no answer}"
+  echo "rehearsal-vm: it holds $MEMORY_MB MB of the workstation's memory; run npm run test:node, knip and jscpd after vm.sh stop"
 }
 
 stop() {
