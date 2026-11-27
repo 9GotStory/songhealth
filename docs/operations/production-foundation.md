@@ -1421,7 +1421,8 @@ secrets 8 s, the restore with its check 15 s, the start to ready 23 s, and the p
 commands sent over SSH. The site did not answer for 10 min 10 s from the stop after the set to
 "ready", 8 min 22 s of it before the stores were removed (the stand-in's upload and the wait for
 the approval), after the nightly run's own stop of 48.9 s. The integrity check found zero
-differences, and the virtual Administrator signed in with the passkey it had.
+differences, and both Administrators signed in with the passkeys they had: the virtual one, and
+the Product Owner's Windows Hello passkey from their Windows computer.
 
 ## 8. Readiness interpretation
 

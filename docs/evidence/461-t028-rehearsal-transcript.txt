@@ -293,3 +293,32 @@ VERIFY: PASS
 songhealth-qdev-db-data created 2026-10-28 23:51:27.801310956 +0700 +07
 songhealth-qdev-media created 2026-10-28 23:51:27.883354232 +0700 +07
 the promoted commit: 31b4ca145777851dd51d05257decd65ef7d4b191
+
+########## run-14-windows-signin
+== the Product Owner's test Chrome on their Windows computer, through scripts/windows-drive.ts (windows-client-runbook.md §2)
+-- probe
+chrome: Chrome/158.0.8127.38
+edge: no answer through the tunnel: the Product Owner opens the test browser (runbook §2, step 2), or the computer is asleep
+-- chrome snap /_emdash/admin
+158.0.8127.38 /_emdash/admin/login
+- img "EmDash"
+- heading "Sign in to your site" [level=1]
+- button "Sign in with Passkey"
+- paragraph: Use your device's biometric authentication, security key, or PIN to sign in.
+- text: Or continue with
+- button "Sign in with email link"
+- paragraph: Use your registered passkey to sign in securely.
+- combobox "Language": English
+- region "Notifications"
+-- chrome eval: /_emdash/api/auth/me before
+401
+-- chrome click button "Sign in with Passkey" (the Product Owner brought the window up and approved Windows Hello)
+2026-11-27T13:39:28Z
+clicked button "Sign in with Passkey"
+exit 0
+-- chrome eval: /_emdash/api/auth/me, before the PIN
+2026-11-27T13:39:33Z
+{"status":401,"path":"/_emdash/admin/login"}
+-- chrome eval: /_emdash/api/auth/me, after the Product Owner's "done"
+2026-11-27T13:40:47Z
+{"status":200,"email":"po-rehearsal@songhealth.invalid","role":50,"path":"/_emdash/admin"}

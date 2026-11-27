@@ -26,7 +26,8 @@ Owner's acceptance. The procedure it followed is
   (`scripts/rehearsal/stand-in.sh backup`, #460): no production data and no off-site store.
 - **The transcript:** [`461-t028-rehearsal-transcript.txt`](461-t028-rehearsal-transcript.txt),
   each step's whole output as it ran, then two read-backs at 13:20 (parts `run-12-after` and
-  `run-13-dev-runtime`) (SHA-256 `bd84c653…feb8`). It holds no secret value, token or
+  `run-13-dev-runtime`) and the Product Owner's sign-in at 13:39 (part `run-14-windows-signin`)
+  (SHA-256 `0bf82d4e…fc7f`). It holds no secret value, token or
   key; the machine's private-network address was replaced by `<addr>` as the output was captured.
 
 ## The drill (AC1, AC2)
@@ -90,7 +91,7 @@ C (§6.2 step 7).
 | Administrator | Passkey | Result |
 | --- | --- | --- |
 | `second-admin@songhealth.invalid` | the virtual authenticator's, stored on the workstation (#457, device R) | `node scripts/rehearsal-admins.ts signin`: `PASS S-R the stored Administrator signs in with device R's passkey, unchanged: second-admin@songhealth.invalid, role 50` (12:47:54; the same step before the drill, at 12:15, passed too) |
-| `po-rehearsal@` | the Product Owner's Windows Hello passkey (#457) | pending: the Product Owner signs in from their Windows computer later (#461, their answer at the removal step) |
+| `po-rehearsal@songhealth.invalid` | the Windows Hello passkey made for it on the Product Owner's Windows computer (#457) | after the restored machine was started again, in the Product Owner's test Chrome 158 through `scripts/windows-drive.ts`: the sign-in page with no session (`/_emdash/api/auth/me` 401); "Sign in with Passkey" clicked at 13:39:28Z, the Product Owner approved Windows Hello with their PIN; then `/_emdash/api/auth/me` 200, `po-rehearsal@songhealth.invalid`, role 50, on `/_emdash/admin` (13:40:47Z). Asked before `/pr` (#461 comment 7219691207 item 1) |
 
 ## The time (AC5)
 
