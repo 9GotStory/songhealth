@@ -177,11 +177,21 @@ own password manager instead (Chrome can offer Google Password Manager), choose 
 that the passkey stays on this computer and both browsers can use it. In #457, Chrome 158 went
 straight to Windows Hello's PIN prompt.
 
+**One per account on this computer.** Windows Hello keeps one passkey for an account on this site:
+when the account already has one here, the site asks for no second one (it lists the account's
+passkeys as ones not to make again), and the browser saves the new passkey in its own password
+manager instead. In #457 Edge 158 saved one in Microsoft Password Manager, which Edge alone offers
+and Chrome never sees. So an account's second passkey is made on another device (§6, step 8), and
+a passkey a browser saved for itself is removed (below).
+
 **Signing in, in Chrome and in Edge.** "Sign in with Passkey" on the Admin's sign-in screen (Edge
 in Thai: "เข้าสู่ระบบด้วย Passkey"); Windows Hello names the account and "Passkey for
 songhealth.moph.go.th" and asks for the PIN. A passkey made in Chrome signs in in Edge, since both
-use Windows Hello (#457, W8); the other way round, a passkey made in Edge used in Chrome, was not
-tried. Signing out is the user menu's "Log out".
+use Windows Hello (#457, W8). When Edge also holds a passkey of its own for the site, it first
+asks which one, "From Microsoft Password Manager" or "From Windows Hello": choose Windows Hello. A
+Windows Hello passkey made in Edge and used in Chrome was not tried, since the account's one
+Windows Hello passkey was made in Chrome; it is the same store either way. Signing out is the user
+menu's "Log out".
 
 **Where Windows keeps them.** Settings > Accounts > Passkeys lists each passkey with its site and
 account; the rehearsal's first Administrator's passkey was listed there (#457, W9). That it stays
@@ -194,7 +204,9 @@ otherwise offer them on the Production host, under the same name, for accounts t
 there. In Settings > Accounts > Passkeys, search for `songhealth.moph.go.th`, and remove each
 entry whose account is a rehearsal name (`…@songhealth.invalid`, such as
 `po-rehearsal@songhealth.invalid`) from its "…" menu. Leave every other passkey
-untouched. Check: the search finds no `@songhealth.invalid` account. The rehearsal's virtual
+untouched. Check: the search finds no `@songhealth.invalid` account. Then, in each test browser's
+own password manager (Edge: Settings > Passwords, Microsoft Password Manager; Chrome: Google
+Password Manager), remove any passkey saved for `songhealth.moph.go.th`. The rehearsal's virtual
 authenticator never reaches this computer, so it left nothing here.
 
 ## 6. Production (#466)

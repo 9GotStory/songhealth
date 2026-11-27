@@ -749,7 +749,10 @@ What production sign-in rests on, read for spec #450 on 2026-11-25.
   removes one with "Remove <name>" and a "Remove passkey?" confirmation; the Remove button shows only
   while more than one is listed (`@emdash-cms/admin/dist/index.js` `PasskeyList`, `PasskeyItem`;
   `src/astro/routes/api/auth/passkey/index.ts` answers `{ items }`). A removed passkey no longer
-  signs in. Read on the rehearsal machine with two devices' passkeys on one account (#457).
+  signs in. Read on the rehearsal machine with two devices' passkeys on one account (#457). Adding
+  one lists the account's passkeys as `excludeCredentials` (`@emdash-cms/auth/src/passkey/register.ts`
+  `generateRegistrationOptions`), so a computer whose Windows Hello already holds one for the account
+  makes no second one there: Edge 158 then saved it in its own password manager (#457).
 - A sign-in is refused when the passkey's signature counter is not above the one stored at its last
   use, unless both are 0 ("possible cloned authenticator", `@emdash-cms/auth/src/passkey/authenticate.ts`
   `invalid_signature_counter`); the sign-in screen then stays as it was.
