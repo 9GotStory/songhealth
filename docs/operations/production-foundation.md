@@ -1169,7 +1169,8 @@ planning module, in this order:
 
 A failure at stop, take or check still leads to the start, which is tried once. A failure at any
 step keeps nothing of the night: its set is removed and never reaches `~/recovery-sets`, so the
-host's backup never sees it, and the earlier sets stay. Every night that does not keep its set
+host's backup never sees it, and the earlier sets stay; a failure at the publication comes after
+the prune has made room, so six then remain. Every night that does not keep its set
 sends one message through the host's alert command, `<command> "<subject>"` with the body on
 standard input (contract item 4), which says which step failed, how it ended, and whether the
 application is running; a failed command's own errors are only in the journal, since the message
