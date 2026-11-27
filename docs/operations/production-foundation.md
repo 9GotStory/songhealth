@@ -1226,9 +1226,9 @@ a failure runs the command itself from the checkout,
 where `<step>` is `stop`, `take`, `check`, `start`, `prune` or `publish`: the step does its work and
 then counts as failed, so the night's set is not kept and the alert is sent. The publication fails
 before its rename, so the drill's set never enters `~/recovery-sets`, where the host's backup could
-take a set the run then removed (contract item 3); the Product Owner's answer had each step do its
-work first (#460 comment 7214747287), and this one step is put to them in #460's pull request. The timer's unit never
-passes it.
+take a set the run then removed (contract item 3): the Product Owner's exception to their answer
+that each step does its work first (#460 comments 7214747287 and 7216031111). The timer's unit
+never passes it.
 
 **Off the host.** No production set leaves the host before the data-governance approval exists:
 the office's rules for keeping a set, which holds staff email addresses and passkey records, off
