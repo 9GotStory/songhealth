@@ -19,9 +19,9 @@ const MEDIA = "https://songhealth.moph.go.th/_emdash/api/media/file/";
 describe("the command", () => {
 	it("takes a step, the machine's address, the test authority's certificate and where to write", () => {
 		for (const step of ["token", "admin", "public", "upload"]) {
-			assert.deepEqual(parseCommand([step, "100.64.0.9", "ca.crt", "out"]), {
+			assert.deepEqual(parseCommand([step, "192.0.2.9", "ca.crt", "out"]), {
 				step,
-				address: "100.64.0.9",
+				address: "192.0.2.9",
 				ca: "ca.crt",
 				out: "out",
 			});
@@ -30,10 +30,10 @@ describe("the command", () => {
 
 	it("refuses an unknown step, a name for an address, and a missing or extra argument", () => {
 		for (const argv of [
-			["preflight", "100.64.0.9", "ca.crt", "out"],
+			["preflight", "192.0.2.9", "ca.crt", "out"],
 			["admin", "songhealth.moph.go.th", "ca.crt", "out"],
-			["admin", "100.64.0.9", "ca.crt"],
-			["admin", "100.64.0.9", "ca.crt", "out", "more"],
+			["admin", "192.0.2.9", "ca.crt"],
+			["admin", "192.0.2.9", "ca.crt", "out", "more"],
 		]) {
 			const command = parseCommand(argv);
 			assert.ok("error" in command, argv.join(" "));

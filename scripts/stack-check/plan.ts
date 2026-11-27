@@ -38,6 +38,9 @@ const BODY_REFUSAL_CODE = "REQUEST_BODY_TOO_LARGE";
 const HOME_MARK = '<meta name="songhealth-foundation" content="public-runtime"';
 const OTHER_NAME = "stack-check.invalid";
 const MEDIA = `https://${SITE_NAME}/_emdash/api/media/file/`;
+/** A media file the checks name; no such file need exist, since every answer they read is the
+ * proxy's. */
+const STACK_CHECK_FILE = `${MEDIA}stack-check.png`;
 
 export interface Target {
 	address: string;
@@ -103,7 +106,7 @@ const USAGE = `usage: node scripts/stack-check.ts --inside <address[:port]> --ou
   --outside     the host as a source outside the private network reaches it
   --ca          the certificate of the authority that issued the site's, when not public
   --other-site  another system's site on the same proxy, which must keep answering
-An IPv6 address with a port is written in brackets: [fd7a::9]:443.`;
+An IPv6 address with a port is written in brackets: [2001:db8::9]:443.`;
 
 function parseTarget(text: string): Target | null {
 	const bracketed = /^\[([^\]]+)\](?::(.*))?$/.exec(text);
@@ -159,7 +162,7 @@ export function plan(options: Options): Check[] {
 		from: Check["from"] = "inside",
 	): Check => ({ id, what, from, method: "GET", path, ...site, expect });
 	const home: Expect = { kind: "status", status: 200, mark: HOME_MARK };
-	const thumbnail = `/_image${imageQuery(`${MEDIA}stack-check.png`)}`;
+	const thumbnail = `/_image${imageQuery(STACK_CHECK_FILE)}`;
 	const overLimit = {
 		method: "POST",
 		path: "/_emdash/api/media",
@@ -189,14 +192,14 @@ export function plan(options: Options): Check[] {
 		],
 		[`/_image${imageQuery(`${MEDIA}a/b.png`)}`, "for a key with a slash"],
 		[`/_image${imageQuery(`${MEDIA}..`)}`, "for a dot-segment key"],
-		[`/_image${imageQuery(`${MEDIA}stack-check.png#x`)}`, "for a file with a fragment"],
-		[`/_image${imageQuery(`${MEDIA}stack-check.png?other=1`)}`, "for a file with another query"],
+		[`/_image${imageQuery(`${STACK_CHECK_FILE}#x`)}`, "for a file with a fragment"],
+		[`/_image${imageQuery(`${STACK_CHECK_FILE}?other=1`)}`, "for a file with another query"],
 		[
 			`/_image${imageQuery(`https://${SITE_NAME}/_emdash/api/settings`)}`,
 			"for another of the site's addresses",
 		],
 	];
-	const hashed = `${MEDIA}stack-check.png?_emdash_media=sha1%3A0123abcd`;
+	const hashed = `${STACK_CHECK_FILE}?_emdash_media=sha1%3A0123abcd`;
 
 	return [
 		get("S1", "the homepage from inside the private network", "/", home),
@@ -254,21 +257,16 @@ export function plan(options: Options): Check[] {
 		),
 		get("R1", "a thumbnail of a site media file", thumbnail, {
 			kind: "redirect",
-			location: `${MEDIA}stack-check.png`,
+			location: STACK_CHECK_FILE,
 		}),
 		get("R2", "a thumbnail with its content hash", `/_image${imageQuery(hashed)}`, {
 			kind: "redirect",
 			location: hashed,
 		}),
-		get(
-			"R3",
-			"a thumbnail asked at an encoded path",
-			`/_%69mage${imageQuery(`${MEDIA}stack-check.png`)}`,
-			{
-				kind: "redirect",
-				location: `${MEDIA}stack-check.png`,
-			},
-		),
+		get("R3", "a thumbnail asked at an encoded path", `/_%69mage${imageQuery(STACK_CHECK_FILE)}`, {
+			kind: "redirect",
+			location: STACK_CHECK_FILE,
+		}),
 		{
 			id: "B1",
 			what: "a body over the limit",

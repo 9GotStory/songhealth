@@ -7,28 +7,34 @@
 # The site answers songhealth.moph.go.th alone; closing every other name is the host's rule, kept
 # outside this file. It forwards to the application's loopback publication (production-foundation.md
 # §2), passing that name as a fixed Host, so the application never builds a request from a name a
-# client sent (#218's first finding). #456 placed it; #458 added the request body's limit and
-# the /_image rule; #460 adds the notice the site answers while the application is stopped.
-# scripts/stack-check.ts checks all of it through the proxy at the site's name.
+# client sent (#218's first finding). It limits the request body and refuses /_image (below).
+# scripts/stack-check.ts checks all of it through the proxy at the site's name. Checked on Caddy
+# 2.11.9 from Caddy's official repository (10-system-blueprint.md §3.1 item 8).
 songhealth.moph.go.th {
 	import songhealth_tls
-	# `route` keeps the order written here: the source is checked before anything else answers.
+	# `route` keeps the order written here, where Caddy would otherwise sort the directives
+	# (https://caddyserver.com/docs/caddyfile/directives/route): the source is checked before
+	# anything else answers.
 	route {
 		import songhealth_private
 		# 51 MiB: the Admin's largest upload, 50 MiB (EmDash 1.1.0's default `maxUploadSize`,
-		# which astro.config.mjs keeps), with 1 MiB for a multipart form's framing. A larger body is
-		# refused before it reaches the application; under it, EmDash's own limits answer.
+		# src/api/schemas/media.ts `DEFAULT_MAX_UPLOAD_SIZE`, which astro.config.mjs keeps), with
+		# 1 MiB for a multipart form's framing. A larger body is refused before it reaches the
+		# application; under it, EmDash's own limits answer.
 		request_body {
 			max_size 51MiB
 		}
 		# /_image would make a rendition at any size a request names, and its stock endpoint fetches
-		# what the request points at (#218's second finding). Public pages never ask for it in
+		# what the request points at (Astro 7.3.5 astro/dist/assets/endpoint/node.js, which
+		# @astrojs/node sets; #218's second finding). Public pages never ask for it in
 		# production (ADR 0003). The Admin asks it for thumbnails of the site's own media files: such
 		# a request is redirected to that original file, so no rendition is made and the picker's
 		# selection tray, which has no fallback of its own, still shows the picture (Product Owner,
-		# #458 comment 7209607314). The key is the form EmDash stores. Every other /_image request is
-		# refused here. Caddy's path matcher compares the decoded, cleaned path without regard to case,
-		# so the encoded, doubled-slash and dot-segment spellings that reach Astro's endpoint are matched.
+		# #458 comment 7209607314). The key is the form EmDash stores, a ULID and the file's
+		# extension (EmDash 1.1.0 src/astro/routes/api/media/upload-url.ts `storageKey`). Every other
+		# /_image request is refused here. Caddy's path matcher compares the decoded, cleaned path
+		# without regard to case (Caddy 2.11.9 modules/caddyhttp/matchers.go `MatchPath`), so the
+		# encoded, doubled-slash and dot-segment spellings that reach Astro's endpoint are matched.
 		@image_original {
 			path /_image*
 			expression `{query.href}.matches("^https://songhealth[.]moph[.]go[.]th/_emdash/api/media/file/[A-Za-z0-9_-][A-Za-z0-9._-]*([?]_emdash_media=[A-Za-z0-9%._-]*)?$")`

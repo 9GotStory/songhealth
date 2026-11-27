@@ -19,7 +19,7 @@ import {
 } from "../../scripts/stack-check/plan.ts";
 
 const OPTIONS = {
-	inside: { address: "100.64.0.9", port: 443 },
+	inside: { address: "192.0.2.9", port: 443 },
 	outside: { address: "127.0.0.1", port: 8443 },
 };
 const MEDIA = `https://${SITE_NAME}/_emdash/api/media/file/`;
@@ -38,12 +38,12 @@ function imageQuery(href: string): string {
 describe("the command's options", () => {
 	it("takes the inside and outside addresses, a port after the last colon, and IPv6 in brackets", () => {
 		assert.deepEqual(
-			parseOptions(["--inside", "100.64.0.9", "--outside", "127.0.0.1:8443", "--ca", "ca.crt"]),
+			parseOptions(["--inside", "192.0.2.9", "--outside", "127.0.0.1:8443", "--ca", "ca.crt"]),
 			{ ...OPTIONS, ca: "ca.crt" },
 		);
-		assert.deepEqual(parseOptions(["--inside", "[fd7a::9]:4443", "--outside", "fd7a::1"]), {
-			inside: { address: "fd7a::9", port: 4443 },
-			outside: { address: "fd7a::1", port: 443 },
+		assert.deepEqual(parseOptions(["--inside", "[2001:db8::9]:4443", "--outside", "2001:db8::1"]), {
+			inside: { address: "2001:db8::9", port: 4443 },
+			outside: { address: "2001:db8::1", port: 443 },
 		});
 	});
 
@@ -58,7 +58,7 @@ describe("the command's options", () => {
 
 	it("refuses a missing address, an unknown option, a bad port and the site's own name as the other site", () => {
 		for (const argv of [
-			["--inside", "100.64.0.9"],
+			["--inside", "192.0.2.9"],
 			["--outside", "127.0.0.1"],
 			["--inside", "a", "--outside", "b", "--verbose"],
 			["--inside", "a:0", "--outside", "b"],

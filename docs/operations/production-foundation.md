@@ -1151,7 +1151,12 @@ node scripts/stack-check.ts --inside <address on the private network> \
 ```
 
 It prints one PASS or FAIL line a check and no address, sends no request body, and exits 1 when
-any check fails. On the rehearsal machine `--outside` is the workstation's loopback forward
+any check fails. Its outside checks (P1–P3) read the access before the cutover (spec #450): once
+the host lets every source reach the site, they no longer apply. The `Host` the application
+receives cannot be read from outside, since no page repeats it; the check reads that every other
+name is closed (H1, H2) and that the site's name in another spelling still reaches the site (H3),
+and the rehearsal machine's loopback showed the fixed name on every request that reached the
+application (#458). On the rehearsal machine `--outside` is the workstation's loopback forward
 (`scripts/rehearsal/vm.sh`), `--ca` the Internal Test CA's certificate and `--other-site` the
 stand-in's `other-system.invalid`. The pictures themselves, in the Admin and on the public pages
 at phone and desktop widths, are read by `scripts/rehearsal-pictures.ts` on the rehearsal machine
