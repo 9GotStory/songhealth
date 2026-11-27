@@ -3,208 +3,64 @@
 # shell-expanded.
 # shellcheck disable=SC2016
 #
-# Songhealth production smoke/lifecycle verification harness (Feature 001,
-# T016 — RED verification harness for US2).
+# Songhealth's lifecycle harness (Feature 001 T016; T022 runs it on the
+# Production host). Run on a host with both units active, from a git checkout
+# whose package.json and tests/operations/verify-startup.sh equal the running
+# image's; production-foundation.md §7.8 is the procedure, and
+# docs/evidence/459-t022-rehearsal.md a whole run on Ubuntu (#459).
 #
-# This harness is the FAILING-first verification contract for the production
-# implementation that T017–T020 will later deliver (OCI image + five Quadlet
-# definitions). At any baseline where those artifacts are absent it must exit
-# nonzero with one bounded, secret-free prerequisite failure that is
-# attributable ONLY to that intentionally absent downstream implementation —
-# never to a syntax error, an unchecked variable, an unbounded wait, secret
-# leakage, or destructive probing (stage P0 runs before anything else and
-# before any environment input is even required, so a bare run at the RED
-# baseline always reports the missing deployment, not missing inputs).
+# Stages:
+#   P0  the Containerfile, the five Quadlet units and the T013 gate exist.
+#   R1  the units, containers, network and volumes resolve to the expected
+#       targets before any change; the development resources are never one.
+#   C1  the current start of the application ran the T013 gate: the unit's
+#       generated definition invokes it (host form, or the container form with
+#       the image digest-pinned and bound to the container that runs it), and
+#       that invocation's journal (_SYSTEMD_INVOCATION_ID) holds every stage
+#       marker and the banner. Readiness is private and changes nothing.
+#   C2  both containers on the private network; the application reaches the
+#       database through it.
+#   C3  no published database port, and the host's connect to the database's
+#       private address refused.
+#   C4  the database volume at /var/lib/postgresql (the PostgreSQL 18 image's
+#       PGDATA parent) and the media volume at the media target, both named
+#       volumes.
+#   C5  the baseline: the tagline (value, then SHA-256 of its bytes) through
+#       GET /_emdash/api/settings with a settings:read token, and the
+#       validation picture's bytes through its public media file path.
+#   C6  exactly three consecutive cycles of start, stop, restart and
+#       recreate, readiness probed after each and both integrity checks at
+#       every checkpoint where the platform serves.
+#   C7  the media volume left out of the application's Quadlet source: the
+#       start must be refused for that cause (STARTUP REFUSAL, scoped to the
+#       invocation; systemd 259 reports ExecMainCode as an integer), or the
+#       readiness helper must report media not-ready; never a healthy empty
+#       replacement. The source is restored, checksum-verified, on every exit
+#       path; a restore that cannot be verified keeps the backup and fails.
+#   C8  the final integrity checkpoint, the volumes retained and no new one.
+# The platform claims above were checked again on EmDash 1.1.0, PostgreSQL
+# 18.6 and systemd 259 by #459's run.
 #
-# Contract coverage (delegation items map 1:1 to stage groups):
+# Its only changes: the lifecycle of the two production units, removing their
+# two containers (each after its unit stops) to recreate them, and C7's
+# guarded edit of the application's Quadlet source. It never touches the
+# development database, its volume or the host's ./media, never deletes or
+# recreates a volume, and never runs the application itself.
 #
-#   P0   RED prerequisite: the repository deployment definitions exist
-#        (deploy/Containerfile + the five deploy/quadlet/* units from the
-#        approved plan structure) and the T013 authority script is present.
-#   R1   resolve and validate the EXACT task-owned runtime targets (units,
-#        containers, network, volumes) BEFORE any lifecycle mutation; the
-#        documented T015 development resources (songhealth-dev-db,
-#        songhealth-dev-db-data, host ./media) are never targets and any
-#        collision with them fails closed.
-#   C1  (1) T013's startup-acceptance contract — status -> inspected-target
-#        fingerprint-guarded apply -> check over the exact-build manifest,
-#        plus the bounded media write/read/remove probe — completed for the
-#        current start of the application unit before it is treated as READY.
-#        Execution is tied to the accepted authority by TWO combined live
-#        proofs: (a) WIRING — the unit's effective startup definition
-#        (systemctl --user cat, i.e. the generated unit the manager actually
-#        executes) must invoke the accepted T013 authority with PROVEN
-#        EXECUTABLE IDENTITY in one of two approved forms. HOST FORM: an
-#        absolute executable token whose realpath equals the repository
-#        checkout's tests/operations/verify-startup.sh (a symlink resolving
-#        to it is the authority; bare basenames and same-suffix paths in
-#        unrelated trees are rejected), optionally behind a system
-#        interpreter under /usr, or the trusted npm runner — the npm this
-#        verification environment itself resolves — running the committed
-#        verify:startup mapping, where that mapping is itself validated to
-#        resolve to the authority against the package root. CONTAINER FORM
-#        (Product Owner decision 2026-10-09): the approved in-container
-#        startup gate invocation — the trusted podman runner (the podman
-#        this verification environment resolves; bare `podman` is rejected)
-#        executing a container run that names the expected application
-#        container, references the intended application image identity as
-#        the DIGEST-PINNED form SONGHEALTH_APP_IMAGE@sha256:<64 hex> (a
-#        bare tag cannot prove which image was accepted; `latest` and other
-#        repositories are rejected), mounts NOTHING whose destination is
-#        not the expected media mount target (an overmounted /app/tests or
-#        /app/package.json would shadow the accepted in-container gate
-#        identity), and passes ONE sh -c startup payload whose COMPLETE
-#        control flow is validated: the committed verify:startup mapping
-#        invoked exactly once in command position, immediately followed by
-#        the strict success separator `&&`, the accepted standalone server
-#        (node dist/server/entry.mjs) exactly once with only `exec` and
-#        KEY=VALUE assignments between, and NOTHING after the server entry
-#        token — duplicate gate/server occurrences, missing separators,
-#        failure bypasses (`;`, `||`, trailing commands), alternate server
-#        launches, and command shadowing are rejected; the committed
-#        package.json mapping is validated against the package root
-#        exactly as for the host npm form; occurrences of the gate names
-#        inside quoted strings are inert decoy text and are rejected; and
-#        the COMPLETE payload prefix is controlled — shell function
-#        definitions (name() tokens), unquoted command substitution
-#        (backticks or $( )), and cd commands are rejected anywhere outside
-#        quoted strings, so the validated gate/server suffix cannot be
-#        reached through a redirected prefix. The structural shape alone
-#        is not acceptance: the runtime identity binding
-#        (require_container_gate_identity_for_unit, dispatched by the
-#        caller WITHOUT command substitution so the accepted form
-#        propagates) then ties the pinned digest to the deployed
-#        container's ACTUAL image identity and proves the container's gate
-#        script and package.json are byte-identical to the accepted
-#        repository sources. Unprovable or untrusted
-#        executables fail closed; occurrences of the names inside arbitrary
-#        arguments, quoted shell payloads, or comments are rejected; and
-#        (b) COMPLETION — the
-#        journal of the unit's CURRENT systemd invocation (matched by
-#        _SYSTEMD_INVOCATION_ID, never a wall-clock window, so pre-start
-#        gates are covered and earlier invocations can never be reused)
-#        must contain the gate's full derived marker sequence — every
-#        `t013: [S<n>] PASS` stage marker plus the final PASS banner, all
-#        derived at runtime from tests/operations/verify-startup.sh, in
-#        ascending stage order. Journal text alone (a fabricated marker
-#        sequence) is rejected by the wiring proof; a wired unit that did
-#        not complete the gate is rejected by the ordered completion
-#        evidence. Recurring readiness stays private (obtained only through
-#        the container boundary) and non-mutating (the media snapshot hashes
-#        directory metadata INCLUDING the media root and subdirectories plus
-#        per-file CONTENT digests, so a create/read/remove probe or an
-#        in-place byte change is detected, and the tagline digest is
-#        captured on BOTH sides of the probe and compared).
-#   C2  (2) both containers are attached to the approved private application
-#        network; the required application-to-database access succeeds
-#        through that private path only; the defined unintended host/public
-#        PostgreSQL paths (any published host-port mapping, and the host to
-#        the database container's private address) are evaluated in C3.
-#   C3  (3) PostgreSQL publishes NO host port — proven from runtime/container
-#        metadata (empty PortBindings, empty `podman port` mapping registry)
-#        AND from the applicable host boundary by an actual bounded TCP
-#        connect from the host to the database container's private address
-#        (must be refused), never inferred from a successful private
-#        connection.
-#   C4  (4) the two expected separate persistent volumes exist and are
-#        attached at their approved targets (database data at
-#        /var/lib/postgresql — the official PostgreSQL 18 image's persistent
-#        parent of PGDATA, researched in scripts/dev-db.sh — and media at the
-#        stable in-container ./media mount path), as named-volume mounts
-#        outside the ephemeral container layers.
-#   C5  (7+8) integrity baseline: the canonical native EmDash Site Setting
-#        `tagline` is retrieved through its intended native platform boundary
-#        and compared EXACT VALUE FIRST, then its exact UTF-8 bytes are
-#        hashed and compared with the canonical SHA-256; the designated
-#        validation media is retrieved through its intended native public
-#        media boundary and its bytes compared with the canonical media
-#        SHA-256.
-#   C6  (5) exactly three consecutive lifecycle cycles, each exercising
-#        start, stop, restart, and replace/recreate of the ephemeral runtime
-#        containers while retaining the named volumes; after every operation
-#        the readiness state is re-probed, and both integrity checks are
-#        rerun at every operational checkpoint (a stopped platform must
-#        report not-ready, and integrity is asserted wherever the platform
-#        is expected to serve it — every checkpoint where the unit runs).
-#   C7  (6) a deliberately missing expected persistence attachment (the
-#        media volume omitted from the application unit's Quadlet source)
-#        must produce the REQUIRED EXPLICIT operational not-ready result
-#        identifying the affected media dependency by its safe dependency
-#        name (spec US2 scenario 3; data-model sections 4-5), in one of two
-#        PO-approved evidence classes. T012 CLASS: when the container runs,
-#        the recurring readiness helper itself reports `not-ready` naming
-#        media. STARTUP REFUSAL CLASS (Product Owner decision 2026-10-09):
-#        when the application container cannot start because the required
-#        persistent media attachment is absent — so the helper cannot
-#        execute — not-ready may instead be demonstrated by an
-#        invocation-scoped, media-specific startup refusal, valid only when
-#        ALL supporting conditions are established: the effective
-#        attachment omission is verified from the GENERATED service's
-#        execution argv (the podman run -v/--volume/--mount options —
-#        absent, malformed, or unprovable execution definitions are
-#        rejected evidence, and an attached service never qualifies); the
-#        refusal belongs to the current attempted start (scoped by
-#        _SYSTEMD_INVOCATION_ID, with the manager's current InvocationID
-#        still equal to it); ONE refusal record names the required media
-#        attachment as the startup-blocking cause in the approved guard
-#        structure — the literal volume name, an attachment negation, and
-#        the literal mount target in that order on the same line — so a
-#        generic failure that merely co-occurs with the media identifiers
-#        is rejected; the application never reaches Healthy/Ready — the
-#        same invocation shows NO T013 gate output at all (stage markers
-#        OR the completion banner) and its main process exited nonzero
-#        (native state read as NAMED Key=Value properties in any order,
-#        with the systemd 259 INTEGER ExecMainCode semantics — a
-#        successful or still-running attempt is not refusal evidence, and
-#        the nonzero exit is one component of the combined evidence set,
-#        not a standalone no-healthy proof); every captured unit and
-#        journal slice is secret-checked like the C1 collections; generic
-#        failures, split or same-line unrelated mentions, stale logs, and
-#        simple unreachability are rejected; and the original media volume
-#        remains intact. This evidence is classified
-#        STARTUP REFUSAL, never as a T012 readiness-helper result. Any
-#        ready result (a healthy empty replacement) fails the stage in
-#        either class. The omission is simulated WITHOUT deleting or
-#        reinitializing persistent state, and the original attachment is
-#        restored — verified by checksum — on every exit path, including
-#        interruption (traps); when a byte-exact restore cannot be verified,
-#        restoration fails closed: the recovery copy is preserved next to
-#        the source AND the scratch directory holding the original backup is
-#        kept (never deleted), with an actionable nonzero result.
-#   C8   final integrity checkpoint, retained-volume/no-new-volume proof, and
-#        the no-residue wrap-up.
+# `--self-test` runs the failure paths and dispatches against scratch files
+# and shimmed podman and systemctl; it touches no deployment.
 #
-# The harness never starts or stops the T005 development database, never
-# touches songhealth-dev-db / songhealth-dev-db-data or the host ./media
-# tree, never deletes or recreates a volume, and never runs the production
-# application itself. Its mutations are exactly: user-systemd unit lifecycle
-# operations on the two validated production units, removal of their two
-# validated ephemeral containers (only after the owning unit is stopped) for
-# the recreate exercise, and the guarded, checksum-verified transient edit of
-# the application Quadlet source during C7.
+# Inputs (environment; nothing host-specific is hard-coded). Required:
 #
-# `--self-test` runs isolated failure-path demonstrations of the guarded
-# restore/cleanup branches, the missing-attachment readiness acceptance, and
-# the non-mutation detector, entirely against scratch files under a shimmed
-# systemctl; it touches no real deployment, unit, or Quadlet.
-#
-# Inputs are external and environment-appropriate (no host-specific paths,
-# credentials, or public endpoints are hard-coded). Required:
-#
-#   SONGHEALTH_APP_ORIGIN          proxy-facing loopback origin of the
-#                                  production application publication,
-#                                  e.g. http://127.0.0.1:8080
-#   SONGHEALTH_VALIDATION_TOKEN    scoped EmDash personal access token with
-#                                  settings:read, provisioned by the operator
-#                                  for validation; read in-process by node
-#                                  and NEVER printed or logged
+#   SONGHEALTH_APP_ORIGIN          the application's loopback origin,
+#                                  e.g. http://127.0.0.1:4321
+#   SONGHEALTH_VALIDATION_TOKEN    an EmDash API token with settings:read only;
+#                                  read in-process by node, never printed
 #   SONGHEALTH_VALIDATION_MEDIA_PATH
-#                                  URL path of the designated validation media
-#                                  asset on the native public media file
-#                                  boundary, e.g. /_emdash/api/media/file/<key>
+#                                  the validation picture's public path,
+#                                  /_emdash/api/media/file/<key>
 #
-# Optional topology overrides (defaults come from the approved plan
-# structure; override only to match the deployed environment):
+# Optional topology overrides (defaults match deploy/quadlet):
 #
 #   SONGHEALTH_APP_UNIT (songhealth-app.service)
 #   SONGHEALTH_DB_UNIT (songhealth-db.service)
@@ -220,23 +76,18 @@
 #   songhealth-app.container, derived from SONGHEALTH_APP_UNIT)
 #   SONGHEALTH_APP_IMAGE (localhost/songhealth-app:0.0.1 — the intended
 #                          application image identity for the C1 container
-#                          wiring form; the exact token is required and may
-#                          carry the deployment's digest pin
-#                          <image>@sha256:<64 hex>)
+#                          wiring form, as <repository>:<tag> without the
+#                          digest: the unit's Image= token must read
+#                          <repository>:<tag>@sha256:<64 hex>, and the image
+#                          the container runs must carry that tag (#459))
 #
-# Secret safety: this harness holds no database credentials (all
-# application-to-database probes execute inside the application container
-# through `podman exec`, consuming only the container's own configured
-# environment). It never prints credentials, secret values, bearer tokens,
-# EMDASH_ENCRYPTION_KEY, PGPASSWORD, or a full credential-bearing migration
-# URL; any captured command output is scrubbed of the known secret values
-# before it is printed, and readiness output is additionally asserted to be
-# secret-free. Only safe unit/container/network/volume/dependency names,
-# non-secret digests, and HTTP status codes appear in output.
+# Secrets: the harness holds no database credential (its database probes run
+# inside the application container through `podman exec`), prints no token or
+# secret value, scrubs the known secret values from captured output, and
+# asserts readiness output secret-free.
 #
-# Exit codes: 0 PASS | 1 FAIL (any stage, including the expected RED
-# prerequisite failure) | 2 environment error | 4 missing or invalid input |
-# 64 usage error.
+# Exit codes: 0 PASS | 1 FAIL (any stage) | 2 environment error | 4 missing or
+# invalid input | 64 usage error.
 
 set -euo pipefail
 
@@ -886,8 +737,8 @@ gate_wiring_reason() {
 	#   IMAGE/CONTAINER ANCHOR: the run must name the expected application
 	#     container (the Quadlet-generated systemd-%N specifier form or the
 	#     configured APP_CONTAINER literal) and reference the intended
-	#     application image identity as the exact token SONGHEALTH_APP_IMAGE
-	#     or that identity digest-pinned as <image>@sha256:<64 hex> — never
+	#     application image identity SONGHEALTH_APP_IMAGE digest-pinned, as
+	#     <repository>:<tag>@sha256:<64 hex> — never a bare tag, never
 	#     `latest`, never a different repository or floating tag.
 	#   STRUCTURAL PAYLOAD PROOF: the container command must be ONE sh -c
 	#     startup payload whose quote-aware token stream (a) invokes the
@@ -1272,25 +1123,48 @@ require_container_gate_identity_for_unit() {
 	# reasoner proved the unit's shape; this proves, secret-free, that (a)
 	# the unit's digest-pinned image token equals the deployed container's
 	# actual image identity (an arbitrary digest under the expected tag, or
-	# a different image, fails closed), and (b) the container's in-container
+	# a different image, fails closed): Podman reports a container run from
+	# <repository>:<tag>@sha256:<digest> as <repository>@sha256:<digest>
+	# (Podman 5.7.0 and 6.2.0: docs/evidence/459-t022-rehearsal.md, "What the
+	# runs found", item 2), so that form or the pinned token itself
+	# is the identity, and the image the container runs must carry the
+	# <repository>:<tag> of SONGHEALTH_APP_IMAGE among its tags; and (b) the
+	# container's in-container
 	# T013 gate script and package mapping are byte-identical (SHA-256) to
 	# the accepted repository sources this harness anchors on — so no
 	# overmounted or replaced /app/tests or /app/package.json can satisfy
 	# the wiring. Digests and identities only; no secret values.
 	local label="$1" unit_file="$2"
 	local pinned='' actual='' cont_sums='' host_sums='' line='' f='' c='' h=''
+	local repository='' reported='' image_id='' tags=''
 	pinned="$(grep -oE "${APP_IMAGE}@sha256:[0-9a-f]{64}" "$unit_file" | head -1 || true)"
 	if [ -z "$pinned" ]; then
 		fail_stage "$label" 'the container-form wiring carries no digest-pinned application image token to bind to the actual container'
 	fi
+	# <repository>:<tag> -> <repository>, cut at the last colon, so a
+	# registry's port stays. An identity without a tag is pinned in the form
+	# Podman reports, and the tag check below refuses it.
+	repository="${APP_IMAGE%:*}"
+	reported="${repository}@${pinned##*@}"
 	if ! actual="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
 		podman container inspect "$APP_CONTAINER" --format '{{.ImageName}}' 2>/dev/null)" || [ -z "$actual" ]; then
 		fail_stage "$label" 'could not inspect the actual image identity of container %s for the container-form identity binding' \
 			"$APP_CONTAINER"
 	fi
-	if [ "$actual" != "$pinned" ]; then
+	if [ "$actual" != "$pinned" ] && [ "$actual" != "$reported" ]; then
 		fail_stage "$label" 'the deployed container image identity %s does not equal the effective unit pinned identity %s — the wiring is not bound to the accepted image' \
 			"$actual" "$pinned"
+	fi
+	if ! image_id="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
+		podman container inspect "$APP_CONTAINER" --format '{{.Image}}' 2>/dev/null)" || [ -z "$image_id" ] ||
+		! tags="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
+			podman image inspect "$image_id" --format '{{range .RepoTags}}{{println .}}{{end}}' 2>/dev/null)"; then
+		fail_stage "$label" 'could not read the tags of the image container %s runs for the container-form identity binding' \
+			"$APP_CONTAINER"
+	fi
+	if ! printf '%s\n' "$tags" | grep -Fxq "$APP_IMAGE"; then
+		fail_stage "$label" 'the image container %s runs does not carry the intended tag %s — the wiring is not bound to the accepted image' \
+			"$APP_CONTAINER" "$APP_IMAGE"
 	fi
 	if ! cont_sums="$(timeout --kill-after=15 "${EXEC_TIMEOUT_SECONDS}s" \
 		podman exec "$APP_CONTAINER" sha256sum /app/tests/operations/verify-startup.sh /app/package.json 2>/dev/null)"; then
@@ -2628,8 +2502,17 @@ case " \$* " in
 	[ -f '$ST_ROOT/fx-podman-cgroup-error' ] && exit 125
 	exit 0
 	;;
+*' --format {{.Image}} '*)
+	[ -f '$ST_ROOT/fx-podman-image-id' ] && cat '$ST_ROOT/fx-podman-image-id'
+	exit 0
+	;;
 *' container inspect '*)
 	[ -f '$ST_ROOT/fx-podman-image' ] && cat '$ST_ROOT/fx-podman-image'
+	exit 0
+	;;
+*' image inspect '*)
+	[ -f '$ST_ROOT/fx-podman-tags-error' ] && exit 125
+	[ -f '$ST_ROOT/fx-podman-tags' ] && cat '$ST_ROOT/fx-podman-tags'
 	exit 0
 	;;
 *' sha256sum '*)
@@ -3395,7 +3278,11 @@ UNIT
 	# completes, mismatching identity fails closed — through the shimmed
 	# podman, never a real engine.
 	cp "$wdir/container-ok.unit" "$ST_ROOT/fx-unit"
-	printf '%s\n' 'localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	# What Podman reports for a container run from a tag@digest reference: the repository and the
+	# digest, without the tag (Podman 5.7.0 and 6.2.0, #459).
+	printf '%s\n' 'localhost/songhealth-app@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	printf '%s\n' 'f1e2d3c4b5a6f1e2d3c4b5a6f1e2d3c4b5a6f1e2d3c4b5a6f1e2d3c4b5a6f1e2' >"$ST_ROOT/fx-podman-image-id"
+	printf '%s\n' 'localhost/songhealth-app:0.0.1' >"$ST_ROOT/fx-podman-tags"
 	sha256sum "$ROOT/tests/operations/verify-startup.sh" | awk '{print $1 "  /app/tests/operations/verify-startup.sh"}' >"$ST_ROOT/fx-podman-sums"
 	sha256sum "$ROOT/package.json" | awk '{print $1 "  /app/package.json"}' >>"$ST_ROOT/fx-podman-sums"
 	: >"$ST_ROOT/podman.log"
@@ -3420,6 +3307,76 @@ UNIT
 	else
 		st_fail dispatch-container-identity-mismatch "the dispatch must fail closed on identity mismatch (rc=$dispatch_rc)"
 	fi
+	# (#459) The digest under another repository is another image; an image
+	# without the intended tag is not the one the deployment named; the pinned
+	# token itself, should Podman report it so, is the identity.
+	printf '%s\n' 'localhost/other-app@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	dispatch_rc=0
+	( require_gate_wiring_for_unit C1-other-repository >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -ne 0 ] && grep -q 'does not equal the effective unit pinned identity' "$ST_ROOT/dispatch.err"; then
+		st_case dispatch-container-identity-other-repository 'PASS the pinned digest reported under another repository fails the stage closed'
+	else
+		st_fail dispatch-container-identity-other-repository "another repository must fail closed (rc=$dispatch_rc)"
+	fi
+	printf '%s\n' 'localhost/songhealth-app@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	printf '%s\n' 'localhost/songhealth-app:0.0.2' 'localhost/songhealth-app:0.0.1-rc' >"$ST_ROOT/fx-podman-tags"
+	dispatch_rc=0
+	( require_gate_wiring_for_unit C1-untagged-image >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -ne 0 ] && grep -q 'does not carry the intended tag' "$ST_ROOT/dispatch.err"; then
+		st_case dispatch-container-identity-untagged-image 'PASS an image that does not carry the intended tag fails the stage closed'
+	else
+		st_fail dispatch-container-identity-untagged-image "an image without the intended tag must fail closed (rc=$dispatch_rc)"
+	fi
+	printf '%s\n' 'localhost/songhealth-app:0.0.1' >"$ST_ROOT/fx-podman-tags"
+	printf '%s\n' 'localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	dispatch_rc=0
+	( require_gate_wiring_for_unit C1-pinned-form >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -eq 0 ]; then
+		st_case dispatch-container-identity-pinned-form 'PASS the pinned tag@digest token itself, reported as the identity, accepted'
+	else
+		st_fail dispatch-container-identity-pinned-form "the pinned token as the reported identity must be accepted (rc=$dispatch_rc)"
+	fi
+	printf '%s\n' 'localhost/songhealth-app:0.0.2' >"$ST_ROOT/fx-podman-tags"
+	dispatch_rc=0
+	( require_gate_wiring_for_unit C1-pinned-form-untagged >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -ne 0 ] && grep -q 'does not carry the intended tag' "$ST_ROOT/dispatch.err"; then
+		st_case dispatch-container-identity-pinned-form-untagged 'PASS the pinned token reported, on an image without the intended tag, fails the stage closed'
+	else
+		st_fail dispatch-container-identity-pinned-form-untagged "the pinned form on an image without the tag must fail closed (rc=$dispatch_rc)"
+	fi
+	printf '%s\n' 'localhost/songhealth-app:0.0.1' >"$ST_ROOT/fx-podman-tags"
+	: >"$ST_ROOT/fx-podman-tags-error"
+	dispatch_rc=0
+	( require_gate_wiring_for_unit C1-tags-unreadable >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -ne 0 ] && grep -q 'could not read the tags' "$ST_ROOT/dispatch.err"; then
+		st_case dispatch-container-identity-tags-unreadable 'PASS an image whose tags cannot be read fails the stage closed'
+	else
+		st_fail dispatch-container-identity-tags-unreadable "unreadable tags must fail closed (rc=$dispatch_rc)"
+	fi
+	rm -f "$ST_ROOT/fx-podman-tags-error"
+	# A registry with a port: the repository is everything before the tag's
+	# colon, not before the first colon. An intended identity without a tag
+	# is never carried as a tag, so it fails closed.
+	sed 's|localhost/songhealth-app:0.0.1@|localhost:5000/songhealth-app:0.0.1@|' "$wdir/container-ok.unit" >"$ST_ROOT/fx-unit"
+	printf '%s\n' 'localhost:5000/songhealth-app@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407' >"$ST_ROOT/fx-podman-image"
+	printf '%s\n' 'localhost:5000/songhealth-app:0.0.1' >"$ST_ROOT/fx-podman-tags"
+	dispatch_rc=0
+	( APP_IMAGE='localhost:5000/songhealth-app:0.0.1'
+		require_gate_wiring_for_unit C1-registry-port >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -eq 0 ]; then
+		st_case dispatch-container-identity-registry-port 'PASS an image of a registry with a port, reported as <host:port/repository>@<digest>, accepted'
+	else
+		st_fail dispatch-container-identity-registry-port "a registry with a port must be accepted (rc=$dispatch_rc): $(head -c 300 "$ST_ROOT/dispatch.err")"
+	fi
+	sed 's|localhost/songhealth-app:0.0.1@|localhost:5000/songhealth-app@|' "$wdir/container-ok.unit" >"$ST_ROOT/fx-unit"
+	dispatch_rc=0
+	( APP_IMAGE='localhost:5000/songhealth-app'
+		require_gate_wiring_for_unit C1-untagged-identity >/dev/null 2>"$ST_ROOT/dispatch.err" ) || dispatch_rc=$?
+	if [ "$dispatch_rc" -ne 0 ] && grep -q 'does not carry the intended tag' "$ST_ROOT/dispatch.err"; then
+		st_case dispatch-container-identity-untagged-identity 'PASS an intended identity without a tag fails the stage closed'
+	else
+		st_fail dispatch-container-identity-untagged-identity "an intended identity without a tag must fail closed (rc=$dispatch_rc)"
+	fi
 	# A host-form unit must NOT trigger the container identity dispatch.
 	cp "$wdir/direct.unit" "$ST_ROOT/fx-unit"
 	: >"$ST_ROOT/podman.log"
@@ -3430,7 +3387,8 @@ UNIT
 	else
 		st_fail dispatch-host-form-no-binding 'the identity binding must not run for host-form wiring'
 	fi
-	rm -f "$ST_ROOT/fx-unit" "$ST_ROOT/fx-podman-image" "$ST_ROOT/fx-podman-sums"
+	rm -f "$ST_ROOT/fx-unit" "$ST_ROOT/fx-podman-image" "$ST_ROOT/fx-podman-sums" \
+		"$ST_ROOT/fx-podman-image-id" "$ST_ROOT/fx-podman-tags" "$ST_ROOT/fx-podman-tags-error"
 		cat >"$wdir/container-overmount.unit" <<UNIT
 [Service]
 ExecStart=${trusted_podman_path} run --name systemd-%N --rm -v songhealth-media:/app/media -v decoy-gate:/app/tests localhost/songhealth-app:0.0.1@sha256:4cfccf41d4e10fc32f1f9dc76d5b7a69bed049b7b03556eb82059f5278de7407 sh -c "npm run verify:startup && exec node dist/server/entry.mjs"

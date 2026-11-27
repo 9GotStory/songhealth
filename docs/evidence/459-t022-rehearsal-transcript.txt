@@ -1,0 +1,96 @@
+t016: [P0] PASS production deployment definitions present in the repository (Containerfile + five Quadlet units) and the T013 authority script resolved
+t016: [main] INFO node v26.13.0, podman 5.7.0, systemd 259 (259.9-0ubuntu0.1)
+t016: [main] INFO T013 gate evidence anchored on tests/operations/verify-startup.sh: 6 stage markers + banner [t013: [S1] PASS t013: [S2] PASS t013: [S3] PASS t013: [S4] PASS t013: [S5] PASS t013: [S6] PASS t013: T013 startup acceptance gate: PASS]
+t016: [R1] INFO resolved targets: units songhealth-app.service + songhealth-db.service, containers systemd-songhealth-app + systemd-songhealth-db, network songhealth, volumes songhealth-db-data + songhealth-media
+t016: [R1] INFO application Quadlet source for the guarded negative test: /home/songhealth/.config/containers/systemd/songhealth-app.container
+t016: [R1] PASS task-owned targets resolved and validated (unit cgroup ownership proven) before any lifecycle mutation; development resources guarded: songhealth-dev-db songhealth-dev-db-data
+t016: [C1] INFO the effective unit definition of songhealth-app.service provably invokes the accepted T013 authority as a command token (tests/operations/verify-startup.sh direct / npm or in-container verify:startup mapping validated as the accepted command; form: container)
+t016: [C1] PASS T013 startup-gate wiring proven on the effective application unit definition
+t016: [C1] INFO container-form identity bound: deployed image localhost/songhealth-app:1.0.0-rc.1@sha256:316d4f748127ad1314d48190b7e2baaac3063a3eaecdad6678b9076138eca1c7; in-container gate script and package mapping byte-identical to the accepted sources
+t016: [C1] PASS container-form wiring bound to the intended container, accepted immutable image, and accepted in-container gate sources
+t016: [C1] INFO full T013 stage sequence + PASS banner present in the journal of the current invocation of songhealth-app.service (markers derived from tests/operations/verify-startup.sh)
+t016: [C1] PASS T013 startup-acceptance gate execution evidenced for the current application invocation
+t016: [C1] INFO readiness (private, through the container boundary): songhealth readiness: ready
+t016: [C1] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint C1
+t016: [C1] PASS recurring readiness is private (container boundary only) and non-mutating (media snapshot with content digests and directory metadata, and tagline digest, all captured on both sides of the probe and unchanged)
+t016: [C2] PASS both runtime containers are attached to the approved private application network songhealth
+t016: [C2] INFO application-to-database access verified through the private network path from inside the application container
+t016: [C2] INFO the defined unintended host/public PostgreSQL paths (any published host-port mapping, and the host to the database container private address) are probed and must be rejected in the next stage (C3)
+t016: [C2] PASS required private application-to-database access succeeds on network songhealth
+t016: [C3] INFO host-boundary probe 10.89.0.40:5432 -> refused(timeout)
+t016: [C3] PASS PostgreSQL publishes no host port (empty PortBindings, empty runtime port registry, and every host-boundary TCP connect to the private database address refused)
+t016: [C4] INFO database data: named volume songhealth-db-data mounted at /var/lib/postgresql in systemd-songhealth-db
+t016: [C4] INFO media: named volume songhealth-media mounted at /app/media in systemd-songhealth-app
+t016: [C4] PASS both expected persistent volumes are attached as named volumes at their approved targets, outside the ephemeral container layers
+t016: [baseline] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint baseline
+t016: [baseline] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint baseline (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C6] INFO cycle-1: restart
+t016: [C6] INFO application ready for cycle-1 restart (unit active and the full T013 gate evidence present for invocation efeedccbc73d46348ce08762f704f36c)
+t016: [cycle-1-restart] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint cycle-1-restart
+t016: [cycle-1-restart] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint cycle-1-restart (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C6] INFO cycle-1: stop
+t016: [C6] INFO cycle-1: readiness while stopped: unreachable (application container not running (platform stopped or failed))
+t016: [C6] INFO cycle-1: start
+t016: [C6] INFO application ready for cycle-1 start (unit active and the full T013 gate evidence present for invocation 583f9c2841bd495fba4ff5d87f0f9d17)
+t016: [cycle-1-start] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint cycle-1-start
+t016: [cycle-1-start] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint cycle-1-start (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C6] INFO cycle-1: replace/recreate
+t016: [C6] INFO application ready for cycle-1 recreate (unit active and the full T013 gate evidence present for invocation fd6ff9083249407db4a28add8b536b0f)
+t016: [C6] INFO cycle-1: ephemeral containers replaced (application and database container ids changed); named volumes retained
+t016: [cycle-1-recreate] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint cycle-1-recreate
+t016: [cycle-1-recreate] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint cycle-1-recreate (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C6] PASS cycle-1 complete: start, stop, restart, and replace/recreate exercised with readiness probes and both integrity checks at every checkpoint
+t016: [C6] INFO cycle-2: restart
+t016: [C6] INFO application ready for cycle-2 restart (unit active and the full T013 gate evidence present for invocation 8fecdd29c4784fb5821cdf5d82a2f22c)
+t016: [cycle-2-restart] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint cycle-2-restart
+t016: [cycle-2-restart] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint cycle-2-restart (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C6] INFO cycle-2: stop
+t016: [C6] INFO cycle-2: readiness while stopped: unreachable (application container not running (platform stopped or failed))
+t016: [C6] INFO cycle-2: start
+t016: [C6] INFO application ready for cycle-2 start (unit active and the full T013 gate evidence present for invocation c01a354ca88d4823af9115d5487daf79)
+t016: [cycle-2-start] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint cycle-2-start
+t016: [cycle-2-start] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint cycle-2-start (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C6] INFO cycle-2: replace/recreate
+t016: [C6] INFO application ready for cycle-2 recreate (unit active and the full T013 gate evidence present for invocation 8d5450f3b58d4c22b162b94729ad26ca)
+t016: [C6] INFO cycle-2: ephemeral containers replaced (application and database container ids changed); named volumes retained
+t016: [cycle-2-recreate] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint cycle-2-recreate
+t016: [cycle-2-recreate] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint cycle-2-recreate (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C6] PASS cycle-2 complete: start, stop, restart, and replace/recreate exercised with readiness probes and both integrity checks at every checkpoint
+t016: [C6] INFO cycle-3: restart
+t016: [C6] INFO application ready for cycle-3 restart (unit active and the full T013 gate evidence present for invocation 4fc25389b07943869b1247f84659e7ee)
+t016: [cycle-3-restart] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint cycle-3-restart
+t016: [cycle-3-restart] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint cycle-3-restart (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C6] INFO cycle-3: stop
+t016: [C6] INFO cycle-3: readiness while stopped: unreachable (application container not running (platform stopped or failed))
+t016: [C6] INFO cycle-3: start
+t016: [C6] INFO application ready for cycle-3 start (unit active and the full T013 gate evidence present for invocation e762e7dbc0f34381bbce1151c94b0164)
+t016: [cycle-3-start] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint cycle-3-start
+t016: [cycle-3-start] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint cycle-3-start (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C6] INFO cycle-3: replace/recreate
+t016: [C6] INFO application ready for cycle-3 recreate (unit active and the full T013 gate evidence present for invocation ee9db7e6cb10466387f288506c21d9da)
+t016: [C6] INFO cycle-3: ephemeral containers replaced (application and database container ids changed); named volumes retained
+t016: [cycle-3-recreate] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint cycle-3-recreate
+t016: [cycle-3-recreate] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint cycle-3-recreate (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C6] PASS cycle-3 complete: start, stop, restart, and replace/recreate exercised with readiness probes and both integrity checks at every checkpoint
+t016: [C6] PASS exactly three consecutive lifecycle cycles completed with 100% retention of the canonical validation state
+t016: [C7] INFO media-volume attachment omitted from /home/songhealth/.config/containers/systemd/songhealth-app.container (1 line(s)); byte-exact baseline copy retained (SHA-256 3c4f856367a9509d09e9246aba45edbab72d92c52982b210d5528010111e08bb) and every exit path restores it
+Job for songhealth-app.service failed because the control process exited with error code.
+See "systemctl --user status songhealth-app.service" and "journalctl --user -xeu songhealth-app.service" for details.
+t016: [C7] INFO restarting the application unit with the omitted attachment reported failure (the platform refused the state; proceeding to the readiness evidence)
+t016: [C7] INFO with the expected media attachment omitted: unit state activating, readiness unreachable (application container not running (platform stopped or failed)), evidence class: STARTUP REFUSAL (invocation-scoped, media-specific, no gate completion; Product Owner decision 2026-10-09 — never a T012 readiness-helper result)
+t016: [C7] PASS missing expected persistence attachment produced the required explicit operational not-ready evidence identifying the media dependency (application container not running (platform stopped or failed); evidence class: STARTUP REFUSAL (invocation-scoped, media-specific, no gate completion; Product Owner decision 2026-10-09 — never a T012 readiness-helper result)); no healthy empty replacement and no persistent-state mutation
+t016: [cleanup] INFO application Quadlet source restored byte-exact and the unit restarted after the attachment-omission test
+t016: [C7] INFO application ready for restore (unit active and the full T013 gate evidence present for invocation 24bdeed0ddb343788e8b7ad87fe9b466)
+t016: [C7-restore] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint C7-restore
+t016: [C7-restore] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint C7-restore (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C7] PASS original attachment restored byte-exact (SHA-256 verified) and the platform re-verified ready with full integrity
+t016: [final] PASS tagline integrity: exact canonical value matched first, then exact UTF-8 bytes hashed and matched the canonical SHA-256 84753035c0ee9863ab9cd4fa18bf797e6776fbf3280e606a579d827a938a4415 at checkpoint final
+t016: [final] PASS media integrity: retrieved bytes match the canonical SHA-256 2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396 at checkpoint final (bytes=9316 sha256=2c7b5116a8498892ccabd13a03e253fd4d55b9c0714cce51509196f0df0ef396)
+t016: [C8] PASS final state verified: ready, both persistent volumes retained, canonical tagline and media intact
+t016: ================================================================
+t016: T016 production foundation verification: PASS
+t016: T013 startup gate evidenced before ready; private non-mutating readiness proven
+t016: private network access, no published database port, and volume attachments verified
+t016: three lifecycle cycles + missing-attachment negative passed with full integrity retention
+t016: tested tree: b56cbacb0c8cb1026dcf76f3e3fbaa8812bfd3a7
+t016: ================================================================

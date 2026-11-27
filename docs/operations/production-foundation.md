@@ -422,6 +422,7 @@ throwaway stand-in, `scripts/rehearsal/stand-in.sh`.
 | Packages Podman only recommends | The cloud image has no `uidmap`; without recommends there is no `catatonit`, and `netavark` lacks `aardvark-dns`, so the application's gate failed with `EAI_AGAIN` resolving the database's name | `root-setup.sh` installs `podman uidmap passt catatonit dbus-user-session aardvark-dns nftables` by name, without recommends. A database started before `aardvark-dns` existed must be restarted once |
 | `/usr/bin/stat` is uutils 0.10.0 (GNU's is `/usr/bin/gnustat`) | The guard's command under `podman unshare` printed the same records as GNU's on the real store, and matched on an empty file, a symbolic link and a missing path; only standard error differs | The unit keeps `/usr/bin/stat`; T022 records it again |
 | AppArmor and `pasta` (Launchpad 2154379) | Each stop logs one denial: profile `pasta` refuses `SIGTERM` from `podman`. The rootless network's teardown still completed in three stop/start cycles | No safeguard changed; the denial is recorded as known |
+| The same denial, on the database unit (#459) | When the database, the last container on the rootless network, stops, its `ExecStop` (`podman rm`) exits 125 on `rootless netns: kill network process: permission denied`, so `songhealth-db.service` ends a planned stop `failed`, result `exit-code`: nine stops of nine in the T016 run. No `pasta` is left running, and the next start leaves the unit `active`, result `success`. A Recovery Set's commands (§7.6) stop the application alone, so the set should not meet it; untried, the nightly set's ticket (#460) runs it | No safeguard and no unit changed (Product Owner, #459 comment 7213181563). The watch is to raise no alert for it after a planned stop, which #462 builds and tries; the Production host is read again in #466 and #467 |
 | PostgreSQL under Linux 7.0 (release notes, known issues) | `huge_pages` is `try`, its status `off`: the host reserves no huge pages | Recorded; #464 measures with and without before anything is proposed |
 | `sudo` is sudo-rs | The Deployment account is refused | Nothing changed |
 
@@ -430,6 +431,16 @@ migrations applied, 35.7 s from `systemctl --user start` to healthy; later start
 application healthy 68 s after boot with nobody logged in. The application service's peak memory
 2,469 MiB and the whole machine's 2,549 MiB used during the first start. The comparison of host
 sizes is #464's.
+
+**Measured over the T016 harness's run** (#459, 2026-11-27, 1.0.0-rc.1, the same machine; record
+[`docs/evidence/459-t022-rehearsal.md`](../evidence/459-t022-rehearsal.md)), from the user
+journal's `Starting`/`Started` and `Stopping`/`Stopped` lines: the whole run 323.3 s; the
+application unit's start, with the database already healthy, 22.5 to 24.2 s (ten starts); the
+database's start 6.0 to 6.5 s (nine); the application's stop 0.36 to 0.53 s, ending `inactive`
+(ten); the database's stop 0.51 to 0.63 s (nine, each ending `failed`, above). The application
+service's peak memory, read from its cgroup's `memory.peak` every second, 2,526 MiB (2.4G for each
+invocation by systemd's own count); the database service's, 87 to 89 MiB for each invocation by
+systemd's count; and the whole machine's, at most 3,023 MiB used of 5,919 MiB.
 
 ## 5. One-time store provisioning
 
@@ -1013,6 +1024,117 @@ or an integration branch (its review merged it), that its unit pins the record's
 startup script are the build commit's; then it adds the commit to the record as
 `deploymentConfigCommit`. The build commit and the pin commit stay apart in the record.
 
+### 7.8 Running the lifecycle harness on a host (T022)
+
+T022 is the T016 harness,
+[`tests/operations/verify-foundation.sh`](../../tests/operations/verify-foundation.sh), run on the
+Production host on the validation state, before any real content (spec #450 "T022,
+T028 and the validation fixture"); its evidence goes to
+`specs/001-platform-foundation/evidence/T022-us2-production-durability.md` (#467). The same run on
+the rehearsal machine is a rehearsal and writes no T022 evidence: its record is
+[`docs/evidence/459-t022-rehearsal.md`](../evidence/459-t022-rehearsal.md) (#459), and the steps
+below are the ones run there.
+
+**What the Operator prepares.**
+
+1. **Two API tokens**, made by an Administrator on the Admin's API Tokens page
+   (`/_emdash/admin/settings/api-tokens`), each with the shortest expiry the page offers, "7
+   days", and revoked there after the run:
+   - *the validation setup token*: "Settings Manage" (`settings:manage`) and "Media Write"
+     (`media:write`), to set the tagline and upload the picture;
+   - *the harness token*: "Settings Read" (`settings:read`) alone. The harness reads the tagline
+     with it; it cannot write (a `POST` with it answers 403).
+
+   The page's scopes and expiries were read in EmDash's Admin (`docs/agents/emdash-1.1.0.md`,
+   "Native API for tests"); the page itself was not used, since the rehearsal made the same two
+   tokens through the API with an Administrator's token.
+
+   The Operator writes each value into its own file on the host, as the Deployment account, with
+   `umask 077` (for example `~/.config/songhealth-t016/setup-token` and `harness-token`, mode
+   0600), never into a chat, a command line or evidence, and removes both files after the run.
+2. **The window.** Both units are stopped, started, restarted and recreated three times, and the
+   application is refused once on purpose without its media volume, so the site does not answer
+   for most of the run: on the rehearsal machine the application served no request for
+   301.0 s of the 323.3 s run, at most 31.8 s at a time. Nobody may rely on
+   the site during the run; the proxy has no page of its own for it before #460's notice.
+3. **The checkout**: a git checkout at the Release record's `buildCommit` (§7.7) in the account's
+   home, made from a bundle Claude Code copies over SSH, so that the host needs no access to
+   GitHub (`git bundle create <file> <branch>` on the workstation; on the host
+   `git clone --no-checkout <file> <dir>` and `git -C <dir> checkout --detach <buildCommit>`).
+   The transcript's last lines name its commit by `git rev-parse HEAD`; a tree without `.git`
+   reads "unknown". The harness binds that checkout to the running image by
+   `tests/operations/verify-startup.sh` and `package.json`, which must be byte-equal to the
+   image's (§7.7, step 3).
+
+**The validation state**, set through the setup token, as the account on the host (the token
+reaches `curl` through a file descriptor, never its command line):
+
+```bash
+auth() { printf 'Authorization: Bearer %s\n' "$(cat ~/.config/songhealth-t016/"$1")"; }
+curl -sS -H @<(auth setup-token) -H 'Content-Type: application/json' -X POST \
+  --data '{"tagline":"Songhealth Feature 001 foundation validation"}' \
+  http://127.0.0.1:4321/_emdash/api/settings
+curl -sS -H @<(auth setup-token) \
+  -F 'file=@<checkout>/tests/operations/fixtures/validation-picture.png;type=image/png' \
+  http://127.0.0.1:4321/_emdash/api/media      # its data.item.url is the picture's path
+```
+
+The picture is the committed fixture, unchanged (SHA-256 `2c7b5116…f396`, #454); its
+`/_emdash/api/media/file/<key>` is the harness's media path: the upload answers
+`{ data: { item } }`, the item with its `url` (EmDash's `src/api/handlers/media.ts` and
+`src/astro/routes/api/media.ts`). Before the run, read the tagline back with the harness token and
+the picture without one, and compare each with its value and SHA-256:
+
+```bash
+curl -sS -H @<(auth harness-token) http://127.0.0.1:4321/_emdash/api/settings |
+  node -e 'let s = ""; process.stdin.on("data", (c) => (s += c)).on("end", () => {
+    const t = JSON.parse(s).data.tagline;
+    console.log(JSON.stringify(t), require("crypto").createHash("sha256").update(t).digest("hex"));
+  })'   # "Songhealth Feature 001 foundation validation" 84753035…4415
+curl -sS http://127.0.0.1:4321/_emdash/api/media/file/<key> | sha256sum   # 2c7b5116…f396
+```
+
+**The inputs**, each exported (`export`) in the shell that runs the harness:
+
+| Input | Value |
+|---|---|
+| `PATH` | Node first, `~/.local/opt/node-v<version>-linux-x64/bin` (§4.7 step 2): the harness needs `node`, `podman`, `systemctl`, `journalctl`, `sha256sum`, `timeout` and `mktemp` |
+| `XDG_RUNTIME_DIR` | `/run/user/<the account's UID>`, for `systemctl --user` over SSH |
+| `SONGHEALTH_APP_ORIGIN` | `http://127.0.0.1:4321`, the application's loopback publication |
+| `SONGHEALTH_VALIDATION_TOKEN` | the harness token, read from its file inside the shell, `SONGHEALTH_VALIDATION_TOKEN=$(cat …)` then `export SONGHEALTH_VALIDATION_TOKEN`, never typed on a command line |
+| `SONGHEALTH_VALIDATION_MEDIA_PATH` | `/_emdash/api/media/file/<key>` of the uploaded picture |
+| `SONGHEALTH_APP_IMAGE` | `localhost/songhealth-app:<version>`, without the digest: the harness reads the pin from the unit's `Image=` line and requires the running image to carry this tag |
+
+Both units are active before the run. The run takes some minutes and must outlive the SSH
+session, so it runs as a transient user unit, its output kept in a file:
+
+```bash
+systemd-run --user --unit=t016-run --collect bash <script that sets the inputs above, then runs>
+#   cd <checkout> && bash tests/operations/verify-foundation.sh > <transcript> 2>&1
+```
+
+It passes with exit 0 and every stage's `PASS` (P0, R1, C1–C4, the baseline, three cycles, C7 and
+C8). Its `--self-test` does not run on the host: the host has `node` alone (§4.7 step 2), and the
+self-test's npm case needs an npm. It runs on the workstation and in CI at the build commit
+(Product Owner, #459 comment 7213181563).
+
+**Seen on the rehearsal machine** (#459), and to be read again on the Production host (#467):
+
+- `songhealth-db.service` ends each stop `failed`, result `exit-code`: the database is the last
+  container on the rootless network, and its `ExecStop`'s `podman rm` exits 125 on
+  `rootless netns: kill network process: permission denied`, AppArmor's `pasta` denial (§4.7,
+  "Where Ubuntu differs"). The next start leaves it `active`, result `success`.
+- At each cycle's restart step the application unit logs `Failed with result 'signal'` once: the
+  database's restart restarts the application through its dependency, and the harness's own
+  restart of the application then replaces that start job, which systemd ends with SIGTERM. The
+  restart that follows completes.
+- In the missing-volume case the application's start fails on purpose (`Failed to start …`),
+  which is the case's STARTUP REFUSAL evidence (§8.4).
+
+**After the run**: revoke both tokens on the API Tokens page and remove their files. The validation
+tagline and picture stay for T028 (§7.6; #469 on the Production host, #461 on the rehearsal
+machine) and are removed after it (#470).
+
 ## 8. Readiness interpretation
 
 ### 8.1 What each observable signal proves — and does not
@@ -1190,9 +1312,10 @@ What remains **pending runtime evidence**, under the separately authorized T022 
 production-capable verification host: executing the T016 harness — startup gates, private-network
 access, no published PostgreSQL port, expected volume attachments, three lifecycle cycles,
 missing-attachment not-ready behavior, and exact `tagline`/media persistence-integrity
-comparison. Every runtime-shaped claim in this document (host `stat` behavior, rootless
-port-forwarding behavior, actual startup durations vs the §6.3 ceiling, isolation probes) is
-as-built design recorded in the units, not yet runtime-proven on the production host; T022
+comparison. The harness has run through once on the Ubuntu rehearsal machine (#459, §7.8): a
+rehearsal, which writes no T022 evidence. Every runtime-shaped claim in this document (host `stat`
+behavior, rootless port-forwarding behavior, actual startup durations vs the §6.3 ceiling,
+isolation probes) is as-built design recorded in the units, not yet runtime-proven on the production host; T022
 records the exact host versions alongside it. Runtime-secret recovery is
 `runtime-secret-recovery.md` (T023), and the Recovery Set's backup and restore are §7.6 (#221,
 which replaced T024–T027). The recovery drill, T028, runs them on the production host after T022
