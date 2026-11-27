@@ -60,8 +60,9 @@ the machine for T028's rehearsal (#461).
 `SONGHEALTH_APP_ORIGIN=http://127.0.0.1:4321`, `SONGHEALTH_VALIDATION_MEDIA_PATH` the picture's
 path above, `SONGHEALTH_APP_IMAGE=localhost/songhealth-app:1.0.0-rc.1`, the harness token read
 into `SONGHEALTH_VALIDATION_TOKEN` from its file; run as the transient user unit
-`t016-rehearsal-run`: **323.3 s, exit 0**, 43 `PASS` lines and no `FAIL`. The 323.3 s is the
-run's script's own clock (`date +%s.%N` before and after the harness); the journal shows the unit
+`t016-rehearsal-run`: **323.3 s, exit 0**, 42 stage verdicts `PASS`, the closing `PASS` banner,
+and no `FAIL`. The 323.3 s is the run's script's own clock (`date +%s.%N` before and after the
+harness); the journal shows the unit
 from 2026-11-27T08:17:37.059Z to 08:23:00.437Z, and systemd counted "5min 23.378s wall clock
 time", the script's start and end inside it. The start time the script also wrote as text
 (`date +%3N`, 08:17:37.979Z, in `times.txt`) disagrees with both clocks by about 0.85 s, which a
