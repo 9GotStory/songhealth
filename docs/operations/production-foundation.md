@@ -1249,6 +1249,128 @@ about 15 s, the check about 4 s, and the start about 23–34 s, most of the down
 about 1,005,672,750 bytes: a `database.dump` of 389,568 bytes and a `media.tar` of 1,005,230,080.
 Seven such sets keep about 7 GB in `~/recovery-sets`.
 
+### 7.10 The recovery drill (T028) and the restore rehearsal every six months
+
+T028 is Feature 001's recovery drill (`specs/001-platform-foundation/tasks.md` T028): on the
+Production host, on the validation state, after T022 and before any real content (#469), with its
+evidence in `specs/001-platform-foundation/evidence/T028-us3-recovery.md`. The same procedure, on
+the real content, is the restore rehearsal the Production host repeats at least every six months
+(spec #450 "Recovery Sets, every night"; `production-host-contract.md` item 3), in an announced
+window and each time on the Operator's approval (Product Owner, #461 comment 7217954182 item 3).
+It takes a fresh set first, so nothing written before the window is lost, and that set stays on
+the host as the way back if the drill fails. It restores the set brought back from the off-site
+copy, so that copy is proven, not assumed (spec #450, user story 21). The rehearsal machine ran it
+first (#461); its record is [`docs/evidence/461-t028-rehearsal.md`](../evidence/461-t028-rehearsal.md),
+which writes no T028 evidence.
+
+**Before the window.**
+
+1. The Operator's approval for this drill: it removes both of the host's volumes.
+2. The window is announced: the site does not answer from the first step to the last (on the
+   rehearsal machine, see "Measured" below). It ends well before 03:00 Asia/Bangkok: the nightly
+   run refuses while the application is stopped and reports the night as refused (§7.9).
+3. The runtime-secret recovery copy is available (`runtime-secret-recovery.md` §8.1, stage A), and
+   the host's backup can take a set off the host on demand and bring it back (contract item 3). On
+   the Production host both the backup and T028 wait for the data-governance approval (§7.9 "Off
+   the host").
+4. The checkout of §7.9 step 1 is at the Release record's `deploymentConfigCommit`: the drill runs
+   its `scripts/recovery-set.ts` and `scripts/host/provision-stores.sh`.
+
+**The drill**, as the Deployment account from `~/songhealth-checkout` unless a step names root, each
+step noting its UTC time (`date -u +%FT%TZ`):
+
+1. **What the set must hold.** For T028, the validation tagline and picture, read back as §7.8
+   reads them; for a six-monthly rehearsal, nothing beyond the set's own manifest.
+2. **A Recovery Set, the application stopped.** The nightly run by hand, which stops the
+   application, takes the set, checks it, starts the application and publishes the set where the
+   host's backup takes it (§7.9; a set taken by §7.6 alone stays outside that folder). Then stop
+   the application at once, so that nothing is written after the set:
+
+   ```bash
+   systemctl --user start songhealth-recovery-set.service
+   cat ~/.local/state/songhealth/nightly-recovery-set.json   # result "ok", complete true, its set
+   systemctl --user stop songhealth-app.service
+   ```
+3. **Off the host.** The Operator runs the host's backup by hand (contract item 3, "Recovery"); its
+   status file names the set as `newestSet`. On the rehearsal machine:
+   `sudo bash /usr/local/sbin/songhealth-stand-in.sh backup-run`, which prints `took <set>`.
+4. **The stores gone.** Both units stopped, both volumes removed; the time of `podman volume ls`
+   without them is when the stores are gone:
+
+   ```bash
+   systemctl --user stop songhealth-app.service songhealth-db.service
+   podman volume rm songhealth-db-data songhealth-media
+   podman volume ls; date -u +%FT%TZ
+   ```
+5. **The set brought back** from the off-site copy into a folder the account owns, mode 0700,
+   outside both volumes: a root step of the Operator's (contract item 3). On the rehearsal
+   machine, from the stand-in's Restic repository (its snapshot of the set is tagged
+   `set=<set>`):
+
+   ```bash
+   sudo env RESTIC_REPOSITORY=/root/songhealth-backup-stand-in/repo \
+     RESTIC_PASSWORD_FILE=/root/songhealth-backup-stand-in/password \
+     restic restore <snapshot> --target <a new root-only folder>
+   # then move <that folder>/<set> to ~songhealth/recovery-fetched/<set>, owned by the account, 0700
+   ```
+6. **The stores recreated and provisioned**: `bash scripts/host/provision-stores.sh`, which creates
+   both volumes, runs Phase A, makes the application role and marks the media store (§5.1–§5.3),
+   and leaves the database running. T028's "let Quadlet recreate them" is done through it: it
+   refuses a media volume that already exists, so a store is never marked twice, and Quadlet's
+   `.volume` units carry no option beyond `VolumeName=`, so the volumes are the ones Quadlet would
+   make (Product Owner, #461 comment 7218322292 item 6).
+7. **The runtime secrets recovered** by `runtime-secret-recovery.md`: stage A (§8.1), then §6.2
+   steps 1 to 4 (staged, K1 and K2 and the bootstrap credential's single line checked before
+   anything is replaced, the three Podman secrets replaced, `PGPASSWORD` written back). Step 5
+   runs in T028's order: the database is still empty here, and an application started on it would
+   run its migrations there and open EmDash's setup to whoever reaches the site, so the database
+   starts alone, its new container mounting the replaced secret, and the bootstrap credential's
+   probe (§8.3.4) runs against it (Product Owner, #461 comment 7218322292 item 5):
+
+   ```bash
+   systemctl --user stop songhealth-app.service songhealth-db.service
+   systemctl --user start songhealth-db.service
+   ```
+8. **The restore** of the set brought back, which asks for "yes" twice (§7.6); its last line is
+   `PASS: restored the production runtime from <folder>, and the integrity check passed: …`, and a
+   difference would name its table or file:
+
+   ```bash
+   node scripts/recovery-set.ts restore production ~/recovery-fetched/<set>
+   ```
+9. **The application started and ready.** `systemctl --user start songhealth-app.service`
+   returns once the application is healthy (§6.2); the time of the readiness answer below is
+   "ready". The rest of stage C (`runtime-secret-recovery.md` §8.3) reads the restored state: the
+   gates' S1–S6 in the unit's journal, K3 for the encryption key, readiness, then §6.2 step 7
+   removes the staging files.
+
+   ```bash
+   podman exec systemd-songhealth-app node scripts/verify-readiness.mjs; date -u +%FT%TZ
+   ```
+10. **The Administrators sign in** with the passkeys they had, each in their own browser.
+11. **The record**: the set's totals and the three files' SHA-256, the pg_dump, server and EmDash
+    versions, the admission, the restore's result and zero differences, the secrets' result per
+    entry with no value (`runtime-secret-recovery.md` §10), and the time from "stores gone" to
+    "ready" against the target of one hour on the same host (spec #450). Then remove
+    `~/recovery-fetched/<set>`: the set stays on the host and off it.
+
+**After T028 only**, the validation content goes (#470 on the Production host): an Administrator
+empties the tagline, its value before the validation state (EmDash's settings take a string, so
+the Admin and the API can only empty it, `src/api/schemas/settings.ts`), and deletes the
+validation picture, through a token with "Settings Manage" and "Media Write" made and revoked as
+§7.8 does (`POST /_emdash/api/settings` with `{"tagline": ""}`, `DELETE
+/_emdash/api/media/<id>`). The next set, the night's or a run by hand, is then checked:
+
+```bash
+node scripts/validation-content.ts ~/recovery-sets/<that set> /_emdash/api/media/file/<key>
+```
+
+It searches every row of the set's database for the validation tagline and the picture's key,
+and its media files for the picture's SHA-256 and key, naming each finding's table or file and
+never a row's content; it exits 0 with `PASS: no validation content and no validation media
+remain …`, 1 when some remains, and 2 when it could not read the set (Product Owner, #461 comment
+7217954182 item 4).
+
 ## 8. Readiness interpretation
 
 ### 8.1 What each observable signal proves — and does not
@@ -1447,7 +1569,8 @@ isolation probes) is as-built design recorded in the units, not yet runtime-prov
 records the exact host versions alongside it. Runtime-secret recovery is
 `runtime-secret-recovery.md` (T023), and the Recovery Set's backup and restore are §7.6 (#221,
 which replaced T024–T027). The recovery drill, T028, runs them on the production host after T022
-and is pending. This document claims no runtime acceptance and integrates nothing into the canonical
+and is pending; it has run once on the rehearsal machine (#461, §7.10): a rehearsal, which writes
+no T028 evidence. This document claims no runtime acceptance and integrates nothing into the canonical
 branch.
 
 ## Appendix A. T021 element traceability

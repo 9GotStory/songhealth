@@ -254,6 +254,11 @@ values are never displayed.
    systemctl --user start songhealth-app.service
    ```
 
+   In the recovery drill's order (T028, `production-foundation.md` §7.10) the database is freshly
+   provisioned and still empty here, so only `songhealth-db.service` starts; the application
+   starts after the Recovery Set's restore, and stage C reads the restored state (Product Owner,
+   #461 comment 7218322292 item 5).
+
 6. **Run the stage-C usability checks (§8.3) with the staging files still in place.** K3
    compares the container's mounted secret against the retained staging file, and the bootstrap
    applicability probe of §8.3.4 reads the mounted secret — the staging files are therefore
