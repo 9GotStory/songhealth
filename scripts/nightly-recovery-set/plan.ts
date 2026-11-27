@@ -225,7 +225,7 @@ export function alertMessage(result: NightResult): { subject: string; body: stri
 		result.appRunning
 			? "The application is running again."
 			: "The application is NOT running: the site shows the notice or nothing.",
-		"Read the night: journalctl --user -u songhealth-recovery-set.service, and ~/.local/state/songhealth/nightly-recovery-set.json (production-foundation.md §7.6).",
+		"Read the night: journalctl --user -u songhealth-recovery-set.service -t node, and ~/.local/state/songhealth/nightly-recovery-set.json (production-foundation.md §7.9).",
 		"",
 	].join("\n");
 	return { subject, body };

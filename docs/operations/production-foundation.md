@@ -1198,7 +1198,7 @@ copies nothing off the host: taking the sets off it is the host's backup's (cont
   `result` (`ok`, `failed` or `refused`), `complete` (whether the set reached `~/recovery-sets`),
   `failedStep` and `reason` when it did not, `appRunning` at the end, and, on a kept night,
   `downtimeSeconds` (from the stop to the application healthy again) and `setBytes`.
-- `journalctl --user -u songhealth-recovery-set.service _COMM=node -o short-iso`: the run's own
+- `journalctl --user -u songhealth-recovery-set.service -t node -o short-iso`: the run's own
   lines, one a step with its time, then `ok: the set <name> is kept …` or `failed: …` with the
   message sent; the unit is `failed` after a night that did not keep its set
   (`systemctl --user status songhealth-recovery-set.service`).

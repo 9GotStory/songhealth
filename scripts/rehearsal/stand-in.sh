@@ -252,7 +252,8 @@ UNIT
 }
 
 backup_run() {
-  export RESTIC_REPOSITORY=$BACKUP_DIR/repo RESTIC_PASSWORD_FILE=$BACKUP_DIR/password
+  export RESTIC_REPOSITORY=$BACKUP_DIR/repo RESTIC_PASSWORD_FILE=$BACKUP_DIR/password \
+    RESTIC_CACHE_DIR=$BACKUP_DIR/cache
   local result=ok dir name files held newest partial
   held=$(restic snapshots --json --tag songhealth-set | jq -r '.[].tags[]' | sed -n 's/^set=//p') ||
     result=failed

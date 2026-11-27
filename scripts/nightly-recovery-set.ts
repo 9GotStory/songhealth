@@ -1,4 +1,4 @@
-// The nightly Recovery Set (#460; docs/operations/production-foundation.md §7.6): run by the
+// The nightly Recovery Set (#460; docs/operations/production-foundation.md §7.9): run by the
 // Deployment account's songhealth-recovery-set.timer at 03:00 Asia/Bangkok, or by hand, on the
 // host that runs Songhealth's production units.
 //

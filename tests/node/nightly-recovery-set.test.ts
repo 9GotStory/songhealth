@@ -305,6 +305,8 @@ describe("the night's result and its report", () => {
 			const running =
 				step === "start" ? "The application is NOT running" : "The application is running again";
 			assert.ok(alert?.body.includes(running), `${step}: ${alert?.body}`);
+			assert.ok(alert?.body.includes("-t node"), step);
+			assert.ok(alert?.body.includes("production-foundation.md §7.9"), step);
 		}
 	});
 
