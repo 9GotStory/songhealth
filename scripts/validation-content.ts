@@ -18,7 +18,8 @@
 
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { createReadStream, readFileSync, statSync } from "node:fs";
+import { createReadStream, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 
@@ -69,8 +70,8 @@ const restore = spawn(
 	{ stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, LC_ALL: "C" } },
 );
 createReadStream(dumpPath).pipe(restore.stdin);
-let errors = "";
-restore.stderr.on("data", (chunk: Buffer) => (errors += chunk.toString("utf8")));
+const errors: Buffer[] = [];
+restore.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
 const exited = new Promise<number | null>((done) => restore.on("close", done));
 
 const scan = dumpScan(args.key);
@@ -79,9 +80,16 @@ for await (const line of createInterface({ input: restore.stdout, crlfDelay: Inf
 }
 const status = await exited;
 if (status !== 0) {
-	// pg_restore's own messages name objects, not rows.
+	// pg_restore's own text goes whole into an owner-only file and is never printed
+	// (CODING_STANDARDS "Exposure"). Not beside the set: the nightly run's prune and the host's
+	// backup read the set's folder and the folder of sets, and this check writes nothing there.
+	const file = join(
+		mkdtempSync(join(tmpdir(), "songhealth-validation-content-")),
+		"pg_restore.txt",
+	);
+	writeFileSync(file, Buffer.concat(errors), { mode: 0o600, flag: "wx" });
 	refuse(
-		`pg_restore in ${RUNTIMES[manifest.runtime].dbContainer} failed (exit ${status}): ${errors.trim().split("\n").slice(-3).join(" | ")}`,
+		`pg_restore in ${RUNTIMES[manifest.runtime].dbContainer} failed (exit ${status}); its standard error is in ${file}, owner-only`,
 	);
 }
 
